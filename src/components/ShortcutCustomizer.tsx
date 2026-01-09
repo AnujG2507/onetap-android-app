@@ -1,0 +1,110 @@
+import { useState, useEffect } from 'react';
+import { ArrowLeft, Check } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { IconPicker } from './IconPicker';
+import { getContentName, generateThumbnail } from '@/lib/contentResolver';
+import type { ContentSource, ShortcutIcon } from '@/types/shortcut';
+
+interface ShortcutCustomizerProps {
+  source: ContentSource;
+  onConfirm: (name: string, icon: ShortcutIcon) => void;
+  onBack: () => void;
+}
+
+export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustomizerProps) {
+  const [name, setName] = useState(() => getContentName(source));
+  const [thumbnail, setThumbnail] = useState<string | null>(null);
+  const [icon, setIcon] = useState<ShortcutIcon>({ type: 'emoji', value: '📌' });
+  
+  useEffect(() => {
+    generateThumbnail(source).then((thumb) => {
+      if (thumb) {
+        setThumbnail(thumb);
+        setIcon({ type: 'thumbnail', value: thumb });
+      }
+    });
+  }, [source]);
+  
+  const handleConfirm = () => {
+    if (name.trim()) {
+      onConfirm(name.trim(), icon);
+    }
+  };
+
+  return (
+    <div className="flex flex-col h-full">
+      <header className="flex items-center gap-3 p-4 border-b">
+        <button
+          onClick={onBack}
+          className="p-2 -ml-2 rounded-full hover:bg-muted active:bg-muted/80"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </button>
+        <h2 className="text-lg font-medium">Customize Shortcut</h2>
+      </header>
+      
+      <div className="flex-1 p-4 space-y-6 overflow-auto">
+        {/* Name input */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-foreground">
+            Shortcut Name
+          </label>
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Enter a name"
+            className="h-12 text-base"
+            maxLength={30}
+          />
+        </div>
+        
+        {/* Icon picker */}
+        <IconPicker
+          thumbnail={thumbnail || undefined}
+          selectedIcon={icon}
+          onSelect={setIcon}
+        />
+        
+        {/* Preview */}
+        <div className="mt-6 pt-6 border-t">
+          <p className="text-sm font-medium text-muted-foreground text-center mb-4">
+            Home screen preview
+          </p>
+          <div className="flex flex-col items-center gap-2">
+            <div
+              className="h-14 w-14 rounded-2xl flex items-center justify-center elevation-2 overflow-hidden"
+              style={icon.type === 'thumbnail' ? {} : { backgroundColor: 'hsl(var(--primary))' }}
+            >
+              {icon.type === 'thumbnail' && (
+                <img src={icon.value} alt="" className="h-full w-full object-cover" />
+              )}
+              {icon.type === 'emoji' && (
+                <span className="text-2xl">{icon.value}</span>
+              )}
+              {icon.type === 'text' && (
+                <span className="text-xl font-bold text-primary-foreground">
+                  {icon.value.slice(0, 2).toUpperCase()}
+                </span>
+              )}
+            </div>
+            <span className="text-xs text-foreground max-w-[72px] text-center truncate">
+              {name || 'Shortcut'}
+            </span>
+          </div>
+        </div>
+      </div>
+      
+      <div className="p-4 safe-bottom">
+        <Button
+          onClick={handleConfirm}
+          disabled={!name.trim()}
+          className="w-full h-12 text-base font-medium"
+        >
+          <Check className="mr-2 h-5 w-5" />
+          Add to Home Screen
+        </Button>
+      </div>
+    </div>
+  );
+}
