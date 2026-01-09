@@ -99,25 +99,28 @@ npx cap sync android
 
 ### Step 3: Add Native Android Code
 
-After running `npx cap sync`, you need to add native code for shortcut functionality.
+The native Android code for shortcut functionality is already included in the repository. After running `npx cap sync`, you just need to activate it.
 
-> **Important:** Check your `android/app/src/main/java/` directory structure.
-> - If you see `MainActivity.kt` → Use the **Kotlin** versions below
-> - If you see `MainActivity.java` → Use the **Java** versions below
+> **Note:** The native files are located in `android/app/src/main/java/app/onetap/shortcuts/` and are initially commented out to prevent build errors during initial setup.
 
 ---
 
-#### 3a. Create ShortcutPlugin
+#### 3a. Activate ShortcutPlugin
 
-First, create the plugins directory:
+The plugin file is already in the repo at:
+`android/app/src/main/java/app/onetap/shortcuts/plugins/ShortcutPlugin.java`
 
-```bash
-mkdir -p android/app/src/main/java/app/onetap/shortcuts/plugins
-```
+**To activate:**
+1. Open the file in your editor
+2. Remove the block comment markers (`/*` at the top and `*/` at the bottom)
+3. Save the file
 
-##### Kotlin Version: `ShortcutPlugin.kt`
+<details>
+<summary>📋 Click to see the full ShortcutPlugin.java code (for reference)</summary>
 
-Create file: `android/app/src/main/java/app/onetap/shortcuts/plugins/ShortcutPlugin.kt`
+##### Java Version: `ShortcutPlugin.java`
+
+File location: `android/app/src/main/java/app/onetap/shortcuts/plugins/ShortcutPlugin.java`
 
 ```kotlin
 package app.onetap.shortcuts.plugins
@@ -299,227 +302,23 @@ class ShortcutPlugin : Plugin() {
 }
 ```
 
-##### Java Version: `ShortcutPlugin.java`
-
-Create file: `android/app/src/main/java/app/onetap/shortcuts/plugins/ShortcutPlugin.java`
-
-```java
-package app.onetap.shortcuts.plugins;
-
-import android.content.Context;
-import android.content.Intent;
-import android.content.pm.ShortcutInfo;
-import android.content.pm.ShortcutManager;
-import android.graphics.Bitmap;
-import android.graphics.Canvas;
-import android.graphics.Color;
-import android.graphics.Paint;
-import android.graphics.drawable.Icon;
-import android.net.Uri;
-import android.os.Build;
-
-import com.getcapacitor.JSObject;
-import com.getcapacitor.Plugin;
-import com.getcapacitor.PluginCall;
-import com.getcapacitor.PluginMethod;
-import com.getcapacitor.annotation.CapacitorPlugin;
-
-@CapacitorPlugin(name = "ShortcutPlugin")
-public class ShortcutPlugin extends Plugin {
-
-    @PluginMethod
-    public void createPinnedShortcut(PluginCall call) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-            JSObject result = new JSObject();
-            result.put("success", false);
-            call.resolve(result);
-            return;
-        }
-
-        Context context = getContext();
-        if (context == null) {
-            JSObject result = new JSObject();
-            result.put("success", false);
-            call.resolve(result);
-            return;
-        }
-
-        ShortcutManager shortcutManager = context.getSystemService(ShortcutManager.class);
-
-        if (!shortcutManager.isRequestPinShortcutSupported()) {
-            JSObject result = new JSObject();
-            result.put("success", false);
-            call.resolve(result);
-            return;
-        }
-
-        String id = call.getString("id");
-        String label = call.getString("label");
-        String intentAction = call.getString("intentAction", "android.intent.action.VIEW");
-        String intentData = call.getString("intentData");
-        String intentType = call.getString("intentType");
-
-        if (id == null || label == null || intentData == null) {
-            call.reject("Missing required parameters");
-            return;
-        }
-
-        Intent intent = new Intent(intentAction);
-        intent.setData(Uri.parse(intentData));
-        if (intentType != null) {
-            intent.setType(intentType);
-        }
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-
-        Icon icon = createIcon(call);
-
-        ShortcutInfo shortcutInfo = new ShortcutInfo.Builder(context, id)
-                .setShortLabel(label)
-                .setLongLabel(label)
-                .setIcon(icon)
-                .setIntent(intent)
-                .build();
-
-        shortcutManager.requestPinShortcut(shortcutInfo, null);
-
-        JSObject result = new JSObject();
-        result.put("success", true);
-        call.resolve(result);
-    }
-
-    private Icon createIcon(PluginCall call) {
-        String emoji = call.getString("iconEmoji");
-        if (emoji != null) {
-            return createEmojiIcon(emoji);
-        }
-
-        String text = call.getString("iconText");
-        if (text != null) {
-            return createTextIcon(text);
-        }
-
-        return Icon.createWithResource(getContext(), android.R.drawable.ic_menu_add);
-    }
-
-    private Icon createEmojiIcon(String emoji) {
-        int size = 192;
-        Bitmap bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
-        Canvas canvas = new Canvas(bitmap);
-
-        Paint bgPaint = new Paint();
-        bgPaint.setColor(Color.parseColor("#2563EB"));
-        bgPaint.setStyle(Paint.Style.FILL);
-        canvas.drawCircle(size / 2f, size / 2f, size / 2f, bgPaint);
-
-        Paint textPaint = new Paint();
-        textPaint.setTextSize(size * 0.5f);
-        textPaint.setTextAlign(Paint.Align.CENTER);
-        float y = (size / 2f) - ((textPaint.descent() + textPaint.ascent()) / 2);
-        canvas.drawText(emoji, size / 2f, y, textPaint);
-
-        return Icon.createWithBitmap(bitmap);
-    }
-
-    private Icon createTextIcon(String text) {
-        int size = 192;
-        Bitmap bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
-        Canvas canvas = new Canvas(bitmap);
-
-        Paint bgPaint = new Paint();
-        bgPaint.setColor(Color.parseColor("#2563EB"));
-        bgPaint.setStyle(Paint.Style.FILL);
-        canvas.drawCircle(size / 2f, size / 2f, size / 2f, bgPaint);
-
-        Paint textPaint = new Paint();
-        textPaint.setColor(Color.WHITE);
-        textPaint.setTextSize(size * 0.4f);
-        textPaint.setTextAlign(Paint.Align.CENTER);
-        textPaint.setFakeBoldText(true);
-        String displayText = text.substring(0, Math.min(2, text.length())).toUpperCase();
-        float y = (size / 2f) - ((textPaint.descent() + textPaint.ascent()) / 2);
-        canvas.drawText(displayText, size / 2f, y, textPaint);
-
-        return Icon.createWithBitmap(bitmap);
-    }
-
-    @PluginMethod
-    public void checkShortcutSupport(PluginCall call) {
-        JSObject result = new JSObject();
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            ShortcutManager shortcutManager = getContext().getSystemService(ShortcutManager.class);
-            result.put("supported", true);
-            result.put("canPin", shortcutManager != null && shortcutManager.isRequestPinShortcutSupported());
-        } else {
-            result.put("supported", false);
-            result.put("canPin", false);
-        }
-
-        call.resolve(result);
-    }
-
-    @PluginMethod
-    public void getSharedContent(PluginCall call) {
-        if (getActivity() == null) {
-            call.resolve(null);
-            return;
-        }
-
-        Intent intent = getActivity().getIntent();
-        String action = intent.getAction();
-        String type = intent.getType();
-
-        if (Intent.ACTION_SEND.equals(action) && type != null) {
-            JSObject result = new JSObject();
-            result.put("action", action);
-            result.put("type", type);
-
-            if (type.startsWith("text/")) {
-                String text = intent.getStringExtra(Intent.EXTRA_TEXT);
-                if (text != null) {
-                    result.put("text", text);
-                }
-            } else {
-                Uri uri = intent.getParcelableExtra(Intent.EXTRA_STREAM);
-                if (uri != null) {
-                    result.put("data", uri.toString());
-                }
-            }
-
-            call.resolve(result);
-        } else {
-            call.resolve(null);
-        }
-    }
-}
-```
+</details>
 
 ---
 
-#### 3b. Update MainActivity
+#### 3b. Activate MainActivity
 
-##### Kotlin Version: `MainActivity.kt`
+The MainActivity file is already in the repo at:
+`android/app/src/main/java/app/onetap/shortcuts/MainActivity.java`
 
-Edit `android/app/src/main/java/app/onetap/shortcuts/MainActivity.kt`:
+**To activate:**
+1. Open the file in your editor
+2. Remove the block comment markers (`/*` at the top and `*/` at the bottom)
+3. **Delete** the existing `MainActivity.kt` file that Capacitor generated (if present)
+4. Save the file
 
-```kotlin
-package app.onetap.shortcuts
-
-import android.os.Bundle
-import com.getcapacitor.BridgeActivity
-import app.onetap.shortcuts.plugins.ShortcutPlugin
-
-class MainActivity : BridgeActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) {
-        registerPlugin(ShortcutPlugin::class.java)
-        super.onCreate(savedInstanceState)
-    }
-}
-```
-
-##### Java Version: `MainActivity.java`
-
-Edit `android/app/src/main/java/app/onetap/shortcuts/MainActivity.java`:
+<details>
+<summary>📋 Click to see the full MainActivity.java code (for reference)</summary>
 
 ```java
 package app.onetap.shortcuts;
@@ -531,17 +330,29 @@ import app.onetap.shortcuts.plugins.ShortcutPlugin;
 public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        // Register the ShortcutPlugin BEFORE calling super.onCreate()
         registerPlugin(ShortcutPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }
 ```
 
+</details>
+
 ---
 
-#### 3c. Update AndroidManifest.xml
+#### 3c. Replace AndroidManifest.xml
 
-Edit `android/app/src/main/AndroidManifest.xml`. Below is the **complete file** showing exactly where each element goes:
+The complete AndroidManifest.xml is already in the repo at:
+`android/app/src/main/AndroidManifest.xml`
+
+**To activate:**
+1. Back up your existing AndroidManifest.xml (optional)
+2. The file from git is ready to use - just remove the instruction comments at the top
+3. Save the file
+
+<details>
+<summary>📋 Click to see the full AndroidManifest.xml (for reference)</summary>
 
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
@@ -613,10 +424,37 @@ Edit `android/app/src/main/AndroidManifest.xml`. Below is the **complete file** 
 </manifest>
 ```
 
+</details>
+
 **⚠️ CRITICAL for Android 12+:**
 - The `<activity>` tag MUST have `android:exported="true"` 
 - All `<intent-filter>` blocks for Share Sheet MUST be INSIDE the `<activity>` tag, NOT directly inside `<manifest>`
 - This is required for the app to appear in the Share Sheet
+
+---
+
+### Quick Setup Summary
+
+After `git pull`, here's the quick checklist:
+
+```bash
+# 1. Uncomment ShortcutPlugin.java
+# Open: android/app/src/main/java/app/onetap/shortcuts/plugins/ShortcutPlugin.java
+# Remove /* at top and */ at bottom
+
+# 2. Uncomment MainActivity.java  
+# Open: android/app/src/main/java/app/onetap/shortcuts/MainActivity.java
+# Remove /* at top and */ at bottom
+# Delete MainActivity.kt if it exists
+
+# 3. AndroidManifest.xml is ready to use
+# Just remove the instruction comments at the very top
+
+# 4. Rebuild and run
+npm run build
+npx cap sync android
+npx cap run android
+```
 
 ---
 
@@ -707,7 +545,10 @@ npx cap add android
 npm run build
 npx cap sync android
 
-# Add native code again (Step 3)
+# After this, git pull again to get the native code files
+git pull
+
+# Activate native code (Step 3) - uncomment the Java files
 # Then run
 npx cap run android
 ```
