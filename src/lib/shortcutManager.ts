@@ -37,7 +37,17 @@ function getMimeType(fileType?: string): string {
 
 // Create a pinned shortcut on the home screen
 export async function createHomeScreenShortcut(shortcut: ShortcutData): Promise<boolean> {
+  console.log('[ShortcutManager] createHomeScreenShortcut called with:', {
+    id: shortcut.id,
+    name: shortcut.name,
+    type: shortcut.type,
+    contentUri: shortcut.contentUri,
+    iconType: shortcut.icon.type,
+    iconValue: shortcut.icon.value?.substring(0, 50) + '...',
+  });
+
   const intent = buildContentIntent(shortcut);
+  console.log('[ShortcutManager] Built intent:', intent);
   
   try {
     // Prepare icon data based on type
@@ -49,33 +59,49 @@ export async function createHomeScreenShortcut(shortcut: ShortcutData): Promise<
     
     if (shortcut.icon.type === 'thumbnail') {
       iconOptions.iconUri = shortcut.icon.value;
+      console.log('[ShortcutManager] Using thumbnail icon');
     } else if (shortcut.icon.type === 'emoji') {
       iconOptions.iconEmoji = shortcut.icon.value;
+      console.log('[ShortcutManager] Using emoji icon:', shortcut.icon.value);
     } else if (shortcut.icon.type === 'text') {
       iconOptions.iconText = shortcut.icon.value;
+      console.log('[ShortcutManager] Using text icon:', shortcut.icon.value);
     }
     
-    const result = await ShortcutPlugin.createPinnedShortcut({
+    const params = {
       id: shortcut.id,
       label: shortcut.name,
       ...iconOptions,
       intentAction: intent.action,
       intentData: intent.data,
       intentType: intent.type,
-    });
+    };
+    console.log('[ShortcutManager] Calling ShortcutPlugin.createPinnedShortcut with:', params);
+    
+    const result = await ShortcutPlugin.createPinnedShortcut(params);
+    console.log('[ShortcutManager] createPinnedShortcut result:', result);
     
     return result.success;
   } catch (error) {
-    console.error('Failed to create shortcut:', error);
+    console.error('[ShortcutManager] Failed to create shortcut:', error);
+    console.error('[ShortcutManager] Error details:', {
+      name: (error as Error)?.name,
+      message: (error as Error)?.message,
+      stack: (error as Error)?.stack,
+    });
     return false;
   }
 }
 
 // Check if device supports pinned shortcuts
 export async function checkShortcutSupport(): Promise<{ supported: boolean; canPin: boolean }> {
+  console.log('[ShortcutManager] Checking shortcut support...');
   try {
-    return await ShortcutPlugin.checkShortcutSupport();
-  } catch {
+    const result = await ShortcutPlugin.checkShortcutSupport();
+    console.log('[ShortcutManager] Shortcut support result:', result);
+    return result;
+  } catch (error) {
+    console.error('[ShortcutManager] checkShortcutSupport error:', error);
     return { supported: false, canPin: false };
   }
 }

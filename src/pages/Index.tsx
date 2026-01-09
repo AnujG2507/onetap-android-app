@@ -5,6 +5,7 @@ import { UrlInput } from '@/components/UrlInput';
 import { ShortcutCustomizer } from '@/components/ShortcutCustomizer';
 import { SuccessScreen } from '@/components/SuccessScreen';
 import { useShortcuts } from '@/hooks/useShortcuts';
+import { useBackButton } from '@/hooks/useBackButton';
 import { pickFile } from '@/lib/contentResolver';
 import { createHomeScreenShortcut } from '@/lib/shortcutManager';
 import type { ContentSource, ShortcutIcon } from '@/types/shortcut';
@@ -17,6 +18,27 @@ const Index = () => {
   const [lastCreatedName, setLastCreatedName] = useState('');
   
   const { createShortcut } = useShortcuts();
+
+  // Handle Android back button
+  useBackButton({
+    isHomeScreen: step === 'source',
+    onBack: () => {
+      console.log('[Index] Back button triggered, current step:', step);
+      if (step === 'url') {
+        setStep('source');
+      } else if (step === 'customize') {
+        if (contentSource?.type === 'url') {
+          setStep('url');
+        } else {
+          setStep('source');
+        }
+      } else if (step === 'success') {
+        setStep('source');
+        setContentSource(null);
+        setLastCreatedName('');
+      }
+    }
+  });
 
   const handleSelectFile = async () => {
     const file = await pickFile();

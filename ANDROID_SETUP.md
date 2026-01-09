@@ -541,24 +541,82 @@ public class MainActivity extends BridgeActivity {
 
 #### 3c. Update AndroidManifest.xml
 
-Edit `android/app/src/main/AndroidManifest.xml` and add:
+Edit `android/app/src/main/AndroidManifest.xml`. Below is the **complete file** showing exactly where each element goes:
 
 ```xml
-<!-- Inside <manifest> tag -->
-<uses-permission android:name="com.android.launcher.permission.INSTALL_SHORTCUT" />
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-<!-- Inside <activity> tag for Share Sheet support -->
-<intent-filter>
-    <action android:name="android.intent.action.SEND" />
-    <category android:name="android.intent.category.DEFAULT" />
-    <data android:mimeType="text/*" />
-</intent-filter>
-<intent-filter>
-    <action android:name="android.intent.action.SEND" />
-    <category android:name="android.intent.category.DEFAULT" />
-    <data android:mimeType="image/*" />
-</intent-filter>
+    <!-- ========== PERMISSIONS (inside <manifest>, before <application>) ========== -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="com.android.launcher.permission.INSTALL_SHORTCUT" />
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/AppTheme">
+
+        <!-- ========== MAIN ACTIVITY ========== -->
+        <activity
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode"
+            android:name=".MainActivity"
+            android:label="@string/title_activity_main"
+            android:theme="@style/AppTheme.NoActionBarLaunch"
+            android:launchMode="singleTask"
+            android:exported="true">
+            
+            <!-- MAIN/LAUNCHER intent-filter (app icon launcher) -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- ========== SHARE SHEET INTENT FILTERS (inside <activity>) ========== -->
+            <!-- Handle shared text (URLs, etc.) -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/*" />
+            </intent-filter>
+            
+            <!-- Handle shared images -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+            
+            <!-- Handle shared videos -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="video/*" />
+            </intent-filter>
+
+        </activity>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+    </application>
+
+</manifest>
 ```
+
+**⚠️ CRITICAL for Android 12+:**
+- The `<activity>` tag MUST have `android:exported="true"` 
+- All `<intent-filter>` blocks for Share Sheet MUST be INSIDE the `<activity>` tag, NOT directly inside `<manifest>`
+- This is required for the app to appear in the Share Sheet
 
 ---
 
