@@ -1,14 +1,14 @@
-<!--
-    REPLACE YOUR EXISTING AndroidManifest.xml WITH THIS FILE AFTER GIT PULL
-    
-    To use:
-    1. Back up your existing AndroidManifest.xml
-    2. Replace it with this file's contents (remove these comment lines at the top)
-    
-    IMPORTANT: This file is ready to use - just remove these instruction comments at the top.
-    The actual manifest content below is NOT commented and will work immediately.
--->
 <?xml version="1.0" encoding="utf-8"?>
+<!-- 
+    OneTap Shortcuts AndroidManifest.xml
+    
+    This manifest includes:
+    - INSTALL_SHORTCUT permission for creating home screen shortcuts
+    - Share Sheet intent filters for receiving text, images, and videos
+    - FileProvider for sharing files
+    
+    See ANDROID_SETUP.md for complete setup instructions.
+-->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <!-- Permissions -->
