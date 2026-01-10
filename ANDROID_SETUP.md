@@ -115,7 +115,11 @@ The plugin file is already in the repo at:
 2. Remove the block comment markers (`/*` at the top and `*/` at the bottom)
 3. Save the file
 
-> **Note:** This plugin copies shared files to app storage so shortcuts work persistently, and properly sets MIME types so only relevant apps appear in the chooser.
+> **What this plugin does:**
+> - **File size handling**: Files under 5MB are copied to app storage; larger files use direct paths where possible
+> - **Base64 file support**: Handles files picked from the in-app file picker (web-based)
+> - **Samsung compatibility**: Uses `FLAG_GRANT_PERSISTABLE_URI_PERMISSION` and grants permissions to all handler apps
+> - **MIME type detection**: Ensures the right apps appear in the chooser
 
 ---
 

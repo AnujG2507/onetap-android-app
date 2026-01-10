@@ -1,5 +1,5 @@
 import { Filesystem, Directory } from '@capacitor/filesystem';
-import type { FileType, ContentSource } from '@/types/shortcut';
+import type { FileType, ContentSource, FILE_SIZE_THRESHOLD } from '@/types/shortcut';
 
 // Detect file type from MIME type or extension
 export function detectFileType(mimeType?: string, filename?: string): FileType {
@@ -77,22 +77,58 @@ export function getContentName(source: ContentSource): string {
   }
 }
 
+// Convert file to base64
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      // Remove the data URL prefix (e.g., "data:image/png;base64,")
+      const base64 = result.split(',')[1] || result;
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 // Request file from system picker (web fallback)
+// Now includes base64 data for native handling
 export async function pickFile(): Promise<ContentSource | null> {
   return new Promise((resolve) => {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*,video/*,application/pdf,.doc,.docx,.txt';
     
-    input.onchange = (e) => {
+    input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (file) {
-        resolve({
-          type: 'file',
-          uri: URL.createObjectURL(file),
-          mimeType: file.type,
-          name: file.name,
-        });
+        console.log('[ContentResolver] File picked:', file.name, 'size:', file.size, 'type:', file.type);
+        
+        try {
+          // Read file as base64 for native handling
+          const base64Data = await fileToBase64(file);
+          console.log('[ContentResolver] File converted to base64, length:', base64Data.length);
+          
+          resolve({
+            type: 'file',
+            uri: URL.createObjectURL(file), // Still useful for preview
+            mimeType: file.type,
+            name: file.name,
+            fileData: base64Data,
+            fileSize: file.size,
+          });
+        } catch (error) {
+          console.error('[ContentResolver] Error reading file:', error);
+          // Fallback without base64
+          resolve({
+            type: 'file',
+            uri: URL.createObjectURL(file),
+            mimeType: file.type,
+            name: file.name,
+            fileSize: file.size,
+          });
+        }
       } else {
         resolve(null);
       }
@@ -116,4 +152,11 @@ export async function generateThumbnail(source: ContentSource): Promise<string |
   }
   
   return null;
+}
+
+// Get human-readable file size
+export function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 }

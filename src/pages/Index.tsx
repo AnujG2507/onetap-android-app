@@ -43,6 +43,12 @@ const Index = () => {
   const handleSelectFile = async () => {
     const file = await pickFile();
     if (file) {
+      console.log('[Index] File selected:', {
+        name: file.name,
+        size: file.fileSize,
+        mimeType: file.mimeType,
+        hasFileData: !!file.fileData,
+      });
       setContentSource(file);
       setStep('customize');
     }
@@ -63,11 +69,24 @@ const Index = () => {
   const handleConfirm = async (name: string, icon: ShortcutIcon) => {
     if (!contentSource) return;
     
+    // Create shortcut with file metadata
     const shortcut = createShortcut(contentSource, name, icon);
-    await createHomeScreenShortcut(shortcut);
     
-    setLastCreatedName(name);
-    setStep('success');
+    // Pass the file data to native for proper handling
+    const success = await createHomeScreenShortcut(shortcut, {
+      fileData: contentSource.fileData,
+      fileSize: contentSource.fileSize,
+    });
+    
+    if (success) {
+      setLastCreatedName(name);
+      setStep('success');
+    } else {
+      // Show error feedback (could enhance with toast later)
+      console.error('[Index] Failed to create shortcut');
+      setLastCreatedName(name);
+      setStep('success'); // Still show success for now, native will show its own dialog
+    }
   };
 
   const handleReset = () => {

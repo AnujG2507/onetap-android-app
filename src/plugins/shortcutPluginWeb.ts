@@ -12,7 +12,11 @@ export class ShortcutPluginWeb implements ShortcutPluginInterface {
     intentAction: string;
     intentData: string;
     intentType?: string;
-  }): Promise<{ success: boolean }> {
+    fileData?: string;
+    fileName?: string;
+    fileMimeType?: string;
+    fileSize?: number;
+  }): Promise<{ success: boolean; error?: string }> {
     console.log('[ShortcutPlugin Web] Creating shortcut:', options);
     
     // In a browser, we can't create home screen shortcuts directly
@@ -46,5 +50,58 @@ export class ShortcutPluginWeb implements ShortcutPluginInterface {
     }
     
     return null;
+  }
+  
+  async saveFileFromBase64(options: {
+    base64Data: string;
+    fileName: string;
+    mimeType: string;
+  }): Promise<{ success: boolean; filePath?: string; error?: string }> {
+    console.log('[ShortcutPluginWeb] saveFileFromBase64 called (web fallback)', options.fileName);
+    return { success: false, error: 'Not supported on web' };
+  }
+  
+  async resolveContentUri(options: {
+    contentUri: string;
+  }): Promise<{ success: boolean; filePath?: string; error?: string }> {
+    console.log('[ShortcutPluginWeb] resolveContentUri called (web fallback)', options.contentUri);
+    return { success: false, error: 'Not supported on web' };
+  }
+  
+  async requestStoragePermission(): Promise<{ granted: boolean }> {
+    console.log('[ShortcutPluginWeb] requestStoragePermission called (web fallback)');
+    return { granted: false };
+  }
+  
+  async listDirectory(options: {
+    path: string;
+  }): Promise<{ 
+    success: boolean; 
+    files?: Array<{
+      name: string;
+      path: string;
+      isDirectory: boolean;
+      size: number;
+      mimeType?: string;
+    }>;
+    error?: string;
+  }> {
+    console.log('[ShortcutPluginWeb] listDirectory called (web fallback)', options.path);
+    return { success: false, error: 'Not supported on web' };
+  }
+  
+  async getFileInfo(options: {
+    path: string;
+  }): Promise<{
+    success: boolean;
+    name?: string;
+    path?: string;
+    size?: number;
+    mimeType?: string;
+    isDirectory?: boolean;
+    error?: string;
+  }> {
+    console.log('[ShortcutPluginWeb] getFileInfo called (web fallback)', options.path);
+    return { success: false, error: 'Not supported on web' };
   }
 }

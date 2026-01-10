@@ -1,5 +1,6 @@
 import ShortcutPlugin from '@/plugins/ShortcutPlugin';
 import type { ShortcutData } from '@/types/shortcut';
+import { FILE_SIZE_THRESHOLD } from '@/types/shortcut';
 
 export interface ShortcutIntent {
   action: string;
@@ -19,7 +20,7 @@ export function buildContentIntent(shortcut: ShortcutData): ShortcutIntent {
   
   // For files, use VIEW action with specific MIME type
   // The MIME type determines which apps are shown in the chooser
-  const mimeType = getMimeTypeFromUri(shortcut.contentUri, shortcut.fileType);
+  const mimeType = shortcut.mimeType || getMimeTypeFromUri(shortcut.contentUri, shortcut.fileType);
   console.log('[ShortcutManager] File intent - URI:', shortcut.contentUri, 'MIME:', mimeType);
   
   return {
@@ -79,14 +80,18 @@ function getMimeTypeFromUri(uri: string, fileType?: string): string {
 }
 
 // Create a pinned shortcut on the home screen
-export async function createHomeScreenShortcut(shortcut: ShortcutData): Promise<boolean> {
+export async function createHomeScreenShortcut(
+  shortcut: ShortcutData,
+  contentSource?: { fileData?: string; fileSize?: number }
+): Promise<boolean> {
   console.log('[ShortcutManager] createHomeScreenShortcut called with:', {
     id: shortcut.id,
     name: shortcut.name,
     type: shortcut.type,
     contentUri: shortcut.contentUri,
     iconType: shortcut.icon.type,
-    iconValue: shortcut.icon.value?.substring(0, 50) + '...',
+    fileSize: shortcut.fileSize || contentSource?.fileSize,
+    hasFileData: !!contentSource?.fileData,
   });
 
   const intent = buildContentIntent(shortcut);
@@ -111,18 +116,42 @@ export async function createHomeScreenShortcut(shortcut: ShortcutData): Promise<
       console.log('[ShortcutManager] Using text icon:', shortcut.icon.value);
     }
     
+    // Prepare file data for web file picker flow
+    const fileOptions: {
+      fileData?: string;
+      fileName?: string;
+      fileMimeType?: string;
+      fileSize?: number;
+    } = {};
+    
+    const fileSize = shortcut.fileSize || contentSource?.fileSize || 0;
+    
+    // If we have base64 file data from web picker, pass it to native
+    if (contentSource?.fileData && shortcut.type === 'file') {
+      console.log('[ShortcutManager] Passing file data to native, size:', fileSize);
+      fileOptions.fileData = contentSource.fileData;
+      fileOptions.fileName = shortcut.name;
+      fileOptions.fileMimeType = shortcut.mimeType || intent.type;
+      fileOptions.fileSize = fileSize;
+    }
+    
     const params = {
       id: shortcut.id,
       label: shortcut.name,
       ...iconOptions,
+      ...fileOptions,
       intentAction: intent.action,
       intentData: intent.data,
       intentType: intent.type,
     };
-    console.log('[ShortcutManager] Calling ShortcutPlugin.createPinnedShortcut with:', params);
+    console.log('[ShortcutManager] Calling ShortcutPlugin.createPinnedShortcut with params');
     
     const result = await ShortcutPlugin.createPinnedShortcut(params);
     console.log('[ShortcutManager] createPinnedShortcut result:', result);
+    
+    if (!result.success && result.error) {
+      console.error('[ShortcutManager] Shortcut creation failed:', result.error);
+    }
     
     return result.success;
   } catch (error) {
@@ -155,5 +184,18 @@ export function openContent(shortcut: ShortcutData): void {
     window.open(shortcut.contentUri, '_system');
   } else {
     window.open(shortcut.contentUri, '_system');
+  }
+}
+
+// Request storage permission for file access
+export async function requestStoragePermission(): Promise<boolean> {
+  console.log('[ShortcutManager] Requesting storage permission...');
+  try {
+    const result = await ShortcutPlugin.requestStoragePermission();
+    console.log('[ShortcutManager] Storage permission result:', result);
+    return result.granted;
+  } catch (error) {
+    console.error('[ShortcutManager] requestStoragePermission error:', error);
+    return false;
   }
 }

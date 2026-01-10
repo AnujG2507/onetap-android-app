@@ -18,6 +18,10 @@ export interface ShortcutData {
   icon: ShortcutIcon;
   createdAt: number;
   usageCount: number;
+  // File metadata for native handling
+  fileSize?: number;
+  mimeType?: string;
+  originalPath?: string; // Original file path for large files
 }
 
 export interface ContentSource {
@@ -25,4 +29,10 @@ export interface ContentSource {
   uri: string;
   mimeType?: string;
   name?: string;
+  // For web file picker - base64 data to pass to native
+  fileData?: string;
+  fileSize?: number;
 }
+
+// File size threshold for copying vs direct access (5MB)
+export const FILE_SIZE_THRESHOLD = 5 * 1024 * 1024;
