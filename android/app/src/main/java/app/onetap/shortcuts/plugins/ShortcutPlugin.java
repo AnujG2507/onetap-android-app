@@ -2,12 +2,13 @@
  * UNCOMMENT THIS ENTIRE FILE AFTER GIT PULL
  * 
  * To uncomment: Remove the block comment markers at the start and end of this file
- * (the /* at line 1 and the */ /* at the end)
+ * (the /* at line 1 and the */ at the end)
  */
 
 /*
 package app.onetap.shortcuts.plugins;
 
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ShortcutInfo;
@@ -20,11 +21,18 @@ import android.graphics.drawable.Icon;
 import android.net.Uri;
 import android.os.Build;
 
+import androidx.core.content.FileProvider;
+
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
 
 @CapacitorPlugin(name = "ShortcutPlugin")
 public class ShortcutPlugin extends Plugin {
@@ -66,7 +74,7 @@ public class ShortcutPlugin extends Plugin {
         String intentData = call.getString("intentData");
         String intentType = call.getString("intentType");
 
-        android.util.Log.d("ShortcutPlugin", "Creating shortcut: id=" + id + ", label=" + label + ", intentData=" + intentData);
+        android.util.Log.d("ShortcutPlugin", "Creating shortcut: id=" + id + ", label=" + label + ", intentData=" + intentData + ", intentType=" + intentType);
 
         if (id == null || label == null || intentData == null) {
             android.util.Log.e("ShortcutPlugin", "Missing required parameters");
@@ -74,17 +82,37 @@ public class ShortcutPlugin extends Plugin {
             return;
         }
 
-        Intent intent = new Intent(intentAction);
+        // Handle content:// URIs - need to copy file to app storage for persistent access
         Uri dataUri = Uri.parse(intentData);
+        String scheme = dataUri.getScheme();
+        
+        android.util.Log.d("ShortcutPlugin", "URI scheme: " + scheme);
+        
+        if ("content".equals(scheme) && intentType != null) {
+            // Copy the file to app's private storage and create a FileProvider URI
+            try {
+                Uri persistentUri = copyToAppStorage(context, dataUri, id, intentType);
+                if (persistentUri != null) {
+                    dataUri = persistentUri;
+                    android.util.Log.d("ShortcutPlugin", "Copied file to app storage, new URI: " + persistentUri);
+                } else {
+                    android.util.Log.w("ShortcutPlugin", "Failed to copy file, using original URI");
+                }
+            } catch (Exception e) {
+                android.util.Log.e("ShortcutPlugin", "Error copying file: " + e.getMessage());
+            }
+        }
+
+        Intent intent = new Intent(intentAction);
         
         // CRITICAL: Use setDataAndType() when both are present
         // Calling setData() and setType() separately clears the other!
         if (intentType != null && !intentType.isEmpty()) {
             intent.setDataAndType(dataUri, intentType);
-            android.util.Log.d("ShortcutPlugin", "Set data AND type: " + intentData + " / " + intentType);
+            android.util.Log.d("ShortcutPlugin", "Set data AND type: " + dataUri + " / " + intentType);
         } else {
             intent.setData(dataUri);
-            android.util.Log.d("ShortcutPlugin", "Set data only: " + intentData);
+            android.util.Log.d("ShortcutPlugin", "Set data only: " + dataUri);
         }
         
         // Add flags for proper file access and new task
@@ -106,6 +134,91 @@ public class ShortcutPlugin extends Plugin {
         JSObject result = new JSObject();
         result.put("success", requested);
         call.resolve(result);
+    }
+    
+    private Uri copyToAppStorage(Context context, Uri sourceUri, String id, String mimeType) {
+        try {
+            // Create shortcuts directory in app's files dir
+            File shortcutsDir = new File(context.getFilesDir(), "shortcuts");
+            if (!shortcutsDir.exists()) {
+                shortcutsDir.mkdirs();
+            }
+            
+            // Determine file extension from MIME type
+            String extension = getExtensionFromMimeType(mimeType);
+            String filename = id + extension;
+            File destFile = new File(shortcutsDir, filename);
+            
+            android.util.Log.d("ShortcutPlugin", "Copying to: " + destFile.getAbsolutePath());
+            
+            // Copy the file
+            ContentResolver resolver = context.getContentResolver();
+            try (InputStream in = resolver.openInputStream(sourceUri);
+                 OutputStream out = new FileOutputStream(destFile)) {
+                
+                if (in == null) {
+                    android.util.Log.e("ShortcutPlugin", "Could not open input stream for URI");
+                    return null;
+                }
+                
+                byte[] buffer = new byte[8192];
+                int bytesRead;
+                while ((bytesRead = in.read(buffer)) != -1) {
+                    out.write(buffer, 0, bytesRead);
+                }
+            }
+            
+            android.util.Log.d("ShortcutPlugin", "File copied successfully, size: " + destFile.length());
+            
+            // Create FileProvider URI for the copied file
+            String authority = context.getPackageName() + ".fileprovider";
+            Uri fileProviderUri = FileProvider.getUriForFile(context, authority, destFile);
+            
+            android.util.Log.d("ShortcutPlugin", "FileProvider URI: " + fileProviderUri);
+            
+            return fileProviderUri;
+        } catch (Exception e) {
+            android.util.Log.e("ShortcutPlugin", "Error in copyToAppStorage: " + e.getMessage());
+            e.printStackTrace();
+            return null;
+        }
+    }
+    
+    private String getExtensionFromMimeType(String mimeType) {
+        if (mimeType == null) return "";
+        
+        switch (mimeType) {
+            // Images
+            case "image/jpeg": return ".jpg";
+            case "image/png": return ".png";
+            case "image/gif": return ".gif";
+            case "image/webp": return ".webp";
+            case "image/bmp": return ".bmp";
+            case "image/heic": return ".heic";
+            case "image/heif": return ".heif";
+            // Videos
+            case "video/mp4": return ".mp4";
+            case "video/webm": return ".webm";
+            case "video/quicktime": return ".mov";
+            case "video/x-msvideo": return ".avi";
+            case "video/x-matroska": return ".mkv";
+            case "video/3gpp": return ".3gp";
+            // Documents
+            case "application/pdf": return ".pdf";
+            case "application/msword": return ".doc";
+            case "application/vnd.openxmlformats-officedocument.wordprocessingml.document": return ".docx";
+            case "text/plain": return ".txt";
+            case "application/rtf": return ".rtf";
+            case "application/vnd.ms-excel": return ".xls";
+            case "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": return ".xlsx";
+            case "application/vnd.ms-powerpoint": return ".ppt";
+            case "application/vnd.openxmlformats-officedocument.presentationml.presentation": return ".pptx";
+            default:
+                // Try to extract from generic types
+                if (mimeType.startsWith("image/")) return ".jpg";
+                if (mimeType.startsWith("video/")) return ".mp4";
+                return "";
+        }
     }
 
     private Icon createIcon(PluginCall call) {
