@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus } from 'lucide-react';
 import { ContentSourcePicker } from '@/components/ContentSourcePicker';
 import { UrlInput } from '@/components/UrlInput';
@@ -6,6 +6,7 @@ import { ShortcutCustomizer } from '@/components/ShortcutCustomizer';
 import { SuccessScreen } from '@/components/SuccessScreen';
 import { useShortcuts } from '@/hooks/useShortcuts';
 import { useBackButton } from '@/hooks/useBackButton';
+import { useSharedContent } from '@/hooks/useSharedContent';
 import { pickFile } from '@/lib/contentResolver';
 import { createHomeScreenShortcut } from '@/lib/shortcutManager';
 import type { ContentSource, ShortcutIcon } from '@/types/shortcut';
@@ -18,6 +19,17 @@ const Index = () => {
   const [lastCreatedName, setLastCreatedName] = useState('');
   
   const { createShortcut } = useShortcuts();
+  const { sharedContent, isLoading: isLoadingShared, clearSharedContent } = useSharedContent();
+
+  // Handle shared content from Android Share Sheet
+  useEffect(() => {
+    if (!isLoadingShared && sharedContent && step === 'source') {
+      console.log('[Index] Processing shared content:', sharedContent);
+      setContentSource(sharedContent);
+      setStep('customize');
+      clearSharedContent();
+    }
+  }, [sharedContent, isLoadingShared, step, clearSharedContent]);
 
   // Handle Android back button
   useBackButton({
@@ -76,6 +88,9 @@ const Index = () => {
     const success = await createHomeScreenShortcut(shortcut, {
       fileData: contentSource.fileData,
       fileSize: contentSource.fileSize,
+      thumbnailData: contentSource.thumbnailData,
+      isLargeFile: contentSource.isLargeFile,
+      mimeType: contentSource.mimeType,
     });
     
     if (success) {

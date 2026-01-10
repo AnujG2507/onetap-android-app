@@ -7,6 +7,7 @@ export interface ShortcutPluginInterface {
     iconUri?: string;
     iconEmoji?: string;
     iconText?: string;
+    iconData?: string; // New: base64 thumbnail data for icon
     intentAction: string;
     intentData: string;
     intentType?: string;

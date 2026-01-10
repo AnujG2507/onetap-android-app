@@ -1,5 +1,8 @@
 import { Filesystem, Directory } from '@capacitor/filesystem';
-import type { FileType, ContentSource, FILE_SIZE_THRESHOLD } from '@/types/shortcut';
+import type { FileType, ContentSource } from '@/types/shortcut';
+
+// Maximum file size for base64 encoding (10MB)
+const MAX_BASE64_SIZE = 10 * 1024 * 1024;
 
 // Detect file type from MIME type or extension
 export function detectFileType(mimeType?: string, filename?: string): FileType {
@@ -92,8 +95,56 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
+// Generate a thumbnail for an image (scaled down for icon use)
+async function generateImageThumbnail(file: File, maxSize: number = 512): Promise<string | null> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    img.onload = () => {
+      // Calculate scaled dimensions
+      let width = img.width;
+      let height = img.height;
+      
+      if (width > height) {
+        if (width > maxSize) {
+          height = (height * maxSize) / width;
+          width = maxSize;
+        }
+      } else {
+        if (height > maxSize) {
+          width = (width * maxSize) / height;
+          height = maxSize;
+        }
+      }
+      
+      canvas.width = width;
+      canvas.height = height;
+      
+      if (ctx) {
+        ctx.drawImage(img, 0, 0, width, height);
+        // Get as JPEG for smaller size
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+        resolve(dataUrl);
+      } else {
+        resolve(null);
+      }
+      
+      URL.revokeObjectURL(img.src);
+    };
+    
+    img.onerror = () => {
+      URL.revokeObjectURL(img.src);
+      resolve(null);
+    };
+    
+    img.src = URL.createObjectURL(file);
+  });
+}
+
 // Request file from system picker (web fallback)
-// Now includes base64 data for native handling
+// Handles large files by skipping base64 encoding
 export async function pickFile(): Promise<ContentSource | null> {
   return new Promise((resolve) => {
     const input = document.createElement('input');
@@ -105,10 +156,49 @@ export async function pickFile(): Promise<ContentSource | null> {
       if (file) {
         console.log('[ContentResolver] File picked:', file.name, 'size:', file.size, 'type:', file.type);
         
+        const isVideo = file.type.startsWith('video/');
+        const isLargeFile = file.size > MAX_BASE64_SIZE;
+        const isImage = file.type.startsWith('image/');
+        
+        // For videos or very large files, skip base64 encoding to prevent OOM
+        if (isVideo || isLargeFile) {
+          console.log('[ContentResolver] Large file or video - skipping base64 encoding');
+          
+          // For images, still generate a small thumbnail for the icon
+          let thumbnailData: string | undefined;
+          if (isImage) {
+            const thumbnail = await generateImageThumbnail(file, 256);
+            if (thumbnail) {
+              // Remove the data URL prefix for base64
+              thumbnailData = thumbnail.split(',')[1];
+            }
+          }
+          
+          resolve({
+            type: 'file',
+            uri: URL.createObjectURL(file),
+            mimeType: file.type,
+            name: file.name,
+            fileSize: file.size,
+            isLargeFile: true,
+            thumbnailData,
+          });
+          return;
+        }
+        
         try {
-          // Read file as base64 for native handling
+          // Read file as base64 for native handling (small files only)
           const base64Data = await fileToBase64(file);
           console.log('[ContentResolver] File converted to base64, length:', base64Data.length);
+          
+          // Generate thumbnail for images
+          let thumbnailData: string | undefined;
+          if (isImage) {
+            const thumbnail = await generateImageThumbnail(file, 256);
+            if (thumbnail) {
+              thumbnailData = thumbnail.split(',')[1];
+            }
+          }
           
           resolve({
             type: 'file',
@@ -117,6 +207,7 @@ export async function pickFile(): Promise<ContentSource | null> {
             name: file.name,
             fileData: base64Data,
             fileSize: file.size,
+            thumbnailData,
           });
         } catch (error) {
           console.error('[ContentResolver] Error reading file:', error);
@@ -127,6 +218,7 @@ export async function pickFile(): Promise<ContentSource | null> {
             mimeType: file.type,
             name: file.name,
             fileSize: file.size,
+            isLargeFile: true,
           });
         }
       } else {

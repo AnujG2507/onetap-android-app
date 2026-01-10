@@ -39,6 +39,8 @@ export function useShortcuts() {
       mimeType: source.mimeType,
       fileType: fileType,
       fileSize: source.fileSize,
+      // Preserve thumbnail data for icon creation
+      thumbnailData: source.thumbnailData,
     };
 
     const updated = [...shortcuts, shortcut];

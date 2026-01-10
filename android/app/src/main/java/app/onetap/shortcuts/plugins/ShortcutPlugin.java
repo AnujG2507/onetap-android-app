@@ -17,10 +17,12 @@ import android.content.pm.ShortcutInfo;
 import android.content.pm.ShortcutManager;
 import android.database.Cursor;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.drawable.Icon;
+import android.media.MediaMetadataRetriever;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
@@ -42,6 +44,7 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 import com.getcapacitor.annotation.Permission;
 import com.getcapacitor.annotation.PermissionCallback;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -298,10 +301,27 @@ public class ShortcutPlugin extends Plugin {
     }
     
     // Save base64 data to app storage and return FileProvider URI
+    // Uses chunked processing to avoid OOM for large files
     private Uri saveBase64ToAppStorage(Context context, String base64Data, String id, String mimeType) {
         try {
-            // Decode base64
-            byte[] data = Base64.decode(base64Data, Base64.DEFAULT);
+            // Check if base64 data is too large (rough estimate: base64 is ~1.33x original size)
+            // If base64 string is > 20MB, it's likely to cause OOM
+            if (base64Data.length() > 20 * 1024 * 1024) {
+                android.util.Log.e("ShortcutPlugin", "Base64 data too large, would cause OOM: " + base64Data.length());
+                return null;
+            }
+            
+            // Decode base64 with OOM handling
+            byte[] data;
+            try {
+                data = Base64.decode(base64Data, Base64.DEFAULT);
+            } catch (OutOfMemoryError e) {
+                android.util.Log.e("ShortcutPlugin", "OutOfMemoryError decoding base64: " + e.getMessage());
+                // Try to force garbage collection and retry with smaller chunks
+                System.gc();
+                return null;
+            }
+            
             android.util.Log.d("ShortcutPlugin", "Decoded base64 data, size: " + data.length);
             
             // Create shortcuts directory
@@ -322,6 +342,10 @@ public class ShortcutPlugin extends Plugin {
                 fos.write(data);
             }
             
+            // Free memory
+            data = null;
+            System.gc();
+            
             android.util.Log.d("ShortcutPlugin", "File saved successfully, size: " + destFile.length());
             
             // Create FileProvider URI
@@ -331,6 +355,10 @@ public class ShortcutPlugin extends Plugin {
             android.util.Log.d("ShortcutPlugin", "FileProvider URI: " + fileProviderUri);
             
             return fileProviderUri;
+        } catch (OutOfMemoryError e) {
+            android.util.Log.e("ShortcutPlugin", "OutOfMemoryError saving file: " + e.getMessage());
+            System.gc();
+            return null;
         } catch (Exception e) {
             android.util.Log.e("ShortcutPlugin", "Error saving base64 to app storage: " + e.getMessage());
             e.printStackTrace();
@@ -623,12 +651,56 @@ public class ShortcutPlugin extends Plugin {
     }
 
     private Icon createIcon(PluginCall call) {
+        // Priority 1: Base64 icon data (thumbnail from web)
+        String iconData = call.getString("iconData");
+        if (iconData != null && !iconData.isEmpty()) {
+            android.util.Log.d("ShortcutPlugin", "Creating icon from base64 data");
+            Icon icon = createBitmapIcon(iconData);
+            if (icon != null) {
+                return icon;
+            }
+        }
+        
+        // Priority 2: Icon URI (data URL or file URI)
+        String iconUri = call.getString("iconUri");
+        if (iconUri != null && !iconUri.isEmpty()) {
+            android.util.Log.d("ShortcutPlugin", "Creating icon from URI: " + iconUri.substring(0, Math.min(50, iconUri.length())));
+            
+            // Handle data: URLs
+            if (iconUri.startsWith("data:")) {
+                // Extract base64 portion
+                int commaIndex = iconUri.indexOf(",");
+                if (commaIndex > 0) {
+                    String base64Part = iconUri.substring(commaIndex + 1);
+                    Icon icon = createBitmapIcon(base64Part);
+                    if (icon != null) {
+                        return icon;
+                    }
+                }
+            }
+            
+            // Handle content: or file: URIs
+            if (iconUri.startsWith("content:") || iconUri.startsWith("file:")) {
+                try {
+                    Uri uri = Uri.parse(iconUri);
+                    Icon icon = createIconFromUri(uri);
+                    if (icon != null) {
+                        return icon;
+                    }
+                } catch (Exception e) {
+                    android.util.Log.e("ShortcutPlugin", "Error creating icon from URI: " + e.getMessage());
+                }
+            }
+        }
+        
+        // Priority 3: Emoji icon
         String emoji = call.getString("iconEmoji");
         if (emoji != null) {
             android.util.Log.d("ShortcutPlugin", "Creating emoji icon: " + emoji);
             return createEmojiIcon(emoji);
         }
 
+        // Priority 4: Text icon
         String text = call.getString("iconText");
         if (text != null) {
             android.util.Log.d("ShortcutPlugin", "Creating text icon: " + text);
@@ -637,6 +709,96 @@ public class ShortcutPlugin extends Plugin {
 
         android.util.Log.d("ShortcutPlugin", "Using default icon");
         return Icon.createWithResource(getContext(), android.R.drawable.ic_menu_add);
+    }
+    
+    // Create icon from base64 image data
+    private Icon createBitmapIcon(String base64Data) {
+        try {
+            byte[] decoded = Base64.decode(base64Data, Base64.DEFAULT);
+            Bitmap bitmap = BitmapFactory.decodeByteArray(decoded, 0, decoded.length);
+            
+            if (bitmap == null) {
+                android.util.Log.e("ShortcutPlugin", "Failed to decode base64 to bitmap");
+                return null;
+            }
+            
+            // Scale to 192x192 for shortcut icon
+            int size = 192;
+            Bitmap scaled = Bitmap.createScaledBitmap(bitmap, size, size, true);
+            
+            // Recycle original if it's different from scaled
+            if (scaled != bitmap) {
+                bitmap.recycle();
+            }
+            
+            android.util.Log.d("ShortcutPlugin", "Created bitmap icon: " + scaled.getWidth() + "x" + scaled.getHeight());
+            return Icon.createWithBitmap(scaled);
+        } catch (Exception e) {
+            android.util.Log.e("ShortcutPlugin", "Error creating bitmap icon: " + e.getMessage());
+            return null;
+        }
+    }
+    
+    // Create icon from content/file URI
+    private Icon createIconFromUri(Uri uri) {
+        try {
+            Context context = getContext();
+            InputStream inputStream = context.getContentResolver().openInputStream(uri);
+            if (inputStream == null) {
+                return null;
+            }
+            
+            Bitmap bitmap = BitmapFactory.decodeStream(inputStream);
+            inputStream.close();
+            
+            if (bitmap == null) {
+                return null;
+            }
+            
+            // Scale to 192x192
+            int size = 192;
+            Bitmap scaled = Bitmap.createScaledBitmap(bitmap, size, size, true);
+            
+            if (scaled != bitmap) {
+                bitmap.recycle();
+            }
+            
+            return Icon.createWithBitmap(scaled);
+        } catch (Exception e) {
+            android.util.Log.e("ShortcutPlugin", "Error creating icon from URI: " + e.getMessage());
+            return null;
+        }
+    }
+    
+    // Create video thumbnail for shortcut icon
+    private Icon createVideoThumbnailIcon(Context context, Uri videoUri) {
+        try {
+            MediaMetadataRetriever retriever = new MediaMetadataRetriever();
+            retriever.setDataSource(context, videoUri);
+            
+            // Get a frame at 1 second (or first frame)
+            Bitmap frame = retriever.getFrameAtTime(1000000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
+            retriever.release();
+            
+            if (frame == null) {
+                android.util.Log.w("ShortcutPlugin", "Could not extract video frame");
+                return null;
+            }
+            
+            // Scale to 192x192
+            int size = 192;
+            Bitmap scaled = Bitmap.createScaledBitmap(frame, size, size, true);
+            
+            if (scaled != frame) {
+                frame.recycle();
+            }
+            
+            android.util.Log.d("ShortcutPlugin", "Created video thumbnail icon");
+            return Icon.createWithBitmap(scaled);
+        } catch (Exception e) {
+            android.util.Log.e("ShortcutPlugin", "Error creating video thumbnail: " + e.getMessage());
+            return null;
+        }
     }
 
     private Icon createEmojiIcon(String emoji) {

@@ -22,6 +22,8 @@ export interface ShortcutData {
   fileSize?: number;
   mimeType?: string;
   originalPath?: string; // Original file path for large files
+  // Thumbnail for icon display (base64, small size)
+  thumbnailData?: string;
 }
 
 export interface ContentSource {
@@ -32,6 +34,10 @@ export interface ContentSource {
   // For web file picker - base64 data to pass to native
   fileData?: string;
   fileSize?: number;
+  // Flag for large files that shouldn't use base64
+  isLargeFile?: boolean;
+  // Small thumbnail for icon (base64)
+  thumbnailData?: string;
 }
 
 // File size threshold for copying vs direct access (5MB)

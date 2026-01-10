@@ -82,7 +82,7 @@ function getMimeTypeFromUri(uri: string, fileType?: string): string {
 // Create a pinned shortcut on the home screen
 export async function createHomeScreenShortcut(
   shortcut: ShortcutData,
-  contentSource?: { fileData?: string; fileSize?: number }
+  contentSource?: { fileData?: string; fileSize?: number; thumbnailData?: string; isLargeFile?: boolean; mimeType?: string }
 ): Promise<boolean> {
   console.log('[ShortcutManager] createHomeScreenShortcut called with:', {
     id: shortcut.id,
@@ -92,6 +92,8 @@ export async function createHomeScreenShortcut(
     iconType: shortcut.icon.type,
     fileSize: shortcut.fileSize || contentSource?.fileSize,
     hasFileData: !!contentSource?.fileData,
+    hasThumbnailData: !!contentSource?.thumbnailData || !!shortcut.thumbnailData,
+    isLargeFile: contentSource?.isLargeFile,
   });
 
   const intent = buildContentIntent(shortcut);
@@ -103,11 +105,35 @@ export async function createHomeScreenShortcut(
       iconUri?: string;
       iconEmoji?: string;
       iconText?: string;
+      iconData?: string; // New: base64 thumbnail data for native icon
     } = {};
     
     if (shortcut.icon.type === 'thumbnail') {
-      iconOptions.iconUri = shortcut.icon.value;
-      console.log('[ShortcutManager] Using thumbnail icon');
+      // Check if the thumbnail is a blob: or data: URL
+      const thumbnailValue = shortcut.icon.value;
+      
+      if (thumbnailValue.startsWith('data:')) {
+        // Extract base64 data from data URL
+        const base64Part = thumbnailValue.split(',')[1];
+        if (base64Part) {
+          iconOptions.iconData = base64Part;
+          console.log('[ShortcutManager] Using thumbnail from data URL');
+        }
+      } else if (thumbnailValue.startsWith('blob:')) {
+        // For blob URLs, use the thumbnailData if available
+        const thumbData = contentSource?.thumbnailData || shortcut.thumbnailData;
+        if (thumbData) {
+          iconOptions.iconData = thumbData;
+          console.log('[ShortcutManager] Using thumbnailData for blob URL');
+        } else {
+          // Fallback to iconUri (native may not be able to handle blob)
+          iconOptions.iconUri = thumbnailValue;
+          console.log('[ShortcutManager] Using blob URL (may not work natively)');
+        }
+      } else {
+        iconOptions.iconUri = thumbnailValue;
+        console.log('[ShortcutManager] Using thumbnail icon URI');
+      }
     } else if (shortcut.icon.type === 'emoji') {
       iconOptions.iconEmoji = shortcut.icon.value;
       console.log('[ShortcutManager] Using emoji icon:', shortcut.icon.value);
@@ -125,19 +151,22 @@ export async function createHomeScreenShortcut(
     } = {};
     
     const fileSize = shortcut.fileSize || contentSource?.fileSize || 0;
+    const isLargeFile = contentSource?.isLargeFile;
     
-    // If we have base64 file data from web picker, pass it to native
-    if (contentSource?.fileData && shortcut.type === 'file') {
+    // Only pass file data for non-large files (to prevent OOM)
+    if (contentSource?.fileData && shortcut.type === 'file' && !isLargeFile) {
       console.log('[ShortcutManager] Passing file data to native, size:', fileSize);
       fileOptions.fileData = contentSource.fileData;
       fileOptions.fileName = shortcut.name;
       // Use the mimeType from shortcut first, then content source, then detect from intent
-      fileOptions.fileMimeType = shortcut.mimeType || (contentSource as any)?.mimeType || intent.type;
+      fileOptions.fileMimeType = shortcut.mimeType || contentSource?.mimeType || intent.type;
       fileOptions.fileSize = fileSize;
       console.log('[ShortcutManager] File MIME type:', fileOptions.fileMimeType);
     } else if (shortcut.type === 'file') {
-      // Even without base64 data, pass the mimeType for proper detection
-      console.log('[ShortcutManager] File shortcut without base64, mimeType:', shortcut.mimeType);
+      // For large files, pass mimeType for proper detection but no file data
+      console.log('[ShortcutManager] File shortcut (large/no data), mimeType:', shortcut.mimeType);
+      fileOptions.fileMimeType = shortcut.mimeType || contentSource?.mimeType || intent.type;
+      fileOptions.fileSize = fileSize;
     }
     
     const params = {
