@@ -38,9 +38,11 @@ const Index = () => {
       if (shouldAutoPlayVideo && sharedContent.type === 'file') {
         const uri = encodeURIComponent(sharedContent.uri);
         const type = encodeURIComponent(sharedContent.mimeType || 'video/*');
-        console.log('[Index] Video open detected, navigating to player:', { action: sharedAction, uri: sharedContent.uri, type: sharedContent.mimeType });
+        // Add nonce to force fresh navigation/player initialization on repeated taps
+        const nonce = Date.now();
+        console.log('[Index] Video open detected, navigating to player:', { action: sharedAction, uri: sharedContent.uri, type: sharedContent.mimeType, nonce });
         clearSharedContent();
-        navigate(`/player?uri=${uri}&type=${type}`);
+        navigate(`/player?uri=${uri}&type=${type}&t=${nonce}`);
         return;
       }
 

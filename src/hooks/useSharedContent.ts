@@ -114,7 +114,8 @@ export function useSharedContent() {
           // Reset loading state and check for new content
           setIsLoading(true);
           // Clear the last processed ref to allow processing the same content
-          // if the user explicitly shared again
+          // if the user explicitly shared/tapped again after force-close
+          lastProcessedRef.current = null;
           await checkSharedContent();
         }
       });

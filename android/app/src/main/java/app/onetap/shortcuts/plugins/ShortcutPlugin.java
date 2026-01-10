@@ -1038,26 +1038,27 @@ public class ShortcutPlugin extends Plugin {
             return;
         }
 
-        // Fallback: copy the content URI into app cache and return an absolute file path.
-        // Use deterministic filename based on URI hash to avoid re-copying same file
+        // Fallback: copy the content URI into app PERSISTENT storage (not cache) and return an absolute file path.
+        // Use deterministic filename based on URI hash to avoid re-copying same file.
+        // Using filesDir instead of cacheDir to prevent OS from clearing files between app launches.
         try {
             String detectedMime = detectMimeType(context, uri);
             String extension = getExtensionFromMimeType(detectedMime);
             if (extension == null) extension = "";
 
-            File cacheDir = new File(context.getCacheDir(), "onetap_resolved");
-            if (!cacheDir.exists()) {
+            File persistDir = new File(context.getFilesDir(), "onetap_resolved");
+            if (!persistDir.exists()) {
                 //noinspection ResultOfMethodCallIgnored
-                cacheDir.mkdirs();
+                persistDir.mkdirs();
             }
 
             // Use deterministic filename based on URI hash so same URI maps to same file
-            String cacheFileName = "resolved_" + Math.abs(contentUri.hashCode()) + extension;
-            File outFile = new File(cacheDir, cacheFileName);
+            String resolvedFileName = "resolved_" + Math.abs(contentUri.hashCode()) + extension;
+            File outFile = new File(persistDir, resolvedFileName);
 
             // If file already exists and has content, reuse it
             if (outFile.exists() && outFile.length() > 0) {
-                android.util.Log.d("ShortcutPlugin", "resolveContentUri: reusing cached file: " + outFile.getAbsolutePath());
+                android.util.Log.d("ShortcutPlugin", "resolveContentUri: reusing persistent file: " + outFile.getAbsolutePath());
                 result.put("success", true);
                 result.put("filePath", outFile.getAbsolutePath());
                 call.resolve(result);
@@ -1070,22 +1071,33 @@ public class ShortcutPlugin extends Plugin {
                 throw new Exception("ContentResolver.openInputStream returned null");
             }
 
-            try (InputStream input = in; OutputStream output = new FileOutputStream(outFile)) {
+            // Atomic write: copy to temp file first, then rename
+            File tempFile = new File(persistDir, resolvedFileName + ".tmp");
+            try (InputStream input = in; FileOutputStream output = new FileOutputStream(tempFile)) {
                 byte[] buffer = new byte[64 * 1024];
                 int read;
                 while ((read = input.read(buffer)) != -1) {
                     output.write(buffer, 0, read);
                 }
+                output.getFD().sync(); // Ensure data is flushed to disk
             }
 
-            android.util.Log.d("ShortcutPlugin", "resolveContentUri: copied to cache path=" + outFile.getAbsolutePath());
-            result.put("success", true);
-            result.put("filePath", outFile.getAbsolutePath());
+            // Rename temp to final (atomic on most filesystems)
+            if (tempFile.renameTo(outFile)) {
+                android.util.Log.d("ShortcutPlugin", "resolveContentUri: copied to persistent path=" + outFile.getAbsolutePath());
+                result.put("success", true);
+                result.put("filePath", outFile.getAbsolutePath());
+            } else {
+                // Fallback if rename fails: use temp file directly
+                android.util.Log.w("ShortcutPlugin", "resolveContentUri: rename failed, using temp file");
+                result.put("success", true);
+                result.put("filePath", tempFile.getAbsolutePath());
+            }
             call.resolve(result);
         } catch (Exception e) {
             android.util.Log.e("ShortcutPlugin", "resolveContentUri fallback copy failed: " + e.getMessage());
             result.put("success", false);
-            result.put("error", "Could not resolve URI to file path");
+            result.put("error", "Could not resolve URI to file path: " + e.getMessage());
             call.resolve(result);
         }
     }
