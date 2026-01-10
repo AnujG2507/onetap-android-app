@@ -990,11 +990,47 @@ public class ShortcutPlugin extends Plugin {
 
         Context context = getContext();
         Uri uri = Uri.parse(contentUri);
+        JSObject result = new JSObject();
+
+        // Check if this is our own FileProvider URI (files we saved to shortcuts directory)
+        String authority = uri.getAuthority();
+        if (authority != null && authority.equals(context.getPackageName() + ".fileprovider")) {
+            try {
+                String path = uri.getPath();
+                if (path != null && path.contains("/shortcuts/")) {
+                    // Extract filename from path like /shortcuts/filename.mp4
+                    String fileName = path.substring(path.lastIndexOf("/") + 1);
+                    File shortcutsDir = new File(context.getFilesDir(), "shortcuts");
+                    File localFile = new File(shortcutsDir, fileName);
+                    
+                    if (localFile.exists()) {
+                        android.util.Log.d("ShortcutPlugin", "resolveContentUri: using existing file in shortcuts dir: " + localFile.getAbsolutePath());
+                        result.put("success", true);
+                        result.put("filePath", localFile.getAbsolutePath());
+                        call.resolve(result);
+                        return;
+                    }
+                }
+            } catch (Exception e) {
+                android.util.Log.w("ShortcutPlugin", "Failed to extract path from FileProvider URI: " + e);
+            }
+        }
+
+        // Check if the URI is already a file:// path
+        if ("file".equals(uri.getScheme())) {
+            String path = uri.getPath();
+            if (path != null && new File(path).exists()) {
+                android.util.Log.d("ShortcutPlugin", "resolveContentUri: using existing file:// path: " + path);
+                result.put("success", true);
+                result.put("filePath", path);
+                call.resolve(result);
+                return;
+            }
+        }
 
         // First attempt: resolve to a real filesystem path (works for some MediaStore URIs)
         String realPath = getRealPathFromUri(context, uri);
 
-        JSObject result = new JSObject();
         if (realPath != null) {
             result.put("success", true);
             result.put("filePath", realPath);
@@ -1003,7 +1039,7 @@ public class ShortcutPlugin extends Plugin {
         }
 
         // Fallback: copy the content URI into app cache and return an absolute file path.
-        // This is required for many SAF/document URIs where _data is not available.
+        // Use deterministic filename based on URI hash to avoid re-copying same file
         try {
             String detectedMime = detectMimeType(context, uri);
             String extension = getExtensionFromMimeType(detectedMime);
@@ -1015,7 +1051,18 @@ public class ShortcutPlugin extends Plugin {
                 cacheDir.mkdirs();
             }
 
-            File outFile = new File(cacheDir, "resolved_" + System.currentTimeMillis() + extension);
+            // Use deterministic filename based on URI hash so same URI maps to same file
+            String cacheFileName = "resolved_" + Math.abs(contentUri.hashCode()) + extension;
+            File outFile = new File(cacheDir, cacheFileName);
+
+            // If file already exists and has content, reuse it
+            if (outFile.exists() && outFile.length() > 0) {
+                android.util.Log.d("ShortcutPlugin", "resolveContentUri: reusing cached file: " + outFile.getAbsolutePath());
+                result.put("success", true);
+                result.put("filePath", outFile.getAbsolutePath());
+                call.resolve(result);
+                return;
+            }
 
             ContentResolver resolver = context.getContentResolver();
             InputStream in = resolver.openInputStream(uri);
