@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    FileProvider paths configuration for OneTap Shortcuts
+    
+    This allows the app to share files from its private storage
+    with other apps via content:// URIs.
+    
+    UNCOMMENT the <paths> element below after git pull.
+-->
+
+<!--
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <files-path name="shortcuts" path="shortcuts/" />
+</paths>
+-->
