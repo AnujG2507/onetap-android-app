@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
-import { Plus, Settings } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Plus } from 'lucide-react';
 import { ContentSourcePicker } from '@/components/ContentSourcePicker';
 import { UrlInput } from '@/components/UrlInput';
 import { ShortcutCustomizer } from '@/components/ShortcutCustomizer';
@@ -18,9 +18,7 @@ const Index = () => {
   const [step, setStep] = useState<Step>('source');
   const [contentSource, setContentSource] = useState<ContentSource | null>(null);
   const [lastCreatedName, setLastCreatedName] = useState('');
-  const [searchParams] = useSearchParams();
   const lastSharedIdRef = useRef<string | null>(null);
-  
   const navigate = useNavigate();
   const { createShortcut } = useShortcuts();
   const { sharedContent, sharedAction, isLoading: isLoadingShared, clearSharedContent } = useSharedContent();
@@ -149,20 +147,11 @@ const Index = () => {
       {step === 'source' && (
         <>
           <header className="p-4 pt-6">
-            <div className="flex items-center justify-between mb-1">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center">
-                  <Plus className="h-5 w-5 text-primary-foreground" />
-                </div>
-                <h1 className="text-xl font-semibold text-foreground">OneTap</h1>
+            <div className="flex items-center gap-3 mb-1">
+              <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center">
+                <Plus className="h-5 w-5 text-primary-foreground" />
               </div>
-              <button
-                onClick={() => navigate('/manage')}
-                className="p-2 rounded-full hover:bg-muted active:bg-muted/80"
-                title="Manage Shortcuts"
-              >
-                <Settings className="h-5 w-5 text-muted-foreground" />
-              </button>
+              <h1 className="text-xl font-semibold text-foreground">OneTap</h1>
             </div>
             <p className="text-muted-foreground mt-2">
               Create shortcuts to your files and links
