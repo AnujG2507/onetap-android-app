@@ -16,6 +16,7 @@ export class ShortcutPluginWeb implements ShortcutPluginInterface {
     fileName?: string;
     fileMimeType?: string;
     fileSize?: number;
+    useVideoProxy?: boolean;
   }): Promise<{ success: boolean; error?: string }> {
     console.log('[ShortcutPlugin Web] Creating shortcut:', options);
     
@@ -50,6 +51,15 @@ export class ShortcutPluginWeb implements ShortcutPluginInterface {
     }
     
     return null;
+  }
+  
+  async clearSharedIntent(): Promise<void> {
+    // Clear URL params on web
+    const url = new URL(window.location.href);
+    url.searchParams.delete('url');
+    url.searchParams.delete('text');
+    window.history.replaceState({}, '', url.pathname);
+    console.log('[ShortcutPluginWeb] clearSharedIntent called (web fallback)');
   }
   
   async saveFileFromBase64(options: {

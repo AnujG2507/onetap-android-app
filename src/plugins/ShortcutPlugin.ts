@@ -7,15 +7,17 @@ export interface ShortcutPluginInterface {
     iconUri?: string;
     iconEmoji?: string;
     iconText?: string;
-    iconData?: string; // New: base64 thumbnail data for icon
+    iconData?: string; // base64 thumbnail data for icon
     intentAction: string;
     intentData: string;
     intentType?: string;
-    // New: base64 file data for web file picker
+    // base64 file data for web file picker
     fileData?: string;
     fileName?: string;
     fileMimeType?: string;
     fileSize?: number;
+    // Flag to use video proxy activity
+    useVideoProxy?: boolean;
   }): Promise<{ success: boolean; error?: string }>;
   
   checkShortcutSupport(): Promise<{ supported: boolean; canPin: boolean }>;
@@ -27,22 +29,25 @@ export interface ShortcutPluginInterface {
     text?: string;
   } | null>;
   
-  // New: Save file from base64 and return persistent path
+  // Clear the shared intent after processing to prevent re-processing
+  clearSharedIntent(): Promise<void>;
+  
+  // Save file from base64 and return persistent path
   saveFileFromBase64(options: {
     base64Data: string;
     fileName: string;
     mimeType: string;
   }): Promise<{ success: boolean; filePath?: string; error?: string }>;
   
-  // New: Resolve content:// URI to file:// path
+  // Resolve content:// URI to file:// path
   resolveContentUri(options: {
     contentUri: string;
   }): Promise<{ success: boolean; filePath?: string; error?: string }>;
   
-  // New: Request storage permissions
+  // Request storage permissions
   requestStoragePermission(): Promise<{ granted: boolean }>;
   
-  // New: List files in a directory
+  // List files in a directory
   listDirectory(options: {
     path: string;
   }): Promise<{ 
@@ -57,7 +62,7 @@ export interface ShortcutPluginInterface {
     error?: string;
   }>;
   
-  // New: Get file info
+  // Get file info
   getFileInfo(options: {
     path: string;
   }): Promise<{

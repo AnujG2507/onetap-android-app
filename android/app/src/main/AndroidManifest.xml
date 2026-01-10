@@ -78,6 +78,22 @@
                 <data android:mimeType="application/*" />
             </intent-filter>
 
+            <!-- Internal video player fallback action -->
+            <intent-filter>
+                <action android:name="app.onetap.PLAY_VIDEO" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="video/*" />
+            </intent-filter>
+
+        </activity>
+
+        <!-- Video Proxy Activity - transparent activity for launching video shortcuts -->
+        <activity
+            android:name=".VideoProxyActivity"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:exported="false"
+            android:noHistory="true"
+            android:excludeFromRecents="true">
         </activity>
 
         <provider

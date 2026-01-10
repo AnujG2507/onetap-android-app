@@ -30,6 +30,11 @@ export function buildContentIntent(shortcut: ShortcutData): ShortcutIntent {
   };
 }
 
+// Check if MIME type is video
+function isVideoMimeType(mimeType?: string): boolean {
+  return !!mimeType && mimeType.startsWith('video/');
+}
+
 // Get specific MIME type based on file extension and detected type
 function getMimeTypeFromUri(uri: string, fileType?: string): string {
   // Try to extract extension from URI
@@ -99,13 +104,21 @@ export async function createHomeScreenShortcut(
   const intent = buildContentIntent(shortcut);
   console.log('[ShortcutManager] Built intent:', intent);
   
+  // Determine if this is a video - use proxy activity for videos
+  const mimeType = shortcut.mimeType || contentSource?.mimeType || intent.type;
+  const useVideoProxy = isVideoMimeType(mimeType);
+  
+  if (useVideoProxy) {
+    console.log('[ShortcutManager] Video detected, will use VideoProxyActivity');
+  }
+  
   try {
     // Prepare icon data based on type
     const iconOptions: {
       iconUri?: string;
       iconEmoji?: string;
       iconText?: string;
-      iconData?: string; // New: base64 thumbnail data for native icon
+      iconData?: string; // base64 thumbnail data for native icon
     } = {};
     
     if (shortcut.icon.type === 'thumbnail') {
@@ -177,8 +190,9 @@ export async function createHomeScreenShortcut(
       intentAction: intent.action,
       intentData: intent.data,
       intentType: intent.type,
+      useVideoProxy, // Signal to use VideoProxyActivity for videos
     };
-    console.log('[ShortcutManager] Calling ShortcutPlugin.createPinnedShortcut with params');
+    console.log('[ShortcutManager] Calling ShortcutPlugin.createPinnedShortcut with params, useVideoProxy:', useVideoProxy);
     
     const result = await ShortcutPlugin.createPinnedShortcut(params);
     console.log('[ShortcutManager] createPinnedShortcut result:', result);

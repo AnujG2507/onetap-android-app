@@ -120,8 +120,9 @@ public class ShortcutPlugin extends Plugin {
         String intentAction = call.getString("intentAction", "android.intent.action.VIEW");
         String intentData = call.getString("intentData");
         String intentType = call.getString("intentType");
+        Boolean useVideoProxy = call.getBoolean("useVideoProxy", false);
         
-        // New: Check for base64 file data from web picker
+        // Check for base64 file data from web picker
         String fileData = call.getString("fileData");
         String fileName = call.getString("fileName");
         String fileMimeType = call.getString("fileMimeType");
@@ -130,7 +131,8 @@ public class ShortcutPlugin extends Plugin {
 
         android.util.Log.d("ShortcutPlugin", "Creating shortcut: id=" + id + ", label=" + label + 
             ", intentData=" + intentData + ", intentType=" + intentType + 
-            ", hasFileData=" + (fileData != null) + ", fileSize=" + fileSize);
+            ", hasFileData=" + (fileData != null) + ", fileSize=" + fileSize +
+            ", useVideoProxy=" + useVideoProxy);
 
         if (id == null || label == null) {
             android.util.Log.e("ShortcutPlugin", "Missing required parameters");
@@ -145,7 +147,6 @@ public class ShortcutPlugin extends Plugin {
             android.util.Log.d("ShortcutPlugin", "Processing base64 file data, size: " + fileSize);
             
             if (fileSize > 0 && fileSize <= FILE_SIZE_THRESHOLD) {
-                // Small file: save to app storage and use FileProvider
                 Uri savedUri = saveBase64ToAppStorage(context, fileData, id, fileMimeType);
                 if (savedUri != null) {
                     dataUri = savedUri;
@@ -159,7 +160,6 @@ public class ShortcutPlugin extends Plugin {
                     return;
                 }
             } else if (fileSize > FILE_SIZE_THRESHOLD) {
-                // Large file: still save but warn
                 android.util.Log.w("ShortcutPlugin", "File is larger than 5MB, attempting to save anyway");
                 Uri savedUri = saveBase64ToAppStorage(context, fileData, id, fileMimeType);
                 if (savedUri != null) {
@@ -172,22 +172,18 @@ public class ShortcutPlugin extends Plugin {
                     return;
                 }
             } else {
-                // Unknown size, try to save
                 Uri savedUri = saveBase64ToAppStorage(context, fileData, id, fileMimeType);
                 if (savedUri != null) {
                     dataUri = savedUri;
                 }
             }
         } else if (intentData != null) {
-            // Handle content:// or file:// URIs
             dataUri = Uri.parse(intentData);
             String scheme = dataUri.getScheme();
             
             android.util.Log.d("ShortcutPlugin", "URI scheme: " + scheme);
             
             if ("content".equals(scheme) && intentType != null) {
-                // Always copy shared/picked content:// URIs into app-private storage so the shortcut
-                // keeps working long-term (no transient URI permission issues for large videos).
                 long contentSize = getContentSize(context, dataUri);
                 android.util.Log.d("ShortcutPlugin", "Content size: " + contentSize);
 
@@ -196,7 +192,6 @@ public class ShortcutPlugin extends Plugin {
                     dataUri = persistentUri;
                     android.util.Log.d("ShortcutPlugin", "Copied file to app storage: " + persistentUri);
                 } else {
-                    // Fallback: keep original content URI and try to persist permission if possible
                     android.util.Log.w("ShortcutPlugin", "Copy failed; falling back to original content URI");
                     persistReadPermissionIfPossible(context, dataUri);
                 }
@@ -212,8 +207,18 @@ public class ShortcutPlugin extends Plugin {
             return;
         }
 
-        // Create the intent with Samsung compatibility fixes
-        Intent intent = createCompatibleIntent(context, intentAction, dataUri, intentType);
+        // Create intent - use VideoProxyActivity for videos to handle permission granting at tap time
+        Intent intent;
+        if (useVideoProxy != null && useVideoProxy) {
+            android.util.Log.d("ShortcutPlugin", "Using VideoProxyActivity for video shortcut");
+            intent = new Intent(context, VideoProxyActivity.class);
+            intent.setAction("app.onetap.OPEN_VIDEO");
+            intent.setDataAndType(dataUri, intentType != null ? intentType : "video/*");
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        } else {
+            intent = createCompatibleIntent(context, intentAction, dataUri, intentType);
+        }
 
         Icon icon = createIcon(call);
 
@@ -230,6 +235,21 @@ public class ShortcutPlugin extends Plugin {
         JSObject result = new JSObject();
         result.put("success", requested);
         call.resolve(result);
+    }
+    
+    @PluginMethod
+    public void clearSharedIntent(PluginCall call) {
+        android.util.Log.d("ShortcutPlugin", "clearSharedIntent called");
+        
+        if (getActivity() != null) {
+            // Replace with a blank intent to prevent re-processing
+            Intent blankIntent = new Intent();
+            blankIntent.setAction(Intent.ACTION_MAIN);
+            getActivity().setIntent(blankIntent);
+            android.util.Log.d("ShortcutPlugin", "Intent cleared");
+        }
+        
+        call.resolve();
     }
     
     // Create intent with Samsung and other launcher compatibility fixes

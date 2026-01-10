@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { ContentSourcePicker } from '@/components/ContentSourcePicker';
 import { UrlInput } from '@/components/UrlInput';
@@ -17,19 +18,34 @@ const Index = () => {
   const [step, setStep] = useState<Step>('source');
   const [contentSource, setContentSource] = useState<ContentSource | null>(null);
   const [lastCreatedName, setLastCreatedName] = useState('');
+  const [searchParams] = useSearchParams();
+  const lastSharedIdRef = useRef<string | null>(null);
   
   const { createShortcut } = useShortcuts();
   const { sharedContent, isLoading: isLoadingShared, clearSharedContent } = useSharedContent();
 
   // Handle shared content from Android Share Sheet
+  // ALWAYS override current state when new share arrives (even on success screen)
   useEffect(() => {
-    if (!isLoadingShared && sharedContent && step === 'source') {
-      console.log('[Index] Processing shared content:', sharedContent);
+    if (!isLoadingShared && sharedContent) {
+      // Create unique ID for this share
+      const shareId = `${sharedContent.uri}-${sharedContent.type}`;
+      
+      // Check if we already processed this exact share
+      if (lastSharedIdRef.current === shareId) {
+        console.log('[Index] Already processed this share, skipping');
+        return;
+      }
+      
+      console.log('[Index] Processing shared content (override mode):', sharedContent);
+      lastSharedIdRef.current = shareId;
+      
+      // Reset state and process new share
       setContentSource(sharedContent);
       setStep('customize');
       clearSharedContent();
     }
-  }, [sharedContent, isLoadingShared, step, clearSharedContent]);
+  }, [sharedContent, isLoadingShared, clearSharedContent]);
 
   // Handle Android back button
   useBackButton({
