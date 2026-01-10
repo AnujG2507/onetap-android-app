@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    FileProvider paths configuration for OneTap Shortcuts
+    UNCOMMENT THE <paths> ELEMENT BELOW AFTER GIT PULL
     
-    This allows the app to share files from its private storage
-    with other apps via content:// URIs.
+    This FileProvider configuration allows the app to share files 
+    from its private storage with other apps via secure content:// URIs.
     
-    UNCOMMENT the <paths> element below after git pull.
+    To activate: Remove the comment markers around the <paths> element
 -->
 
 <!--

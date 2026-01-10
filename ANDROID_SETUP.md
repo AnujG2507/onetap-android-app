@@ -115,198 +115,34 @@ The plugin file is already in the repo at:
 2. Remove the block comment markers (`/*` at the top and `*/` at the bottom)
 3. Save the file
 
-<details>
-<summary>📋 Click to see the full ShortcutPlugin.java code (for reference)</summary>
-
-##### Java Version: `ShortcutPlugin.java`
-
-File location: `android/app/src/main/java/app/onetap/shortcuts/plugins/ShortcutPlugin.java`
-
-```kotlin
-package app.onetap.shortcuts.plugins
-
-import android.content.Intent
-import android.content.pm.ShortcutInfo
-import android.content.pm.ShortcutManager
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.Color
-import android.graphics.Paint
-import android.graphics.drawable.Icon
-import android.net.Uri
-import android.os.Build
-import androidx.annotation.RequiresApi
-import com.getcapacitor.JSObject
-import com.getcapacitor.Plugin
-import com.getcapacitor.PluginCall
-import com.getcapacitor.PluginMethod
-import com.getcapacitor.annotation.CapacitorPlugin
-
-@CapacitorPlugin(name = "ShortcutPlugin")
-class ShortcutPlugin : Plugin() {
-
-    @PluginMethod
-    fun createPinnedShortcut(call: PluginCall) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-            call.resolve(JSObject().put("success", false))
-            return
-        }
-        
-        val context = context ?: run {
-            call.resolve(JSObject().put("success", false))
-            return
-        }
-        
-        val shortcutManager = context.getSystemService(ShortcutManager::class.java)
-        
-        if (!shortcutManager.isRequestPinShortcutSupported) {
-            call.resolve(JSObject().put("success", false))
-            return
-        }
-        
-        val id = call.getString("id") ?: return
-        val label = call.getString("label") ?: return
-        val intentAction = call.getString("intentAction") ?: "android.intent.action.VIEW"
-        val intentData = call.getString("intentData") ?: return
-        val intentType = call.getString("intentType")
-        
-        val intent = Intent(intentAction).apply {
-            data = Uri.parse(intentData)
-            intentType?.let { type = it }
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-        
-        val icon = createIcon(call)
-        
-        val shortcutInfo = ShortcutInfo.Builder(context, id)
-            .setShortLabel(label)
-            .setLongLabel(label)
-            .setIcon(icon)
-            .setIntent(intent)
-            .build()
-        
-        shortcutManager.requestPinShortcut(shortcutInfo, null)
-        
-        call.resolve(JSObject().put("success", true))
-    }
-    
-    @RequiresApi(Build.VERSION_CODES.O)
-    private fun createIcon(call: PluginCall): Icon {
-        val context = context!!
-        
-        call.getString("iconEmoji")?.let { emoji ->
-            return createEmojiIcon(emoji)
-        }
-        
-        call.getString("iconText")?.let { text ->
-            return createTextIcon(text)
-        }
-        
-        return Icon.createWithResource(context, android.R.drawable.ic_menu_add)
-    }
-    
-    @RequiresApi(Build.VERSION_CODES.O)
-    private fun createEmojiIcon(emoji: String): Icon {
-        val size = 192
-        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bitmap)
-        
-        val bgPaint = Paint().apply {
-            color = Color.parseColor("#2563EB")
-            style = Paint.Style.FILL
-        }
-        canvas.drawCircle(size / 2f, size / 2f, size / 2f, bgPaint)
-        
-        val textPaint = Paint().apply {
-            textSize = size * 0.5f
-            textAlign = Paint.Align.CENTER
-        }
-        val y = (size / 2f) - ((textPaint.descent() + textPaint.ascent()) / 2)
-        canvas.drawText(emoji, size / 2f, y, textPaint)
-        
-        return Icon.createWithBitmap(bitmap)
-    }
-    
-    @RequiresApi(Build.VERSION_CODES.O)
-    private fun createTextIcon(text: String): Icon {
-        val size = 192
-        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bitmap)
-        
-        val bgPaint = Paint().apply {
-            color = Color.parseColor("#2563EB")
-            style = Paint.Style.FILL
-        }
-        canvas.drawCircle(size / 2f, size / 2f, size / 2f, bgPaint)
-        
-        val textPaint = Paint().apply {
-            color = Color.WHITE
-            textSize = size * 0.4f
-            textAlign = Paint.Align.CENTER
-            isFakeBoldText = true
-        }
-        val displayText = text.take(2).uppercase()
-        val y = (size / 2f) - ((textPaint.descent() + textPaint.ascent()) / 2)
-        canvas.drawText(displayText, size / 2f, y, textPaint)
-        
-        return Icon.createWithBitmap(bitmap)
-    }
-    
-    @PluginMethod
-    fun checkShortcutSupport(call: PluginCall) {
-        val result = JSObject()
-        
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val shortcutManager = context?.getSystemService(ShortcutManager::class.java)
-            result.put("supported", true)
-            result.put("canPin", shortcutManager?.isRequestPinShortcutSupported ?: false)
-        } else {
-            result.put("supported", false)
-            result.put("canPin", false)
-        }
-        
-        call.resolve(result)
-    }
-    
-    @PluginMethod
-    fun getSharedContent(call: PluginCall) {
-        val activity = activity ?: run {
-            call.resolve(null)
-            return
-        }
-        
-        val intent = activity.intent
-        val action = intent.action
-        val type = intent.type
-        
-        if (Intent.ACTION_SEND == action && type != null) {
-            val result = JSObject()
-            result.put("action", action)
-            result.put("type", type)
-            
-            if (type.startsWith("text/")) {
-                intent.getStringExtra(Intent.EXTRA_TEXT)?.let {
-                    result.put("text", it)
-                }
-            } else {
-                (intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM))?.let {
-                    result.put("data", it.toString())
-                }
-            }
-            
-            call.resolve(result)
-        } else {
-            call.resolve(null)
-        }
-    }
-}
-```
-
-</details>
+> **Note:** This plugin copies shared files to app storage so shortcuts work persistently, and properly sets MIME types so only relevant apps appear in the chooser.
 
 ---
 
-#### 3b. Activate MainActivity
+#### 3b. Activate file_paths.xml
+
+The FileProvider configuration is already in the repo at:
+`android/app/src/main/res/xml/file_paths.xml`
+
+**To activate:**
+1. Open the file in your editor
+2. Remove the instruction comment at the top
+3. Uncomment the `<paths>` block by removing `<!--` and `-->`
+4. Save the file
+
+The file should look like this when activated:
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <files-path name="shortcuts" path="shortcuts/" />
+</paths>
+```
+
+> **Why is this needed?** When you create a shortcut for a local file (image, video, PDF), the app copies it to private storage. This config allows other apps to access those files via secure `content://` URIs.
+
+---
+
+#### 3c. Activate MainActivity
 
 The MainActivity file is already in the repo at:
 `android/app/src/main/java/app/onetap/shortcuts/MainActivity.java`
@@ -341,7 +177,7 @@ public class MainActivity extends BridgeActivity {
 
 ---
 
-#### 3c. Replace AndroidManifest.xml
+#### 3d. Replace AndroidManifest.xml
 
 The complete AndroidManifest.xml is already in the repo at:
 `android/app/src/main/AndroidManifest.xml`
@@ -442,15 +278,19 @@ After `git pull`, here's the quick checklist:
 # Open: android/app/src/main/java/app/onetap/shortcuts/plugins/ShortcutPlugin.java
 # Remove /* at top and */ at bottom
 
-# 2. Uncomment MainActivity.java  
+# 2. Uncomment file_paths.xml
+# Open: android/app/src/main/res/xml/file_paths.xml
+# Remove comment markers around the <paths> element
+
+# 3. Uncomment MainActivity.java  
 # Open: android/app/src/main/java/app/onetap/shortcuts/MainActivity.java
 # Remove /* at top and */ at bottom
 # Delete MainActivity.kt if it exists
 
-# 3. AndroidManifest.xml is ready to use
+# 4. AndroidManifest.xml is ready to use
 # Just remove the instruction comments at the very top
 
-# 4. Rebuild and run
+# 5. Rebuild and run
 npm run build
 npx cap sync android
 npx cap run android
