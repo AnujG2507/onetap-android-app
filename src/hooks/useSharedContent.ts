@@ -35,10 +35,10 @@ export function useSharedContent() {
           return;
         }
         
-        // Check if it's a URL (shared from apps like Instagram, YouTube, etc.)
-        const isUrl = text.startsWith('http://') || text.startsWith('https://');
+        // Check if the text itself is a URL (shared from apps like Instagram, YouTube, etc.)
+        const isDirectUrl = text.startsWith('http://') || text.startsWith('https://');
         
-        if (isUrl) {
+        if (isDirectUrl) {
           console.log('[useSharedContent] Detected shared URL:', text);
           lastProcessedRef.current = shareId;
           setSharedContent({
@@ -56,20 +56,34 @@ export function useSharedContent() {
             mimeType: shared.type,
           });
         } else if (text) {
-          // Plain text that might be a URL without protocol
-          const normalizedUrl = text.includes('://') ? text : `https://${text}`;
-          try {
-            new URL(normalizedUrl);
-            console.log('[useSharedContent] Detected URL-like text:', normalizedUrl);
+          // Try to extract a URL from text that may contain other content
+          // e.g., "Watch this show! https://netflix.com/watch/12345"
+          const extractedUrl = extractUrlFromText(text);
+          
+          if (extractedUrl) {
+            console.log('[useSharedContent] Extracted URL from text:', extractedUrl);
             lastProcessedRef.current = shareId;
             setSharedContent({
               type: 'share',
-              uri: normalizedUrl,
-              name: extractNameFromUrl(normalizedUrl),
+              uri: extractedUrl,
+              name: extractNameFromUrl(extractedUrl),
             });
-          } catch {
-            // Not a valid URL, ignore
-            console.log('[useSharedContent] Text is not a valid URL, ignoring');
+          } else {
+            // Plain text that might be a URL without protocol
+            const normalizedUrl = text.includes('://') ? text : `https://${text}`;
+            try {
+              new URL(normalizedUrl);
+              console.log('[useSharedContent] Detected URL-like text:', normalizedUrl);
+              lastProcessedRef.current = shareId;
+              setSharedContent({
+                type: 'share',
+                uri: normalizedUrl,
+                name: extractNameFromUrl(normalizedUrl),
+              });
+            } catch {
+              // Not a valid URL, ignore
+              console.log('[useSharedContent] Text is not a valid URL, ignoring');
+            }
           }
         }
       } else {
@@ -149,12 +163,63 @@ export function useSharedContent() {
   return { sharedContent, sharedAction, isLoading, clearSharedContent, recheckSharedContent };
 }
 
+// Extract first URL from text that may contain other content
+// e.g., "Watch this show! https://netflix.com/watch/12345" -> "https://netflix.com/watch/12345"
+function extractUrlFromText(text: string): string | null {
+  // Match http/https URLs, stopping at whitespace or common terminating characters
+  const urlRegex = /(https?:\/\/[^\s<>"{}|\\^`\[\]]+)/gi;
+  const matches = text.match(urlRegex);
+  return matches ? matches[0] : null;
+}
+
 // Extract a readable name from URL
 function extractNameFromUrl(url: string): string {
   try {
     const urlObj = new URL(url);
     const host = urlObj.hostname.toLowerCase();
     
+    // Popular OTT platforms
+    if (host.includes('netflix.com')) {
+      return 'Netflix';
+    }
+    if (host.includes('primevideo.com') || host.includes('amazon.com/gp/video')) {
+      return 'Prime Video';
+    }
+    if (host.includes('hotstar.com') || host.includes('disney') || host.includes('disneyplus')) {
+      return 'Disney+ Hotstar';
+    }
+    if (host.includes('sonyliv.com')) {
+      return 'SonyLIV';
+    }
+    if (host.includes('zee5.com')) {
+      return 'ZEE5';
+    }
+    if (host.includes('jiocinema.com')) {
+      return 'JioCinema';
+    }
+    if (host.includes('mxplayer.in')) {
+      return 'MX Player';
+    }
+    if (host.includes('voot.com')) {
+      return 'Voot';
+    }
+    if (host.includes('hbomax.com') || host.includes('max.com')) {
+      return 'Max';
+    }
+    if (host.includes('hulu.com')) {
+      return 'Hulu';
+    }
+    if (host.includes('peacocktv.com')) {
+      return 'Peacock';
+    }
+    if (host.includes('paramountplus.com')) {
+      return 'Paramount+';
+    }
+    if (host.includes('appletv') || host.includes('tv.apple.com')) {
+      return 'Apple TV+';
+    }
+    
+    // Social media platforms
     if (host.includes('instagram.com')) {
       return 'Instagram';
     }
@@ -175,6 +240,9 @@ function extractNameFromUrl(url: string): string {
     }
     if (host.includes('reddit.com')) {
       return 'Reddit';
+    }
+    if (host.includes('spotify.com')) {
+      return 'Spotify';
     }
     
     return host.replace('www.', '');

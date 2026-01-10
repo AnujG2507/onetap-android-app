@@ -71,6 +71,17 @@ export function useShortcuts() {
     saveShortcuts(updated);
   }, [shortcuts, saveShortcuts]);
 
+  const updateShortcut = useCallback((
+    id: string,
+    updates: { name?: string; icon?: ShortcutIcon }
+  ) => {
+    const updated = shortcuts.map(s =>
+      s.id === id ? { ...s, ...updates } : s
+    );
+    saveShortcuts(updated);
+    return updated.find(s => s.id === id);
+  }, [shortcuts, saveShortcuts]);
+
   const incrementUsage = useCallback((id: string) => {
     const updated = shortcuts.map(s => 
       s.id === id ? { ...s, usageCount: s.usageCount + 1 } : s
@@ -82,6 +93,7 @@ export function useShortcuts() {
     shortcuts,
     createShortcut,
     deleteShortcut,
+    updateShortcut,
     incrementUsage,
   };
 }
