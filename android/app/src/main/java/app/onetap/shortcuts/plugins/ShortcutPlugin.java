@@ -9,6 +9,7 @@
 package app.onetap.shortcuts.plugins;
 
 import android.Manifest;
+import android.content.ClipData;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
@@ -185,37 +186,19 @@ public class ShortcutPlugin extends Plugin {
             android.util.Log.d("ShortcutPlugin", "URI scheme: " + scheme);
             
             if ("content".equals(scheme) && intentType != null) {
-                // Check file size
+                // Always copy shared/picked content:// URIs into app-private storage so the shortcut
+                // keeps working long-term (no transient URI permission issues for large videos).
                 long contentSize = getContentSize(context, dataUri);
                 android.util.Log.d("ShortcutPlugin", "Content size: " + contentSize);
-                
-                if (contentSize > 0 && contentSize <= FILE_SIZE_THRESHOLD) {
-                    // Small file: copy to app storage
-                    Uri persistentUri = copyToAppStorage(context, dataUri, id, intentType);
-                    if (persistentUri != null) {
-                        dataUri = persistentUri;
-                        android.util.Log.d("ShortcutPlugin", "Copied small file to app storage: " + persistentUri);
-                    }
-                } else if (contentSize > FILE_SIZE_THRESHOLD) {
-                    // Large file: try to get the real file path
-                    String realPath = getRealPathFromUri(context, dataUri);
-                    if (realPath != null) {
-                        dataUri = Uri.fromFile(new File(realPath));
-                        android.util.Log.d("ShortcutPlugin", "Using direct file path for large file: " + realPath);
-                    } else {
-                        // Fall back to copying (may fail for very large files)
-                        android.util.Log.w("ShortcutPlugin", "Could not get real path, attempting copy");
-                        Uri persistentUri = copyToAppStorage(context, Uri.parse(intentData), id, intentType);
-                        if (persistentUri != null) {
-                            dataUri = persistentUri;
-                        }
-                    }
+
+                Uri persistentUri = copyToAppStorage(context, dataUri, id, intentType);
+                if (persistentUri != null) {
+                    dataUri = persistentUri;
+                    android.util.Log.d("ShortcutPlugin", "Copied file to app storage: " + persistentUri);
                 } else {
-                    // Unknown size, try to copy
-                    Uri persistentUri = copyToAppStorage(context, dataUri, id, intentType);
-                    if (persistentUri != null) {
-                        dataUri = persistentUri;
-                    }
+                    // Fallback: keep original content URI and try to persist permission if possible
+                    android.util.Log.w("ShortcutPlugin", "Copy failed; falling back to original content URI");
+                    persistReadPermissionIfPossible(context, dataUri);
                 }
             }
         }
@@ -252,7 +235,7 @@ public class ShortcutPlugin extends Plugin {
     // Create intent with Samsung and other launcher compatibility fixes
     private Intent createCompatibleIntent(Context context, String action, Uri dataUri, String mimeType) {
         Intent intent = new Intent(action);
-        
+
         // CRITICAL: Detect MIME type if not provided or if it's generic
         String resolvedMimeType = mimeType;
         if (resolvedMimeType == null || resolvedMimeType.isEmpty() || "*/*".equals(resolvedMimeType)) {
@@ -260,7 +243,7 @@ public class ShortcutPlugin extends Plugin {
             resolvedMimeType = detectMimeType(context, dataUri);
             android.util.Log.d("ShortcutPlugin", "Detected MIME type: " + resolvedMimeType);
         }
-        
+
         // CRITICAL: Use setDataAndType() when both are present
         if (resolvedMimeType != null && !resolvedMimeType.isEmpty() && !"*/*".equals(resolvedMimeType)) {
             intent.setDataAndType(dataUri, resolvedMimeType);
@@ -269,24 +252,33 @@ public class ShortcutPlugin extends Plugin {
             intent.setData(dataUri);
             android.util.Log.d("ShortcutPlugin", "Set data only (no MIME): " + dataUri);
         }
-        
+
         // Add flags for proper file access and new task
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        
+
         // Samsung compatibility: Add persistable URI permission
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
             intent.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
         }
-        
+
+        // IMPORTANT: Some launchers only propagate URI grants reliably when ClipData is set
+        if ("content".equals(dataUri.getScheme())) {
+            try {
+                intent.setClipData(ClipData.newUri(context.getContentResolver(), "onetap-file", dataUri));
+            } catch (Exception e) {
+                android.util.Log.w("ShortcutPlugin", "Failed to set ClipData: " + e.getMessage());
+            }
+        }
+
         // Grant URI permission to all apps that can handle this intent
         String scheme = dataUri.getScheme();
         if ("content".equals(scheme)) {
             try {
                 // Grant permission to all potential handlers
-                List<android.content.pm.ResolveInfo> resolveInfos = 
+                List<android.content.pm.ResolveInfo> resolveInfos =
                     context.getPackageManager().queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY);
-                
+
                 for (android.content.pm.ResolveInfo resolveInfo : resolveInfos) {
                     String packageName = resolveInfo.activityInfo.packageName;
                     context.grantUriPermission(packageName, dataUri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
@@ -296,7 +288,7 @@ public class ShortcutPlugin extends Plugin {
                 android.util.Log.e("ShortcutPlugin", "Error granting URI permissions: " + e.getMessage());
             }
         }
-        
+
         return intent;
     }
     
@@ -384,8 +376,20 @@ public class ShortcutPlugin extends Plugin {
         }
         return -1;
     }
-    
-    // Try to get the real file path from a content:// URI
+
+    // Best-effort: persist URI read permission for SAF/document URIs (won't work for all providers)
+    private void persistReadPermissionIfPossible(Context context, Uri uri) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT) return;
+        try {
+            int flags = Intent.FLAG_GRANT_READ_URI_PERMISSION;
+            context.getContentResolver().takePersistableUriPermission(uri, flags);
+            android.util.Log.d("ShortcutPlugin", "Persisted read permission for URI: " + uri);
+        } catch (SecurityException se) {
+            android.util.Log.w("ShortcutPlugin", "Cannot persist URI permission (SecurityException): " + se.getMessage());
+        } catch (Exception e) {
+            android.util.Log.w("ShortcutPlugin", "Cannot persist URI permission: " + e.getMessage());
+        }
+    }
     private String getRealPathFromUri(Context context, Uri uri) {
         String result = null;
         
