@@ -23,14 +23,24 @@ npx cap sync android
 
 ### 2. Activate Native Code
 
-After cloning, uncomment these files by removing `/*` and `*/` markers:
+After cloning, uncomment these files by removing `/*` and `*/` block comment markers:
 
-| File | Action |
-|------|--------|
-| `android/.../plugins/ShortcutPlugin.java` | Remove block comments |
-| `android/.../MainActivity.java` | Remove block comments, delete `MainActivity.kt` if exists |
-| `android/.../VideoProxyActivity.java` | Remove block comments |
-| `android/.../res/xml/file_paths.xml` | Uncomment the `<paths>` element |
+```bash
+# Open all files that need uncommenting:
+gedit android/app/src/main/java/app/onetap/shortcuts/plugins/ShortcutPlugin.java
+gedit android/app/src/main/java/app/onetap/shortcuts/MainActivity.java
+gedit android/app/src/main/java/app/onetap/shortcuts/VideoProxyActivity.java
+gedit android/app/src/main/res/xml/file_paths.xml
+```
+
+**For each Java file:** Remove `/*` at the top and `*/` at the bottom.
+
+**For file_paths.xml:** Uncomment the `<paths>` element (remove `<!--` and `-->`).
+
+**Also:** Delete `MainActivity.kt` if it exists:
+```bash
+rm -f android/app/src/main/java/app/onetap/shortcuts/MainActivity.kt
+```
 
 ### 3. Run on Device
 
