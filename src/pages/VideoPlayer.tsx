@@ -11,6 +11,17 @@ interface FileInfo {
   mimeType?: string;
 }
 
+function guessVideoMimeTypeFromPath(path: string): string | undefined {
+  const lower = path.toLowerCase();
+  if (lower.endsWith('.mp4')) return 'video/mp4';
+  if (lower.endsWith('.webm')) return 'video/webm';
+  if (lower.endsWith('.mkv')) return 'video/x-matroska';
+  if (lower.endsWith('.mov')) return 'video/quicktime';
+  if (lower.endsWith('.m4v')) return 'video/x-m4v';
+  if (lower.endsWith('.3gp') || lower.endsWith('.3gpp')) return 'video/3gpp';
+  return undefined;
+}
+
 const VideoPlayer = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -18,18 +29,22 @@ const VideoPlayer = () => {
   const [playbackSrc, setPlaybackSrc] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [debugInfo, setDebugInfo] = useState<string | null>(null);
+  const [effectiveMimeType, setEffectiveMimeType] = useState<string | undefined>(undefined);
   const videoRef = useRef<HTMLVideoElement>(null);
   const retryCountRef = useRef(0);
   const maxRetries = 2;
-  
+
   const videoUri = searchParams.get('uri');
-  const mimeType = searchParams.get('type') || 'video/mp4';
+  const requestedMimeType = searchParams.get('type') || undefined;
+  const isGenericRequestedMimeType =
+    !requestedMimeType || requestedMimeType === '*/*' || requestedMimeType.endsWith('/*');
+
   // Nonce to force re-initialization on repeated navigations
   const nonce = searchParams.get('t');
 
-  const resolveAndPlay = useCallback(async (uri: string): Promise<string | null> => {
+  const resolveAndPlay = useCallback(async (uri: string, requestedType?: string): Promise<string | null> => {
     console.log('[VideoPlayer] Resolving URI:', uri);
-    
+
     try {
       let src = uri;
       let resolvedPath: string | null = null;
@@ -54,20 +69,32 @@ const VideoPlayer = () => {
         src = Capacitor.convertFileSrc(fileUri);
       }
 
-      // Validate file exists and has content (native only)
+      // Validate file exists and has content + try to determine MIME type (native only)
       if (resolvedPath && Capacitor.isNativePlatform()) {
         try {
           const fileInfo = await ShortcutPlugin.getFileInfo({ path: resolvedPath });
           console.log('[VideoPlayer] File info:', fileInfo);
-          
+
           if (!fileInfo.success) {
             setDebugInfo(`File check failed: ${fileInfo.error || 'unknown'}`);
             return null;
           }
-          
+
           if (fileInfo.size === 0) {
             setDebugInfo('Video file is empty (0 bytes)');
             return null;
+          }
+
+          // If the caller passed a generic/unknown MIME type, prefer the native-detected type
+          const isGeneric = !requestedType || requestedType === '*/*' || requestedType.endsWith('/*');
+          if (isGeneric) {
+            const detected = fileInfo.mimeType || guessVideoMimeTypeFromPath(resolvedPath);
+            if (detected) {
+              setEffectiveMimeType(detected);
+            } else {
+              // Let the browser sniff if we can't detect
+              setEffectiveMimeType(undefined);
+            }
           }
         } catch (e) {
           console.warn('[VideoPlayer] getFileInfo failed (non-critical):', e);
@@ -91,7 +118,7 @@ const VideoPlayer = () => {
 
     console.log('[VideoPlayer] Attempting playback, retry:', retryCountRef.current);
     
-    const src = await resolveAndPlay(videoUri);
+    const src = await resolveAndPlay(videoUri, requestedMimeType);
     
     if (!src) {
       if (retryCountRef.current < maxRetries) {
@@ -110,53 +137,93 @@ const VideoPlayer = () => {
     console.log('[VideoPlayer] Setting playback source:', src);
     setPlaybackSrc(src);
     setIsLoading(false);
+  }, [videoUri, resolveAndPlay, debugInfo, requestedMimeType]);
 
-    // Explicitly load and play after a short delay for cold-start resilience
-    setTimeout(() => {
-      if (videoRef.current) {
-        console.log('[VideoPlayer] Explicitly loading video');
-        videoRef.current.load();
-        videoRef.current.play().catch(err => {
+  // When we have a src, explicitly load/play *after* the <video> is in the DOM.
+  // This avoids cold-start timing issues where play() runs before the element is fully updated.
+  useEffect(() => {
+    if (!playbackSrc) return;
+
+    let cancelled = false;
+
+    const kick = () => {
+      if (cancelled) return;
+      const el = videoRef.current;
+      if (!el) return;
+
+      console.log('[VideoPlayer] Kicking load/play', { src: playbackSrc, effectiveMimeType, requestedMimeType });
+      try {
+        el.load();
+        el.play().catch(err => {
           console.warn('[VideoPlayer] Autoplay blocked or failed:', err);
-          // Don't treat autoplay block as error - user can tap play
         });
+      } catch (e) {
+        console.warn('[VideoPlayer] load/play threw:', e);
       }
-    }, 100);
-  }, [videoUri, resolveAndPlay, debugInfo]);
+    };
+
+    // Wait a couple of frames to ensure the WebView/capacitor file server is ready.
+    const t = window.setTimeout(() => {
+      requestAnimationFrame(() => requestAnimationFrame(kick));
+    }, 50);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
+  }, [playbackSrc, nonce, effectiveMimeType, requestedMimeType]);
 
   useEffect(() => {
-    console.log('[VideoPlayer] Mounted with URI:', videoUri, 'Type:', mimeType, 'Nonce:', nonce);
-    
+    console.log('[VideoPlayer] Mounted with URI:', videoUri, 'Requested type:', requestedMimeType, 'Effective type:', effectiveMimeType, 'Nonce:', nonce);
+
     // Reset state for fresh playback
     retryCountRef.current = 0;
     setError(null);
     setPlaybackSrc(null);
     setDebugInfo(null);
     setIsLoading(true);
+    setEffectiveMimeType(!isGenericRequestedMimeType ? requestedMimeType : undefined);
 
     attemptPlayback();
-  }, [videoUri, mimeType, nonce, attemptPlayback]);
+  }, [videoUri, requestedMimeType, nonce, attemptPlayback, isGenericRequestedMimeType]);
 
   const handleBack = () => {
     navigate('/');
   };
 
   const handleVideoError = useCallback(() => {
-    console.error('[VideoPlayer] Video playback error, retry count:', retryCountRef.current);
-    
+    const el = videoRef.current;
+    const err = el?.error;
+    const details = [
+      err ? `MediaError code=${err.code}` : 'MediaError missing',
+      el ? `networkState=${el.networkState}` : 'networkState=?',
+      el ? `readyState=${el.readyState}` : 'readyState=?',
+      playbackSrc ? `src=${playbackSrc}` : 'src=?',
+      requestedMimeType ? `requestedType=${requestedMimeType}` : 'requestedType=?',
+      effectiveMimeType ? `effectiveType=${effectiveMimeType}` : 'effectiveType=?',
+    ].join(' | ');
+
+    console.error('[VideoPlayer] Video playback error', details);
+    setDebugInfo(details);
+
+    // If we passed a generic/incorrect type, let the browser sniff on retry.
+    if (err?.code === 4) {
+      setEffectiveMimeType(undefined);
+    }
+
     if (retryCountRef.current < maxRetries) {
       retryCountRef.current++;
       console.log('[VideoPlayer] Playback error, retrying...', retryCountRef.current);
-      
+
       // Clear current src and retry resolution
       setPlaybackSrc(null);
       setIsLoading(true);
-      
+
       setTimeout(() => attemptPlayback(), 500);
     } else {
       setError('Unable to play this video. The file may be corrupted or in an unsupported format.');
     }
-  }, [attemptPlayback]);
+  }, [attemptPlayback, playbackSrc, requestedMimeType, effectiveMimeType]);
 
   // Loading state
   if (isLoading) {
@@ -221,7 +288,6 @@ const VideoPlayer = () => {
             playsInline
             onError={handleVideoError}
           >
-            <source src={playbackSrc} type={mimeType} />
             Your browser does not support the video tag.
           </video>
         )}
