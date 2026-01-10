@@ -17,8 +17,11 @@ export function buildContentIntent(shortcut: ShortcutData): ShortcutIntent {
     };
   }
   
-  // For files, use VIEW action with appropriate MIME type
-  const mimeType = getMimeType(shortcut.fileType);
+  // For files, use VIEW action with specific MIME type
+  // The MIME type determines which apps are shown in the chooser
+  const mimeType = getMimeTypeFromUri(shortcut.contentUri, shortcut.fileType);
+  console.log('[ShortcutManager] File intent - URI:', shortcut.contentUri, 'MIME:', mimeType);
+  
   return {
     action: 'android.intent.action.VIEW',
     data: shortcut.contentUri,
@@ -26,7 +29,47 @@ export function buildContentIntent(shortcut: ShortcutData): ShortcutIntent {
   };
 }
 
-function getMimeType(fileType?: string): string {
+// Get specific MIME type based on file extension and detected type
+function getMimeTypeFromUri(uri: string, fileType?: string): string {
+  // Try to extract extension from URI
+  const extension = uri.split('.').pop()?.toLowerCase()?.split('?')[0];
+  
+  // Map common extensions to specific MIME types
+  const mimeMap: Record<string, string> = {
+    // Images
+    'jpg': 'image/jpeg',
+    'jpeg': 'image/jpeg',
+    'png': 'image/png',
+    'gif': 'image/gif',
+    'webp': 'image/webp',
+    'bmp': 'image/bmp',
+    'heic': 'image/heic',
+    'heif': 'image/heif',
+    // Videos
+    'mp4': 'video/mp4',
+    'webm': 'video/webm',
+    'mov': 'video/quicktime',
+    'avi': 'video/x-msvideo',
+    'mkv': 'video/x-matroska',
+    '3gp': 'video/3gpp',
+    // Documents
+    'pdf': 'application/pdf',
+    'doc': 'application/msword',
+    'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'txt': 'text/plain',
+    'rtf': 'application/rtf',
+    'xls': 'application/vnd.ms-excel',
+    'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'ppt': 'application/vnd.ms-powerpoint',
+    'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  };
+  
+  // First try specific extension mapping
+  if (extension && mimeMap[extension]) {
+    return mimeMap[extension];
+  }
+  
+  // Fall back to generic type based on detected file type
   switch (fileType) {
     case 'image': return 'image/*';
     case 'video': return 'video/*';

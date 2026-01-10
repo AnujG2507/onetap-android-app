@@ -75,11 +75,21 @@ public class ShortcutPlugin extends Plugin {
         }
 
         Intent intent = new Intent(intentAction);
-        intent.setData(Uri.parse(intentData));
-        if (intentType != null) {
-            intent.setType(intentType);
+        Uri dataUri = Uri.parse(intentData);
+        
+        // CRITICAL: Use setDataAndType() when both are present
+        // Calling setData() and setType() separately clears the other!
+        if (intentType != null && !intentType.isEmpty()) {
+            intent.setDataAndType(dataUri, intentType);
+            android.util.Log.d("ShortcutPlugin", "Set data AND type: " + intentData + " / " + intentType);
+        } else {
+            intent.setData(dataUri);
+            android.util.Log.d("ShortcutPlugin", "Set data only: " + intentData);
         }
+        
+        // Add flags for proper file access and new task
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
 
         Icon icon = createIcon(call);
 
