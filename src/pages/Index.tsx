@@ -42,12 +42,11 @@ const Index = () => {
         const nonce = Date.now();
         console.log('[Index] Video open detected, navigating to player:', { action: sharedAction, uri: sharedContent.uri, type: sharedContent.mimeType, nonce });
 
-        // Navigate first (preserve any one-time URI grants during cold start), then clear.
+        // Navigate first (preserve any one-time URI grants during cold start).
+        // NOTE: We intentionally do NOT clear the native intent here.
+        // Clearing too early can revoke transient URI permissions on some devices.
+        // The VideoPlayer will clear it after it has successfully resolved the file.
         navigate(`/player?uri=${uri}&type=${type}&t=${nonce}`);
-        // Clear the shared intent shortly after navigation to avoid re-processing loops.
-        setTimeout(() => {
-          clearSharedContent();
-        }, 0);
         return;
       }
 

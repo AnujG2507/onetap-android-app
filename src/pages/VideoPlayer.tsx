@@ -5,12 +5,6 @@ import { ArrowLeft, AlertCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ShortcutPlugin from '@/plugins/ShortcutPlugin';
 
-interface FileInfo {
-  exists: boolean;
-  size: number;
-  mimeType?: string;
-}
-
 function guessVideoMimeTypeFromPath(path: string): string | undefined {
   const lower = path.toLowerCase();
   if (lower.endsWith('.mp4')) return 'video/mp4';
@@ -22,6 +16,37 @@ function guessVideoMimeTypeFromPath(path: string): string | undefined {
   return undefined;
 }
 
+async function probeUrl(url: string): Promise<{ ok: boolean; status?: number; contentType?: string; contentLength?: string; hint?: string }> {
+  try {
+    // Use a small range request; if the file server isn't ready it often returns HTML/404.
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Range: 'bytes=0-1023',
+      },
+    });
+
+    const contentType = res.headers.get('content-type') || undefined;
+    const contentLength = res.headers.get('content-length') || undefined;
+
+    if (!res.ok) {
+      return { ok: false, status: res.status, contentType, contentLength, hint: 'HTTP not ok' };
+    }
+
+    // Read a tiny snippet to detect an HTML error page being served.
+    const textSnippet = await res.text();
+    const looksHtml = /<!doctype html|<html/i.test(textSnippet);
+
+    if (looksHtml) {
+      return { ok: false, status: res.status, contentType, contentLength, hint: 'Got HTML instead of video' };
+    }
+
+    return { ok: true, status: res.status, contentType, contentLength };
+  } catch (e) {
+    return { ok: false, hint: `probe fetch failed: ${String(e)}` };
+  }
+}
+
 const VideoPlayer = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -30,6 +55,7 @@ const VideoPlayer = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [debugInfo, setDebugInfo] = useState<string | null>(null);
   const [effectiveMimeType, setEffectiveMimeType] = useState<string | undefined>(undefined);
+  const [hasClearedIntent, setHasClearedIntent] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const retryCountRef = useRef(0);
   const maxRetries = 2;
@@ -102,7 +128,10 @@ const VideoPlayer = () => {
         }
       }
 
-      return src;
+      // IMPORTANT: Avoid cached bad responses (some devices cache an early 404 HTML response).
+      // Query params are ignored by Capacitor's file server path mapping.
+      const cacheBusted = src.includes('?') ? `${src}&t=${Date.now()}` : `${src}?t=${Date.now()}`;
+      return cacheBusted;
     } catch (e) {
       console.error('[VideoPlayer] Resolution error:', e);
       return null;
@@ -117,9 +146,9 @@ const VideoPlayer = () => {
     }
 
     console.log('[VideoPlayer] Attempting playback, retry:', retryCountRef.current);
-    
+
     const src = await resolveAndPlay(videoUri, requestedMimeType);
-    
+
     if (!src) {
       if (retryCountRef.current < maxRetries) {
         retryCountRef.current++;
@@ -128,8 +157,27 @@ const VideoPlayer = () => {
         setTimeout(() => attemptPlayback(), 500);
         return;
       }
-      
+
       setError(debugInfo || 'Unable to resolve video file. The file may have been moved or deleted.');
+      setIsLoading(false);
+      return;
+    }
+
+    // Probe the URL before trying to decode it.
+    // If we get HTML/404, wait and retry instead of showing "corrupted".
+    const probe = await probeUrl(src);
+    console.log('[VideoPlayer] Probe result:', probe);
+    if (!probe.ok) {
+      setDebugInfo(`Probe failed: ${probe.hint || 'unknown'} | status=${probe.status ?? '?'} | ct=${probe.contentType ?? '?'} | cl=${probe.contentLength ?? '?'}`);
+
+      if (retryCountRef.current < maxRetries) {
+        retryCountRef.current++;
+        console.log('[VideoPlayer] Probe failed, scheduling retry', retryCountRef.current);
+        setTimeout(() => attemptPlayback(), 700);
+        return;
+      }
+
+      setError('Unable to load video stream. Please try again.');
       setIsLoading(false);
       return;
     }
@@ -137,7 +185,18 @@ const VideoPlayer = () => {
     console.log('[VideoPlayer] Setting playback source:', src);
     setPlaybackSrc(src);
     setIsLoading(false);
-  }, [videoUri, resolveAndPlay, debugInfo, requestedMimeType]);
+
+    // Clear the native intent *after* we have a good resolved URL.
+    if (Capacitor.isNativePlatform() && !hasClearedIntent) {
+      try {
+        await ShortcutPlugin.clearSharedIntent();
+        setHasClearedIntent(true);
+        console.log('[VideoPlayer] Cleared shared intent (post-resolve)');
+      } catch (e) {
+        console.log('[VideoPlayer] Failed to clear shared intent (non-fatal):', e);
+      }
+    }
+  }, [videoUri, resolveAndPlay, debugInfo, requestedMimeType, hasClearedIntent]);
 
   // When we have a src, explicitly load/play *after* the <video> is in the DOM.
   // This avoids cold-start timing issues where play() runs before the element is fully updated.
@@ -182,6 +241,7 @@ const VideoPlayer = () => {
     setPlaybackSrc(null);
     setDebugInfo(null);
     setIsLoading(true);
+    setHasClearedIntent(false);
     setEffectiveMimeType(!isGenericRequestedMimeType ? requestedMimeType : undefined);
 
     attemptPlayback();
@@ -191,9 +251,16 @@ const VideoPlayer = () => {
     navigate('/');
   };
 
-  const handleVideoError = useCallback(() => {
+  const handleVideoError = useCallback(async () => {
     const el = videoRef.current;
     const err = el?.error;
+
+    let probeDetails = '';
+    if (playbackSrc) {
+      const probe = await probeUrl(playbackSrc);
+      probeDetails = ` | probe=${probe.ok ? 'ok' : 'bad'}:${probe.hint || ''} status=${probe.status ?? '?'} ct=${probe.contentType ?? '?'}`;
+    }
+
     const details = [
       err ? `MediaError code=${err.code}` : 'MediaError missing',
       el ? `networkState=${el.networkState}` : 'networkState=?',
@@ -201,7 +268,7 @@ const VideoPlayer = () => {
       playbackSrc ? `src=${playbackSrc}` : 'src=?',
       requestedMimeType ? `requestedType=${requestedMimeType}` : 'requestedType=?',
       effectiveMimeType ? `effectiveType=${effectiveMimeType}` : 'effectiveType=?',
-    ].join(' | ');
+    ].join(' | ') + probeDetails;
 
     console.error('[VideoPlayer] Video playback error', details);
     setDebugInfo(details);
@@ -219,7 +286,7 @@ const VideoPlayer = () => {
       setPlaybackSrc(null);
       setIsLoading(true);
 
-      setTimeout(() => attemptPlayback(), 500);
+      setTimeout(() => attemptPlayback(), 700);
     } else {
       setError('Unable to play this video. The file may be corrupted or in an unsupported format.');
     }
@@ -241,16 +308,10 @@ const VideoPlayer = () => {
       <div className="min-h-screen bg-black flex flex-col items-center justify-center p-4">
         <div className="text-center">
           <AlertCircle className="h-16 w-16 text-destructive mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-white mb-2">
-            Cannot Play Video
-          </h2>
-          <p className="text-muted-foreground mb-6">
-            {error || 'No video URI provided'}
-          </p>
+          <h2 className="text-xl font-semibold text-white mb-2">Cannot Play Video</h2>
+          <p className="text-muted-foreground mb-6">{error || 'No video URI provided'}</p>
           {debugInfo && (
-            <p className="text-xs text-muted-foreground/60 mb-4 font-mono">
-              {debugInfo}
-            </p>
+            <p className="text-xs text-muted-foreground/60 mb-4 font-mono">{debugInfo}</p>
           )}
           <Button onClick={handleBack} variant="outline">
             <ArrowLeft className="h-4 w-4 mr-2" />
@@ -265,9 +326,9 @@ const VideoPlayer = () => {
     <div className="min-h-screen bg-black flex flex-col">
       {/* Header with back button */}
       <header className="absolute top-0 left-0 right-0 z-10 p-4 bg-gradient-to-b from-black/80 to-transparent">
-        <Button 
-          onClick={handleBack} 
-          variant="ghost" 
+        <Button
+          onClick={handleBack}
+          variant="ghost"
           size="icon"
           className="text-white hover:bg-white/20"
         >
@@ -281,13 +342,13 @@ const VideoPlayer = () => {
           <video
             ref={videoRef}
             key={`${playbackSrc}-${nonce}`}
-            src={playbackSrc}
             className="max-w-full max-h-full w-full h-full object-contain"
             controls
             autoPlay
             playsInline
             onError={handleVideoError}
           >
+            <source src={playbackSrc} type={effectiveMimeType} />
             Your browser does not support the video tag.
           </video>
         )}
@@ -297,3 +358,4 @@ const VideoPlayer = () => {
 };
 
 export default VideoPlayer;
+
