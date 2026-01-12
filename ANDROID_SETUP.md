@@ -78,6 +78,8 @@ adb devices        # Should list your device
 | Build fails | Run `npx cap sync android` |
 | Shortcuts not working | Requires Android 8.0+ |
 | `spawn ./gradlew ENOENT` | See Gradlew fix below |
+| `Could not determine java version from '21.x'` | Update Gradle wrapper (8.4+) or use JDK 17 |
+
 
 ### Gradlew Not Found Fix
 
@@ -96,7 +98,24 @@ sudo apt install gradle -y  # Ubuntu/Debian
 brew install gradle         # macOS
 ```
 
+### Java 21 / Gradle Compatibility Fix
+
+If you get `Could not determine java version from '21.x'`, your Gradle wrapper is too old.
+
+**Fix (recommended):** Update the Gradle wrapper used by the generated `android/` project:
+
+```bash
+cd android
+# Pick one (8.4+ supports Java 21)
+./gradlew wrapper --gradle-version 8.4.2
+# or edit gradle/wrapper/gradle-wrapper.properties (distributionUrl)
+cd ..
+```
+
+**If the command fails immediately:** temporarily point `JAVA_HOME` to **JDK 17**, run the wrapper update once, then switch back to JDK 21.
+
 ### Clean Rebuild
+
 
 ```bash
 rm -rf android
