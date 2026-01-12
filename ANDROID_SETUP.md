@@ -77,6 +77,24 @@ adb devices        # Should list your device
 | Java version error | Install JDK 21, set as default |
 | Build fails | Run `npx cap sync android` |
 | Shortcuts not working | Requires Android 8.0+ |
+| `spawn ./gradlew ENOENT` | See Gradlew fix below |
+
+### Gradlew Not Found Fix
+
+If you get `spawn ./gradlew ENOENT` error:
+
+```bash
+cd android
+gradle wrapper
+cd ..
+npx cap run android
+```
+
+If `gradle` command not found, install it first:
+```bash
+sudo apt install gradle -y  # Ubuntu/Debian
+brew install gradle         # macOS
+```
 
 ### Clean Rebuild
 
