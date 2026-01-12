@@ -1054,23 +1054,48 @@ public class ShortcutPlugin extends Plugin {
             }
         }
 
-        // First attempt: resolve to a real filesystem path (works for some MediaStore URIs)
-        String realPath = getRealPathFromUri(context, uri);
-
-        if (realPath != null) {
-            result.put("success", true);
-            result.put("filePath", realPath);
-            call.resolve(result);
-            return;
-        }
-
-        // Fallback: copy the content URI into app PERSISTENT storage (not cache) and return an absolute file path.
-        // Use deterministic filename based on URI hash to avoid re-copying same file.
-        // Using filesDir instead of cacheDir to prevent OS from clearing files between app launches.
+        // IMPORTANT: Avoid returning "real filesystem paths" for content:// URIs.
+        // Those paths can become unreadable under scoped storage once transient URI grants are cleared.
+        // Instead, we copy into app-private *persistent* storage and return an absolute file path.
         try {
+            ContentResolver resolver = context.getContentResolver();
+
+            // Try to get a stable display name (preserves extensions like .mp4)
+            String displayName = null;
+            try {
+                Cursor cursor = resolver.query(uri, null, null, null, null);
+                if (cursor != null) {
+                    try {
+                        if (cursor.moveToFirst()) {
+                            int idx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+                            if (idx >= 0) {
+                                displayName = cursor.getString(idx);
+                            }
+                        }
+                    } finally {
+                        cursor.close();
+                    }
+                }
+            } catch (Exception e) {
+                android.util.Log.w("ShortcutPlugin", "resolveContentUri: failed to read display name: " + e.getMessage());
+            }
+
             String detectedMime = detectMimeType(context, uri);
             String extension = getExtensionFromMimeType(detectedMime);
             if (extension == null) extension = "";
+
+            // If MIME detection failed, try to infer extension from displayName
+            String safeName = (displayName != null && !displayName.isEmpty()) ? displayName : "video";
+            safeName = safeName.replaceAll("[^a-zA-Z0-9._-]", "_");
+
+            String safeBase = safeName;
+            int dot = safeName.lastIndexOf('.');
+            if (dot > 0) {
+                safeBase = safeName.substring(0, dot);
+                if (extension.isEmpty()) {
+                    extension = safeName.substring(dot); // includes dot
+                }
+            }
 
             File persistDir = new File(context.getFilesDir(), "onetap_resolved");
             if (!persistDir.exists()) {
@@ -1078,12 +1103,13 @@ public class ShortcutPlugin extends Plugin {
                 persistDir.mkdirs();
             }
 
-            // Use deterministic filename based on URI hash so same URI maps to same file
-            String resolvedFileName = "resolved_" + Math.abs(contentUri.hashCode()) + extension;
+            long expectedSize = getContentSize(context, uri);
+
+            String resolvedFileName = "resolved_" + Math.abs(contentUri.hashCode()) + "_" + safeBase + extension;
             File outFile = new File(persistDir, resolvedFileName);
 
-            // If file already exists and has content, reuse it
-            if (outFile.exists() && outFile.length() > 0) {
+            // If file already exists and seems complete, reuse it
+            if (outFile.exists() && outFile.length() > 0 && (expectedSize <= 0 || outFile.length() == expectedSize)) {
                 android.util.Log.d("ShortcutPlugin", "resolveContentUri: reusing persistent file: " + outFile.getAbsolutePath());
                 result.put("success", true);
                 result.put("filePath", outFile.getAbsolutePath());
@@ -1091,7 +1117,12 @@ public class ShortcutPlugin extends Plugin {
                 return;
             }
 
-            ContentResolver resolver = context.getContentResolver();
+            // If we have an incomplete/empty file, delete and re-copy
+            if (outFile.exists()) {
+                //noinspection ResultOfMethodCallIgnored
+                outFile.delete();
+            }
+
             InputStream in = resolver.openInputStream(uri);
             if (in == null) {
                 throw new Exception("ContentResolver.openInputStream returned null");
@@ -1105,20 +1136,24 @@ public class ShortcutPlugin extends Plugin {
                 while ((read = input.read(buffer)) != -1) {
                     output.write(buffer, 0, read);
                 }
-                output.getFD().sync(); // Ensure data is flushed to disk
+                output.getFD().sync();
             }
 
-            // Rename temp to final (atomic on most filesystems)
+            // If copy was short, keep temp for debugging but don't reuse it next time.
+            if (expectedSize > 0 && tempFile.length() != expectedSize) {
+                android.util.Log.w("ShortcutPlugin", "resolveContentUri: copied size mismatch expected=" + expectedSize + " got=" + tempFile.length());
+            }
+
             if (tempFile.renameTo(outFile)) {
                 android.util.Log.d("ShortcutPlugin", "resolveContentUri: copied to persistent path=" + outFile.getAbsolutePath());
                 result.put("success", true);
                 result.put("filePath", outFile.getAbsolutePath());
             } else {
-                // Fallback if rename fails: use temp file directly
                 android.util.Log.w("ShortcutPlugin", "resolveContentUri: rename failed, using temp file");
                 result.put("success", true);
                 result.put("filePath", tempFile.getAbsolutePath());
             }
+
             call.resolve(result);
         } catch (Exception e) {
             android.util.Log.e("ShortcutPlugin", "resolveContentUri fallback copy failed: " + e.getMessage());
