@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Check, Loader2 } from 'lucide-react';
+import { ArrowLeft, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { IconPicker } from './IconPicker';
-import { getContentName, generateThumbnail, getPlatformEmoji, fetchPageTitle } from '@/lib/contentResolver';
+import { getContentName, generateThumbnail, getPlatformEmoji } from '@/lib/contentResolver';
 import type { ContentSource, ShortcutIcon } from '@/types/shortcut';
 
 interface ShortcutCustomizerProps {
@@ -14,7 +14,6 @@ interface ShortcutCustomizerProps {
 
 export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustomizerProps) {
   const [name, setName] = useState(() => getContentName(source));
-  const [isLoadingTitle, setIsLoadingTitle] = useState(false);
   const [thumbnail, setThumbnail] = useState<string | null>(null);
   
   // Get initial emoji based on source type
@@ -26,20 +25,6 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
   };
   
   const [icon, setIcon] = useState<ShortcutIcon>(getInitialIcon);
-  
-  // Fetch page title for URLs
-  useEffect(() => {
-    if (source.type === 'url' || source.type === 'share') {
-      setIsLoadingTitle(true);
-      fetchPageTitle(source.uri)
-        .then((title) => {
-          if (title) {
-            setName(title);
-          }
-        })
-        .finally(() => setIsLoadingTitle(false));
-    }
-  }, [source]);
   
   useEffect(() => {
     generateThumbnail(source).then((thumb) => {
@@ -74,18 +59,13 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
           <label className="text-sm font-medium text-foreground">
             Shortcut Name
           </label>
-          <div className="relative">
-            <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Enter a name"
-              className="h-12 text-base pr-10"
-              maxLength={30}
-            />
-            {isLoadingTitle && (
-              <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
-            )}
-          </div>
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Enter a name"
+            className="h-12 text-base"
+            maxLength={30}
+          />
         </div>
         
         {/* Icon picker */}

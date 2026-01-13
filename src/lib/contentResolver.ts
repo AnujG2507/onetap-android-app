@@ -129,59 +129,6 @@ export function isValidUrl(string: string): boolean {
   }
 }
 
-// Fetch page title from URL using CORS proxy
-export async function fetchPageTitle(url: string): Promise<string | null> {
-  try {
-    // Use allorigins.win as a free CORS proxy
-    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-    
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
-    
-    const response = await fetch(proxyUrl, { 
-      signal: controller.signal,
-      headers: { 'Accept': 'text/html' }
-    });
-    clearTimeout(timeoutId);
-    
-    if (!response.ok) return null;
-    
-    const html = await response.text();
-    
-    // Try og:title first (better for media content)
-    const ogTitleMatch = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i)
-      || html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:title["']/i);
-    if (ogTitleMatch?.[1]) {
-      return cleanTitle(ogTitleMatch[1]);
-    }
-    
-    // Fallback to <title> tag
-    const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-    if (titleMatch?.[1]) {
-      return cleanTitle(titleMatch[1]);
-    }
-    
-    return null;
-  } catch (error) {
-    console.warn('[ContentResolver] Failed to fetch page title:', error);
-    return null;
-  }
-}
-
-// Clean up title by removing common suffixes
-function cleanTitle(title: string): string {
-  return title
-    .replace(/\s*[-|–—]\s*(Netflix|YouTube|Prime Video|Disney\+|Hotstar|JioCinema|Spotify|Vimeo|Watch).*$/i, '')
-    .replace(/\s*[-|–—]\s*Watch.*$/i, '')
-    .replace(/&amp;/g, '&')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .trim()
-    .slice(0, 50); // Limit length
-}
-
 // Get file name from path or URL
 export function getContentName(source: ContentSource): string {
   if (source.name) return source.name;
