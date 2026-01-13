@@ -8,7 +8,7 @@ export interface DebugEntry {
   uri: string;
   mimeType: string;
   detectedSize: number; // bytes, 0 if unknown
-  playbackPath: 'internal' | 'external' | 'unknown';
+  playbackPath: 'internal' | 'unknown';
   notes?: string;
 }
 

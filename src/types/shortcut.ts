@@ -43,5 +43,6 @@ export interface ContentSource {
 // File size threshold for copying vs direct access (5MB for general files)
 export const FILE_SIZE_THRESHOLD = 5 * 1024 * 1024;
 
-// Video cache threshold - videos up to this size are cached and played internally (50MB)
-export const VIDEO_CACHE_THRESHOLD = 50 * 1024 * 1024;
+// Video size limit - videos up to this size can have shortcuts created (100MB)
+// Videos larger than this cannot have shortcuts created
+export const VIDEO_CACHE_THRESHOLD = 100 * 1024 * 1024;

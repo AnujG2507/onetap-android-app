@@ -76,10 +76,9 @@ import app.onetap.shortcuts.VideoProxyActivity;
 )
 public class ShortcutPlugin extends Plugin {
 
-    // Threshold for caching videos to app storage (50MB)
-    // Videos <= this size are copied and played via internal player
-    // Videos > this size use the original file path and external player
-    private static final long VIDEO_CACHE_THRESHOLD = 50 * 1024 * 1024;
+    // Maximum video size allowed for shortcuts (100MB)
+    // Videos larger than this cannot have shortcuts created
+    private static final long VIDEO_CACHE_THRESHOLD = 100 * 1024 * 1024;
     
     // Legacy threshold for general file copying (5MB)
     private static final long FILE_SIZE_THRESHOLD = 5 * 1024 * 1024;
@@ -200,36 +199,24 @@ public class ShortcutPlugin extends Plugin {
 
                 boolean isVideo = intentType.startsWith("video/");
 
-                // IMPORTANT:
-                // - Some providers return SIZE=0 even for large files.
-                // - If size is unknown (<=0), we treat videos as "large" to avoid copying/playing internally.
-                boolean isLargeVideo = isVideo && (contentSize > VIDEO_CACHE_THRESHOLD || contentSize <= 0);
+                // Block videos larger than 100MB
+                if (isVideo && contentSize > VIDEO_CACHE_THRESHOLD) {
+                    android.util.Log.e("ShortcutPlugin", "Video too large (" + contentSize + " bytes). Maximum allowed is 100MB.");
+                    JSObject result = new JSObject();
+                    result.put("success", false);
+                    result.put("error", "Video too large. Maximum size is 100 MB.");
+                    call.resolve(result);
+                    return;
+                }
 
-                if (isLargeVideo) {
-                    android.util.Log.d("ShortcutPlugin", "Large/unknown-size video detected (" + contentSize + " bytes), keeping original URI for external player");
-
-                    // Best-effort: persist the read permission so the shortcut remains usable.
-                    persistReadPermissionIfPossible(context, dataUri);
-
-                    // Best-effort debug only: try to resolve a real path, but DO NOT convert to file://
-                    // (file:// exposures can crash on Android 7+ with FileUriExposedException).
-                    try {
-                        String realPath = getRealPathFromUri(context, dataUri);
-                        if (realPath != null && new File(realPath).exists()) {
-                            android.util.Log.d("ShortcutPlugin", "Large video real path (not used for intent): " + realPath);
-                        }
-                    } catch (Exception ignored) {
-                    }
+                // Copy to app storage for internal playback
+                Uri persistentUri = copyToAppStorage(context, dataUri, id, intentType);
+                if (persistentUri != null) {
+                    dataUri = persistentUri;
+                    android.util.Log.d("ShortcutPlugin", "Copied file to app storage: " + persistentUri);
                 } else {
-                    // Small/medium file or non-video: copy to app storage for internal playback
-                    Uri persistentUri = copyToAppStorage(context, dataUri, id, intentType);
-                    if (persistentUri != null) {
-                        dataUri = persistentUri;
-                        android.util.Log.d("ShortcutPlugin", "Copied file to app storage: " + persistentUri);
-                    } else {
-                        android.util.Log.w("ShortcutPlugin", "Copy failed; falling back to original content URI");
-                        persistReadPermissionIfPossible(context, dataUri);
-                    }
+                    android.util.Log.w("ShortcutPlugin", "Copy failed; falling back to original content URI");
+                    persistReadPermissionIfPossible(context, dataUri);
                 }
             }
         }

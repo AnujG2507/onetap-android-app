@@ -111,7 +111,7 @@ export default function DebugLog() {
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
                     <span className="truncate flex-1">{entry.shortcutName}</span>
                     <Badge
-                      variant={entry.playbackPath === 'external' ? 'secondary' : 'default'}
+                      variant="default"
                       className="shrink-0"
                     >
                       {entry.playbackPath}

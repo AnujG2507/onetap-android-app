@@ -4,8 +4,8 @@ import ShortcutPlugin from '@/plugins/ShortcutPlugin';
 import type { FileType, ContentSource } from '@/types/shortcut';
 import { VIDEO_CACHE_THRESHOLD } from '@/types/shortcut';
 
-// Maximum file size for base64 encoding - matches VIDEO_CACHE_THRESHOLD (50MB)
-// Files larger than this should be handled via Android Share flow
+// Maximum file size for base64 encoding - matches VIDEO_CACHE_THRESHOLD (100MB)
+// Videos larger than this cannot have shortcuts created
 const MAX_BASE64_SIZE = VIDEO_CACHE_THRESHOLD;
 
 // Detect file type from MIME type or extension

@@ -106,14 +106,19 @@ export async function createHomeScreenShortcut(
   const intent = buildContentIntent(shortcut);
   console.log('[ShortcutManager] Built intent:', intent);
 
-  // blob: URLs are NOT valid after app restart and cannot be used for pinned shortcuts.
-  // The native picker now returns content:// URIs with persistent permissions, so this check
-  // only applies to fallback web picker scenarios where base64 wasn't available.
+  // Check file size and block videos over 100MB
   const fileSize = shortcut.fileSize || contentSource?.fileSize || 0;
   const mimeType = shortcut.mimeType || contentSource?.mimeType || intent.type;
   const isVideo = isVideoMimeType(mimeType);
-  const isLargeVideo = isVideo && fileSize > VIDEO_CACHE_THRESHOLD;
 
+  // Block shortcuts for videos larger than 100MB
+  if (isVideo && fileSize > VIDEO_CACHE_THRESHOLD) {
+    const sizeMB = (fileSize / (1024 * 1024)).toFixed(1);
+    console.error(`[ShortcutManager] Video too large (${sizeMB} MB). Maximum allowed is 100 MB.`);
+    return false;
+  }
+
+  // blob: URLs are NOT valid after app restart and cannot be used for pinned shortcuts.
   if (
     Capacitor.isNativePlatform() &&
     shortcut.type === 'file' &&
@@ -121,8 +126,6 @@ export async function createHomeScreenShortcut(
     intent.data.startsWith('blob:') &&
     !contentSource?.fileData
   ) {
-    // This shouldn't happen on native anymore because pickFile returns content:// URIs.
-    // If it does, it's a fallback web scenario that can't be persisted.
     const sizeInfo = fileSize > 0 ? `(${(fileSize / (1024 * 1024)).toFixed(1)} MB)` : '';
     console.error(`[ShortcutManager] Cannot create shortcut from blob: URL ${sizeInfo}. Native picker should provide content:// URI.`, {
       data: intent.data,
@@ -135,15 +138,12 @@ export async function createHomeScreenShortcut(
   // Determine if this is a video - use proxy activity for videos
   const useVideoProxy = isVideo;
 
-  // Determine playback path (for debug log):
-  // - Unknown size (<=0) is treated as large by native layer.
-  const playbackPath: 'internal' | 'external' | 'unknown' =
-    isVideo ? (fileSize <= 0 || fileSize > VIDEO_CACHE_THRESHOLD ? 'external' : 'internal') : 'unknown';
+  // All videos use internal player now (max 100MB)
+  const playbackPath: 'internal' | 'external' | 'unknown' = isVideo ? 'internal' : 'unknown';
 
   if (useVideoProxy) {
     const sizeInfo = fileSize > 0 ? `(${(fileSize / (1024 * 1024)).toFixed(1)} MB)` : '(unknown size)';
-    const playerType = playbackPath === 'external' ? 'external player' : 'internal player';
-    console.log(`[ShortcutManager] Video detected ${sizeInfo}, will use VideoProxyActivity → ${playerType}`);
+    console.log(`[ShortcutManager] Video detected ${sizeInfo}, will use VideoProxyActivity → internal player`);
   }
 
   // Log debug entry for shortcut creation
