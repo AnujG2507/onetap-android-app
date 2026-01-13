@@ -105,10 +105,9 @@ export async function createHomeScreenShortcut(
   const intent = buildContentIntent(shortcut);
   console.log('[ShortcutManager] Built intent:', intent);
 
-  // If a file came from the web file input, it may be a blob: URL.
   // blob: URLs are NOT valid after app restart and cannot be used for pinned shortcuts.
-  // For videos <= VIDEO_CACHE_THRESHOLD (50MB) we pass base64 to native (cached into app storage).
-  // For bigger videos, users must share the file to OneTap (content://) so Android grants access.
+  // The native picker now returns content:// URIs with persistent permissions, so this check
+  // only applies to fallback web picker scenarios where base64 wasn't available.
   const fileSize = shortcut.fileSize || contentSource?.fileSize || 0;
   const mimeType = shortcut.mimeType || contentSource?.mimeType || intent.type;
   const isVideo = isVideoMimeType(mimeType);
@@ -121,12 +120,13 @@ export async function createHomeScreenShortcut(
     intent.data.startsWith('blob:') &&
     !contentSource?.fileData
   ) {
+    // This shouldn't happen on native anymore because pickFile returns content:// URIs.
+    // If it does, it's a fallback web scenario that can't be persisted.
     const sizeInfo = fileSize > 0 ? `(${(fileSize / (1024 * 1024)).toFixed(1)} MB)` : '';
-    console.error(`[ShortcutManager] Refusing to create pinned shortcut from blob: URL without fileData ${sizeInfo}. Use Android Share to OneTap instead.`, {
+    console.error(`[ShortcutManager] Cannot create shortcut from blob: URL ${sizeInfo}. Native picker should provide content:// URI.`, {
       data: intent.data,
       fileSize,
       mimeType,
-      isLargeVideo,
     });
     return false;
   }
