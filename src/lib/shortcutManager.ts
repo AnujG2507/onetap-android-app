@@ -2,6 +2,7 @@ import { Capacitor } from '@capacitor/core';
 import ShortcutPlugin from '@/plugins/ShortcutPlugin';
 import type { ShortcutData } from '@/types/shortcut';
 import { FILE_SIZE_THRESHOLD, VIDEO_CACHE_THRESHOLD } from '@/types/shortcut';
+import { logDebugEntry } from '@/hooks/useDebugLog';
 
 export interface ShortcutIntent {
   action: string;
@@ -134,10 +135,40 @@ export async function createHomeScreenShortcut(
   // Determine if this is a video - use proxy activity for videos
   const useVideoProxy = isVideo;
 
+  // Determine playback path (for debug log):
+  // - Unknown size (<=0) is treated as large by native layer.
+  const playbackPath: 'internal' | 'external' | 'unknown' =
+    isVideo ? (fileSize <= 0 || fileSize > VIDEO_CACHE_THRESHOLD ? 'external' : 'internal') : 'unknown';
+
   if (useVideoProxy) {
-    const sizeInfo = fileSize > 0 ? `(${(fileSize / (1024 * 1024)).toFixed(1)} MB)` : '';
-    const playerType = isLargeVideo ? 'external player' : 'internal player';
+    const sizeInfo = fileSize > 0 ? `(${(fileSize / (1024 * 1024)).toFixed(1)} MB)` : '(unknown size)';
+    const playerType = playbackPath === 'external' ? 'external player' : 'internal player';
     console.log(`[ShortcutManager] Video detected ${sizeInfo}, will use VideoProxyActivity → ${playerType}`);
+  }
+
+  // Log debug entry for shortcut creation
+  try {
+    const uriScheme = (() => {
+      try {
+        const parsed = new URL(intent.data);
+        return parsed.protocol.replace(':', '');
+      } catch {
+        const colonIdx = intent.data.indexOf(':');
+        return colonIdx > 0 ? intent.data.substring(0, colonIdx) : 'unknown';
+      }
+    })();
+
+    logDebugEntry({
+      shortcutName: shortcut.name,
+      uriScheme,
+      uri: intent.data,
+      mimeType: mimeType || '',
+      detectedSize: fileSize,
+      playbackPath,
+      notes: `Created shortcut, isLargeFile=${!!contentSource?.isLargeFile}`,
+    });
+  } catch (e) {
+    console.warn('[ShortcutManager] Debug log failed:', e);
   }
   
   try {
