@@ -70,7 +70,12 @@ import app.onetap.shortcuts.VideoProxyActivity;
 )
 public class ShortcutPlugin extends Plugin {
 
-    // 5MB threshold for file copying
+    // Threshold for caching videos to app storage (50MB)
+    // Videos <= this size are copied and played via internal player
+    // Videos > this size use the original file path and external player
+    private static final long VIDEO_CACHE_THRESHOLD = 50 * 1024 * 1024;
+    
+    // Legacy threshold for general file copying (5MB)
     private static final long FILE_SIZE_THRESHOLD = 5 * 1024 * 1024;
     
     private PluginCall pendingPermissionCall;
@@ -181,13 +186,32 @@ public class ShortcutPlugin extends Plugin {
                 long contentSize = getContentSize(context, dataUri);
                 android.util.Log.d("ShortcutPlugin", "Content size: " + contentSize);
 
-                Uri persistentUri = copyToAppStorage(context, dataUri, id, intentType);
-                if (persistentUri != null) {
-                    dataUri = persistentUri;
-                    android.util.Log.d("ShortcutPlugin", "Copied file to app storage: " + persistentUri);
+                boolean isVideo = intentType.startsWith("video/");
+                boolean isLargeVideo = isVideo && contentSize > VIDEO_CACHE_THRESHOLD;
+
+                if (isLargeVideo) {
+                    // Large video: try to get the real file path for external player
+                    android.util.Log.d("ShortcutPlugin", "Large video detected (" + contentSize + " bytes), using external player path");
+                    String realPath = getRealPathFromUri(context, dataUri);
+                    if (realPath != null && new File(realPath).exists()) {
+                        // Use file:// URI for direct access by external players
+                        dataUri = Uri.fromFile(new File(realPath));
+                        android.util.Log.d("ShortcutPlugin", "Using real file path: " + realPath);
+                    } else {
+                        // Fallback: keep the content:// URI but mark for external player
+                        android.util.Log.d("ShortcutPlugin", "Could not resolve real path, keeping content:// URI for external player");
+                        persistReadPermissionIfPossible(context, dataUri);
+                    }
                 } else {
-                    android.util.Log.w("ShortcutPlugin", "Copy failed; falling back to original content URI");
-                    persistReadPermissionIfPossible(context, dataUri);
+                    // Small/medium file or non-video: copy to app storage for internal playback
+                    Uri persistentUri = copyToAppStorage(context, dataUri, id, intentType);
+                    if (persistentUri != null) {
+                        dataUri = persistentUri;
+                        android.util.Log.d("ShortcutPlugin", "Copied file to app storage: " + persistentUri);
+                    } else {
+                        android.util.Log.w("ShortcutPlugin", "Copy failed; falling back to original content URI");
+                        persistReadPermissionIfPossible(context, dataUri);
+                    }
                 }
             }
         }

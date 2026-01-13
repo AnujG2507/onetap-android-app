@@ -136,9 +136,10 @@ const Index = () => {
       setStep('success');
     } else {
       console.error('[Index] Failed to create shortcut');
-      // Common cause: large files picked via the web file input become blob: URLs, which cannot be pinned.
+      // Common cause: very large files (>50MB) picked via web file input become blob: URLs
+      // For videos >50MB, users should use Share → OneTap from their Gallery/File Manager
       window.alert(
-        'Could not create this shortcut.\n\nIf this is a large video, please open it in your Gallery/File Manager and use Share → OneTap, then create the shortcut from the shared item.'
+        'Could not create this shortcut.\n\nFor very large videos (>50MB), please open the video in your Gallery or File Manager and use Share → OneTap to create a shortcut.'
       );
     }
   };

@@ -1,7 +1,7 @@
 import { Capacitor } from '@capacitor/core';
 import ShortcutPlugin from '@/plugins/ShortcutPlugin';
 import type { ShortcutData } from '@/types/shortcut';
-import { FILE_SIZE_THRESHOLD } from '@/types/shortcut';
+import { FILE_SIZE_THRESHOLD, VIDEO_CACHE_THRESHOLD } from '@/types/shortcut';
 
 export interface ShortcutIntent {
   action: string;
@@ -107,8 +107,13 @@ export async function createHomeScreenShortcut(
 
   // If a file came from the web file input, it may be a blob: URL.
   // blob: URLs are NOT valid after app restart and cannot be used for pinned shortcuts.
-  // For videos <= MAX_BASE64_SIZE we pass base64 to native (cached into app storage).
+  // For videos <= VIDEO_CACHE_THRESHOLD (50MB) we pass base64 to native (cached into app storage).
   // For bigger videos, users must share the file to OneTap (content://) so Android grants access.
+  const fileSize = shortcut.fileSize || contentSource?.fileSize || 0;
+  const mimeType = shortcut.mimeType || contentSource?.mimeType || intent.type;
+  const isVideo = isVideoMimeType(mimeType);
+  const isLargeVideo = isVideo && fileSize > VIDEO_CACHE_THRESHOLD;
+
   if (
     Capacitor.isNativePlatform() &&
     shortcut.type === 'file' &&
@@ -116,20 +121,23 @@ export async function createHomeScreenShortcut(
     intent.data.startsWith('blob:') &&
     !contentSource?.fileData
   ) {
-    console.error('[ShortcutManager] Refusing to create pinned shortcut from blob: URL without fileData. Use Android Share to OneTap instead.', {
+    const sizeInfo = fileSize > 0 ? `(${(fileSize / (1024 * 1024)).toFixed(1)} MB)` : '';
+    console.error(`[ShortcutManager] Refusing to create pinned shortcut from blob: URL without fileData ${sizeInfo}. Use Android Share to OneTap instead.`, {
       data: intent.data,
-      fileSize: shortcut.fileSize || contentSource?.fileSize,
-      mimeType: shortcut.mimeType || contentSource?.mimeType || intent.type,
+      fileSize,
+      mimeType,
+      isLargeVideo,
     });
     return false;
   }
 
   // Determine if this is a video - use proxy activity for videos
-  const mimeType = shortcut.mimeType || contentSource?.mimeType || intent.type;
-  const useVideoProxy = isVideoMimeType(mimeType);
+  const useVideoProxy = isVideo;
 
   if (useVideoProxy) {
-    console.log('[ShortcutManager] Video detected, will use VideoProxyActivity');
+    const sizeInfo = fileSize > 0 ? `(${(fileSize / (1024 * 1024)).toFixed(1)} MB)` : '';
+    const playerType = isLargeVideo ? 'external player' : 'internal player';
+    console.log(`[ShortcutManager] Video detected ${sizeInfo}, will use VideoProxyActivity → ${playerType}`);
   }
   
   try {

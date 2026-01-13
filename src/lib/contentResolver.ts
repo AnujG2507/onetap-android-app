@@ -1,8 +1,10 @@
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import type { FileType, ContentSource } from '@/types/shortcut';
+import { VIDEO_CACHE_THRESHOLD } from '@/types/shortcut';
 
-// Maximum file size for base64 encoding (≈14MB). Base64 expands size ~33%, so this stays under native limits.
-const MAX_BASE64_SIZE = 14 * 1024 * 1024;
+// Maximum file size for base64 encoding - matches VIDEO_CACHE_THRESHOLD (50MB)
+// Files larger than this should be handled via Android Share flow
+const MAX_BASE64_SIZE = VIDEO_CACHE_THRESHOLD;
 
 // Detect file type from MIME type or extension
 export function detectFileType(mimeType?: string, filename?: string): FileType {

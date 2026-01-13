@@ -40,5 +40,8 @@ export interface ContentSource {
   thumbnailData?: string;
 }
 
-// File size threshold for copying vs direct access (5MB)
+// File size threshold for copying vs direct access (5MB for general files)
 export const FILE_SIZE_THRESHOLD = 5 * 1024 * 1024;
+
+// Video cache threshold - videos up to this size are cached and played internally (50MB)
+export const VIDEO_CACHE_THRESHOLD = 50 * 1024 * 1024;
