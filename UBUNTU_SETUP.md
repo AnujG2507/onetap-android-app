@@ -20,7 +20,10 @@ rm -rf android
 Only do this if you want a truly clean machine:
 
 ```bash
-sudo apt remove --purge -y openjdk-17-jdk openjdk-21-jdk gradle
+sudo apt remove --purge -y openjdk-17-jdk openjdk-21-jdk
+
+# Uninstall Gradle from SDKMAN (if installed via sdk)
+sdk uninstall gradle 8.5 2>/dev/null || true
 sudo apt autoremove -y
 
 # If you installed Android Studio under /opt like in this guide
@@ -157,13 +160,18 @@ yes | sdkmanager --licenses
 
 ---
 
-## Part 5: Install Gradle (for wrapper generation)
+## Part 5: Install Gradle via SDKMAN (for wrapper generation)
 
 ```bash
-sudo apt install -y gradle
+# Install SDKMAN if not already installed
+curl -s "https://get.sdkman.io" | bash
+source "$HOME/.sdkman/bin/sdkman-init.sh"
+
+# Install Gradle 8.5
+sdk install gradle 8.5
 
 # Verify
-gradle -v
+gradle -v   # Should show Gradle 8.5
 ```
 
 ---
