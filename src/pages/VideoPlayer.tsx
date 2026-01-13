@@ -1,83 +1,62 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
-import { ArrowLeft, AlertCircle, Loader2 } from 'lucide-react';
+import { ArrowLeft, AlertCircle, Loader2, RefreshCw } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import ShortcutPlugin from '@/plugins/ShortcutPlugin';
 
-async function probeUrl(url: string): Promise<{ ok: boolean; status?: number; contentType?: string; hint?: string }> {
+/**
+ * Resolve a URI to a playable file path.
+ * Returns the absolute file path (not a web URL) for native file access.
+ */
+async function resolveToFilePath(uri: string): Promise<string | null> {
   try {
-    const res = await fetch(url, {
-      method: 'GET',
-      headers: {
-        Range: 'bytes=0-2047',
-      },
-      cache: 'no-store',
-    });
-
-    const contentType = res.headers.get('content-type') || undefined;
-
-    if (!res.ok) {
-      return { ok: false, status: res.status, contentType, hint: 'HTTP not ok' };
-    }
-
-    // Detect common failure mode: HTML error page from the file server.
-    const snippet = await res.text();
-    const looksHtml = /<!doctype html|<html/i.test(snippet);
-    if (looksHtml) {
-      return { ok: false, status: res.status, contentType, hint: 'Got HTML instead of video' };
-    }
-
-    return { ok: true, status: res.status, contentType };
-  } catch (e) {
-    return { ok: false, hint: `probe fetch failed: ${String(e)}` };
-  }
-}
-
-function normalizeAbsolutePath(p: string): string {
-  if (p.startsWith('file://')) return p;
-  if (p.startsWith('/')) return `file://${p}`;
-  return p;
-}
-
-async function resolveToPlayableSrc(uri: string, cacheBuster?: string): Promise<{ src: string; resolvedPath?: string } | null> {
-  try {
-    let baseSrc: string | null = null;
-    let resolvedPath: string | undefined;
-
     // content:// -> resolve to absolute file path in app storage
     if (uri.startsWith('content://')) {
       const resolved = await ShortcutPlugin.resolveContentUri({ contentUri: uri });
       console.log('[VideoPlayer] resolveContentUri result:', resolved);
 
-      if (!resolved?.success || !resolved.filePath) return null;
+      if (!resolved?.success || !resolved.filePath) {
+        console.error('[VideoPlayer] resolveContentUri failed:', resolved?.error);
+        return null;
+      }
 
-      const fileUri = normalizeAbsolutePath(resolved.filePath.startsWith('file://') ? resolved.filePath : resolved.filePath);
-      baseSrc = Capacitor.convertFileSrc(fileUri);
-      resolvedPath = resolved.filePath;
-    }
-    // file:// or /absolute/path
-    else if (uri.startsWith('file://') || uri.startsWith('/')) {
-      const fileUri = normalizeAbsolutePath(uri);
-      baseSrc = Capacitor.convertFileSrc(fileUri);
-      resolvedPath = uri.startsWith('file://') ? uri.replace('file://', '') : uri;
-    }
-    // Already a web URL (unlikely for local playback, but handle gracefully)
-    else {
-      baseSrc = uri;
+      return resolved.filePath;
     }
 
-    if (!baseSrc) return null;
+    // file:// scheme -> extract path
+    if (uri.startsWith('file://')) {
+      return uri.replace('file://', '');
+    }
 
-    // Add cache-buster to prevent WebView from serving stale/broken cached responses
-    const separator = baseSrc.includes('?') ? '&' : '?';
-    const src = `${baseSrc}${separator}_cb=${cacheBuster || Date.now()}`;
+    // Already an absolute path
+    if (uri.startsWith('/')) {
+      return uri;
+    }
 
-    return { src, resolvedPath };
+    // Unknown scheme, return as-is (might be a web URL)
+    return uri;
   } catch (e) {
-    console.error('[VideoPlayer] resolveToPlayableSrc error:', e);
+    console.error('[VideoPlayer] resolveToFilePath error:', e);
     return null;
   }
+}
+
+/**
+ * Convert a file path to a URL the WebView can play.
+ * On native platforms, uses Capacitor's file server.
+ */
+function filePathToPlayableUrl(filePath: string): string {
+  // Ensure it has file:// prefix for Capacitor
+  const fileUri = filePath.startsWith('file://') ? filePath : `file://${filePath}`;
+  
+  if (Capacitor.isNativePlatform()) {
+    // Capacitor converts file:// to http://localhost/_capacitor_file_/...
+    return Capacitor.convertFileSrc(fileUri);
+  }
+  
+  // On web, just return the path (won't work but useful for debugging)
+  return fileUri;
 }
 
 const VideoPlayer = () => {
@@ -85,198 +64,256 @@ const VideoPlayer = () => {
   const navigate = useNavigate();
 
   const videoRef = useRef<HTMLVideoElement>(null);
-  const retriesRef = useRef(0);
-  const sessionIdRef = useRef(Date.now().toString()); // Unique per mount
+  const mountIdRef = useRef(Date.now());
 
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [debugInfo, setDebugInfo] = useState<string | null>(null);
-  const [playbackSrc, setPlaybackSrc] = useState<string | null>(null);
+  const [state, setState] = useState<'loading' | 'ready' | 'playing' | 'error'>('loading');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<string>('');
+  const [resolvedPath, setResolvedPath] = useState<string | null>(null);
+  const [playableUrl, setPlayableUrl] = useState<string | null>(null);
 
   const videoUri = searchParams.get('uri');
   const nonce = searchParams.get('t');
 
-  const attemptRef = useRef<() => void>(() => {});
+  // Resolve the URI to a playable URL
+  useEffect(() => {
+    // Reset state on each mount/navigation
+    mountIdRef.current = Date.now();
+    setState('loading');
+    setErrorMessage(null);
+    setDebugInfo('');
+    setResolvedPath(null);
+    setPlayableUrl(null);
 
-  attemptRef.current = async () => {
     if (!videoUri) {
-      setError('No video URI provided');
-      setIsLoading(false);
+      setState('error');
+      setErrorMessage('No video URI provided');
       return;
     }
 
-    console.log('[VideoPlayer] attempt', { retry: retriesRef.current, videoUri, nonce });
+    const currentMountId = mountIdRef.current;
 
-    // Use nonce + sessionId as cache buster to ensure fresh load each time
-    const cacheBuster = `${nonce || ''}_${sessionIdRef.current}_${retriesRef.current}`;
-    const resolved = await resolveToPlayableSrc(videoUri, cacheBuster);
-    if (!resolved) {
-      setDebugInfo('resolveToPlayableSrc returned null');
-      setError('Unable to open video. Please try again.');
-      setIsLoading(false);
-      return;
-    }
+    const resolve = async () => {
+      console.log('[VideoPlayer] Resolving URI:', videoUri, 'nonce:', nonce);
 
-    // Optional native sanity check: file exists and is non-empty
-    if (Capacitor.isNativePlatform() && resolved.resolvedPath) {
-      try {
-        const info = await ShortcutPlugin.getFileInfo({ path: resolved.resolvedPath });
-        console.log('[VideoPlayer] getFileInfo:', info);
-        if (!info.success) {
-          setDebugInfo(`getFileInfo failed: ${info.error || 'unknown'}`);
-        } else if (info.size === 0) {
-          setDebugInfo('Video file is empty (0 bytes)');
-          setError('Video file is empty.');
-          setIsLoading(false);
-          return;
-        }
-      } catch (e) {
-        console.warn('[VideoPlayer] getFileInfo threw (non-fatal):', e);
-      }
-    }
-
-    // On native platforms, skip fetch-based probe (CORS issues with file:// URLs).
-    // The getFileInfo check above is sufficient. On web, probe can help detect server issues.
-    if (!Capacitor.isNativePlatform()) {
-      const probe = await probeUrl(resolved.src);
-      console.log('[VideoPlayer] probe:', probe);
-      if (!probe.ok) {
-        setDebugInfo(`probe failed: ${probe.hint || 'unknown'} status=${probe.status ?? '?'} ct=${probe.contentType ?? '?'}`);
-        if (retriesRef.current < 3) {
-          retriesRef.current += 1;
-          setTimeout(() => attemptRef.current(), 700);
-          return;
-        }
-        setError('Unable to load video stream.');
-        setIsLoading(false);
+      const filePath = await resolveToFilePath(videoUri);
+      
+      if (mountIdRef.current !== currentMountId) {
+        console.log('[VideoPlayer] Mount changed during resolve, aborting');
         return;
       }
-    } else {
-      console.log('[VideoPlayer] Skipping probe on native platform, using file directly');
-    }
 
-    setPlaybackSrc(resolved.src);
-    setIsLoading(false);
-
-    // Clear shared intent ONLY after we have a confirmed playable src.
-    if (Capacitor.isNativePlatform()) {
-      try {
-        await ShortcutPlugin.clearSharedIntent();
-        console.log('[VideoPlayer] Cleared shared intent (post-resolve)');
-      } catch (e) {
-        console.log('[VideoPlayer] clearSharedIntent failed (non-fatal):', e);
+      if (!filePath) {
+        setState('error');
+        setErrorMessage('Could not locate video file');
+        setDebugInfo(`URI: ${videoUri}`);
+        return;
       }
+
+      console.log('[VideoPlayer] Resolved to file path:', filePath);
+      setResolvedPath(filePath);
+
+      // Verify file exists and get size (on native)
+      if (Capacitor.isNativePlatform()) {
+        try {
+          const info = await ShortcutPlugin.getFileInfo({ path: filePath });
+          console.log('[VideoPlayer] File info:', info);
+          
+          if (!info.success) {
+            setState('error');
+            setErrorMessage('Video file not accessible');
+            setDebugInfo(`Path: ${filePath}\nError: ${info.error || 'Unknown'}`);
+            return;
+          }
+
+          if (info.size === 0) {
+            setState('error');
+            setErrorMessage('Video file is empty');
+            setDebugInfo(`Path: ${filePath}`);
+            return;
+          }
+
+          // Log file size for debugging large files
+          const sizeMB = ((info.size || 0) / (1024 * 1024)).toFixed(2);
+          console.log(`[VideoPlayer] File size: ${sizeMB} MB`);
+          setDebugInfo(`File: ${info.name || 'unknown'} (${sizeMB} MB)`);
+        } catch (e) {
+          console.warn('[VideoPlayer] getFileInfo failed (continuing anyway):', e);
+        }
+      }
+
+      // Convert to playable URL
+      const url = filePathToPlayableUrl(filePath);
+      console.log('[VideoPlayer] Playable URL:', url);
+      
+      if (mountIdRef.current !== currentMountId) return;
+      
+      setPlayableUrl(url);
+      setState('ready');
+    };
+
+    resolve();
+
+    // Clear shared intent after starting to resolve
+    if (Capacitor.isNativePlatform()) {
+      ShortcutPlugin.clearSharedIntent().catch(() => {});
     }
-  };
-
-  // Reset on new navigation (nonce changes for repeated shortcut taps)
-  useEffect(() => {
-    // Generate new session ID for each navigation to bust caches
-    sessionIdRef.current = Date.now().toString();
-    retriesRef.current = 0;
-    setIsLoading(true);
-    setError(null);
-    setDebugInfo(null);
-    setPlaybackSrc(null);
-
-    attemptRef.current();
   }, [videoUri, nonce]);
 
-  // Drive the HTMLVideoElement explicitly; avoid <source type=...> because wrong types cause false “unsupported”.
+  // Handle video element setup when URL is ready
   useEffect(() => {
     const el = videoRef.current;
-    if (!el || !playbackSrc) return;
+    if (!el || !playableUrl || state !== 'ready') return;
 
-    let cancelled = false;
+    console.log('[VideoPlayer] Setting video source:', playableUrl);
 
-    const kick = () => {
-      if (cancelled) return;
-      try {
-        console.log('[VideoPlayer] load/play', { playbackSrc });
-        el.src = playbackSrc;
-        el.load();
-        el.play().catch((e) => console.warn('[VideoPlayer] play() failed:', e));
-      } catch (e) {
-        console.warn('[VideoPlayer] load/play threw:', e);
+    // Set up event handlers
+    const handleCanPlay = () => {
+      console.log('[VideoPlayer] canplay event');
+      setState('playing');
+    };
+
+    const handleError = () => {
+      const err = el.error;
+      const code = err?.code || 0;
+      const codeNames: Record<number, string> = {
+        1: 'MEDIA_ERR_ABORTED',
+        2: 'MEDIA_ERR_NETWORK',
+        3: 'MEDIA_ERR_DECODE',
+        4: 'MEDIA_ERR_SRC_NOT_SUPPORTED',
+      };
+
+      console.error('[VideoPlayer] Video error:', {
+        code,
+        codeName: codeNames[code] || 'UNKNOWN',
+        message: err?.message,
+        networkState: el.networkState,
+        readyState: el.readyState,
+        src: el.src,
+      });
+
+      setState('error');
+      
+      if (code === 4) {
+        setErrorMessage('This video format is not supported by your device');
+      } else if (code === 2) {
+        setErrorMessage('Network error while loading video');
+      } else if (code === 3) {
+        setErrorMessage('Video file appears to be corrupted');
+      } else {
+        setErrorMessage('Unable to play this video');
+      }
+
+      setDebugInfo(
+        `Error: ${codeNames[code] || 'UNKNOWN'} (${code})\n` +
+        `Network: ${el.networkState}, Ready: ${el.readyState}\n` +
+        `Path: ${resolvedPath || 'unknown'}`
+      );
+    };
+
+    const handleLoadStart = () => {
+      console.log('[VideoPlayer] loadstart event');
+    };
+
+    const handleProgress = () => {
+      if (el.buffered.length > 0) {
+        const bufferedEnd = el.buffered.end(el.buffered.length - 1);
+        const duration = el.duration || 0;
+        const percent = duration > 0 ? ((bufferedEnd / duration) * 100).toFixed(1) : '?';
+        console.log(`[VideoPlayer] Buffered: ${percent}%`);
       }
     };
 
-    const t = window.setTimeout(() => {
-      requestAnimationFrame(() => requestAnimationFrame(kick));
-    }, 50);
+    el.addEventListener('canplay', handleCanPlay);
+    el.addEventListener('error', handleError);
+    el.addEventListener('loadstart', handleLoadStart);
+    el.addEventListener('progress', handleProgress);
+
+    // Set the source directly
+    el.src = playableUrl;
+    el.load();
+
+    // Auto-play with user gesture fallback
+    const playPromise = el.play();
+    if (playPromise) {
+      playPromise.catch((e) => {
+        console.warn('[VideoPlayer] Autoplay failed:', e.message);
+        // User may need to tap play button
+      });
+    }
 
     return () => {
-      cancelled = true;
-      window.clearTimeout(t);
-      try {
-        el.pause();
-        el.removeAttribute('src');
-        el.load();
-      } catch {
-        // ignore
-      }
+      el.removeEventListener('canplay', handleCanPlay);
+      el.removeEventListener('error', handleError);
+      el.removeEventListener('loadstart', handleLoadStart);
+      el.removeEventListener('progress', handleProgress);
+      
+      // Clean up video element
+      el.pause();
+      el.removeAttribute('src');
+      el.load();
     };
-  }, [playbackSrc]);
+  }, [playableUrl, state, resolvedPath]);
 
   const handleBack = () => navigate('/');
 
-  const handleVideoError = useCallback(async () => {
-    const el = videoRef.current;
-    const err = el?.error;
+  const handleRetry = () => {
+    // Force re-resolve by updating the mount ID
+    mountIdRef.current = Date.now();
+    setState('loading');
+    setErrorMessage(null);
+    setDebugInfo('');
+    setResolvedPath(null);
+    setPlayableUrl(null);
 
-    let probeDetails = '';
-    if (playbackSrc) {
-      const probe = await probeUrl(playbackSrc);
-      probeDetails = ` | probe=${probe.ok ? 'ok' : 'bad'}:${probe.hint || ''} status=${probe.status ?? '?'} ct=${probe.contentType ?? '?'}`;
-    }
+    // Re-trigger the effect by navigating with new timestamp
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set('t', Date.now().toString());
+    navigate(`/video-player?${newParams.toString()}`, { replace: true });
+  };
 
-    const details = [
-      err ? `MediaError code=${err.code}` : 'MediaError missing',
-      el ? `networkState=${el.networkState}` : 'networkState=?',
-      el ? `readyState=${el.readyState}` : 'readyState=?',
-      playbackSrc ? `src=${playbackSrc}` : 'src=?',
-    ].join(' | ') + probeDetails;
-
-    console.error('[VideoPlayer] video error', details);
-    setDebugInfo(details);
-
-    if (retriesRef.current < 3) {
-      retriesRef.current += 1;
-      setIsLoading(true);
-      setTimeout(() => attemptRef.current(), 700);
-      return;
-    }
-
-    setIsLoading(false);
-    setError('Unable to play this video. The file may be corrupted or in an unsupported format.');
-  }, [playbackSrc]);
-
-  if (isLoading) {
+  // Loading state
+  if (state === 'loading') {
     return (
       <div className="min-h-screen bg-black flex flex-col items-center justify-center p-4">
         <Loader2 className="h-12 w-12 text-white animate-spin mb-4" />
-        <p className="text-muted-foreground">Loading video...</p>
+        <p className="text-muted-foreground text-center">Loading video...</p>
+        {debugInfo && (
+          <p className="text-xs text-muted-foreground/50 mt-2 text-center">{debugInfo}</p>
+        )}
       </div>
     );
   }
 
-  if (error || !videoUri) {
+  // Error state
+  if (state === 'error') {
     return (
       <div className="min-h-screen bg-black flex flex-col items-center justify-center p-4">
-        <div className="text-center">
+        <div className="text-center max-w-md">
           <AlertCircle className="h-16 w-16 text-destructive mx-auto mb-4" />
           <h2 className="text-xl font-semibold text-white mb-2">Cannot Play Video</h2>
-          <p className="text-muted-foreground mb-6">{error || 'No video URI provided'}</p>
-          {debugInfo && <p className="text-xs text-muted-foreground/60 mb-4 font-mono">{debugInfo}</p>}
-          <Button onClick={handleBack} variant="outline">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Go Back
-          </Button>
+          <p className="text-muted-foreground mb-4">{errorMessage || 'An unknown error occurred'}</p>
+          {debugInfo && (
+            <pre className="text-xs text-muted-foreground/60 mb-6 font-mono whitespace-pre-wrap text-left bg-white/5 p-3 rounded">
+              {debugInfo}
+            </pre>
+          )}
+          <div className="flex gap-3 justify-center">
+            <Button onClick={handleRetry} variant="outline">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Retry
+            </Button>
+            <Button onClick={handleBack} variant="ghost">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Go Back
+            </Button>
+          </div>
         </div>
       </div>
     );
   }
 
+  // Ready/Playing state - show video
   return (
     <div className="min-h-screen bg-black flex flex-col">
       <header className="absolute top-0 left-0 right-0 z-10 p-4 bg-gradient-to-b from-black/80 to-transparent">
@@ -285,15 +322,19 @@ const VideoPlayer = () => {
         </Button>
       </header>
 
-      <div className="flex-1 flex items-center justify-center">
+      <div className="flex-1 flex items-center justify-center relative">
+        {state === 'ready' && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <Loader2 className="h-10 w-10 text-white/50 animate-spin" />
+          </div>
+        )}
         <video
           ref={videoRef}
-          key={`video-${sessionIdRef.current}-${nonce ?? ''}`}
+          key={`video-${mountIdRef.current}`}
           className="max-w-full max-h-full w-full h-full object-contain"
           controls
-          autoPlay
           playsInline
-          onError={handleVideoError}
+          preload="auto"
         />
       </div>
     </div>
