@@ -40,8 +40,11 @@ function normalizeAbsolutePath(p: string): string {
   return p;
 }
 
-async function resolveToPlayableSrc(uri: string): Promise<{ src: string; resolvedPath?: string } | null> {
+async function resolveToPlayableSrc(uri: string, cacheBuster?: string): Promise<{ src: string; resolvedPath?: string } | null> {
   try {
+    let baseSrc: string | null = null;
+    let resolvedPath: string | undefined;
+
     // content:// -> resolve to absolute file path in app storage
     if (uri.startsWith('content://')) {
       const resolved = await ShortcutPlugin.resolveContentUri({ contentUri: uri });
@@ -50,19 +53,27 @@ async function resolveToPlayableSrc(uri: string): Promise<{ src: string; resolve
       if (!resolved?.success || !resolved.filePath) return null;
 
       const fileUri = normalizeAbsolutePath(resolved.filePath.startsWith('file://') ? resolved.filePath : resolved.filePath);
-      const src = Capacitor.convertFileSrc(fileUri);
-      return { src, resolvedPath: resolved.filePath };
+      baseSrc = Capacitor.convertFileSrc(fileUri);
+      resolvedPath = resolved.filePath;
     }
-
     // file:// or /absolute/path
-    if (uri.startsWith('file://') || uri.startsWith('/')) {
+    else if (uri.startsWith('file://') || uri.startsWith('/')) {
       const fileUri = normalizeAbsolutePath(uri);
-      const src = Capacitor.convertFileSrc(fileUri);
-      return { src, resolvedPath: uri.startsWith('file://') ? uri.replace('file://', '') : uri };
+      baseSrc = Capacitor.convertFileSrc(fileUri);
+      resolvedPath = uri.startsWith('file://') ? uri.replace('file://', '') : uri;
+    }
+    // Already a web URL (unlikely for local playback, but handle gracefully)
+    else {
+      baseSrc = uri;
     }
 
-    // Already a web URL (unlikely for local playback, but handle gracefully)
-    return { src: uri };
+    if (!baseSrc) return null;
+
+    // Add cache-buster to prevent WebView from serving stale/broken cached responses
+    const separator = baseSrc.includes('?') ? '&' : '?';
+    const src = `${baseSrc}${separator}_cb=${cacheBuster || Date.now()}`;
+
+    return { src, resolvedPath };
   } catch (e) {
     console.error('[VideoPlayer] resolveToPlayableSrc error:', e);
     return null;
@@ -75,12 +86,12 @@ const VideoPlayer = () => {
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const retriesRef = useRef(0);
+  const sessionIdRef = useRef(Date.now().toString()); // Unique per mount
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [debugInfo, setDebugInfo] = useState<string | null>(null);
   const [playbackSrc, setPlaybackSrc] = useState<string | null>(null);
-  const [hasClearedIntent, setHasClearedIntent] = useState(false);
 
   const videoUri = searchParams.get('uri');
   const nonce = searchParams.get('t');
@@ -96,7 +107,9 @@ const VideoPlayer = () => {
 
     console.log('[VideoPlayer] attempt', { retry: retriesRef.current, videoUri, nonce });
 
-    const resolved = await resolveToPlayableSrc(videoUri);
+    // Use nonce + sessionId as cache buster to ensure fresh load each time
+    const cacheBuster = `${nonce || ''}_${sessionIdRef.current}_${retriesRef.current}`;
+    const resolved = await resolveToPlayableSrc(videoUri, cacheBuster);
     if (!resolved) {
       setDebugInfo('resolveToPlayableSrc returned null');
       setError('Unable to open video. Please try again.');
@@ -158,6 +171,8 @@ const VideoPlayer = () => {
 
   // Reset on new navigation (nonce changes for repeated shortcut taps)
   useEffect(() => {
+    // Generate new session ID for each navigation to bust caches
+    sessionIdRef.current = Date.now().toString();
     retriesRef.current = 0;
     setIsLoading(true);
     setError(null);
@@ -273,7 +288,7 @@ const VideoPlayer = () => {
       <div className="flex-1 flex items-center justify-center">
         <video
           ref={videoRef}
-          key={`${nonce ?? ''}-${playbackSrc ?? ''}`}
+          key={`video-${sessionIdRef.current}-${nonce ?? ''}`}
           className="max-w-full max-h-full w-full h-full object-contain"
           controls
           autoPlay
