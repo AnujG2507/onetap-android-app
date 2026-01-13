@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
  * Patch the generated Capacitor Android project for:
+ * - Copy custom native files from native/android/ to android/
  * - Java / Gradle compatibility (update Gradle wrapper)
  * - Minimum Android version (minSdkVersion = 31 / Android 12)
  *
@@ -8,13 +9,14 @@
  *   node scripts/android/patch-android-project.mjs
  *
  * Optional env vars:
- *   JAVA_HOME_17=/path/to/jdk17   (recommended)
+ *   JAVA_HOME_21=/path/to/jdk21   (recommended)
  */
 
 import fs from "node:fs";
 import path from "node:path";
 
 const ANDROID_DIR = path.resolve("android");
+const NATIVE_ANDROID_DIR = path.resolve("native/android");
 const MIN_SDK = 31; // Android 12
 const COMPILE_SDK = 36;
 const TARGET_SDK = 36;
@@ -249,6 +251,46 @@ function patchGradleJavaHome() {
   }
 }
 
+/**
+ * Recursively copy files from source to destination
+ * @param {string} src - Source directory
+ * @param {string} dest - Destination directory
+ */
+function copyDirRecursive(src, dest) {
+  if (!fileExists(src)) return;
+  
+  const entries = fs.readdirSync(src, { withFileTypes: true });
+  
+  for (const entry of entries) {
+    const srcPath = path.join(src, entry.name);
+    const destPath = path.join(dest, entry.name);
+    
+    if (entry.isDirectory()) {
+      ensureDir(destPath);
+      copyDirRecursive(srcPath, destPath);
+    } else {
+      ensureDir(path.dirname(destPath));
+      fs.copyFileSync(srcPath, destPath);
+      console.log(`[patch-android] Copied: ${path.relative(process.cwd(), destPath)}`);
+    }
+  }
+}
+
+/**
+ * Copy custom native files from native/android/ to android/
+ * This merges our custom Java files, manifest, and resources into the generated project
+ */
+function copyNativeFiles() {
+  if (!fileExists(NATIVE_ANDROID_DIR)) {
+    console.log(`[patch-android] No native/android/ directory found, skipping native file copy.`);
+    return;
+  }
+  
+  console.log(`[patch-android] Copying custom native files from native/android/ to android/...`);
+  copyDirRecursive(NATIVE_ANDROID_DIR, ANDROID_DIR);
+  console.log(`[patch-android] Native files copied successfully.`);
+}
+
 function main() {
   if (!fileExists(ANDROID_DIR)) {
     console.error(
@@ -257,6 +299,10 @@ function main() {
     process.exit(1);
   }
 
+  // FIRST: Copy custom native files (ShortcutPlugin, MainActivity, etc.)
+  copyNativeFiles();
+
+  // THEN: Apply patches
   patchGradleWrapper();
   patchGradleJavaHome();
   patchAgpVersion();
