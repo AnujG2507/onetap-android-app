@@ -16,11 +16,12 @@ import path from "node:path";
 
 const ANDROID_DIR = path.resolve("android");
 const MIN_SDK = 31; // Android 12
-const COMPILE_SDK = 34;
-const TARGET_SDK = 34;
-// Keep this conservative for Android tooling + JDK17 compatibility.
-const GRADLE_VERSION = "8.5";
-const JAVA_TOOLCHAIN = 17;
+const COMPILE_SDK = 35;
+const TARGET_SDK = 35;
+// Use Gradle 8.13 with JDK 21 for latest compatibility.
+const GRADLE_VERSION = "8.13";
+const JAVA_TOOLCHAIN = 21;
+const AGP_VERSION = "8.7.3"; // Android Gradle Plugin compatible with Gradle 8.13
 
 function fileExists(p) {
   try {
@@ -127,19 +128,39 @@ function patchSdkVersions() {
 function patchJavaVersionsInText(content) {
   let out = content;
 
-  // Common Gradle/AGP patterns
-  out = out.replaceAll("JavaVersion.VERSION_21", `JavaVersion.VERSION_${JAVA_TOOLCHAIN}`);
-  out = out.replaceAll("JavaVersion.VERSION_20", `JavaVersion.VERSION_${JAVA_TOOLCHAIN}`);
-  out = out.replaceAll("JavaLanguageVersion.of(21)", `JavaLanguageVersion.of(${JAVA_TOOLCHAIN})`);
-  out = out.replaceAll("JavaLanguageVersion.of(20)", `JavaLanguageVersion.of(${JAVA_TOOLCHAIN})`);
+  // Common Gradle/AGP patterns - upgrade older versions to 21
+  const javaVersions = [17, 18, 19, 20];
+  for (const v of javaVersions) {
+    out = out.replaceAll(`JavaVersion.VERSION_${v}`, `JavaVersion.VERSION_${JAVA_TOOLCHAIN}`);
+    out = out.replaceAll(`JavaLanguageVersion.of(${v})`, `JavaLanguageVersion.of(${JAVA_TOOLCHAIN})`);
+    out = out.replaceAll(`jvmTarget = "${v}"`, `jvmTarget = "${JAVA_TOOLCHAIN}"`);
+    out = out.replaceAll(`jvmTarget = '${v}'`, `jvmTarget = '${JAVA_TOOLCHAIN}'`);
+  }
 
-  // Kotlin patterns
-  out = out.replaceAll('jvmTarget = "21"', `jvmTarget = "${JAVA_TOOLCHAIN}"`);
-  out = out.replaceAll("jvmTarget = '21'", `jvmTarget = '${JAVA_TOOLCHAIN}'`);
-  out = out.replaceAll('jvmTarget = "20"', `jvmTarget = "${JAVA_TOOLCHAIN}"`);
-  out = out.replaceAll("jvmTarget = '20'", `jvmTarget = '${JAVA_TOOLCHAIN}'`);
+  // sourceCompatibility / targetCompatibility patterns
+  out = out.replace(/sourceCompatibility\s*=?\s*JavaVersion\.VERSION_\d+/g, `sourceCompatibility = JavaVersion.VERSION_${JAVA_TOOLCHAIN}`);
+  out = out.replace(/targetCompatibility\s*=?\s*JavaVersion\.VERSION_\d+/g, `targetCompatibility = JavaVersion.VERSION_${JAVA_TOOLCHAIN}`);
 
   return out;
+}
+
+function patchAgpVersion() {
+  const buildGradle = path.join(ANDROID_DIR, "build.gradle");
+  if (!fileExists(buildGradle)) return;
+
+  const before = readFile(buildGradle);
+  let after = before;
+
+  // Update AGP version in classpath
+  after = after.replace(
+    /classpath\s*['"]com\.android\.tools\.build:gradle:[\d.]+['"]/g,
+    `classpath 'com.android.tools.build:gradle:${AGP_VERSION}'`
+  );
+
+  if (after !== before) {
+    writeFile(buildGradle, after);
+    console.log(`[patch-android] Updated Android Gradle Plugin to ${AGP_VERSION}.`);
+  }
 }
 
 function patchJavaVersions() {
@@ -175,16 +196,21 @@ function patchJavaVersions() {
   walk(ANDROID_DIR);
 }
 
-function detectJdk17Home() {
-  if (process.env.JAVA_HOME_17 && process.env.JAVA_HOME_17.trim()) {
-    return process.env.JAVA_HOME_17.trim();
+function detectJdk21Home() {
+  if (process.env.JAVA_HOME_21 && process.env.JAVA_HOME_21.trim()) {
+    return process.env.JAVA_HOME_21.trim();
   }
 
   const fromJavaHome = process.env.JAVA_HOME?.trim();
-  if (fromJavaHome && fromJavaHome.includes("java-17")) return fromJavaHome;
+  if (fromJavaHome && fromJavaHome.includes("java-21")) return fromJavaHome;
 
-  const ubuntuDefault = "/usr/lib/jvm/java-17-openjdk-amd64";
+  // Common Ubuntu/Debian paths
+  const ubuntuDefault = "/usr/lib/jvm/java-21-openjdk-amd64";
   if (fileExists(ubuntuDefault)) return ubuntuDefault;
+
+  // macOS paths
+  const macosDefault = "/Library/Java/JavaVirtualMachines/temurin-21.jdk/Contents/Home";
+  if (fileExists(macosDefault)) return macosDefault;
 
   return null;
 }
@@ -192,25 +218,31 @@ function detectJdk17Home() {
 function patchGradleJavaHome() {
   const gradleProps = path.join(ANDROID_DIR, "gradle.properties");
 
-  const jdk17 = detectJdk17Home();
-  if (!jdk17) {
+  const jdk21 = detectJdk21Home();
+  if (!jdk21) {
     console.log(
-      `[patch-android] Skipping org.gradle.java.home: JDK 17 not detected. Install OpenJDK 17 or set JAVA_HOME_17, then re-run this script.`,
+      `[patch-android] Skipping org.gradle.java.home: JDK 21 not detected. Install OpenJDK 21 or set JAVA_HOME_21, then re-run this script.`,
     );
     return;
   }
 
-  const line = `org.gradle.java.home=${jdk17}`;
   const before = fileExists(gradleProps) ? readFile(gradleProps) : "";
-  let after = upsertLine(before, "org.gradle.java.home=", line);
+  let after = before;
 
-  // Avoid Gradle attempting toolchain auto-download when we pin org.gradle.java.home.
-  after = upsertLine(after, "org.gradle.java.installations.auto-download=", "org.gradle.java.installations.auto-download=false");
+  // Set Java home
+  after = upsertLine(after, "org.gradle.java.home=", `org.gradle.java.home=${jdk21}`);
+
+  // Enable toolchain auto-provisioning for dependencies that might need it
+  after = upsertLine(after, "org.gradle.java.installations.auto-download=", "org.gradle.java.installations.auto-download=true");
+
+  // Android-specific properties for better compatibility
+  after = upsertLine(after, "android.useAndroidX=", "android.useAndroidX=true");
+  after = upsertLine(after, "android.enableJetifier=", "android.enableJetifier=true");
 
   if (after !== before) {
     writeFile(gradleProps, after.endsWith("\n") ? after : after + "\n");
     console.log(
-      `[patch-android] Set org.gradle.java.home to JDK 17 (${jdk17}).`,
+      `[patch-android] Set org.gradle.java.home to JDK 21 (${jdk21}).`,
     );
   } else {
     console.log(`[patch-android] org.gradle.java.home already set.`);
@@ -227,10 +259,12 @@ function main() {
 
   patchGradleWrapper();
   patchGradleJavaHome();
+  patchAgpVersion();
   patchJavaVersions();
   patchSdkVersions();
 
   console.log("[patch-android] Done.");
+  console.log(`[patch-android] Configuration: Gradle ${GRADLE_VERSION}, JDK ${JAVA_TOOLCHAIN}, compileSdk ${COMPILE_SDK}, minSdk ${MIN_SDK}`);
 }
 
 main();
