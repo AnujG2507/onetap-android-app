@@ -18,8 +18,10 @@ import android.graphics.Paint;
 import android.graphics.drawable.Icon;
 import android.media.MediaMetadataRetriever;
 import android.net.Uri;
+import android.content.res.AssetFileDescriptor;
 import android.os.Build;
 import android.os.Environment;
+import android.os.ParcelFileDescriptor;
 import android.provider.MediaStore;
 import android.provider.OpenableColumns;
 import android.util.Base64;
@@ -188,23 +190,35 @@ public class ShortcutPlugin extends Plugin {
             
             if ("content".equals(scheme) && intentType != null) {
                 long contentSize = getContentSize(context, dataUri);
+
+                // If JS provided a size (e.g. some pickers can), prefer that when ContentResolver reports 0.
+                if (contentSize <= 0 && fileSize > 0) {
+                    contentSize = fileSize;
+                }
+
                 android.util.Log.d("ShortcutPlugin", "Content size: " + contentSize);
 
                 boolean isVideo = intentType.startsWith("video/");
-                boolean isLargeVideo = isVideo && contentSize > VIDEO_CACHE_THRESHOLD;
+
+                // IMPORTANT:
+                // - Some providers return SIZE=0 even for large files.
+                // - If size is unknown (<=0), we treat videos as "large" to avoid copying/playing internally.
+                boolean isLargeVideo = isVideo && (contentSize > VIDEO_CACHE_THRESHOLD || contentSize <= 0);
 
                 if (isLargeVideo) {
-                    // Large video: try to get the real file path for external player
-                    android.util.Log.d("ShortcutPlugin", "Large video detected (" + contentSize + " bytes), using external player path");
-                    String realPath = getRealPathFromUri(context, dataUri);
-                    if (realPath != null && new File(realPath).exists()) {
-                        // Use file:// URI for direct access by external players
-                        dataUri = Uri.fromFile(new File(realPath));
-                        android.util.Log.d("ShortcutPlugin", "Using real file path: " + realPath);
-                    } else {
-                        // Fallback: keep the content:// URI but mark for external player
-                        android.util.Log.d("ShortcutPlugin", "Could not resolve real path, keeping content:// URI for external player");
-                        persistReadPermissionIfPossible(context, dataUri);
+                    android.util.Log.d("ShortcutPlugin", "Large/unknown-size video detected (" + contentSize + " bytes), keeping original URI for external player");
+
+                    // Best-effort: persist the read permission so the shortcut remains usable.
+                    persistReadPermissionIfPossible(context, dataUri);
+
+                    // Best-effort debug only: try to resolve a real path, but DO NOT convert to file://
+                    // (file:// exposures can crash on Android 7+ with FileUriExposedException).
+                    try {
+                        String realPath = getRealPathFromUri(context, dataUri);
+                        if (realPath != null && new File(realPath).exists()) {
+                            android.util.Log.d("ShortcutPlugin", "Large video real path (not used for intent): " + realPath);
+                        }
+                    } catch (Exception ignored) {
                     }
                 } else {
                     // Small/medium file or non-video: copy to app storage for internal playback
@@ -566,23 +580,63 @@ public class ShortcutPlugin extends Plugin {
         }
     }
     
-    // Get file size from content:// URI
+    // Get file size from content:// URI.
+    // NOTE: Some providers report OpenableColumns.SIZE=0; we fall back to file descriptor stats.
     private long getContentSize(Context context, Uri uri) {
+        // 1) Try standard metadata column
         try {
             Cursor cursor = context.getContentResolver().query(uri, null, null, null, null);
-            if (cursor != null && cursor.moveToFirst()) {
-                int sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE);
-                if (sizeIndex >= 0) {
-                    long size = cursor.getLong(sizeIndex);
+            if (cursor != null) {
+                try {
+                    if (cursor.moveToFirst()) {
+                        int sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE);
+                        if (sizeIndex >= 0) {
+                            long size = cursor.getLong(sizeIndex);
+                            if (size > 0) return size;
+                        }
+                    }
+                } finally {
                     cursor.close();
-                    return size;
                 }
-                cursor.close();
             }
         } catch (Exception e) {
-            android.util.Log.e("ShortcutPlugin", "Error getting content size: " + e.getMessage());
+            android.util.Log.w("ShortcutPlugin", "getContentSize: query failed: " + e.getMessage());
         }
-        return -1;
+
+        // 2) Try AssetFileDescriptor length
+        try {
+            ContentResolver resolver = context.getContentResolver();
+            AssetFileDescriptor afd = resolver.openAssetFileDescriptor(uri, "r");
+            if (afd != null) {
+                try {
+                    long len = afd.getLength();
+                    if (len > 0) return len;
+                } finally {
+                    afd.close();
+                }
+            }
+        } catch (Exception e) {
+            android.util.Log.w("ShortcutPlugin", "getContentSize: openAssetFileDescriptor failed: " + e.getMessage());
+        }
+
+        // 3) Try ParcelFileDescriptor statSize
+        try {
+            ContentResolver resolver = context.getContentResolver();
+            ParcelFileDescriptor pfd = resolver.openFileDescriptor(uri, "r");
+            if (pfd != null) {
+                try {
+                    long stat = pfd.getStatSize();
+                    if (stat > 0) return stat;
+                } finally {
+                    pfd.close();
+                }
+            }
+        } catch (Exception e) {
+            android.util.Log.w("ShortcutPlugin", "getContentSize: openFileDescriptor failed: " + e.getMessage());
+        }
+
+        // Unknown
+        return 0;
     }
 
     // Best-effort: persist URI read permission for SAF/document URIs (won't work for all providers)

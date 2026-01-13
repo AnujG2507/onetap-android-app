@@ -4,8 +4,10 @@ import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.content.res.AssetFileDescriptor;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.ParcelFileDescriptor;
 import android.util.Log;
 
 import java.io.File;
@@ -61,15 +63,16 @@ public class VideoProxyActivity extends Activity {
         // Determine file size to decide playback strategy
         long fileSize = getFileSize(videoUri);
         Log.d(TAG, "Detected file size: " + fileSize + " bytes (" + (fileSize / (1024 * 1024)) + " MB)");
-        
-        boolean isLargeVideo = fileSize > VIDEO_CACHE_THRESHOLD;
-        
+
+        // IMPORTANT: If size is unknown/0, treat as "large" so we do NOT attempt internal playback.
+        boolean isLargeVideo = fileSize <= 0 || fileSize > VIDEO_CACHE_THRESHOLD;
+
         if (isLargeVideo) {
-            // Large video (>50MB): Use external player for better performance
-            Log.d(TAG, "Large video detected, using external player");
+            // Large video (>50MB) or unknown size: Use external player for better performance
+            Log.d(TAG, "Large/unknown-size video detected, using external player");
             boolean externalSuccess = tryExternalPlayer(videoUri, mimeType);
             if (!externalSuccess) {
-                Log.w(TAG, "External player failed for large video, trying internal as last resort");
+                Log.w(TAG, "External player failed for large/unknown video, trying internal as last resort");
                 openInternalPlayer(videoUri, mimeType);
             }
         } else {
@@ -82,7 +85,9 @@ public class VideoProxyActivity extends Activity {
     }
     
     /**
-     * Get file size from URI (works for file://, content://, and FileProvider URIs)
+     * Get file size from URI (works for file://, content://, and FileProvider URIs).
+     *
+     * IMPORTANT: Some providers report OpenableColumns.SIZE=0; we fall back to file descriptor stats.
      */
     private long getFileSize(Uri uri) {
         // file:// URIs - direct file access
@@ -95,7 +100,7 @@ public class VideoProxyActivity extends Activity {
                 }
             }
         }
-        
+
         // FileProvider URI pointing to our shortcuts directory
         String authority = uri.getAuthority();
         if (authority != null && authority.equals(getPackageName() + ".fileprovider")) {
@@ -109,24 +114,58 @@ public class VideoProxyActivity extends Activity {
                 }
             }
         }
-        
+
         // content:// URIs - query content resolver
         try {
             android.database.Cursor cursor = getContentResolver().query(uri, null, null, null, null);
-            if (cursor != null && cursor.moveToFirst()) {
-                int sizeIndex = cursor.getColumnIndex(android.provider.OpenableColumns.SIZE);
-                if (sizeIndex >= 0) {
-                    long size = cursor.getLong(sizeIndex);
+            if (cursor != null) {
+                try {
+                    if (cursor.moveToFirst()) {
+                        int sizeIndex = cursor.getColumnIndex(android.provider.OpenableColumns.SIZE);
+                        if (sizeIndex >= 0) {
+                            long size = cursor.getLong(sizeIndex);
+                            if (size > 0) return size;
+                        }
+                    }
+                } finally {
                     cursor.close();
-                    return size;
                 }
-                cursor.close();
             }
         } catch (Exception e) {
             Log.w(TAG, "Could not query file size: " + e.getMessage());
         }
-        
-        // Unknown size - treat as small (will use internal player)
+
+        // Fallback 1: AssetFileDescriptor length
+        try {
+            AssetFileDescriptor afd = getContentResolver().openAssetFileDescriptor(uri, "r");
+            if (afd != null) {
+                try {
+                    long len = afd.getLength();
+                    if (len > 0) return len;
+                } finally {
+                    afd.close();
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Could not read size via AssetFileDescriptor: " + e.getMessage());
+        }
+
+        // Fallback 2: ParcelFileDescriptor statSize
+        try {
+            ParcelFileDescriptor pfd = getContentResolver().openFileDescriptor(uri, "r");
+            if (pfd != null) {
+                try {
+                    long stat = pfd.getStatSize();
+                    if (stat > 0) return stat;
+                } finally {
+                    pfd.close();
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Could not read size via FileDescriptor: " + e.getMessage());
+        }
+
+        // Unknown size
         return 0;
     }
     
