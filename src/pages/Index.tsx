@@ -135,10 +135,11 @@ const Index = () => {
       setLastCreatedName(name);
       setStep('success');
     } else {
-      // Show error feedback (could enhance with toast later)
       console.error('[Index] Failed to create shortcut');
-      setLastCreatedName(name);
-      setStep('success'); // Still show success for now, native will show its own dialog
+      // Common cause: large files picked via the web file input become blob: URLs, which cannot be pinned.
+      window.alert(
+        'Could not create this shortcut.\n\nIf this is a large video, please open it in your Gallery/File Manager and use Share → OneTap, then create the shortcut from the shared item.'
+      );
     }
   };
 

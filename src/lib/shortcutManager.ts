@@ -1,3 +1,4 @@
+import { Capacitor } from '@capacitor/core';
 import ShortcutPlugin from '@/plugins/ShortcutPlugin';
 import type { ShortcutData } from '@/types/shortcut';
 import { FILE_SIZE_THRESHOLD } from '@/types/shortcut';
@@ -103,11 +104,30 @@ export async function createHomeScreenShortcut(
 
   const intent = buildContentIntent(shortcut);
   console.log('[ShortcutManager] Built intent:', intent);
-  
+
+  // If a file came from the web file input, it may be a blob: URL.
+  // blob: URLs are NOT valid after app restart and cannot be used for pinned shortcuts.
+  // For videos <= MAX_BASE64_SIZE we pass base64 to native (cached into app storage).
+  // For bigger videos, users must share the file to OneTap (content://) so Android grants access.
+  if (
+    Capacitor.isNativePlatform() &&
+    shortcut.type === 'file' &&
+    typeof intent.data === 'string' &&
+    intent.data.startsWith('blob:') &&
+    !contentSource?.fileData
+  ) {
+    console.error('[ShortcutManager] Refusing to create pinned shortcut from blob: URL without fileData. Use Android Share to OneTap instead.', {
+      data: intent.data,
+      fileSize: shortcut.fileSize || contentSource?.fileSize,
+      mimeType: shortcut.mimeType || contentSource?.mimeType || intent.type,
+    });
+    return false;
+  }
+
   // Determine if this is a video - use proxy activity for videos
   const mimeType = shortcut.mimeType || contentSource?.mimeType || intent.type;
   const useVideoProxy = isVideoMimeType(mimeType);
-  
+
   if (useVideoProxy) {
     console.log('[ShortcutManager] Video detected, will use VideoProxyActivity');
   }

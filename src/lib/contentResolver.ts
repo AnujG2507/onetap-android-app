@@ -1,8 +1,8 @@
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import type { FileType, ContentSource } from '@/types/shortcut';
 
-// Maximum file size for base64 encoding (10MB)
-const MAX_BASE64_SIZE = 10 * 1024 * 1024;
+// Maximum file size for base64 encoding (≈14MB). Base64 expands size ~33%, so this stays under native limits.
+const MAX_BASE64_SIZE = 14 * 1024 * 1024;
 
 // Detect file type from MIME type or extension
 export function detectFileType(mimeType?: string, filename?: string): FileType {
@@ -159,11 +159,12 @@ export async function pickFile(): Promise<ContentSource | null> {
         const isVideo = file.type.startsWith('video/');
         const isLargeFile = file.size > MAX_BASE64_SIZE;
         const isImage = file.type.startsWith('image/');
-        
-        // For videos or very large files, skip base64 encoding to prevent OOM
-        if (isVideo || isLargeFile) {
-          console.log('[ContentResolver] Large file or video - skipping base64 encoding');
-          
+
+        // For large videos/files, skip base64 encoding to prevent OOM.
+        // For small/medium videos (<= ~14MB), we DO base64 so native can cache into app storage.
+        if (isLargeFile) {
+          console.log('[ContentResolver] Large file - skipping base64 encoding');
+
           // For images, still generate a small thumbnail for the icon
           let thumbnailData: string | undefined;
           if (isImage) {
@@ -173,7 +174,7 @@ export async function pickFile(): Promise<ContentSource | null> {
               thumbnailData = thumbnail.split(',')[1];
             }
           }
-          
+
           resolve({
             type: 'file',
             uri: URL.createObjectURL(file),
