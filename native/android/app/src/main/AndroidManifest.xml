@@ -102,20 +102,6 @@
             android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen"
             android:exported="false" />
 
-        <!-- PDF Proxy Activity - transparent activity for launching PDF shortcuts -->
-        <activity
-            android:name=".PdfProxyActivity"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar"
-            android:exported="false"
-            android:noHistory="true"
-            android:excludeFromRecents="true" />
-
-        <!-- Native PDF viewer with resume capability -->
-        <activity
-            android:name=".NativePdfViewerActivity"
-            android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen"
-            android:exported="false" />
-
 
         <provider
             android:name="androidx.core.content.FileProvider"

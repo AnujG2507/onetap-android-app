@@ -148,11 +148,11 @@ const Index = () => {
     setStep('customize');
   };
 
-  const handleConfirm = async (name: string, icon: ShortcutIcon, resumeEnabled?: boolean) => {
+  const handleConfirm = async (name: string, icon: ShortcutIcon) => {
     if (!contentSource) return;
     
     // Create shortcut with file metadata
-    const shortcut = createShortcut(contentSource, name, icon, resumeEnabled);
+    const shortcut = createShortcut(contentSource, name, icon);
     
     try {
       // Pass the file data to native for proper handling

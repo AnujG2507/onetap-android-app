@@ -2,26 +2,19 @@ import { useState, useEffect } from 'react';
 import { ArrowLeft, Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Switch } from '@/components/ui/switch';
 import { IconPicker } from './IconPicker';
 import { getContentName, generateThumbnail, getPlatformEmoji } from '@/lib/contentResolver';
 import type { ContentSource, ShortcutIcon } from '@/types/shortcut';
 
 interface ShortcutCustomizerProps {
   source: ContentSource;
-  onConfirm: (name: string, icon: ShortcutIcon, resumeEnabled?: boolean) => void;
+  onConfirm: (name: string, icon: ShortcutIcon) => void;
   onBack: () => void;
 }
 
 export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustomizerProps) {
   const [name, setName] = useState(() => getContentName(source));
   const [thumbnail, setThumbnail] = useState<string | null>(null);
-  const [resumeEnabled, setResumeEnabled] = useState(false);
-  
-  // Check if this is a PDF file
-  const isPdf = source.mimeType === 'application/pdf' || 
-    source.uri.toLowerCase().endsWith('.pdf') ||
-    source.name?.toLowerCase().endsWith('.pdf');
   
   // Get initial emoji based on source type
   const getInitialIcon = (): ShortcutIcon => {
@@ -44,7 +37,7 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
   
   const handleConfirm = () => {
     if (name.trim()) {
-      onConfirm(name.trim(), icon, isPdf ? resumeEnabled : undefined);
+      onConfirm(name.trim(), icon);
     }
   };
 
@@ -92,25 +85,6 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
           selectedIcon={icon}
           onSelect={setIcon}
         />
-        
-        {/* Resume toggle for PDFs */}
-        {isPdf && (
-          <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
-            <div className="space-y-0.5">
-              <label htmlFor="resume-toggle" className="text-sm font-medium text-foreground cursor-pointer">
-                Resume where I left off
-              </label>
-              <p className="text-xs text-muted-foreground">
-                Opens PDF at the last viewed page
-              </p>
-            </div>
-            <Switch
-              id="resume-toggle"
-              checked={resumeEnabled}
-              onCheckedChange={setResumeEnabled}
-            />
-          </div>
-        )}
         
         {/* Preview */}
         <div className="mt-6 pt-6 border-t">

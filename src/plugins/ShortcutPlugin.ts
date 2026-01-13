@@ -18,8 +18,6 @@ export interface ShortcutPluginInterface {
     fileSize?: number;
     // Flag to use video proxy activity
     useVideoProxy?: boolean;
-    // Flag to use PDF viewer with resume capability
-    usePdfViewer?: boolean;
   }): Promise<{ success: boolean; error?: string }>;
 
   checkShortcutSupport(): Promise<{ supported: boolean; canPin: boolean }>;

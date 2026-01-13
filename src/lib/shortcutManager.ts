@@ -36,11 +36,6 @@ function isVideoMimeType(mimeType?: string): boolean {
   return !!mimeType && mimeType.startsWith('video/');
 }
 
-// Check if MIME type is PDF
-function isPdfMimeType(mimeType?: string): boolean {
-  return mimeType === 'application/pdf';
-}
-
 // Get specific MIME type based on file extension and detected type
 function getMimeTypeFromUri(uri: string, fileType?: string): string {
   // Try to extract extension from URI
@@ -146,14 +141,6 @@ export async function createHomeScreenShortcut(
     const sizeInfo = fileSize > 0 ? `(${(fileSize / (1024 * 1024)).toFixed(1)} MB)` : '(unknown size)';
     console.log(`[ShortcutManager] Video detected ${sizeInfo}, will use VideoProxyActivity → internal player`);
   }
-
-  // Determine if this is a PDF with resume enabled - use internal PDF viewer
-  const isPdf = isPdfMimeType(mimeType);
-  const usePdfViewer = isPdf && shortcut.resumeEnabled === true;
-
-  if (usePdfViewer) {
-    console.log(`[ShortcutManager] PDF with resume enabled, will use PdfProxyActivity → internal viewer`);
-  }
   
   try {
     // Prepare icon data based on type
@@ -234,9 +221,8 @@ export async function createHomeScreenShortcut(
       intentData: intent.data,
       intentType: intent.type,
       useVideoProxy, // Signal to use VideoProxyActivity for videos
-      usePdfViewer, // Signal to use PdfProxyActivity for PDFs with resume
     };
-    console.log('[ShortcutManager] Calling ShortcutPlugin.createPinnedShortcut with params, useVideoProxy:', useVideoProxy, 'usePdfViewer:', usePdfViewer);
+    console.log('[ShortcutManager] Calling ShortcutPlugin.createPinnedShortcut with params, useVideoProxy:', useVideoProxy);
     
     const result = await ShortcutPlugin.createPinnedShortcut(params);
     console.log('[ShortcutManager] createPinnedShortcut result:', result);
