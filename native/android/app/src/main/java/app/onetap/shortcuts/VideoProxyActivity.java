@@ -1,6 +1,8 @@
 package app.onetap.shortcuts;
 
 import android.app.Activity;
+import android.content.ClipData;
+import android.content.ContentUris;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
@@ -8,6 +10,8 @@ import android.content.res.AssetFileDescriptor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.ParcelFileDescriptor;
+import android.provider.DocumentsContract;
+import android.provider.MediaStore;
 import android.util.Log;
 
 import java.io.File;
@@ -15,7 +19,7 @@ import java.util.List;
 
 /**
  * VideoProxyActivity - Transparent activity that handles video shortcut taps
- * 
+ *
  * Purpose:
  * 1. Receives the shortcut tap intent with content://, file://, or FileProvider URI
  * 2. Checks file size to determine playback strategy:
@@ -27,41 +31,52 @@ import java.util.List;
  */
 public class VideoProxyActivity extends Activity {
     private static final String TAG = "VideoProxyActivity";
-    
+
     // Threshold matching ShortcutPlugin.VIDEO_CACHE_THRESHOLD (50MB)
     private static final long VIDEO_CACHE_THRESHOLD = 50 * 1024 * 1024;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        
+
         Log.d(TAG, "VideoProxyActivity started");
-        
+
         Intent receivedIntent = getIntent();
         if (receivedIntent == null) {
             Log.e(TAG, "No intent received");
             finish();
             return;
         }
-        
+
         Uri videoUri = receivedIntent.getData();
         String mimeType = receivedIntent.getType();
-        
+
         Log.d(TAG, "Video URI: " + videoUri + ", MIME type: " + mimeType);
-        
+
         if (videoUri == null) {
             Log.e(TAG, "No video URI in intent");
             finish();
             return;
         }
-        
+
         // Default MIME type if not provided
         if (mimeType == null || mimeType.isEmpty()) {
             mimeType = "video/*";
         }
-        
+
+        // Some OEM players struggle with DocumentsProvider media URIs.
+        // Normalize where possible to a MediaStore URI (content://media/...).
+        Uri normalizedUri = normalizeVideoUri(videoUri);
+        if (!normalizedUri.equals(videoUri)) {
+            Log.d(TAG, "Normalized video URI: " + normalizedUri);
+        }
+
         // Determine file size to decide playback strategy
-        long fileSize = getFileSize(videoUri);
+        long fileSize = getFileSize(normalizedUri);
+        if (fileSize <= 0 && !normalizedUri.equals(videoUri)) {
+            fileSize = getFileSize(videoUri);
+        }
+
         Log.d(TAG, "Detected file size: " + fileSize + " bytes (" + (fileSize / (1024 * 1024)) + " MB)");
 
         // IMPORTANT: If size is unknown/0, treat as "large" so we do NOT attempt internal playback.
@@ -70,20 +85,56 @@ public class VideoProxyActivity extends Activity {
         if (isLargeVideo) {
             // Large video (>50MB) or unknown size: Use external player for better performance
             Log.d(TAG, "Large/unknown-size video detected, using external player");
-            boolean externalSuccess = tryExternalPlayer(videoUri, mimeType);
+            boolean externalSuccess = tryExternalPlayer(normalizedUri, mimeType);
+            if (!externalSuccess && !normalizedUri.equals(videoUri)) {
+                externalSuccess = tryExternalPlayer(videoUri, mimeType);
+            }
+
             if (!externalSuccess) {
                 Log.w(TAG, "External player failed for large/unknown video, trying internal as last resort");
-                openInternalPlayer(videoUri, mimeType);
+                openInternalPlayer(normalizedUri, mimeType);
             }
         } else {
             // Small/medium video (<=50MB): Use internal player for better UX
             Log.d(TAG, "Small/medium video, using internal player");
-            openInternalPlayer(videoUri, mimeType);
+            openInternalPlayer(normalizedUri, mimeType);
         }
-        
+
         finish();
     }
-    
+
+    /**
+     * Normalize certain document URIs (e.g. com.android.providers.media.documents) to MediaStore URIs.
+     * This improves compatibility with some external players.
+     */
+    private Uri normalizeVideoUri(Uri uri) {
+        if (uri == null) return Uri.EMPTY;
+
+        try {
+            if (!"content".equals(uri.getScheme())) return uri;
+
+            // Example input:
+            // content://com.android.providers.media.documents/document/video%3A1000501956
+            if ("com.android.providers.media.documents".equals(uri.getAuthority())) {
+                String docId = DocumentsContract.getDocumentId(uri); // "video:1000501956"
+                if (docId != null) {
+                    String[] split = docId.split(":");
+                    if (split.length == 2) {
+                        String type = split[0];
+                        long id = Long.parseLong(split[1]);
+                        if ("video".equals(type)) {
+                            return ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id);
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to normalize video URI: " + e.getMessage());
+        }
+
+        return uri;
+    }
+
     /**
      * Get file size from URI (works for file://, content://, and FileProvider URIs).
      *
@@ -168,7 +219,7 @@ public class VideoProxyActivity extends Activity {
         // Unknown size
         return 0;
     }
-    
+
     private boolean tryExternalPlayer(Uri videoUri, String mimeType) {
         try {
             Intent viewIntent = new Intent(Intent.ACTION_VIEW);
@@ -176,10 +227,19 @@ public class VideoProxyActivity extends Activity {
             viewIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             viewIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
 
+            // ClipData significantly improves URI grant propagation on some OEM devices/launchers.
+            if ("content".equals(videoUri.getScheme())) {
+                try {
+                    ClipData clipData = ClipData.newUri(getContentResolver(), "onetap-video", videoUri);
+                    viewIntent.setClipData(clipData);
+                } catch (Exception e) {
+                    Log.w(TAG, "Failed to set ClipData on external intent: " + e.getMessage());
+                }
+            }
+
             // Grant URI permission to all potential handlers (for content:// and FileProvider URIs)
             String scheme = videoUri.getScheme();
             if ("content".equals(scheme)) {
-                // Query all apps that can handle this video
                 List<ResolveInfo> handlers = getPackageManager().queryIntentActivities(
                     viewIntent, PackageManager.MATCH_DEFAULT_ONLY);
 
@@ -199,6 +259,15 @@ public class VideoProxyActivity extends Activity {
             // Use a chooser so the user can pick their preferred video player app
             Intent chooser = Intent.createChooser(viewIntent, "Open video with...");
             chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            chooser.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+            // Some devices require ClipData on the chooser intent too.
+            try {
+                if (viewIntent.getClipData() != null) {
+                    chooser.setClipData(viewIntent.getClipData());
+                }
+            } catch (Exception ignored) {
+            }
 
             startActivity(chooser);
             Log.d(TAG, "External video player chooser launched successfully");
@@ -215,7 +284,7 @@ public class VideoProxyActivity extends Activity {
             return false;
         }
     }
-    
+
     private void openInternalPlayer(Uri videoUri, String mimeType) {
         try {
             // Use a native player activity for reliable playback (avoids WebView MediaError issues).
@@ -228,7 +297,7 @@ public class VideoProxyActivity extends Activity {
             // IMPORTANT: Some providers/launchers require ClipData to reliably propagate URI grants.
             if ("content".equals(videoUri.getScheme())) {
                 try {
-                    playIntent.setClipData(android.content.ClipData.newUri(getContentResolver(), "onetap-video", videoUri));
+                    playIntent.setClipData(ClipData.newUri(getContentResolver(), "onetap-video", videoUri));
                 } catch (Exception e) {
                     Log.w(TAG, "Failed to set ClipData: " + e.getMessage());
                 }
