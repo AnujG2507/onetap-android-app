@@ -2,6 +2,7 @@ import { Capacitor } from '@capacitor/core';
 import ShortcutPlugin from '@/plugins/ShortcutPlugin';
 import type { ShortcutData } from '@/types/shortcut';
 import { FILE_SIZE_THRESHOLD, VIDEO_CACHE_THRESHOLD } from '@/types/shortcut';
+import { getSettings } from '@/hooks/useSettings';
 
 export interface ShortcutIntent {
   action: string;
@@ -111,7 +112,11 @@ export async function createHomeScreenShortcut(
   const fileSize = shortcut.fileSize || contentSource?.fileSize || 0;
   const mimeType = shortcut.mimeType || contentSource?.mimeType || intent.type;
   const isVideo = isVideoMimeType(mimeType);
-  const isLargeVideo = isVideo && fileSize > VIDEO_CACHE_THRESHOLD;
+  
+  // Check user preference for external player
+  const appSettings = getSettings();
+  const forceExternal = appSettings.alwaysUseExternalPlayer;
+  const isLargeVideo = isVideo && (forceExternal || fileSize > VIDEO_CACHE_THRESHOLD);
 
   if (
     Capacitor.isNativePlatform() &&
@@ -137,7 +142,8 @@ export async function createHomeScreenShortcut(
   if (useVideoProxy) {
     const sizeInfo = fileSize > 0 ? `(${(fileSize / (1024 * 1024)).toFixed(1)} MB)` : '';
     const playerType = isLargeVideo ? 'external player' : 'internal player';
-    console.log(`[ShortcutManager] Video detected ${sizeInfo}, will use VideoProxyActivity → ${playerType}`);
+    const forceNote = forceExternal ? ' [forced by settings]' : '';
+    console.log(`[ShortcutManager] Video detected ${sizeInfo}, will use VideoProxyActivity → ${playerType}${forceNote}`);
   }
   
   try {
