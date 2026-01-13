@@ -18,7 +18,9 @@ const ANDROID_DIR = path.resolve("android");
 const MIN_SDK = 31; // Android 12
 const COMPILE_SDK = 34;
 const TARGET_SDK = 34;
-const GRADLE_VERSION = "8.7"; // 8.4+ required for recognizing Java 21
+// Keep this conservative for Android tooling + JDK17 compatibility.
+const GRADLE_VERSION = "8.5";
+const JAVA_TOOLCHAIN = 17;
 
 function fileExists(p) {
   try {
@@ -86,6 +88,7 @@ function patchGradleWrapper() {
   }
 }
 
+
 function patchSdkVersionsInFile(filePath) {
   if (!fileExists(filePath)) return false;
 
@@ -121,6 +124,57 @@ function patchSdkVersions() {
   }
 }
 
+function patchJavaVersionsInText(content) {
+  let out = content;
+
+  // Common Gradle/AGP patterns
+  out = out.replaceAll("JavaVersion.VERSION_21", `JavaVersion.VERSION_${JAVA_TOOLCHAIN}`);
+  out = out.replaceAll("JavaVersion.VERSION_20", `JavaVersion.VERSION_${JAVA_TOOLCHAIN}`);
+  out = out.replaceAll("JavaLanguageVersion.of(21)", `JavaLanguageVersion.of(${JAVA_TOOLCHAIN})`);
+  out = out.replaceAll("JavaLanguageVersion.of(20)", `JavaLanguageVersion.of(${JAVA_TOOLCHAIN})`);
+
+  // Kotlin patterns
+  out = out.replaceAll('jvmTarget = "21"', `jvmTarget = "${JAVA_TOOLCHAIN}"`);
+  out = out.replaceAll("jvmTarget = '21'", `jvmTarget = '${JAVA_TOOLCHAIN}'`);
+  out = out.replaceAll('jvmTarget = "20"', `jvmTarget = "${JAVA_TOOLCHAIN}"`);
+  out = out.replaceAll("jvmTarget = '20'", `jvmTarget = '${JAVA_TOOLCHAIN}'`);
+
+  return out;
+}
+
+function patchJavaVersions() {
+  if (!fileExists(ANDROID_DIR)) return;
+
+  const exts = new Set([".gradle", ".gradle.kts", ".properties"]);
+
+  /** @param {string} dir */
+  function walk(dir) {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        // Skip build outputs
+        if (entry.name === "build" || entry.name === ".gradle") continue;
+        walk(full);
+        continue;
+      }
+
+      const ext = path.extname(entry.name);
+      if (!exts.has(ext)) continue;
+
+      const before = readFile(full);
+      const after = patchJavaVersionsInText(before);
+      if (after !== before) {
+        writeFile(full, after);
+        console.log(
+          `[patch-android] Patched Java toolchain references in ${path.relative(process.cwd(), full)} (-> ${JAVA_TOOLCHAIN}).`,
+        );
+      }
+    }
+  }
+
+  walk(ANDROID_DIR);
+}
+
 function detectJdk17Home() {
   if (process.env.JAVA_HOME_17 && process.env.JAVA_HOME_17.trim()) {
     return process.env.JAVA_HOME_17.trim();
@@ -148,7 +202,10 @@ function patchGradleJavaHome() {
 
   const line = `org.gradle.java.home=${jdk17}`;
   const before = fileExists(gradleProps) ? readFile(gradleProps) : "";
-  const after = upsertLine(before, "org.gradle.java.home=", line);
+  let after = upsertLine(before, "org.gradle.java.home=", line);
+
+  // Avoid Gradle attempting toolchain auto-download when we pin org.gradle.java.home.
+  after = upsertLine(after, "org.gradle.java.installations.auto-download=", "org.gradle.java.installations.auto-download=false");
 
   if (after !== before) {
     writeFile(gradleProps, after.endsWith("\n") ? after : after + "\n");
@@ -170,6 +227,7 @@ function main() {
 
   patchGradleWrapper();
   patchGradleJavaHome();
+  patchJavaVersions();
   patchSdkVersions();
 
   console.log("[patch-android] Done.");

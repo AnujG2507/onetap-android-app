@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - **Node.js** v18+
-- **JDK 21** (not 17 or lower)
+- **JDK 17** (recommended for Android/Gradle)
 - **Android Studio** with Android SDK
 - **Android phone** (8.0+) with USB debugging enabled
 
@@ -63,8 +63,8 @@ npx cap run android
 ## Environment Check
 
 ```bash
-java -version      # Should be 21.x
-echo $JAVA_HOME    # Should point to JDK 21
+java -version      # Should be 17.x
+echo $JAVA_HOME    # Should point to JDK 17
 echo $ANDROID_HOME # Should be set
 adb devices        # Should list your device
 ```
@@ -98,21 +98,27 @@ sudo apt install gradle -y  # Ubuntu/Debian
 brew install gradle         # macOS
 ```
 
-### Java 21 / Gradle Compatibility Fix
+### Java Toolchain Error (Looking for Java 21)
 
-If you get `Could not determine java version from '21.x'`, your Gradle wrapper is too old.
+If you see an error like:
 
-**Fix (recommended):** Update the Gradle wrapper used by the generated `android/` project:
+- `Cannot find a Java installation ... matching: {languageVersion=21 ...}`
+
+It means something in the generated Android project is requesting Java 21.
+
+**Fix (recommended):** use **JDK 17** and re-run our patch script (it forces Java 17 + updates Gradle wrapper):
 
 ```bash
-cd android
-# Pick one (8.4+ supports Java 21)
-./gradlew wrapper --gradle-version 8.4.2
-# or edit gradle/wrapper/gradle-wrapper.properties (distributionUrl)
-cd ..
+node scripts/android/patch-android-project.mjs
+npm run build
+npx cap sync android
 ```
 
-**If the command fails immediately:** temporarily point `JAVA_HOME` to **JDK 17**, run the wrapper update once, then switch back to JDK 21.
+Then run again:
+
+```bash
+npx cap run android
+```
 
 ### Clean Rebuild
 
