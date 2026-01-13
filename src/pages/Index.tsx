@@ -10,6 +10,7 @@ import { SuccessScreen } from '@/components/SuccessScreen';
 import { useShortcuts } from '@/hooks/useShortcuts';
 import { useBackButton } from '@/hooks/useBackButton';
 import { useSharedContent } from '@/hooks/useSharedContent';
+import { useToast } from '@/hooks/use-toast';
 import { pickFile } from '@/lib/contentResolver';
 import { createHomeScreenShortcut } from '@/lib/shortcutManager';
 import type { ContentSource, ShortcutIcon } from '@/types/shortcut';
@@ -23,6 +24,7 @@ const Index = () => {
   const lastSharedIdRef = useRef<string | null>(null);
   const navigate = useNavigate();
   const { createShortcut } = useShortcuts();
+  const { toast } = useToast();
   const { sharedContent, sharedAction, isLoading: isLoadingShared, clearSharedContent } = useSharedContent();
 
   // Handle shared content from Android Share Sheet AND internal video fallback
@@ -152,21 +154,35 @@ const Index = () => {
     // Create shortcut with file metadata
     const shortcut = createShortcut(contentSource, name, icon);
     
-    // Pass the file data to native for proper handling
-    const success = await createHomeScreenShortcut(shortcut, {
-      fileData: contentSource.fileData,
-      fileSize: contentSource.fileSize,
-      thumbnailData: contentSource.thumbnailData,
-      isLargeFile: contentSource.isLargeFile,
-      mimeType: contentSource.mimeType,
-    });
-    
-    if (success) {
-      setLastCreatedName(name);
-      setStep('success');
-    } else {
-      console.error('[Index] Failed to create shortcut');
-      window.alert('Could not create this shortcut. Please try again.');
+    try {
+      // Pass the file data to native for proper handling
+      const success = await createHomeScreenShortcut(shortcut, {
+        fileData: contentSource.fileData,
+        fileSize: contentSource.fileSize,
+        thumbnailData: contentSource.thumbnailData,
+        isLargeFile: contentSource.isLargeFile,
+        mimeType: contentSource.mimeType,
+      });
+      
+      if (success) {
+        setLastCreatedName(name);
+        setStep('success');
+      } else {
+        console.error('[Index] Failed to create shortcut');
+        toast({
+          title: 'Shortcut failed',
+          description: 'Could not create this shortcut. Please try again.',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      console.error('[Index] Shortcut creation error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Could not create this shortcut. Please try again.';
+      toast({
+        title: 'Cannot create shortcut',
+        description: errorMessage,
+        variant: 'destructive',
+      });
     }
   };
 

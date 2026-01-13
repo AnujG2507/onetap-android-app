@@ -111,11 +111,11 @@ export async function createHomeScreenShortcut(
   const mimeType = shortcut.mimeType || contentSource?.mimeType || intent.type;
   const isVideo = isVideoMimeType(mimeType);
 
-  // Block shortcuts for videos larger than 100MB
+  // Block shortcuts for videos larger than 50MB
   if (isVideo && fileSize > VIDEO_CACHE_THRESHOLD) {
     const sizeMB = (fileSize / (1024 * 1024)).toFixed(1);
-    console.error(`[ShortcutManager] Video too large (${sizeMB} MB). Maximum allowed is 100 MB.`);
-    return false;
+    console.error(`[ShortcutManager] Video too large (${sizeMB} MB). Video shortcuts are limited to 50 MB maximum due to Android system constraints.`);
+    throw new Error(`Video too large (${sizeMB} MB). Video shortcuts are limited to 50 MB maximum.`);
   }
 
   // blob: URLs are NOT valid after app restart and cannot be used for pinned shortcuts.

@@ -76,9 +76,9 @@ import app.onetap.shortcuts.VideoProxyActivity;
 )
 public class ShortcutPlugin extends Plugin {
 
-    // Maximum video size allowed for shortcuts (100MB)
+    // Maximum video size allowed for shortcuts (50MB)
     // Videos larger than this cannot have shortcuts created
-    private static final long VIDEO_CACHE_THRESHOLD = 100 * 1024 * 1024;
+    private static final long VIDEO_CACHE_THRESHOLD = 50 * 1024 * 1024;
     
     // Legacy threshold for general file copying (5MB)
     private static final long FILE_SIZE_THRESHOLD = 5 * 1024 * 1024;
@@ -199,12 +199,13 @@ public class ShortcutPlugin extends Plugin {
 
                 boolean isVideo = intentType.startsWith("video/");
 
-                // Block videos larger than 100MB
+                // Block videos larger than 50MB
                 if (isVideo && contentSize > VIDEO_CACHE_THRESHOLD) {
-                    android.util.Log.e("ShortcutPlugin", "Video too large (" + contentSize + " bytes). Maximum allowed is 100MB.");
+                    long sizeMB = contentSize / (1024 * 1024);
+                    android.util.Log.e("ShortcutPlugin", "Video too large (" + sizeMB + " MB). Video shortcuts are limited to 50 MB maximum.");
                     JSObject result = new JSObject();
                     result.put("success", false);
-                    result.put("error", "Video too large. Maximum size is 100 MB.");
+                    result.put("error", "Video too large (" + sizeMB + " MB). Video shortcuts are limited to 50 MB maximum.");
                     call.resolve(result);
                     return;
                 }

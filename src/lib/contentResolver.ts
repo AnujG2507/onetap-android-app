@@ -4,7 +4,7 @@ import ShortcutPlugin from '@/plugins/ShortcutPlugin';
 import type { FileType, ContentSource } from '@/types/shortcut';
 import { VIDEO_CACHE_THRESHOLD } from '@/types/shortcut';
 
-// Maximum file size for base64 encoding - matches VIDEO_CACHE_THRESHOLD (100MB)
+// Maximum file size for base64 encoding - matches VIDEO_CACHE_THRESHOLD (50MB)
 // Videos larger than this cannot have shortcuts created
 const MAX_BASE64_SIZE = VIDEO_CACHE_THRESHOLD;
 
