@@ -61,26 +61,20 @@ public class VideoProxyActivity extends Activity {
         // Determine file size to decide playback strategy
         long fileSize = getFileSize(videoUri);
         Log.d(TAG, "Detected file size: " + fileSize + " bytes (" + (fileSize / (1024 * 1024)) + " MB)");
-
-        // If the provider doesn't report size, prefer external player for videos.
-        boolean isUnknownSize = fileSize <= 0;
+        
         boolean isLargeVideo = fileSize > VIDEO_CACHE_THRESHOLD;
-        if (!isLargeVideo && isUnknownSize) {
-            Log.w(TAG, "File size unknown; treating as large video to force external player");
-            isLargeVideo = true;
-        }
-
+        
         if (isLargeVideo) {
-            // Large/unknown video: Use external player picker
-            Log.d(TAG, "Large/unknown video detected, using external player chooser");
+            // Large video (>50MB): Use external player for better performance
+            Log.d(TAG, "Large video detected, using external player");
             boolean externalSuccess = tryExternalPlayer(videoUri, mimeType);
             if (!externalSuccess) {
-                Log.w(TAG, "External player failed, trying native internal player as last resort");
+                Log.w(TAG, "External player failed for large video, trying internal as last resort");
                 openInternalPlayer(videoUri, mimeType);
             }
         } else {
-            // Small/medium video (<=50MB): Use native internal player
-            Log.d(TAG, "Small/medium video, using native internal player");
+            // Small/medium video (<=50MB): Use internal player for better UX
+            Log.d(TAG, "Small/medium video, using internal player");
             openInternalPlayer(videoUri, mimeType);
         }
         
@@ -143,17 +137,10 @@ public class VideoProxyActivity extends Activity {
             viewIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             viewIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
 
-            // Critical for choosers: ensure the URI is in ClipData so the chosen app actually receives the grant.
-            if ("content".equals(videoUri.getScheme())) {
-                try {
-                    viewIntent.setClipData(android.content.ClipData.newUri(getContentResolver(), "onetap-video", videoUri));
-                } catch (Exception e) {
-                    Log.w(TAG, "Failed to set ClipData on viewIntent: " + e.getMessage());
-                }
-            }
-
-            // Grant URI permission to all potential handlers (best-effort)
-            if ("content".equals(videoUri.getScheme())) {
+            // Grant URI permission to all potential handlers (for content:// and FileProvider URIs)
+            String scheme = videoUri.getScheme();
+            if ("content".equals(scheme)) {
+                // Query all apps that can handle this video
                 List<ResolveInfo> handlers = getPackageManager().queryIntentActivities(
                     viewIntent, PackageManager.MATCH_DEFAULT_ONLY);
 
@@ -170,19 +157,9 @@ public class VideoProxyActivity extends Activity {
                 }
             }
 
-            // Use a chooser so the user can pick their preferred video player app.
+            // Use a chooser so the user can pick their preferred video player app
             Intent chooser = Intent.createChooser(viewIntent, "Open video with...");
             chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            chooser.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-
-            // Critical: set ClipData on chooser too (some Android versions drop grants otherwise)
-            if ("content".equals(videoUri.getScheme())) {
-                try {
-                    chooser.setClipData(android.content.ClipData.newUri(getContentResolver(), "onetap-video", videoUri));
-                } catch (Exception e) {
-                    Log.w(TAG, "Failed to set ClipData on chooser: " + e.getMessage());
-                }
-            }
 
             startActivity(chooser);
             Log.d(TAG, "External video player chooser launched successfully");
