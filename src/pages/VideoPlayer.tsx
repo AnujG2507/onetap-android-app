@@ -269,7 +269,7 @@ const VideoPlayer = () => {
     // Re-trigger the effect by navigating with new timestamp
     const newParams = new URLSearchParams(searchParams);
     newParams.set('t', Date.now().toString());
-    navigate(`/video-player?${newParams.toString()}`, { replace: true });
+    navigate(`/player?${newParams.toString()}`, { replace: true });
   };
 
   // Loading state

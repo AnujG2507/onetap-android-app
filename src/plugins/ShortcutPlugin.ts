@@ -31,9 +31,7 @@ export interface ShortcutPluginInterface {
 
   // Native file picker (Android): returns a persistent content:// URI.
   // On web this returns success=false.
-  pickFile(options?: {
-    mimeTypes?: string[];
-  }): Promise<{
+  pickFile(options?: { mimeTypes?: string[] }): Promise<{
     success: boolean;
     uri?: string;
     name?: string;
@@ -41,6 +39,9 @@ export interface ShortcutPluginInterface {
     size?: number;
     error?: string;
   }>;
+
+  // Launch the in-app native video player (Android).
+  openNativeVideoPlayer(options: { uri: string; mimeType?: string }): Promise<{ success: boolean; error?: string }>;
 
   // Clear the shared intent after processing to prevent re-processing
   clearSharedIntent(): Promise<void>;

@@ -65,6 +65,11 @@ export class ShortcutPluginWeb implements ShortcutPluginInterface {
     return { success: false, error: 'Not supported on web' };
   }
 
+  async openNativeVideoPlayer(): Promise<{ success: boolean; error?: string }> {
+    console.log('[ShortcutPluginWeb] openNativeVideoPlayer called (web fallback)');
+    return { success: false, error: 'Not supported on web' };
+  }
+
   async clearSharedIntent(): Promise<void> {
     // Clear URL params on web
     const url = new URL(window.location.href);

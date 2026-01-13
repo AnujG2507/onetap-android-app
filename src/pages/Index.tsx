@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
+import { Capacitor } from '@capacitor/core';
+import ShortcutPlugin from '@/plugins/ShortcutPlugin';
 import { useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { ContentSourcePicker } from '@/components/ContentSourcePicker';
@@ -36,6 +38,34 @@ const Index = () => {
       const shouldAutoPlayVideo = sharedAction === 'app.onetap.PLAY_VIDEO' || (sharedAction == null && isVideoFile);
 
       if (shouldAutoPlayVideo && sharedContent.type === 'file') {
+        // On Android, prefer native playback (more reliable than WebView <video>).
+        if (Capacitor.isNativePlatform()) {
+          const mimeType = sharedContent.mimeType || 'video/*';
+          console.log('[Index] Video open detected, opening native player:', {
+            action: sharedAction,
+            uri: sharedContent.uri,
+            type: mimeType,
+          });
+
+          (async () => {
+            try {
+              await ShortcutPlugin.openNativeVideoPlayer({ uri: sharedContent.uri, mimeType });
+            } catch (e) {
+              console.error('[Index] Failed to open native player, falling back to web player:', e);
+              const uri = encodeURIComponent(sharedContent.uri);
+              const type = encodeURIComponent(mimeType);
+              const nonce = Date.now();
+              navigate(`/player?uri=${uri}&type=${type}&t=${nonce}`);
+              return;
+            } finally {
+              // Clear after we've launched the player to avoid repeated re-opens.
+              clearSharedContent();
+            }
+          })();
+
+          return;
+        }
+
         const uri = encodeURIComponent(sharedContent.uri);
         const type = encodeURIComponent(sharedContent.mimeType || 'video/*');
         // Add nonce to force fresh navigation/player initialization on repeated taps
