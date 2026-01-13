@@ -1,13 +1,9 @@
 package app.onetap.shortcuts;
 
 import android.app.Activity;
-import android.content.ClipData;
-import android.content.ContentUris;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
-import android.provider.DocumentsContract;
-import android.provider.MediaStore;
 import android.util.Log;
 
 /**
@@ -53,50 +49,11 @@ public class VideoProxyActivity extends Activity {
             mimeType = "video/*";
         }
 
-        // Some OEM players struggle with DocumentsProvider media URIs.
-        // Normalize where possible to a MediaStore URI (content://media/...).
-        Uri normalizedUri = normalizeVideoUri(videoUri);
-        if (!normalizedUri.equals(videoUri)) {
-            Log.d(TAG, "Normalized video URI: " + normalizedUri);
-        }
-
         // Always use internal player (videos are limited to 100MB)
         Log.d(TAG, "Opening video in internal player");
-        openInternalPlayer(normalizedUri, mimeType);
+        openInternalPlayer(videoUri, mimeType);
 
         finish();
-    }
-
-    /**
-     * Normalize certain document URIs (e.g. com.android.providers.media.documents) to MediaStore URIs.
-     * This improves compatibility with some players.
-     */
-    private Uri normalizeVideoUri(Uri uri) {
-        if (uri == null) return Uri.EMPTY;
-
-        try {
-            if (!"content".equals(uri.getScheme())) return uri;
-
-            // Example input:
-            // content://com.android.providers.media.documents/document/video%3A1000501956
-            if ("com.android.providers.media.documents".equals(uri.getAuthority())) {
-                String docId = DocumentsContract.getDocumentId(uri); // "video:1000501956"
-                if (docId != null) {
-                    String[] split = docId.split(":");
-                    if (split.length == 2) {
-                        String type = split[0];
-                        long id = Long.parseLong(split[1]);
-                        if ("video".equals(type)) {
-                            return ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id);
-                        }
-                    }
-                }
-            }
-        } catch (Exception e) {
-            Log.w(TAG, "Failed to normalize video URI: " + e.getMessage());
-        }
-
-        return uri;
     }
 
     private void openInternalPlayer(Uri videoUri, String mimeType) {
