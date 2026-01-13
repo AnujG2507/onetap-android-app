@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { Capacitor } from '@capacitor/core';
 import ShortcutPlugin from '@/plugins/ShortcutPlugin';
-import { useNavigate, Link } from 'react-router-dom';
-import { Plus, Bug } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Plus } from 'lucide-react';
 import { ContentSourcePicker } from '@/components/ContentSourcePicker';
 import { UrlInput } from '@/components/UrlInput';
 import { ShortcutCustomizer } from '@/components/ShortcutCustomizer';
@@ -196,25 +196,16 @@ const Index = () => {
     <div className="min-h-screen bg-background flex flex-col">
       {step === 'source' && (
         <>
-          <header className="p-4 pt-6 flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-3 mb-1">
-                <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center">
-                  <Plus className="h-5 w-5 text-primary-foreground" />
-                </div>
-                <h1 className="text-xl font-semibold text-foreground">OneTap</h1>
+          <header className="p-4 pt-6">
+            <div className="flex items-center gap-3 mb-1">
+              <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center">
+                <Plus className="h-5 w-5 text-primary-foreground" />
               </div>
-              <p className="text-muted-foreground mt-2">
-                Create shortcuts to your files and links
-              </p>
+              <h1 className="text-xl font-semibold text-foreground">OneTap</h1>
             </div>
-            <Link
-              to="/debug"
-              className="p-2 rounded-lg bg-muted/60 hover:bg-muted transition-colors"
-              title="Debug Log"
-            >
-              <Bug className="h-5 w-5 text-muted-foreground" />
-            </Link>
+            <p className="text-muted-foreground mt-2">
+              Create shortcuts to your files and links
+            </p>
           </header>
           <ContentSourcePicker
             onSelectFile={handleSelectFile}

@@ -2,7 +2,6 @@ import { Capacitor } from '@capacitor/core';
 import ShortcutPlugin from '@/plugins/ShortcutPlugin';
 import type { ShortcutData } from '@/types/shortcut';
 import { FILE_SIZE_THRESHOLD, VIDEO_CACHE_THRESHOLD } from '@/types/shortcut';
-import { logDebugEntry } from '@/hooks/useDebugLog';
 
 export interface ShortcutIntent {
   action: string;
@@ -138,37 +137,9 @@ export async function createHomeScreenShortcut(
   // Determine if this is a video - use proxy activity for videos
   const useVideoProxy = isVideo;
 
-  // All videos use internal player now (max 100MB)
-  const playbackPath: 'internal' | 'external' | 'unknown' = isVideo ? 'internal' : 'unknown';
-
   if (useVideoProxy) {
     const sizeInfo = fileSize > 0 ? `(${(fileSize / (1024 * 1024)).toFixed(1)} MB)` : '(unknown size)';
     console.log(`[ShortcutManager] Video detected ${sizeInfo}, will use VideoProxyActivity → internal player`);
-  }
-
-  // Log debug entry for shortcut creation
-  try {
-    const uriScheme = (() => {
-      try {
-        const parsed = new URL(intent.data);
-        return parsed.protocol.replace(':', '');
-      } catch {
-        const colonIdx = intent.data.indexOf(':');
-        return colonIdx > 0 ? intent.data.substring(0, colonIdx) : 'unknown';
-      }
-    })();
-
-    logDebugEntry({
-      shortcutName: shortcut.name,
-      uriScheme,
-      uri: intent.data,
-      mimeType: mimeType || '',
-      detectedSize: fileSize,
-      playbackPath,
-      notes: `Created shortcut, isLargeFile=${!!contentSource?.isLargeFile}`,
-    });
-  } catch (e) {
-    console.warn('[ShortcutManager] Debug log failed:', e);
   }
   
   try {
