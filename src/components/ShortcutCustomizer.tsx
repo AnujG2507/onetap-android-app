@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Check } from 'lucide-react';
+import { ArrowLeft, Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { IconPicker } from './IconPicker';
@@ -59,13 +59,24 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
           <label className="text-sm font-medium text-foreground">
             Shortcut Name
           </label>
-          <Input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Enter a name"
-            className="h-12 text-base"
-            maxLength={30}
-          />
+          <div className="relative">
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Enter a name"
+              className="h-12 text-base pr-10"
+              maxLength={30}
+            />
+            {name && (
+              <button
+                type="button"
+                onClick={() => setName('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted text-muted-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
         </div>
         
         {/* Icon picker */}
