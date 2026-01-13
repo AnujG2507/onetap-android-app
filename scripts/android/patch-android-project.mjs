@@ -16,8 +16,8 @@ import path from "node:path";
 
 const ANDROID_DIR = path.resolve("android");
 const MIN_SDK = 31; // Android 12
-const COMPILE_SDK = 35;
-const TARGET_SDK = 35;
+const COMPILE_SDK = 36;
+const TARGET_SDK = 36;
 // Use Gradle 8.13 with JDK 21 for latest compatibility.
 const GRADLE_VERSION = "8.13";
 const JAVA_TOOLCHAIN = 21;

@@ -1,11 +1,3 @@
-/*
- * UNCOMMENT THIS ENTIRE FILE AFTER GIT PULL
- * 
- * To uncomment: Remove the block comment markers at the start and end of this file
- * (the /* at line 1 and the */ at the end)
- */
-
-/*
 package app.onetap.shortcuts.plugins;
 
 import android.Manifest;
@@ -412,6 +404,7 @@ public class ShortcutPlugin extends Plugin {
             android.util.Log.w("ShortcutPlugin", "Cannot persist URI permission: " + e.getMessage());
         }
     }
+    
     private String getRealPathFromUri(Context context, Uri uri) {
         String result = null;
         
@@ -1300,4 +1293,3 @@ public class ShortcutPlugin extends Plugin {
         return null;
     }
 }
-*/

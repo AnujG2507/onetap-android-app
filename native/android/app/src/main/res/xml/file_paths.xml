@@ -1,15 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-    UNCOMMENT THE <paths> ELEMENT BELOW AFTER GIT PULL
-    
-    This FileProvider configuration allows the app to share files 
-    from its private storage with other apps via secure content:// URIs.
-    
-    To activate: Remove the comment markers around the <paths> element
--->
-
-<!--
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
     <files-path name="shortcuts" path="shortcuts/" />
 </paths>
--->

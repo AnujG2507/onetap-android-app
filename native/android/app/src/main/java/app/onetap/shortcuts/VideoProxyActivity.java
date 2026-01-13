@@ -1,17 +1,3 @@
-/*
- * UNCOMMENT THIS ENTIRE FILE AFTER GIT PULL
- * 
- * VideoProxyActivity - Transparent activity that handles video shortcut taps
- * 
- * Purpose:
- * 1. Receives the shortcut tap intent with the content:// URI
- * 2. Grants URI permissions at runtime to video player apps
- * 3. Launches the default video player
- * 4. Falls back to OneTap's internal player if external fails
- * 5. Finishes immediately (no visible UI)
- */
-
-/*
 package app.onetap.shortcuts;
 
 import android.app.Activity;
@@ -24,6 +10,16 @@ import android.util.Log;
 
 import java.util.List;
 
+/**
+ * VideoProxyActivity - Transparent activity that handles video shortcut taps
+ * 
+ * Purpose:
+ * 1. Receives the shortcut tap intent with the content:// URI
+ * 2. Grants URI permissions at runtime to video player apps
+ * 3. Launches the default video player
+ * 4. Falls back to OneTap's internal player if external fails
+ * 5. Finishes immediately (no visible UI)
+ */
 public class VideoProxyActivity extends Activity {
     private static final String TAG = "VideoProxyActivity";
 
@@ -116,7 +112,6 @@ public class VideoProxyActivity extends Activity {
     private void openInternalPlayer(Uri videoUri, String mimeType) {
         try {
             // If this is our own FileProvider URI, convert it to a direct file:// URI for maximum reliability.
-            // Some launchers/providers can behave oddly with transient grants on cold-start.
             Uri dataToSend = videoUri;
             try {
                 String expectedAuthority = getPackageName() + ".fileprovider";
@@ -153,4 +148,3 @@ public class VideoProxyActivity extends Activity {
         }
     }
 }
-*/
