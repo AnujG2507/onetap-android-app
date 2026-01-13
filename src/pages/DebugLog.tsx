@@ -1,11 +1,14 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Trash2, Bug } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
+import { Share } from '@capacitor/share';
+import { ArrowLeft, Trash2, Bug, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useDebugLog, setGlobalDebugLogger } from '@/hooks/useDebugLog';
+import { useToast } from '@/hooks/use-toast';
+import { useDebugLog, setGlobalDebugLogger, DebugEntry } from '@/hooks/useDebugLog';
 
 function formatBytes(bytes: number): string {
   if (bytes <= 0) return 'Unknown';
@@ -18,8 +21,27 @@ function formatTime(ts: number): string {
   return new Date(ts).toLocaleString();
 }
 
+function formatEntryAsText(entry: DebugEntry): string {
+  return [
+    `[${formatTime(entry.timestamp)}] ${entry.shortcutName}`,
+    `  Playback: ${entry.playbackPath}`,
+    `  Scheme: ${entry.uriScheme}`,
+    `  Size: ${formatBytes(entry.detectedSize)}`,
+    `  MIME: ${entry.mimeType || '—'}`,
+    `  URI: ${entry.uri}`,
+    entry.notes ? `  Notes: ${entry.notes}` : '',
+  ].filter(Boolean).join('\n');
+}
+
+function formatAllEntriesAsText(entries: DebugEntry[]): string {
+  if (entries.length === 0) return 'No debug entries.';
+  const header = `OneTap Debug Log (${entries.length} entries)\nExported: ${new Date().toLocaleString()}\n${'—'.repeat(40)}\n`;
+  return header + entries.map(formatEntryAsText).join('\n\n');
+}
+
 export default function DebugLog() {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const { entries, addEntry, clearLog } = useDebugLog();
 
   // Register global logger
@@ -27,6 +49,32 @@ export default function DebugLog() {
     setGlobalDebugLogger(addEntry);
     return () => setGlobalDebugLogger(null);
   }, [addEntry]);
+
+  const handleExport = async () => {
+    const text = formatAllEntriesAsText(entries);
+
+    if (Capacitor.isNativePlatform()) {
+      try {
+        await Share.share({
+          title: 'OneTap Debug Log',
+          text,
+          dialogTitle: 'Share Debug Log',
+        });
+      } catch (e) {
+        console.warn('[DebugLog] Share failed:', e);
+        toast({ title: 'Share cancelled', variant: 'default' });
+      }
+    } else {
+      // Web fallback: copy to clipboard
+      try {
+        await navigator.clipboard.writeText(text);
+        toast({ title: 'Copied to clipboard', description: 'Debug log copied.' });
+      } catch (e) {
+        console.error('[DebugLog] Clipboard write failed:', e);
+        toast({ title: 'Copy failed', variant: 'destructive' });
+      }
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
@@ -37,6 +85,10 @@ export default function DebugLog() {
         </Button>
         <Bug className="h-5 w-5 text-primary" />
         <h1 className="text-lg font-semibold flex-1">Shortcut Debug Log</h1>
+        <Button variant="outline" size="sm" onClick={handleExport} disabled={entries.length === 0}>
+          <Share2 className="h-4 w-4 mr-1" />
+          Share
+        </Button>
         <Button variant="destructive" size="sm" onClick={clearLog} disabled={entries.length === 0}>
           <Trash2 className="h-4 w-4 mr-1" />
           Clear
