@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Cached shortcut files (copied for persistence) -->
     <files-path name="shortcuts" path="shortcuts/" />
+    <!-- Resolved content URIs (for internal playback) -->
+    <files-path name="resolved" path="onetap_resolved/" />
 </paths>
