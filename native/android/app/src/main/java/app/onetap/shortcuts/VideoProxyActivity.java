@@ -136,20 +136,16 @@ public class VideoProxyActivity extends Activity {
             viewIntent.setDataAndType(videoUri, mimeType);
             viewIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             viewIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            
-            // Query all apps that can handle this video
-            List<ResolveInfo> handlers = getPackageManager().queryIntentActivities(
-                viewIntent, PackageManager.MATCH_DEFAULT_ONLY);
-            
-            Log.d(TAG, "Found " + handlers.size() + " handlers for video");
-            
-            if (handlers.isEmpty()) {
-                Log.w(TAG, "No video player apps found");
-                return false;
-            }
-            
-            // Grant URI permission to all potential handlers (for content:// URIs)
-            if ("content".equals(videoUri.getScheme())) {
+
+            // Grant URI permission to all potential handlers (for content:// and FileProvider URIs)
+            String scheme = videoUri.getScheme();
+            if ("content".equals(scheme)) {
+                // Query all apps that can handle this video
+                List<ResolveInfo> handlers = getPackageManager().queryIntentActivities(
+                    viewIntent, PackageManager.MATCH_DEFAULT_ONLY);
+
+                Log.d(TAG, "Found " + handlers.size() + " handlers for video");
+
                 for (ResolveInfo handler : handlers) {
                     String packageName = handler.activityInfo.packageName;
                     try {
@@ -160,12 +156,15 @@ public class VideoProxyActivity extends Activity {
                     }
                 }
             }
-            
-            // Launch the video player
-            startActivity(viewIntent);
-            Log.d(TAG, "External video player launched successfully");
+
+            // Use a chooser so the user can pick their preferred video player app
+            Intent chooser = Intent.createChooser(viewIntent, "Open video with...");
+            chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
+            startActivity(chooser);
+            Log.d(TAG, "External video player chooser launched successfully");
             return true;
-            
+
         } catch (android.content.ActivityNotFoundException e) {
             Log.w(TAG, "No activity found to handle video: " + e.getMessage());
             return false;
