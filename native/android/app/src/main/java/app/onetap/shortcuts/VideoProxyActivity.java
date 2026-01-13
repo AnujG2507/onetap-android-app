@@ -143,10 +143,17 @@ public class VideoProxyActivity extends Activity {
             viewIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             viewIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
 
-            // Grant URI permission to all potential handlers (for content:// and FileProvider URIs)
-            String scheme = videoUri.getScheme();
-            if ("content".equals(scheme)) {
-                // Query all apps that can handle this video
+            // Critical for choosers: ensure the URI is in ClipData so the chosen app actually receives the grant.
+            if ("content".equals(videoUri.getScheme())) {
+                try {
+                    viewIntent.setClipData(android.content.ClipData.newUri(getContentResolver(), "onetap-video", videoUri));
+                } catch (Exception e) {
+                    Log.w(TAG, "Failed to set ClipData on viewIntent: " + e.getMessage());
+                }
+            }
+
+            // Grant URI permission to all potential handlers (best-effort)
+            if ("content".equals(videoUri.getScheme())) {
                 List<ResolveInfo> handlers = getPackageManager().queryIntentActivities(
                     viewIntent, PackageManager.MATCH_DEFAULT_ONLY);
 
@@ -163,9 +170,19 @@ public class VideoProxyActivity extends Activity {
                 }
             }
 
-            // Use a chooser so the user can pick their preferred video player app
+            // Use a chooser so the user can pick their preferred video player app.
             Intent chooser = Intent.createChooser(viewIntent, "Open video with...");
             chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            chooser.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+            // Critical: set ClipData on chooser too (some Android versions drop grants otherwise)
+            if ("content".equals(videoUri.getScheme())) {
+                try {
+                    chooser.setClipData(android.content.ClipData.newUri(getContentResolver(), "onetap-video", videoUri));
+                } catch (Exception e) {
+                    Log.w(TAG, "Failed to set ClipData on chooser: " + e.getMessage());
+                }
+            }
 
             startActivity(chooser);
             Log.d(TAG, "External video player chooser launched successfully");

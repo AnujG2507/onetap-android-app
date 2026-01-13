@@ -237,6 +237,15 @@ public class ShortcutPlugin extends Plugin {
             intent.setDataAndType(dataUri, intentType != null ? intentType : "video/*");
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+            // Critical: ensure URI grant survives launcher/chooser hops by attaching ClipData.
+            if ("content".equals(dataUri.getScheme())) {
+                try {
+                    intent.setClipData(ClipData.newUri(context.getContentResolver(), "onetap-video", dataUri));
+                } catch (Exception e) {
+                    android.util.Log.w("ShortcutPlugin", "Failed to set ClipData on shortcut intent: " + e.getMessage());
+                }
+            }
         } else {
             intent = createCompatibleIntent(context, intentAction, dataUri, intentType);
         }
