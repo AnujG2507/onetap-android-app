@@ -3,7 +3,7 @@ import { ArrowLeft, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { IconPicker } from './IconPicker';
-import { getContentName, generateThumbnail } from '@/lib/contentResolver';
+import { getContentName, generateThumbnail, getPlatformEmoji } from '@/lib/contentResolver';
 import type { ContentSource, ShortcutIcon } from '@/types/shortcut';
 
 interface ShortcutCustomizerProps {
@@ -15,7 +15,16 @@ interface ShortcutCustomizerProps {
 export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustomizerProps) {
   const [name, setName] = useState(() => getContentName(source));
   const [thumbnail, setThumbnail] = useState<string | null>(null);
-  const [icon, setIcon] = useState<ShortcutIcon>({ type: 'emoji', value: '📌' });
+  
+  // Get initial emoji based on source type
+  const getInitialIcon = (): ShortcutIcon => {
+    if (source.type === 'url' || source.type === 'share') {
+      return { type: 'emoji', value: getPlatformEmoji(source.uri) };
+    }
+    return { type: 'emoji', value: '📌' };
+  };
+  
+  const [icon, setIcon] = useState<ShortcutIcon>(getInitialIcon);
   
   useEffect(() => {
     generateThumbnail(source).then((thumb) => {

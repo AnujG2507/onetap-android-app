@@ -10,7 +10,7 @@ interface IconPickerProps {
   onSelect: (icon: ShortcutIcon) => void;
 }
 
-const COMMON_EMOJIS = ['📄', '🔗', '📷', '🎬', '📱', '⭐', '❤️', '📌', '🎵', '📺', '💼', '📚'];
+const COMMON_EMOJIS = ['🎬', '📺', '▶️', '🎵', '📷', '🐦', '✨', '🏏', '🎥', '🔗', '⭐', '❤️'];
 
 export function IconPicker({ thumbnail, selectedIcon, onSelect }: IconPickerProps) {
   const [textValue, setTextValue] = useState(
