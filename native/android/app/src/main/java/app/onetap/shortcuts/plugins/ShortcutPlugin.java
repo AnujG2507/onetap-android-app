@@ -252,7 +252,12 @@ public class ShortcutPlugin extends Plugin {
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         } else {
-            intent = createCompatibleIntent(context, intentAction, dataUri, intentType);
+            // For regular files (including PDFs without resume), use system app chooser
+            Intent viewIntent = createCompatibleIntent(context, intentAction, dataUri, intentType);
+            // Wrap in chooser to always show app picker
+            intent = Intent.createChooser(viewIntent, "Open with");
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         }
 
         Icon icon = createIcon(call);
