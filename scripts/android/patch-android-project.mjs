@@ -23,7 +23,7 @@ const TARGET_SDK = 36;
 // Use Gradle 8.13 with JDK 21 for latest compatibility.
 const GRADLE_VERSION = "8.13";
 const JAVA_TOOLCHAIN = 21;
-const AGP_VERSION = "8.7.3"; // Android Gradle Plugin compatible with Gradle 8.13
+const AGP_VERSION = "8.9.1"; // Required for compileSdk 36 + recent AndroidX
 
 function fileExists(p) {
   try {
@@ -147,21 +147,41 @@ function patchJavaVersionsInText(content) {
 }
 
 function patchAgpVersion() {
-  const buildGradle = path.join(ANDROID_DIR, "build.gradle");
-  if (!fileExists(buildGradle)) return;
+  const candidateFiles = [
+    path.join(ANDROID_DIR, "build.gradle"),
+    path.join(ANDROID_DIR, "build.gradle.kts"),
+    path.join(ANDROID_DIR, "settings.gradle"),
+    path.join(ANDROID_DIR, "settings.gradle.kts"),
+  ];
 
-  const before = readFile(buildGradle);
-  let after = before;
+  const classpathRe = /classpath\s*['"]com\.android\.tools\.build:gradle:[\d.]+['"]/g;
+  const pluginsKtsRe = /id\(\s*["']com\.android\.(application|library)["']\s*\)\s*version\s*["'][\d.]+["']/g;
+  const pluginsGroovyRe = /id\s+["']com\.android\.(application|library)["']\s+version\s+["'][\d.]+["']/g;
 
-  // Update AGP version in classpath
-  after = after.replace(
-    /classpath\s*['"]com\.android\.tools\.build:gradle:[\d.]+['"]/g,
-    `classpath 'com.android.tools.build:gradle:${AGP_VERSION}'`
-  );
+  let touched = false;
 
-  if (after !== before) {
-    writeFile(buildGradle, after);
-    console.log(`[patch-android] Updated Android Gradle Plugin to ${AGP_VERSION}.`);
+  for (const filePath of candidateFiles) {
+    if (!fileExists(filePath)) continue;
+
+    const before = readFile(filePath);
+    let after = before;
+
+    // Legacy buildscript classpath
+    after = after.replace(classpathRe, `classpath 'com.android.tools.build:gradle:${AGP_VERSION}'`);
+
+    // Plugins DSL (KTS and Groovy)
+    after = after.replace(pluginsKtsRe, (m) => m.replace(/version\s*["'][\d.]+["']/, `version "${AGP_VERSION}"`));
+    after = after.replace(pluginsGroovyRe, (m) => m.replace(/version\s+["'][\d.]+["']/, `version '${AGP_VERSION}'`));
+
+    if (after !== before) {
+      writeFile(filePath, after);
+      console.log(`[patch-android] Updated Android Gradle Plugin references in ${path.relative(process.cwd(), filePath)} to ${AGP_VERSION}.`);
+      touched = true;
+    }
+  }
+
+  if (!touched) {
+    console.log(`[patch-android] No AGP version references found to patch.`);
   }
 }
 
@@ -236,6 +256,9 @@ function patchGradleJavaHome() {
 
   // Enable toolchain auto-provisioning for dependencies that might need it
   after = upsertLine(after, "org.gradle.java.installations.auto-download=", "org.gradle.java.installations.auto-download=true");
+
+  // Suppress compileSdk warning when targeting newer SDKs than the tested AGP range
+  after = upsertLine(after, "android.suppressUnsupportedCompileSdk=", `android.suppressUnsupportedCompileSdk=${COMPILE_SDK}`);
 
   // Android-specific properties for better compatibility
   after = upsertLine(after, "android.useAndroidX=", "android.useAndroidX=true");
