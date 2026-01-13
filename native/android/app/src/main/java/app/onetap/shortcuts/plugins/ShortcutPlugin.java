@@ -187,25 +187,24 @@ public class ShortcutPlugin extends Plugin {
             android.util.Log.d("ShortcutPlugin", "URI scheme: " + scheme);
             
             if ("content".equals(scheme) && intentType != null) {
-                long contentSize = getContentSize(context, dataUri);
-                android.util.Log.d("ShortcutPlugin", "Content size: " + contentSize);
+                // Prefer the size passed from the JS layer (native document picker provides it).
+                // ContentResolver size queries can return 0 on some providers.
+                long contentSize = fileSize > 0 ? fileSize : getContentSize(context, dataUri);
+                if (contentSize <= 0 && intentType.startsWith("video/")) {
+                    // Unknown size for a video: treat as large to avoid copying/playing internally.
+                    contentSize = VIDEO_CACHE_THRESHOLD + 1;
+                    android.util.Log.w("ShortcutPlugin", "Content size unknown for video; forcing external player path");
+                }
+                android.util.Log.d("ShortcutPlugin", "Content size: " + contentSize + " (fileSize param=" + fileSize + ")");
 
                 boolean isVideo = intentType.startsWith("video/");
                 boolean isLargeVideo = isVideo && contentSize > VIDEO_CACHE_THRESHOLD;
 
                 if (isLargeVideo) {
-                    // Large video: try to get the real file path for external player
-                    android.util.Log.d("ShortcutPlugin", "Large video detected (" + contentSize + " bytes), using external player path");
-                    String realPath = getRealPathFromUri(context, dataUri);
-                    if (realPath != null && new File(realPath).exists()) {
-                        // Use file:// URI for direct access by external players
-                        dataUri = Uri.fromFile(new File(realPath));
-                        android.util.Log.d("ShortcutPlugin", "Using real file path: " + realPath);
-                    } else {
-                        // Fallback: keep the content:// URI but mark for external player
-                        android.util.Log.d("ShortcutPlugin", "Could not resolve real path, keeping content:// URI for external player");
-                        persistReadPermissionIfPossible(context, dataUri);
-                    }
+                    // Large video: DO NOT convert to file:// (often breaks on Android 10+).
+                    // Keep content:// and persist/grant permissions; VideoProxyActivity will grant at tap time.
+                    android.util.Log.d("ShortcutPlugin", "Large video detected (" + contentSize + " bytes), using external player with content:// URI");
+                    persistReadPermissionIfPossible(context, dataUri);
                 } else {
                     // Small/medium file or non-video: copy to app storage for internal playback
                     Uri persistentUri = copyToAppStorage(context, dataUri, id, intentType);

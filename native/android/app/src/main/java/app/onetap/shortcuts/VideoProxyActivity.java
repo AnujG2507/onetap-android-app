@@ -61,20 +61,26 @@ public class VideoProxyActivity extends Activity {
         // Determine file size to decide playback strategy
         long fileSize = getFileSize(videoUri);
         Log.d(TAG, "Detected file size: " + fileSize + " bytes (" + (fileSize / (1024 * 1024)) + " MB)");
-        
+
+        // If the provider doesn't report size, prefer external player for videos.
+        boolean isUnknownSize = fileSize <= 0;
         boolean isLargeVideo = fileSize > VIDEO_CACHE_THRESHOLD;
-        
+        if (!isLargeVideo && isUnknownSize) {
+            Log.w(TAG, "File size unknown; treating as large video to force external player");
+            isLargeVideo = true;
+        }
+
         if (isLargeVideo) {
-            // Large video (>50MB): Use external player for better performance
-            Log.d(TAG, "Large video detected, using external player");
+            // Large/unknown video: Use external player picker
+            Log.d(TAG, "Large/unknown video detected, using external player chooser");
             boolean externalSuccess = tryExternalPlayer(videoUri, mimeType);
             if (!externalSuccess) {
-                Log.w(TAG, "External player failed for large video, trying internal as last resort");
+                Log.w(TAG, "External player failed, trying native internal player as last resort");
                 openInternalPlayer(videoUri, mimeType);
             }
         } else {
-            // Small/medium video (<=50MB): Use internal player for better UX
-            Log.d(TAG, "Small/medium video, using internal player");
+            // Small/medium video (<=50MB): Use native internal player
+            Log.d(TAG, "Small/medium video, using native internal player");
             openInternalPlayer(videoUri, mimeType);
         }
         
