@@ -1,6 +1,37 @@
 # OneTap - Complete Ubuntu VM Setup Guide
 
-A comprehensive guide for setting up and testing the project from scratch on Ubuntu.
+A comprehensive guide for setting up and testing the project from scratch on Ubuntu (and recovering from Gradle/Java issues).
+
+---
+
+## Part 0: Fresh Start / Reset (Optional, but recommended if your VM is "dirty")
+
+If you experimented with multiple JDKs, Android Studio installs, or partially-generated `android/` folders, do this once.
+
+### 0.1 Remove generated Android platform (safe)
+
+```bash
+# From the project root
+rm -rf android
+```
+
+### 0.2 Uninstall common Android/Java tooling (optional)
+
+Only do this if you want a truly clean machine:
+
+```bash
+sudo apt remove --purge -y openjdk-17-jdk openjdk-21-jdk gradle
+sudo apt autoremove -y
+
+# If you installed Android Studio under /opt like in this guide
+sudo rm -rf /opt/android-studio
+sudo rm -f /usr/share/applications/android-studio.desktop
+
+# Remove Android SDK (will delete installed SDK platforms/build-tools)
+rm -rf "$HOME/Android/Sdk"
+```
+
+Reboot the VM after a deep reset.
 
 ---
 
@@ -34,39 +65,36 @@ npm -v     # Should show 10.x
 
 ---
 
-## Part 3: Install JDK 17 (Recommended for Gradle Compatibility)
+## Part 3: Java Setup (Fixes Gradle + Java 21 Issues)
 
-> **Important:** JDK 17 is recommended because Gradle wrappers in Capacitor projects often don't support JDK 21 out of the box.
+Android builds are most reliable when **Gradle runs on JDK 17**, even if your system default is JDK 21.
+
+### 3.1 Install JDK 17 (required for Android/Gradle reliability)
 
 ```bash
-# Install OpenJDK 17
+sudo apt update
 sudo apt install -y openjdk-17-jdk
 
-# Set as default (if multiple JDKs installed)
-sudo update-alternatives --config java
-# Select the java-17 option
-
-sudo update-alternatives --config javac
-# Select the javac-17 option
-
-# Set JAVA_HOME
-echo 'export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64' >> ~/.bashrc
+# Recommended: expose a dedicated env var the patch script can use
+echo 'export JAVA_HOME_17=/usr/lib/jvm/java-17-openjdk-amd64' >> ~/.bashrc
 source ~/.bashrc
 
 # Verify
-java -version   # Should show 17.x
-echo $JAVA_HOME # Should show /usr/lib/jvm/java-17-openjdk-amd64
+/usr/lib/jvm/java-17-openjdk-amd64/bin/java -version
 ```
 
-### If You Must Use JDK 21
+### 3.2 (Optional) Keep JDK 21 as your system default
 
-If you need JDK 21, you must update the Gradle wrapper after cloning:
+If you already use JDK 21 for other projects, you can keep it installed and even set it as default:
 
 ```bash
-cd android
-./gradlew wrapper --gradle-version 8.4.2
-cd ..
+sudo apt install -y openjdk-21-jdk
+sudo update-alternatives --config java
+sudo update-alternatives --config javac
+java -version
 ```
+
+**Key point:** the Android project will be configured to use **JDK 17** via `android/gradle.properties` (`org.gradle.java.home=...`) using the patch script below.
 
 ---
 
@@ -165,11 +193,17 @@ npm install
 
 ---
 
-## Part 7: Add Android Platform
+## Part 7: Add Android Platform (and apply required Android-12 + Java/Gradle fixes)
 
 ```bash
-# Add Android platform
+# Add Android platform (generates android/ gradle files)
 npx cap add android
+
+# Patch the generated Android project:
+# - Updates Gradle wrapper (fixes Java 21 "Could not determine java version")
+# - Forces minimum Android version to Android 12 (minSdkVersion=31)
+# - Pins Gradle to run on JDK 17 (org.gradle.java.home)
+node scripts/android/patch-android-project.mjs
 
 # Build web assets
 npm run build
@@ -249,6 +283,10 @@ Whenever you pull new code:
 git pull
 npm run build
 npx cap sync android
+
+# Re-apply Android 12 + Gradle/JDK fixes (safe to run every time)
+node scripts/android/patch-android-project.mjs
+
 npx cap run android
 ```
 
@@ -261,23 +299,44 @@ Run these commands to verify your setup:
 ```bash
 echo "=== Node.js ===" && node -v
 echo "=== npm ===" && npm -v
-echo "=== Java ===" && java -version
-echo "=== JAVA_HOME ===" && echo $JAVA_HOME
+echo "=== Java (system) ===" && java -version
+echo "=== JAVA_HOME_17 (recommended) ===" && echo $JAVA_HOME_17
 echo "=== Android SDK ===" && echo $ANDROID_HOME
 echo "=== ADB ===" && adb devices
-echo "=== Gradle ===" && gradle -v
+```
+
+(Optional) If you installed Gradle system-wide:
+
+```bash
+gradle -v
 ```
 
 Expected output:
 - Node: v18+ or v20+
-- Java: 17.x (recommended) or 21.x (requires Gradle 8.4+)
-- JAVA_HOME: Set correctly
-- ANDROID_HOME: Set correctly
-- ADB: Shows connected devices
+- Java (system): 17.x or 21.x
+- JAVA_HOME_17: set (points to JDK 17)
+- ANDROID_HOME: set correctly
+- ADB: shows connected devices
 
 ---
 
 ## Troubleshooting
+
+### `Could not determine java version from '21.x'` / `'21.0.x'`
+
+This happens when the generated Android project is using an older Gradle wrapper.
+
+```bash
+# Ensure Android platform exists
+npx cap add android
+
+# Apply all Gradle/Java/SDK fixes
+node scripts/android/patch-android-project.mjs
+
+# Then try again
+npx cap sync android
+npx cap run android
+```
 
 ### `spawn ./gradlew ENOENT`
 
@@ -285,19 +344,10 @@ Expected output:
 cd android
 gradle wrapper
 cd ..
+node scripts/android/patch-android-project.mjs
 npx cap run android
 ```
 
-### `Could not determine java version from '21.x'`
-
-Either:
-1. **Switch to JDK 17** (recommended)
-2. **Or update Gradle wrapper:**
-   ```bash
-   cd android
-   ./gradlew wrapper --gradle-version 8.4.2
-   cd ..
-   ```
 
 ### Device Not Detected
 
@@ -332,19 +382,26 @@ npx cap run android
 ## Summary Flowchart
 
 ```
+0. (Optional) Reset toolchain + remove android/
+      ↓
 1. System Update
       ↓
-2. Install: Node.js, JDK 17, Android Studio, Gradle
+2. Install: Node.js, JDK 17 (and optionally JDK 21), Android Studio
       ↓
-3. Set Environment Variables (JAVA_HOME, ANDROID_HOME)
+3. Set Environment Variables (ANDROID_HOME, JAVA_HOME_17)
       ↓
 4. Clone Repo → npm install
       ↓
-5. npx cap add android → npm run build → npx cap sync android
+5. npx cap add android
       ↓
-6. Uncomment Native Code (Java files + XML)
+6. node scripts/android/patch-android-project.mjs   (Android 12 + Gradle/JDK fixes)
       ↓
-7. Connect Phone (USB Debugging ON)
+7. npm run build → npx cap sync android
       ↓
-8. npx cap run android
+8. Uncomment Native Code (Java files + XML)
+      ↓
+9. Connect Phone (USB Debugging ON)
+      ↓
+10. npx cap run android
 ```
+
