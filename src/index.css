@@ -117,4 +117,18 @@ All colors MUST be HSL.
   .elevation-3 {
     box-shadow: 0 10px 15px -3px hsl(0 0% 0% / 0.1), 0 4px 6px -4px hsl(0 0% 0% / 0.1);
   }
+
+  /* Shrink width animation for progress bars */
+  .animate-shrink-width {
+    animation: shrink-width linear forwards;
+  }
+
+  @keyframes shrink-width {
+    from {
+      width: 100%;
+    }
+    to {
+      width: 0%;
+    }
+  }
 }

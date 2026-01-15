@@ -7,9 +7,11 @@ import { ContentSourcePicker } from '@/components/ContentSourcePicker';
 import { UrlInput } from '@/components/UrlInput';
 import { ShortcutCustomizer } from '@/components/ShortcutCustomizer';
 import { SuccessScreen } from '@/components/SuccessScreen';
+import { ClipboardSuggestion } from '@/components/ClipboardSuggestion';
 import { useShortcuts } from '@/hooks/useShortcuts';
 import { useBackButton } from '@/hooks/useBackButton';
 import { useSharedContent } from '@/hooks/useSharedContent';
+import { useClipboardDetection } from '@/hooks/useClipboardDetection';
 import { useToast } from '@/hooks/use-toast';
 import { pickFile, FileTypeFilter } from '@/lib/contentResolver';
 import { createHomeScreenShortcut } from '@/lib/shortcutManager';
@@ -26,6 +28,15 @@ const Index = () => {
   const { createShortcut } = useShortcuts();
   const { toast } = useToast();
   const { sharedContent, sharedAction, isLoading: isLoadingShared, clearSharedContent } = useSharedContent();
+  
+  // Auto-detect clipboard URL (only on source screen)
+  const { detectedUrl, dismissDetection } = useClipboardDetection(step === 'source');
+
+  const handleClipboardUse = (url: string) => {
+    dismissDetection();
+    setPrefillUrl(url);
+    setStep('url');
+  };
 
   // Handle shared content from Android Share Sheet AND internal video fallback
   // ALWAYS override current state when new share arrives (even on success screen)
@@ -214,6 +225,15 @@ const Index = () => {
             onSelectFile={handleSelectFile}
             onSelectUrl={handleSelectUrl}
           />
+          
+          {/* Clipboard URL auto-detection */}
+          {detectedUrl && (
+            <ClipboardSuggestion
+              url={detectedUrl}
+              onUse={handleClipboardUse}
+              onDismiss={dismissDetection}
+            />
+          )}
         </>
       )}
       
