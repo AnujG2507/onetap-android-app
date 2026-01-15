@@ -227,7 +227,27 @@ function getMimeTypesForFilter(filter: FileTypeFilter): string[] {
     case 'video':
       return ['video/*'];
     case 'document':
-      return ['application/pdf', 'text/plain', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+      // Accept all document types except images and videos
+      return [
+        'application/pdf',
+        'text/*',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        'application/vnd.ms-excel',
+        'application/vnd.ms-powerpoint',
+        'application/vnd.oasis.opendocument.text',
+        'application/vnd.oasis.opendocument.spreadsheet',
+        'application/vnd.oasis.opendocument.presentation',
+        'application/rtf',
+        'application/zip',
+        'application/x-rar-compressed',
+        'application/x-7z-compressed',
+        'application/json',
+        'application/xml',
+        '*/*', // Fallback for any other documents
+      ];
     case 'all':
     default:
       return ['video/*', 'image/*', 'application/pdf', 'text/plain', '*/*'];
@@ -241,10 +261,11 @@ function getAcceptForFilter(filter: FileTypeFilter): string {
     case 'video':
       return 'video/*';
     case 'document':
-      return 'application/pdf,.doc,.docx,.txt';
+      // Accept all common document extensions except images and videos
+      return '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.rtf,.odt,.ods,.odp,.csv,.json,.xml,.zip,.rar,.7z,.md,.html,.css,.js,.ts,.py,.java,.c,.cpp,.h,.sql,.yaml,.yml,.ini,.conf,.log,.epub,.mobi';
     case 'all':
     default:
-      return 'image/*,video/*,application/pdf,.doc,.docx,.txt';
+      return 'image/*,video/*,application/pdf,.doc,.docx,.txt,*/*';
   }
 }
 
@@ -393,10 +414,115 @@ const FILE_TYPE_EMOJIS: Record<FileType, string> = {
   document: '📑',
 };
 
-// Get emoji for a file type
+// Document-specific emojis based on MIME type or extension
+const DOCUMENT_TYPE_EMOJIS: Record<string, string> = {
+  // Spreadsheets
+  'application/vnd.ms-excel': '📊',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '📊',
+  'application/vnd.oasis.opendocument.spreadsheet': '📊',
+  '.xls': '📊',
+  '.xlsx': '📊',
+  '.csv': '📊',
+  '.ods': '📊',
+  
+  // Presentations
+  'application/vnd.ms-powerpoint': '📽️',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation': '📽️',
+  'application/vnd.oasis.opendocument.presentation': '📽️',
+  '.ppt': '📽️',
+  '.pptx': '📽️',
+  '.odp': '📽️',
+  
+  // Word documents
+  'application/msword': '📝',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '📝',
+  'application/vnd.oasis.opendocument.text': '📝',
+  'application/rtf': '📝',
+  '.doc': '📝',
+  '.docx': '📝',
+  '.odt': '📝',
+  '.rtf': '📝',
+  
+  // PDF
+  'application/pdf': '📄',
+  '.pdf': '📄',
+  
+  // Plain text
+  'text/plain': '📃',
+  '.txt': '📃',
+  '.md': '📃',
+  '.log': '📃',
+  
+  // Web/HTML
+  'text/html': '🌐',
+  '.html': '🌐',
+  '.htm': '🌐',
+  
+  // Code files
+  'text/css': '🎨',
+  'text/javascript': '💻',
+  'application/javascript': '💻',
+  'application/json': '💻',
+  'application/xml': '💻',
+  'text/xml': '💻',
+  '.css': '🎨',
+  '.js': '💻',
+  '.ts': '💻',
+  '.jsx': '💻',
+  '.tsx': '💻',
+  '.json': '💻',
+  '.xml': '💻',
+  '.py': '💻',
+  '.java': '💻',
+  '.c': '💻',
+  '.cpp': '💻',
+  '.h': '💻',
+  '.sql': '💻',
+  '.yaml': '💻',
+  '.yml': '💻',
+  
+  // Archives
+  'application/zip': '📦',
+  'application/x-rar-compressed': '📦',
+  'application/x-7z-compressed': '📦',
+  '.zip': '📦',
+  '.rar': '📦',
+  '.7z': '📦',
+  
+  // E-books
+  'application/epub+zip': '📚',
+  '.epub': '📚',
+  '.mobi': '📚',
+  
+  // Config files
+  '.ini': '⚙️',
+  '.conf': '⚙️',
+  '.env': '⚙️',
+};
+
+// Get emoji for a file type with document-specific detection
 export function getFileTypeEmoji(mimeType?: string, filename?: string): string {
   const fileType = detectFileType(mimeType, filename);
-  return FILE_TYPE_EMOJIS[fileType];
+  
+  // For images and videos, use simple mapping
+  if (fileType === 'image') return '🖼️';
+  if (fileType === 'video') return '🎬';
+  
+  // For documents/PDFs, check specific MIME type first
+  if (mimeType && DOCUMENT_TYPE_EMOJIS[mimeType]) {
+    return DOCUMENT_TYPE_EMOJIS[mimeType];
+  }
+  
+  // Fall back to extension-based lookup
+  if (filename) {
+    const ext = '.' + (filename.split('.').pop()?.toLowerCase() || '');
+    if (DOCUMENT_TYPE_EMOJIS[ext]) {
+      return DOCUMENT_TYPE_EMOJIS[ext];
+    }
+  }
+  
+  // Default for unknown documents
+  return fileType === 'pdf' ? '📄' : '📑';
 }
 
 // Format content source info for display
