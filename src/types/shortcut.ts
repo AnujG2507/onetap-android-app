@@ -17,7 +17,6 @@ export interface ShortcutData {
   fileType?: FileType;
   icon: ShortcutIcon;
   createdAt: number;
-  updatedAt?: number; // Track last modification
   usageCount: number;
   // File metadata for native handling
   fileSize?: number;
@@ -25,10 +24,6 @@ export interface ShortcutData {
   originalPath?: string; // Original file path for large files
   // Thumbnail for icon display (base64, small size)
   thumbnailData?: string;
-  // Shortcut-specific options
-  options?: {
-    resumeEnabled?: boolean; // For video shortcuts
-  };
 }
 
 export interface ContentSource {
