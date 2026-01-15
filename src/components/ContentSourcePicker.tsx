@@ -9,11 +9,11 @@ interface ContentSourcePickerProps {
 
 export function ContentSourcePicker({ onSelectFile, onSelectUrl }: ContentSourcePickerProps) {
   return (
-    <div className="flex flex-col gap-4 p-4">
+    <div className="flex flex-col gap-5 p-5 animate-fade-in">
       {/* Section 1: Local Files (Primary) */}
-      <div className="rounded-2xl bg-card border border-border p-4">
-        <h2 className="text-sm font-medium text-muted-foreground mb-3">
-          Create shortcut from local file
+      <div className="rounded-2xl bg-card border border-border p-5">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-4">
+          Local file
         </h2>
         <div className="grid grid-cols-3 gap-3">
           <FileTypeButton
@@ -35,15 +35,15 @@ export function ContentSourcePicker({ onSelectFile, onSelectUrl }: ContentSource
       </div>
 
       {/* Section 2: URL (Secondary) */}
-      <div className="rounded-2xl bg-card border border-border p-4">
-        <h2 className="text-sm font-medium text-muted-foreground mb-3">
-          Create shortcut from link
+      <div className="rounded-2xl bg-card border border-border p-5">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-4">
+          Link
         </h2>
         <button
           onClick={onSelectUrl}
           className={cn(
             "w-full flex items-center gap-3 rounded-xl bg-muted/50 p-4 text-left",
-            "active:scale-[0.98] transition-transform",
+            "active:scale-[0.98] transition-all duration-150",
             "focus:outline-none focus:ring-2 focus:ring-ring"
           )}
         >

@@ -384,3 +384,50 @@ export function formatFileSize(bytes: number): string {
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 }
+
+// File type emojis for smart icon selection
+const FILE_TYPE_EMOJIS: Record<FileType, string> = {
+  image: '🖼️',
+  video: '🎬',
+  pdf: '📄',
+  document: '📑',
+};
+
+// Get emoji for a file type
+export function getFileTypeEmoji(mimeType?: string, filename?: string): string {
+  const fileType = detectFileType(mimeType, filename);
+  return FILE_TYPE_EMOJIS[fileType];
+}
+
+// Format content source info for display
+export function formatContentInfo(source: ContentSource): {
+  label: string;
+  sublabel: string;
+  emoji: string;
+} {
+  if (source.type === 'url' || source.type === 'share') {
+    const { platform } = parseDeepLink(source.uri);
+    const emoji = getPlatformEmoji(source.uri);
+    try {
+      const url = new URL(source.uri);
+      return {
+        label: platform !== 'Web' ? `${platform} link` : 'Web link',
+        sublabel: url.hostname.replace('www.', ''),
+        emoji,
+      };
+    } catch {
+      return { label: 'Link', sublabel: source.uri, emoji };
+    }
+  }
+
+  const fileType = detectFileType(source.mimeType, source.name);
+  const emoji = FILE_TYPE_EMOJIS[fileType];
+  const typeLabel = fileType.charAt(0).toUpperCase() + fileType.slice(1);
+  const sizeLabel = source.fileSize ? formatFileSize(source.fileSize) : '';
+
+  return {
+    label: source.name || 'File',
+    sublabel: sizeLabel ? `${typeLabel} • ${sizeLabel}` : typeLabel,
+    emoji,
+  };
+}

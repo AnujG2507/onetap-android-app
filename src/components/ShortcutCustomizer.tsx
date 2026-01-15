@@ -3,7 +3,8 @@ import { ArrowLeft, Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { IconPicker } from './IconPicker';
-import { getContentName, generateThumbnail, getPlatformEmoji } from '@/lib/contentResolver';
+import { ContentPreview } from './ContentPreview';
+import { getContentName, generateThumbnail, getPlatformEmoji, getFileTypeEmoji } from '@/lib/contentResolver';
 import type { ContentSource, ShortcutIcon } from '@/types/shortcut';
 
 interface ShortcutCustomizerProps {
@@ -16,12 +17,13 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
   const [name, setName] = useState(() => getContentName(source));
   const [thumbnail, setThumbnail] = useState<string | null>(null);
   
-  // Get initial emoji based on source type
+  // Get initial emoji based on source type - smart defaults
   const getInitialIcon = (): ShortcutIcon => {
     if (source.type === 'url' || source.type === 'share') {
       return { type: 'emoji', value: getPlatformEmoji(source.uri) };
     }
-    return { type: 'emoji', value: '📌' };
+    // For files, use file-type specific emoji
+    return { type: 'emoji', value: getFileTypeEmoji(source.mimeType, source.name) };
   };
   
   const [icon, setIcon] = useState<ShortcutIcon>(getInitialIcon);
@@ -53,11 +55,14 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
         <h2 className="text-lg font-medium">Customize Shortcut</h2>
       </header>
       
-      <div className="flex-1 p-4 space-y-6 overflow-auto">
+      <div className="flex-1 p-4 space-y-8 overflow-auto animate-fade-in">
+        {/* Content Preview */}
+        <ContentPreview source={source} />
+
         {/* Name input */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-foreground">
-            Shortcut Name
+          <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Name
           </label>
           <div className="relative">
             <Input
@@ -80,16 +85,21 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
         </div>
         
         {/* Icon picker */}
-        <IconPicker
-          thumbnail={thumbnail || undefined}
-          selectedIcon={icon}
-          onSelect={setIcon}
-        />
+        <div className="space-y-2">
+          <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Icon
+          </label>
+          <IconPicker
+            thumbnail={thumbnail || undefined}
+            selectedIcon={icon}
+            onSelect={setIcon}
+          />
+        </div>
         
         {/* Preview */}
-        <div className="mt-6 pt-6 border-t">
-          <p className="text-sm font-medium text-muted-foreground text-center mb-4">
-            Home screen preview
+        <div className="pt-6 border-t border-border">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-center mb-4">
+            Preview
           </p>
           <div className="flex flex-col items-center gap-2">
             <div

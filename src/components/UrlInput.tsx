@@ -83,8 +83,8 @@ export function UrlInput({ onSubmit, onBack }: UrlInputProps) {
         )}
         
         {linkInfo?.isDeepLink && (
-          <p className="mt-3 text-sm text-accent-foreground bg-accent rounded-lg px-3 py-2">
-            Will open in {linkInfo.platform} app
+          <p className="mt-3 text-xs text-muted-foreground animate-fade-in">
+            Opens in {linkInfo.platform}
           </p>
         )}
       </div>
