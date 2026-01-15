@@ -218,13 +218,42 @@ async function generateImageThumbnail(file: File, maxSize: number = 512): Promis
 // Request file from system picker
 // - On native Android: uses a native document picker to obtain a persistent content:// URI (no base64 → avoids crashes).
 // - On web: falls back to <input type="file"> and (for small files) base64 encoding.
-export async function pickFile(): Promise<ContentSource | null> {
+export type FileTypeFilter = 'image' | 'video' | 'document' | 'all';
+
+function getMimeTypesForFilter(filter: FileTypeFilter): string[] {
+  switch (filter) {
+    case 'image':
+      return ['image/*'];
+    case 'video':
+      return ['video/*'];
+    case 'document':
+      return ['application/pdf', 'text/plain', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+    case 'all':
+    default:
+      return ['video/*', 'image/*', 'application/pdf', 'text/plain', '*/*'];
+  }
+}
+
+function getAcceptForFilter(filter: FileTypeFilter): string {
+  switch (filter) {
+    case 'image':
+      return 'image/*';
+    case 'video':
+      return 'video/*';
+    case 'document':
+      return 'application/pdf,.doc,.docx,.txt';
+    case 'all':
+    default:
+      return 'image/*,video/*,application/pdf,.doc,.docx,.txt';
+  }
+}
+
+export async function pickFile(filter: FileTypeFilter = 'all'): Promise<ContentSource | null> {
   // Native path (Android): get a persistent content:// URI.
   if (Capacitor.isNativePlatform()) {
     try {
       const picked = await ShortcutPlugin.pickFile({
-        // Keep broad support: videos/images/pdfs/docs.
-        mimeTypes: ['video/*', 'image/*', 'application/pdf', 'text/plain', '*/*'],
+        mimeTypes: getMimeTypesForFilter(filter),
       });
 
       if (!picked?.success || !picked.uri) {
@@ -251,7 +280,7 @@ export async function pickFile(): Promise<ContentSource | null> {
   return new Promise((resolve) => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = 'image/*,video/*,application/pdf,.doc,.docx,.txt';
+    input.accept = getAcceptForFilter(filter);
 
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];

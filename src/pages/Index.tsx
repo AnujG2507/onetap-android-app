@@ -11,7 +11,7 @@ import { useShortcuts } from '@/hooks/useShortcuts';
 import { useBackButton } from '@/hooks/useBackButton';
 import { useSharedContent } from '@/hooks/useSharedContent';
 import { useToast } from '@/hooks/use-toast';
-import { pickFile } from '@/lib/contentResolver';
+import { pickFile, FileTypeFilter } from '@/lib/contentResolver';
 import { createHomeScreenShortcut } from '@/lib/shortcutManager';
 import type { ContentSource, ShortcutIcon } from '@/types/shortcut';
 
@@ -122,8 +122,8 @@ const Index = () => {
     }
   });
 
-  const handleSelectFile = async () => {
-    const file = await pickFile();
+  const handleSelectFile = async (filter: FileTypeFilter) => {
+    const file = await pickFile(filter);
     if (file) {
       console.log('[Index] File selected:', {
         name: file.name,

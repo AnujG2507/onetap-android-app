@@ -1,60 +1,82 @@
-import { FileText, Link, Share2 } from 'lucide-react';
+import { Image, Video, FileText, Link } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import type { FileTypeFilter } from '@/lib/contentResolver';
 
 interface ContentSourcePickerProps {
-  onSelectFile: () => void;
+  onSelectFile: (filter: FileTypeFilter) => void;
   onSelectUrl: () => void;
 }
 
 export function ContentSourcePicker({ onSelectFile, onSelectUrl }: ContentSourcePickerProps) {
   return (
-    <div className="flex flex-col gap-3 p-4">
-      <SourceOption
-        icon={<FileText className="h-6 w-6" />}
-        label="Local File"
-        description="Image, video, PDF, document"
-        onClick={onSelectFile}
-      />
-      <SourceOption
-        icon={<Link className="h-6 w-6" />}
-        label="Link"
-        description="Any URL, Instagram, YouTube..."
-        onClick={onSelectUrl}
-      />
-      <div className="mt-2 flex items-center gap-3 rounded-lg bg-muted/50 px-4 py-3">
-        <Share2 className="h-5 w-5 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">
-          You can also share content here from any app
-        </p>
+    <div className="flex flex-col gap-4 p-4">
+      {/* Section 1: Local Files (Primary) */}
+      <div className="rounded-2xl bg-card border border-border p-4">
+        <h2 className="text-sm font-medium text-muted-foreground mb-3">
+          Create shortcut from local file
+        </h2>
+        <div className="grid grid-cols-3 gap-3">
+          <FileTypeButton
+            icon={<Image className="h-6 w-6" />}
+            label="Image"
+            onClick={() => onSelectFile('image')}
+          />
+          <FileTypeButton
+            icon={<Video className="h-6 w-6" />}
+            label="Video"
+            onClick={() => onSelectFile('video')}
+          />
+          <FileTypeButton
+            icon={<FileText className="h-6 w-6" />}
+            label="Document"
+            onClick={() => onSelectFile('document')}
+          />
+        </div>
+      </div>
+
+      {/* Section 2: URL (Secondary) */}
+      <div className="rounded-2xl bg-card border border-border p-4">
+        <h2 className="text-sm font-medium text-muted-foreground mb-3">
+          Create shortcut from link
+        </h2>
+        <button
+          onClick={onSelectUrl}
+          className={cn(
+            "w-full flex items-center gap-3 rounded-xl bg-muted/50 p-4 text-left",
+            "active:scale-[0.98] transition-transform",
+            "focus:outline-none focus:ring-2 focus:ring-ring"
+          )}
+        >
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <Link className="h-5 w-5" />
+          </div>
+          <span className="font-medium text-foreground">Enter URL</span>
+        </button>
       </div>
     </div>
   );
 }
 
-interface SourceOptionProps {
+interface FileTypeButtonProps {
   icon: React.ReactNode;
   label: string;
-  description: string;
   onClick: () => void;
 }
 
-function SourceOption({ icon, label, description, onClick }: SourceOptionProps) {
+function FileTypeButton({ icon, label, onClick }: FileTypeButtonProps) {
   return (
     <button
       onClick={onClick}
       className={cn(
-        "flex items-center gap-4 rounded-xl bg-card p-4 text-left",
-        "elevation-1 active:scale-[0.98] transition-transform",
+        "flex flex-col items-center gap-2 rounded-xl bg-muted/50 p-4",
+        "active:scale-[0.96] transition-transform",
         "focus:outline-none focus:ring-2 focus:ring-ring"
       )}
     >
       <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
         {icon}
       </div>
-      <div className="flex-1">
-        <p className="font-medium text-foreground">{label}</p>
-        <p className="text-sm text-muted-foreground">{description}</p>
-      </div>
+      <span className="text-sm font-medium text-foreground">{label}</span>
     </button>
   );
 }
