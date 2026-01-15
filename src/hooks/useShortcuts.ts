@@ -71,6 +71,16 @@ export function useShortcuts() {
     saveShortcuts(updated);
   }, [shortcuts, saveShortcuts]);
 
+  const updateShortcut = useCallback((id: string, updates: Partial<ShortcutData>) => {
+    const updated = shortcuts.map(s => 
+      s.id === id ? { ...s, ...updates, updatedAt: Date.now() } : s
+    );
+    saveShortcuts(updated);
+  }, [shortcuts, saveShortcuts]);
+
+  const getShortcutById = useCallback((id: string): ShortcutData | undefined => {
+    return shortcuts.find(s => s.id === id);
+  }, [shortcuts]);
 
   const incrementUsage = useCallback((id: string) => {
     const updated = shortcuts.map(s => 
@@ -83,6 +93,8 @@ export function useShortcuts() {
     shortcuts,
     createShortcut,
     deleteShortcut,
+    updateShortcut,
+    getShortcutById,
     incrementUsage,
   };
 }
