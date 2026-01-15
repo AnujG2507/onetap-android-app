@@ -1206,6 +1206,52 @@ public class ShortcutPlugin extends Plugin {
             result.put("data", dataString);
             android.util.Log.d("ShortcutPlugin", "PLAY_VIDEO data: " + dataString);
             call.resolve(result);
+        } else if ("app.onetap.VIEW_PDF".equals(action)) {
+            // Internal PDF viewer from PDFProxyActivity
+            Uri uri = intent.getData();
+            if (uri == null) {
+                android.util.Log.e("ShortcutPlugin", "VIEW_PDF intent missing data URI");
+                call.resolve(null);
+                return;
+            }
+            
+            // Convert FileProvider URI to file path if needed
+            String dataString = uri.toString();
+            try {
+                Context context = getContext();
+                if (context != null) {
+                    String authority = uri.getAuthority();
+                    if (authority != null && authority.equals(context.getPackageName() + ".fileprovider")) {
+                        String path = uri.getPath();
+                        if (path != null && path.contains("/shortcuts/")) {
+                            String fileName = path.substring(path.lastIndexOf("/") + 1);
+                            File shortcutsDir = new File(context.getFilesDir(), "shortcuts");
+                            File localFile = new File(shortcutsDir, fileName);
+                            if (localFile.exists() && localFile.length() > 0) {
+                                dataString = "file://" + localFile.getAbsolutePath();
+                                android.util.Log.d("ShortcutPlugin", "VIEW_PDF: converted FileProvider URI to file path: " + dataString);
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                android.util.Log.w("ShortcutPlugin", "VIEW_PDF: failed to convert to file path, keeping original URI: " + e);
+            }
+            
+            // Extract PDF-specific extras
+            String shortcutId = intent.getStringExtra("shortcut_id");
+            boolean resume = intent.getBooleanExtra("resume", false);
+            
+            JSObject result = new JSObject();
+            result.put("action", action);
+            result.put("type", type != null ? type : "application/pdf");
+            result.put("data", dataString);
+            result.put("shortcutId", shortcutId != null ? shortcutId : "");
+            result.put("resume", resume);
+            
+            android.util.Log.d("ShortcutPlugin", "VIEW_PDF data: " + dataString + 
+                               ", shortcutId=" + shortcutId + ", resume=" + resume);
+            call.resolve(result);
         } else {
             android.util.Log.d("ShortcutPlugin", "No shared content found");
             call.resolve(null);
