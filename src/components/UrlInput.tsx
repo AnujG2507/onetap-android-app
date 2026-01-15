@@ -1,18 +1,28 @@
-import { useState } from 'react';
-import { ArrowLeft, ArrowRight, Globe, Instagram, Youtube } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ArrowLeft, ArrowRight, Globe, Instagram, Youtube, Clipboard, Star } from 'lucide-react';
+import { Clipboard as CapClipboard } from '@capacitor/clipboard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { isValidUrl, parseDeepLink } from '@/lib/contentResolver';
+import { addSavedLink } from '@/lib/savedLinksManager';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface UrlInputProps {
   onSubmit: (url: string) => void;
   onBack: () => void;
+  initialUrl?: string;
 }
 
-export function UrlInput({ onSubmit, onBack }: UrlInputProps) {
-  const [url, setUrl] = useState('');
+export function UrlInput({ onSubmit, onBack, initialUrl }: UrlInputProps) {
+  const [url, setUrl] = useState(initialUrl || '');
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (initialUrl) {
+      setUrl(initialUrl);
+    }
+  }, [initialUrl]);
   
   const linkInfo = url ? parseDeepLink(url) : null;
   
@@ -30,6 +40,40 @@ export function UrlInput({ onSubmit, onBack }: UrlInputProps) {
     
     setError('');
     onSubmit(finalUrl);
+  };
+
+  const handlePaste = async () => {
+    try {
+      const { value } = await CapClipboard.read();
+      if (value) {
+        setUrl(value);
+        setError('');
+      }
+    } catch {
+      try {
+        const text = await navigator.clipboard.readText();
+        if (text) {
+          setUrl(text);
+          setError('');
+        }
+      } catch {
+        toast.error('Unable to access clipboard');
+      }
+    }
+  };
+
+  const handleSaveLink = () => {
+    let finalUrl = url.trim();
+    if (finalUrl && !finalUrl.startsWith('http://') && !finalUrl.startsWith('https://')) {
+      finalUrl = 'https://' + finalUrl;
+    }
+    
+    if (isValidUrl(finalUrl)) {
+      addSavedLink(finalUrl);
+      toast.success('Link saved!');
+    } else {
+      toast.error('Enter a valid URL first');
+    }
   };
 
   const getPlatformIcon = () => {
@@ -58,24 +102,44 @@ export function UrlInput({ onSubmit, onBack }: UrlInputProps) {
       </header>
       
       <div className="flex-1 p-4">
-        <div className="relative">
-          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-            {getPlatformIcon()}
+        <div className="relative flex gap-2">
+          <div className="relative flex-1">
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+              {getPlatformIcon()}
+            </div>
+            <Input
+              value={url}
+              onChange={(e) => {
+                setUrl(e.target.value);
+                setError('');
+              }}
+              placeholder="Paste or type a URL"
+              className={cn(
+                "pl-11 pr-4 h-12 text-base",
+                error && "border-destructive focus-visible:ring-destructive"
+              )}
+              autoFocus
+              onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
+            />
           </div>
-          <Input
-            value={url}
-            onChange={(e) => {
-              setUrl(e.target.value);
-              setError('');
-            }}
-            placeholder="Paste or type a URL"
+          <button
+            onClick={handlePaste}
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-muted hover:bg-muted/80 active:scale-95 transition-all"
+            title="Paste from clipboard"
+          >
+            <Clipboard className="h-5 w-5 text-muted-foreground" />
+          </button>
+          <button
+            onClick={handleSaveLink}
             className={cn(
-              "pl-11 pr-4 h-12 text-base",
-              error && "border-destructive focus-visible:ring-destructive"
+              "flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-muted hover:bg-muted/80 active:scale-95 transition-all",
+              !url.trim() && "opacity-50"
             )}
-            autoFocus
-            onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
-          />
+            title="Save to favorites"
+            disabled={!url.trim()}
+          >
+            <Star className="h-5 w-5 text-muted-foreground" />
+          </button>
         </div>
         
         {error && (
