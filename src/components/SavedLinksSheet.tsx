@@ -1,13 +1,18 @@
 import { useState, useMemo } from 'react';
-import { Search, Star, Trash2, Plus, X } from 'lucide-react';
+import { Search, Star, Trash2, Plus, X, Edit2, Tag } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { 
   getSavedLinks, 
   removeSavedLink, 
   addSavedLink,
+  updateSavedLink,
+  getAllTags,
+  PRESET_TAGS,
   type SavedLink 
 } from '@/lib/savedLinksManager';
 
@@ -21,28 +26,63 @@ export function SavedLinksSheet({ open, onOpenChange, onSelectLink }: SavedLinks
   const [searchQuery, setSearchQuery] = useState('');
   const [links, setLinks] = useState<SavedLink[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [editingLink, setEditingLink] = useState<SavedLink | null>(null);
+  const [activeTagFilter, setActiveTagFilter] = useState<string | null>(null);
+  
+  // Form state
   const [newUrl, setNewUrl] = useState('');
   const [newTitle, setNewTitle] = useState('');
+  const [newDescription, setNewDescription] = useState('');
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [customTag, setCustomTag] = useState('');
 
-  // Refresh links when sheet opens
+  const allUsedTags = useMemo(() => getAllTags(), [links]);
+  const availableTags = useMemo(() => {
+    const combined = new Set([...PRESET_TAGS, ...allUsedTags]);
+    return Array.from(combined);
+  }, [allUsedTags]);
+
+  const resetForm = () => {
+    setNewUrl('');
+    setNewTitle('');
+    setNewDescription('');
+    setSelectedTags([]);
+    setCustomTag('');
+    setShowAddForm(false);
+    setEditingLink(null);
+  };
+
   const handleOpenChange = (isOpen: boolean) => {
     if (isOpen) {
       setLinks(getSavedLinks());
       setSearchQuery('');
-      setShowAddForm(false);
+      setActiveTagFilter(null);
+      resetForm();
     }
     onOpenChange(isOpen);
   };
 
   const filteredLinks = useMemo(() => {
-    if (!searchQuery.trim()) return links;
+    let result = links;
     
-    const query = searchQuery.toLowerCase();
-    return links.filter(link =>
-      link.title.toLowerCase().includes(query) ||
-      link.url.toLowerCase().includes(query)
-    );
-  }, [links, searchQuery]);
+    // Filter by tag
+    if (activeTagFilter) {
+      result = result.filter(link => link.tags.includes(activeTagFilter));
+    }
+    
+    // Filter by search
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(link =>
+        link.title.toLowerCase().includes(query) ||
+        link.url.toLowerCase().includes(query) ||
+        link.description?.toLowerCase().includes(query) ||
+        link.tags.some(tag => tag.toLowerCase().includes(query))
+      );
+    }
+    
+    return result;
+  }, [links, searchQuery, activeTagFilter]);
 
   const handleSelect = (url: string) => {
     onSelectLink(url);
@@ -55,24 +95,59 @@ export function SavedLinksSheet({ open, onOpenChange, onSelectLink }: SavedLinks
     setLinks(getSavedLinks());
   };
 
-  const handleAddLink = () => {
-    if (!newUrl.trim()) return;
-    
-    let url = newUrl.trim();
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      url = 'https://' + url;
+  const handleEdit = (link: SavedLink, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingLink(link);
+    setNewUrl(link.url);
+    setNewTitle(link.title);
+    setNewDescription(link.description || '');
+    setSelectedTags(link.tags);
+    setShowAddForm(true);
+  };
+
+  const toggleTag = (tag: string) => {
+    setSelectedTags(prev => 
+      prev.includes(tag) 
+        ? prev.filter(t => t !== tag)
+        : [...prev, tag]
+    );
+  };
+
+  const addCustomTag = () => {
+    const tag = customTag.trim();
+    if (tag && !selectedTags.includes(tag)) {
+      setSelectedTags(prev => [...prev, tag]);
+      setCustomTag('');
+    }
+  };
+
+  const handleSaveLink = () => {
+    if (editingLink) {
+      // Update existing link
+      updateSavedLink(editingLink.id, {
+        title: newTitle.trim() || undefined,
+        description: newDescription.trim() || undefined,
+        tags: selectedTags,
+      });
+    } else {
+      // Add new link
+      if (!newUrl.trim()) return;
+      
+      let url = newUrl.trim();
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        url = 'https://' + url;
+      }
+      
+      addSavedLink(url, newTitle.trim() || undefined, newDescription.trim() || undefined, selectedTags);
     }
     
-    addSavedLink(url, newTitle.trim() || undefined);
     setLinks(getSavedLinks());
-    setNewUrl('');
-    setNewTitle('');
-    setShowAddForm(false);
+    resetForm();
   };
 
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
-      <SheetContent side="bottom" className="h-[85vh] rounded-t-3xl">
+      <SheetContent side="bottom" className="h-[85vh] rounded-t-3xl flex flex-col">
         <SheetHeader className="pb-2">
           <SheetTitle className="flex items-center gap-2">
             <Star className="h-5 w-5 text-primary" />
@@ -81,7 +156,7 @@ export function SavedLinksSheet({ open, onOpenChange, onSelectLink }: SavedLinks
         </SheetHeader>
 
         {/* Search */}
-        <div className="relative mb-4">
+        <div className="relative mb-3">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             value={searchQuery}
@@ -91,33 +166,145 @@ export function SavedLinksSheet({ open, onOpenChange, onSelectLink }: SavedLinks
           />
         </div>
 
-        {/* Add New Link Form */}
+        {/* Tag Filter Bar */}
+        {availableTags.length > 0 && (
+          <div className="flex gap-2 overflow-x-auto pb-3 -mx-6 px-6 scrollbar-hide">
+            <button
+              onClick={() => setActiveTagFilter(null)}
+              className={cn(
+                "shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors",
+                activeTagFilter === null
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+              )}
+            >
+              All
+            </button>
+            {availableTags.map(tag => (
+              <button
+                key={tag}
+                onClick={() => setActiveTagFilter(activeTagFilter === tag ? null : tag)}
+                className={cn(
+                  "shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors",
+                  activeTagFilter === tag
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                )}
+              >
+                {tag}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Add/Edit Link Form */}
         {showAddForm ? (
           <div className="mb-4 p-4 rounded-xl bg-muted/50 animate-fade-in">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-medium">Add New Link</span>
+              <span className="text-sm font-medium">
+                {editingLink ? 'Edit Link' : 'Add New Link'}
+              </span>
               <button 
-                onClick={() => setShowAddForm(false)}
+                onClick={resetForm}
                 className="p-1 rounded-full hover:bg-muted"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <Input
-              value={newUrl}
-              onChange={(e) => setNewUrl(e.target.value)}
-              placeholder="URL (e.g., youtube.com)"
-              className="mb-2"
-              autoFocus
-            />
+            
+            {!editingLink && (
+              <Input
+                value={newUrl}
+                onChange={(e) => setNewUrl(e.target.value)}
+                placeholder="URL (e.g., youtube.com)"
+                className="mb-2"
+                autoFocus
+              />
+            )}
+            
             <Input
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
               placeholder="Title (optional)"
-              className="mb-3"
+              className="mb-2"
+              autoFocus={!!editingLink}
             />
-            <Button onClick={handleAddLink} disabled={!newUrl.trim()} className="w-full">
-              Save Link
+            
+            <Textarea
+              value={newDescription}
+              onChange={(e) => setNewDescription(e.target.value)}
+              placeholder="Description (optional)"
+              className="mb-3 resize-none"
+              rows={2}
+              maxLength={200}
+            />
+            
+            {/* Tag Selector */}
+            <div className="mb-3">
+              <div className="flex items-center gap-2 mb-2">
+                <Tag className="h-4 w-4 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">Tags</span>
+              </div>
+              <div className="flex flex-wrap gap-2 mb-2">
+                {PRESET_TAGS.map(tag => (
+                  <button
+                    key={tag}
+                    onClick={() => toggleTag(tag)}
+                    className={cn(
+                      "px-2.5 py-1 rounded-full text-xs font-medium transition-colors",
+                      selectedTags.includes(tag)
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground hover:bg-muted/80"
+                    )}
+                  >
+                    {tag}
+                  </button>
+                ))}
+              </div>
+              
+              {/* Custom tag input */}
+              <div className="flex gap-2">
+                <Input
+                  value={customTag}
+                  onChange={(e) => setCustomTag(e.target.value)}
+                  placeholder="Add custom tag..."
+                  className="flex-1 h-8 text-xs"
+                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addCustomTag())}
+                />
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={addCustomTag}
+                  disabled={!customTag.trim()}
+                  className="h-8"
+                >
+                  Add
+                </Button>
+              </div>
+              
+              {/* Selected custom tags */}
+              {selectedTags.filter(t => !PRESET_TAGS.includes(t)).length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {selectedTags.filter(t => !PRESET_TAGS.includes(t)).map(tag => (
+                    <Badge 
+                      key={tag} 
+                      variant="secondary"
+                      className="cursor-pointer hover:bg-destructive/20"
+                      onClick={() => toggleTag(tag)}
+                    >
+                      {tag} <X className="h-3 w-3 ml-1" />
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            <Button 
+              onClick={handleSaveLink} 
+              disabled={!editingLink && !newUrl.trim()} 
+              className="w-full"
+            >
+              {editingLink ? 'Update Link' : 'Save Link'}
             </Button>
           </div>
         ) : (
@@ -139,8 +326,8 @@ export function SavedLinksSheet({ open, onOpenChange, onSelectLink }: SavedLinks
         <div className="flex-1 overflow-y-auto -mx-6 px-6">
           {filteredLinks.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
-              {searchQuery ? (
-                <p>No links match "{searchQuery}"</p>
+              {searchQuery || activeTagFilter ? (
+                <p>No links match your filter</p>
               ) : (
                 <div>
                   <Star className="h-12 w-12 mx-auto mb-3 opacity-30" />
@@ -156,29 +343,47 @@ export function SavedLinksSheet({ open, onOpenChange, onSelectLink }: SavedLinks
                   key={link.id}
                   onClick={() => handleSelect(link.url)}
                   className={cn(
-                    "w-full flex items-center gap-3 p-3 rounded-xl",
+                    "w-full flex items-start gap-3 p-3 rounded-xl",
                     "bg-muted/30 hover:bg-muted/50",
                     "active:scale-[0.98] transition-all",
                     "text-left group"
                   )}
                 >
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 mt-0.5">
                     <Star className="h-5 w-5 text-primary" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-foreground truncate">{link.title}</p>
                     <p className="text-xs text-muted-foreground truncate">{link.url}</p>
-                  </div>
-                  <button
-                    onClick={(e) => handleRemove(link.id, e)}
-                    className={cn(
-                      "p-2 rounded-full opacity-0 group-hover:opacity-100",
-                      "hover:bg-destructive/10 hover:text-destructive",
-                      "transition-all"
+                    {link.description && (
+                      <p className="text-xs text-muted-foreground/80 mt-1 line-clamp-2">
+                        {link.description}
+                      </p>
                     )}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                    {link.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {link.tags.map(tag => (
+                          <Badge key={tag} variant="secondary" className="text-[10px] px-1.5 py-0">
+                            {tag}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                    <button
+                      onClick={(e) => handleEdit(link, e)}
+                      className="p-1.5 rounded-full hover:bg-muted"
+                    >
+                      <Edit2 className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={(e) => handleRemove(link.id, e)}
+                      className="p-1.5 rounded-full hover:bg-destructive/10 hover:text-destructive"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </button>
               ))}
             </div>
