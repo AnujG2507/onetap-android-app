@@ -15,4 +15,13 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  // Required for pdfjs-dist which uses top-level await
+  build: {
+    target: "esnext",
+  },
+  optimizeDeps: {
+    esbuildOptions: {
+      target: "esnext",
+    },
+  },
 }));
