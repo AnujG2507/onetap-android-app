@@ -1,4 +1,4 @@
-import { Image, Video, FileText, Link, Music } from 'lucide-react';
+import { Image, Video, FileText, Link, Music, FolderOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { FileTypeFilter } from '@/lib/contentResolver';
 
@@ -37,6 +37,19 @@ export function ContentSourcePicker({ onSelectFile, onSelectUrl }: ContentSource
             onClick={() => onSelectFile('document')}
           />
         </div>
+        
+        {/* All files option */}
+        <button
+          onClick={() => onSelectFile('all')}
+          className={cn(
+            "w-full flex items-center gap-3 rounded-xl bg-muted/30 p-3 mt-3",
+            "active:scale-[0.98] transition-all duration-150",
+            "focus:outline-none focus:ring-2 focus:ring-ring"
+          )}
+        >
+          <FolderOpen className="h-5 w-5 text-muted-foreground" />
+          <span className="text-sm font-medium text-muted-foreground">All Files</span>
+        </button>
       </div>
 
       {/* Section 2: URL (Secondary) */}
