@@ -1,6 +1,6 @@
 export type ShortcutType = 'file' | 'link';
 
-export type FileType = 'image' | 'video' | 'pdf' | 'document';
+export type FileType = 'image' | 'video' | 'pdf' | 'document' | 'audio';
 
 export type IconType = 'thumbnail' | 'emoji' | 'text';
 

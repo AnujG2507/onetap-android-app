@@ -13,6 +13,7 @@ export function detectFileType(mimeType?: string, filename?: string): FileType {
   if (mimeType) {
     if (mimeType.startsWith('image/')) return 'image';
     if (mimeType.startsWith('video/')) return 'video';
+    if (mimeType.startsWith('audio/')) return 'audio';
     if (mimeType === 'application/pdf') return 'pdf';
   }
   
@@ -20,6 +21,7 @@ export function detectFileType(mimeType?: string, filename?: string): FileType {
     const ext = filename.split('.').pop()?.toLowerCase();
     if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(ext || '')) return 'image';
     if (['mp4', 'webm', 'mov', 'avi', 'mkv'].includes(ext || '')) return 'video';
+    if (['mp3', 'wav', 'm4a', 'aac', 'flac', 'ogg', 'wma', 'aiff', 'opus', 'm4b', 'aa', 'aax'].includes(ext || '')) return 'audio';
     if (ext === 'pdf') return 'pdf';
   }
   
@@ -218,7 +220,7 @@ async function generateImageThumbnail(file: File, maxSize: number = 512): Promis
 // Request file from system picker
 // - On native Android: uses a native document picker to obtain a persistent content:// URI (no base64 → avoids crashes).
 // - On web: falls back to <input type="file"> and (for small files) base64 encoding.
-export type FileTypeFilter = 'image' | 'video' | 'document' | 'all';
+export type FileTypeFilter = 'image' | 'video' | 'document' | 'audio' | 'all';
 
 function getMimeTypesForFilter(filter: FileTypeFilter): string[] {
   switch (filter) {
@@ -226,8 +228,10 @@ function getMimeTypesForFilter(filter: FileTypeFilter): string[] {
       return ['image/*'];
     case 'video':
       return ['video/*'];
+    case 'audio':
+      return ['audio/*'];
     case 'document':
-      // Accept all document types except images and videos
+      // Accept all document types except images, videos, and audio
       return [
         'application/pdf',
         'text/*',
@@ -250,7 +254,7 @@ function getMimeTypesForFilter(filter: FileTypeFilter): string[] {
       ];
     case 'all':
     default:
-      return ['video/*', 'image/*', 'application/pdf', 'text/plain', '*/*'];
+      return ['video/*', 'image/*', 'audio/*', 'application/pdf', 'text/plain', '*/*'];
   }
 }
 
@@ -260,12 +264,14 @@ function getAcceptForFilter(filter: FileTypeFilter): string {
       return 'image/*';
     case 'video':
       return 'video/*';
+    case 'audio':
+      return 'audio/*,.mp3,.wav,.m4a,.aac,.flac,.ogg,.wma,.aiff,.opus,.m4b,.aa,.aax';
     case 'document':
-      // Accept all common document extensions except images and videos
+      // Accept all common document extensions except images, videos, and audio
       return '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.rtf,.odt,.ods,.odp,.csv,.json,.xml,.zip,.rar,.7z,.md,.html,.css,.js,.ts,.py,.java,.c,.cpp,.h,.sql,.yaml,.yml,.ini,.conf,.log,.epub,.mobi';
     case 'all':
     default:
-      return 'image/*,video/*,application/pdf,.doc,.docx,.txt,*/*';
+      return 'image/*,video/*,audio/*,application/pdf,.doc,.docx,.txt,*/*';
   }
 }
 
@@ -412,6 +418,7 @@ const FILE_TYPE_EMOJIS: Record<FileType, string> = {
   video: '🎬',
   pdf: '📄',
   document: '📑',
+  audio: '🎵',
 };
 
 // Document-specific emojis based on MIME type or extension
@@ -498,6 +505,37 @@ const DOCUMENT_TYPE_EMOJIS: Record<string, string> = {
   '.ini': '⚙️',
   '.conf': '⚙️',
   '.env': '⚙️',
+  
+  // Audio files - Music
+  'audio/mpeg': '🎵',
+  'audio/mp3': '🎵',
+  'audio/mp4': '🎵',
+  'audio/m4a': '🎵',
+  'audio/aac': '🎵',
+  'audio/flac': '🎵',
+  'audio/ogg': '🎵',
+  'audio/x-m4a': '🎵',
+  'audio/x-flac': '🎵',
+  '.mp3': '🎵',
+  '.m4a': '🎵',
+  '.aac': '🎵',
+  '.flac': '🎵',
+  '.ogg': '🎵',
+  '.wma': '🎵',
+  '.opus': '🎵',
+  
+  // Audio files - Raw/Lossless
+  'audio/wav': '🔊',
+  'audio/x-wav': '🔊',
+  'audio/aiff': '🔊',
+  'audio/x-aiff': '🔊',
+  '.wav': '🔊',
+  '.aiff': '🔊',
+  
+  // Audiobooks
+  '.m4b': '📻',
+  '.aa': '📻',
+  '.aax': '📻',
 };
 
 // Get emoji for a file type with document-specific detection
@@ -507,6 +545,27 @@ export function getFileTypeEmoji(mimeType?: string, filename?: string): string {
   // For images and videos, use simple mapping
   if (fileType === 'image') return '🖼️';
   if (fileType === 'video') return '🎬';
+  
+  // For audio, check for specific types (podcast, audiobook, voice recording)
+  if (fileType === 'audio') {
+    if (filename) {
+      const ext = '.' + (filename.split('.').pop()?.toLowerCase() || '');
+      const lowerName = filename.toLowerCase();
+      
+      // Check for audiobook extensions
+      if (['.m4b', '.aa', '.aax'].includes(ext)) return '📻';
+      
+      // Check for podcast pattern in filename
+      if (lowerName.includes('podcast') || lowerName.includes('episode')) return '🎙️';
+      
+      // Check for voice recording patterns
+      if (lowerName.includes('voice') || lowerName.includes('recording') || lowerName.includes('memo')) return '🎤';
+      
+      // Check for raw/lossless audio
+      if (['.wav', '.aiff'].includes(ext)) return '🔊';
+    }
+    return '🎵'; // Default music emoji
+  }
   
   // For documents/PDFs, check specific MIME type first
   if (mimeType && DOCUMENT_TYPE_EMOJIS[mimeType]) {

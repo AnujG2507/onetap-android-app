@@ -1,4 +1,4 @@
-import { Image, Video, FileText, Link } from 'lucide-react';
+import { Image, Video, FileText, Link, Music } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { FileTypeFilter } from '@/lib/contentResolver';
 
@@ -15,7 +15,7 @@ export function ContentSourcePicker({ onSelectFile, onSelectUrl }: ContentSource
         <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-4">
           Local file
         </h2>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <FileTypeButton
             icon={<Image className="h-6 w-6" />}
             label="Image"
@@ -25,6 +25,11 @@ export function ContentSourcePicker({ onSelectFile, onSelectUrl }: ContentSource
             icon={<Video className="h-6 w-6" />}
             label="Video"
             onClick={() => onSelectFile('video')}
+          />
+          <FileTypeButton
+            icon={<Music className="h-6 w-6" />}
+            label="Audio"
+            onClick={() => onSelectFile('audio')}
           />
           <FileTypeButton
             icon={<FileText className="h-6 w-6" />}
