@@ -125,6 +125,8 @@ public class ShortcutPlugin extends Plugin {
         String intentData = call.getString("intentData");
         String intentType = call.getString("intentType");
         Boolean useVideoProxy = call.getBoolean("useVideoProxy", false);
+        Boolean usePDFProxy = call.getBoolean("usePDFProxy", false);
+        Boolean resumeEnabled = call.getBoolean("resumeEnabled", false);
         
         // Check for base64 file data from web picker
         String fileData = call.getString("fileData");
@@ -136,7 +138,8 @@ public class ShortcutPlugin extends Plugin {
         android.util.Log.d("ShortcutPlugin", "Creating shortcut: id=" + id + ", label=" + label + 
             ", intentData=" + intentData + ", intentType=" + intentType + 
             ", hasFileData=" + (fileData != null) + ", fileSize=" + fileSize +
-            ", useVideoProxy=" + useVideoProxy);
+            ", useVideoProxy=" + useVideoProxy + ", usePDFProxy=" + usePDFProxy +
+            ", resumeEnabled=" + resumeEnabled);
 
         if (id == null || label == null) {
             android.util.Log.e("ShortcutPlugin", "Missing required parameters");
@@ -231,13 +234,22 @@ public class ShortcutPlugin extends Plugin {
             return;
         }
 
-        // Create intent - use VideoProxyActivity for videos to handle permission granting at tap time
+        // Create intent - use proxy activities for videos and PDFs
         Intent intent;
         if (useVideoProxy != null && useVideoProxy) {
             android.util.Log.d("ShortcutPlugin", "Using VideoProxyActivity for video shortcut");
             intent = new Intent(context, VideoProxyActivity.class);
             intent.setAction("app.onetap.OPEN_VIDEO");
             intent.setDataAndType(dataUri, intentType != null ? intentType : "video/*");
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        } else if (usePDFProxy != null && usePDFProxy) {
+            android.util.Log.d("ShortcutPlugin", "Using PDFProxyActivity for PDF shortcut, resumeEnabled=" + resumeEnabled);
+            intent = new Intent(context, PDFProxyActivity.class);
+            intent.setAction("app.onetap.OPEN_PDF");
+            intent.setDataAndType(dataUri, intentType != null ? intentType : "application/pdf");
+            intent.putExtra("shortcut_id", id);
+            intent.putExtra("resume_enabled", resumeEnabled != null && resumeEnabled);
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         } else {

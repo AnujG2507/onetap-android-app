@@ -24,6 +24,8 @@ export interface ShortcutData {
   originalPath?: string; // Original file path for large files
   // Thumbnail for icon display (base64, small size)
   thumbnailData?: string;
+  // PDF Resume Support
+  resumeEnabled?: boolean; // Whether "Resume where I left off" is enabled for PDFs
 }
 
 export interface ContentSource {

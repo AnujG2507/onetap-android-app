@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { App } from '@capacitor/app';
 import ShortcutPlugin from '@/plugins/ShortcutPlugin';
 import type { ContentSource } from '@/types/shortcut';
@@ -6,6 +7,7 @@ import type { ContentSource } from '@/types/shortcut';
 // Hook to handle content shared via Android Share Sheet
 // Supports both initial launch and app resume (when app is already open)
 export function useSharedContent() {
+  const navigate = useNavigate();
   const [sharedContent, setSharedContent] = useState<ContentSource | null>(null);
   const [sharedAction, setSharedAction] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -20,6 +22,22 @@ export function useSharedContent() {
       if (shared) {
         const action = shared.action || null;
         setSharedAction(action);
+        
+        // Handle PDF viewer action - navigate directly to PDF viewer
+        if (action === 'app.onetap.VIEW_PDF') {
+          const pdfUri = shared.data || '';
+          const shortcutId = shared.shortcutId || '';
+          const resume = shared.resume === true || shared.resume === 'true';
+          
+          console.log('[useSharedContent] VIEW_PDF action detected:', { pdfUri, shortcutId, resume });
+          
+          if (pdfUri) {
+            // Navigate to PDF viewer with params
+            navigate(`/pdf?uri=${encodeURIComponent(pdfUri)}&shortcutId=${encodeURIComponent(shortcutId)}&resume=${resume}`);
+            setIsLoading(false);
+            return;
+          }
+        }
 
         // Handle both text (URLs, etc.) and data (file URIs)
         const text = shared.text || '';
@@ -94,7 +112,7 @@ export function useSharedContent() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [navigate]);
 
   // Check for shared content on initial mount
   useEffect(() => {

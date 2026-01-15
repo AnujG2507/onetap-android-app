@@ -96,6 +96,15 @@
             android:excludeFromRecents="true">
         </activity>
 
+        <!-- PDF Proxy Activity - transparent activity for launching PDF shortcuts -->
+        <activity
+            android:name=".PDFProxyActivity"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:exported="false"
+            android:noHistory="true"
+            android:excludeFromRecents="true">
+        </activity>
+
         <!-- Native video player used for <=50MB videos (reliable vs WebView) -->
         <activity
             android:name=".NativeVideoPlayerActivity"

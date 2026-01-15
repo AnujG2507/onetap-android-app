@@ -21,7 +21,8 @@ export function useShortcuts() {
   const createShortcut = useCallback((
     source: ContentSource,
     name: string,
-    icon: ShortcutIcon
+    icon: ShortcutIcon,
+    resumeEnabled?: boolean
   ): ShortcutData => {
     // Determine file type from content source
     const isFile = source.type === 'file';
@@ -41,6 +42,8 @@ export function useShortcuts() {
       fileSize: source.fileSize,
       // Preserve thumbnail data for icon creation
       thumbnailData: source.thumbnailData,
+      // PDF resume support
+      resumeEnabled: resumeEnabled,
     };
 
     const updated = [...shortcuts, shortcut];

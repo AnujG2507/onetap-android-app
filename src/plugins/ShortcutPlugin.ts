@@ -18,6 +18,9 @@ export interface ShortcutPluginInterface {
     fileSize?: number;
     // Flag to use video proxy activity
     useVideoProxy?: boolean;
+    // Flag to use PDF proxy activity
+    usePDFProxy?: boolean;
+    resumeEnabled?: boolean;
   }): Promise<{ success: boolean; error?: string }>;
 
   checkShortcutSupport(): Promise<{ supported: boolean; canPin: boolean }>;
@@ -27,6 +30,9 @@ export interface ShortcutPluginInterface {
     type?: string;
     data?: string;
     text?: string;
+    // PDF viewer extras
+    shortcutId?: string;
+    resume?: boolean | string;
   } | null>;
 
   // Native file picker (Android): returns a persistent content:// URI.

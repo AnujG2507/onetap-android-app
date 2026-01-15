@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { ArrowLeft, Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
 import { IconPicker } from './IconPicker';
 import { ContentPreview } from './ContentPreview';
 import { getContentName, generateThumbnail, getPlatformEmoji, getFileTypeEmoji } from '@/lib/contentResolver';
@@ -9,13 +10,18 @@ import type { ContentSource, ShortcutIcon } from '@/types/shortcut';
 
 interface ShortcutCustomizerProps {
   source: ContentSource;
-  onConfirm: (name: string, icon: ShortcutIcon) => void;
+  onConfirm: (name: string, icon: ShortcutIcon, resumeEnabled?: boolean) => void;
   onBack: () => void;
 }
 
 export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustomizerProps) {
   const [name, setName] = useState(() => getContentName(source));
   const [thumbnail, setThumbnail] = useState<string | null>(null);
+  const [resumeEnabled, setResumeEnabled] = useState(false);
+  
+  // Check if this is a PDF file
+  const isPdf = source.mimeType === 'application/pdf' || 
+                source.name?.toLowerCase().endsWith('.pdf');
   
   // Get initial emoji based on source type - smart defaults
   const getInitialIcon = (): ShortcutIcon => {
@@ -39,7 +45,7 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
   
   const handleConfirm = () => {
     if (name.trim()) {
-      onConfirm(name.trim(), icon);
+      onConfirm(name.trim(), icon, isPdf ? resumeEnabled : undefined);
     }
   };
 
@@ -95,6 +101,22 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
             onSelect={setIcon}
           />
         </div>
+        
+        {/* PDF Resume Toggle - only shown for PDFs */}
+        {isPdf && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between p-4 rounded-xl bg-muted/30">
+              <div className="flex-1 mr-4">
+                <p className="font-medium text-foreground">Resume where I left off</p>
+                <p className="text-sm text-muted-foreground">Open at last viewed page</p>
+              </div>
+              <Switch
+                checked={resumeEnabled}
+                onCheckedChange={setResumeEnabled}
+              />
+            </div>
+          </div>
+        )}
         
         {/* Preview */}
         <div className="pt-6 border-t border-border">
