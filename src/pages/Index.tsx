@@ -136,7 +136,10 @@ const Index = () => {
     }
   };
 
-  const handleSelectUrl = () => {
+  const [prefillUrl, setPrefillUrl] = useState<string | undefined>();
+
+  const handleSelectUrl = (url?: string) => {
+    setPrefillUrl(url);
     setStep('url');
   };
 
@@ -218,6 +221,7 @@ const Index = () => {
         <UrlInput
           onSubmit={handleUrlSubmit}
           onBack={() => setStep('source')}
+          initialUrl={prefillUrl}
         />
       )}
       
