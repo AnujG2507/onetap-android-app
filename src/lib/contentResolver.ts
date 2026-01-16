@@ -390,6 +390,32 @@ export async function pickFile(filter: FileTypeFilter = 'all'): Promise<ContentS
   });
 }
 
+// Extract YouTube video ID from various URL formats
+function extractYouTubeVideoId(url: string): string | null {
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=)([^&]+)/,
+    /(?:youtu\.be\/)([^?]+)/,
+    /(?:youtube\.com\/embed\/)([^?]+)/,
+    /(?:youtube\.com\/v\/)([^?]+)/,
+    /(?:youtube\.com\/shorts\/)([^?]+)/,
+  ];
+  
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match) return match[1];
+  }
+  return null;
+}
+
+// Get YouTube thumbnail URL
+export function getYouTubeThumbnailUrl(url: string): string | null {
+  const videoId = extractYouTubeVideoId(url);
+  if (!videoId) return null;
+  
+  // hqdefault is 480x360, good balance of quality and size
+  return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+}
+
 // Generate thumbnail from content
 export async function generateThumbnail(source: ContentSource): Promise<string | null> {
   if (source.mimeType?.startsWith('image/')) {
@@ -398,7 +424,28 @@ export async function generateThumbnail(source: ContentSource): Promise<string |
   }
   
   if (source.type === 'url' || source.type === 'share') {
-    // For links, we could fetch favicon but keeping it simple
+    // Try YouTube thumbnail
+    const ytThumbnail = getYouTubeThumbnailUrl(source.uri);
+    if (ytThumbnail) {
+      // Fetch and convert to base64 for reliable icon creation
+      try {
+        const response = await fetch(ytThumbnail);
+        if (!response.ok) {
+          console.warn('[ContentResolver] Failed to fetch YouTube thumbnail:', response.status);
+          return null;
+        }
+        const blob = await response.blob();
+        return new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = () => resolve(null);
+          reader.readAsDataURL(blob);
+        });
+      } catch (e) {
+        console.warn('[ContentResolver] Error fetching YouTube thumbnail:', e);
+        return null;
+      }
+    }
     return null;
   }
   

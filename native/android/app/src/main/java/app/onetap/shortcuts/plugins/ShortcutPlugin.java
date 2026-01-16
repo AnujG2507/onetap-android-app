@@ -975,6 +975,23 @@ public class ShortcutPlugin extends Plugin {
             return createTextIcon(text);
         }
 
+        // Priority 5: Auto-generate video thumbnail if this is a video file
+        String intentType = call.getString("intentType");
+        String intentData = call.getString("intentData");
+        if (intentType != null && intentType.startsWith("video/") && intentData != null) {
+            android.util.Log.d("ShortcutPlugin", "Attempting video thumbnail extraction as fallback icon");
+            try {
+                Uri videoUri = Uri.parse(intentData);
+                Icon videoIcon = createVideoThumbnailIcon(getContext(), videoUri);
+                if (videoIcon != null) {
+                    android.util.Log.d("ShortcutPlugin", "Successfully created video thumbnail icon");
+                    return videoIcon;
+                }
+            } catch (Exception e) {
+                android.util.Log.w("ShortcutPlugin", "Video thumbnail fallback failed: " + e.getMessage());
+            }
+        }
+
         android.util.Log.d("ShortcutPlugin", "Using default icon");
         return Icon.createWithResource(getContext(), android.R.drawable.ic_menu_add);
     }
