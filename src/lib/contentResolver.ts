@@ -250,7 +250,7 @@ function getMimeTypesForFilter(filter: FileTypeFilter): string[] {
         'application/x-7z-compressed',
         'application/json',
         'application/xml',
-        '*/*', // Fallback for any other documents
+        'application/octet-stream', // Generic binary for unknown doc types
       ];
     case 'all':
     default:
