@@ -18,6 +18,13 @@ export default defineConfig(({ mode }) => ({
   // Required for pdfjs-dist which uses top-level await
   build: {
     target: "esnext",
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'pdf-viewer': ['pdfjs-dist'],
+        },
+      },
+    },
   },
   optimizeDeps: {
     esbuildOptions: {
