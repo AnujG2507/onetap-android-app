@@ -501,6 +501,53 @@ async function generateVideoThumbnail(videoUri: string): Promise<string | null> 
   });
 }
 
+// Check if URL is a Vimeo video
+function isVimeoUrl(url: string): boolean {
+  return /(?:vimeo\.com\/(?:video\/)?(\d+)|player\.vimeo\.com\/video\/(\d+))/.test(url);
+}
+
+// Get Vimeo thumbnail URL using oEmbed API
+async function getVimeoThumbnailUrl(url: string): Promise<string | null> {
+  if (!isVimeoUrl(url)) return null;
+  
+  try {
+    const oembedUrl = `https://vimeo.com/api/oembed.json?url=${encodeURIComponent(url)}`;
+    const response = await fetch(oembedUrl);
+    
+    if (!response.ok) {
+      console.warn('[ContentResolver] Vimeo oEmbed request failed:', response.status);
+      return null;
+    }
+    
+    const data = await response.json();
+    return data.thumbnail_url || null;
+  } catch (e) {
+    console.warn('[ContentResolver] Error fetching Vimeo oEmbed:', e);
+    return null;
+  }
+}
+
+// Helper to fetch image and convert to base64
+async function fetchImageAsBase64(imageUrl: string): Promise<string | null> {
+  try {
+    const response = await fetch(imageUrl);
+    if (!response.ok) {
+      console.warn('[ContentResolver] Failed to fetch image:', response.status);
+      return null;
+    }
+    const blob = await response.blob();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch (e) {
+    console.warn('[ContentResolver] Error fetching image:', e);
+    return null;
+  }
+}
+
 // Generate thumbnail from content
 export async function generateThumbnail(source: ContentSource): Promise<string | null> {
   if (source.mimeType?.startsWith('image/')) {
@@ -515,28 +562,20 @@ export async function generateThumbnail(source: ContentSource): Promise<string |
   }
   
   if (source.type === 'url' || source.type === 'share') {
-    // Try YouTube thumbnail
+    // Try YouTube thumbnail first
     const ytThumbnail = getYouTubeThumbnailUrl(source.uri);
     if (ytThumbnail) {
-      // Fetch and convert to base64 for reliable icon creation
-      try {
-        const response = await fetch(ytThumbnail);
-        if (!response.ok) {
-          console.warn('[ContentResolver] Failed to fetch YouTube thumbnail:', response.status);
-          return null;
-        }
-        const blob = await response.blob();
-        return new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.onerror = () => resolve(null);
-          reader.readAsDataURL(blob);
-        });
-      } catch (e) {
-        console.warn('[ContentResolver] Error fetching YouTube thumbnail:', e);
-        return null;
-      }
+      const base64 = await fetchImageAsBase64(ytThumbnail);
+      if (base64) return base64;
     }
+    
+    // Try Vimeo thumbnail
+    const vimeoThumbnail = await getVimeoThumbnailUrl(source.uri);
+    if (vimeoThumbnail) {
+      const base64 = await fetchImageAsBase64(vimeoThumbnail);
+      if (base64) return base64;
+    }
+    
     return null;
   }
   

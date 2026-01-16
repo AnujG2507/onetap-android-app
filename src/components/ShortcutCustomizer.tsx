@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Check, X } from 'lucide-react';
+import { ArrowLeft, Check, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -35,14 +35,20 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
   };
   
   const [icon, setIcon] = useState<ShortcutIcon>(getInitialIcon);
+  const [isLoadingThumbnail, setIsLoadingThumbnail] = useState(true);
   
   useEffect(() => {
-    generateThumbnail(source).then((thumb) => {
-      if (thumb) {
-        setThumbnail(thumb);
-        setIcon({ type: 'thumbnail', value: thumb });
-      }
-    });
+    setIsLoadingThumbnail(true);
+    generateThumbnail(source)
+      .then((thumb) => {
+        if (thumb) {
+          setThumbnail(thumb);
+          setIcon({ type: 'thumbnail', value: thumb });
+        }
+      })
+      .finally(() => {
+        setIsLoadingThumbnail(false);
+      });
   }, [source]);
   
   const handleConfirm = () => {
@@ -97,11 +103,18 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
           <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             Icon
           </label>
-          <IconPicker
-            thumbnail={thumbnail || undefined}
-            selectedIcon={icon}
-            onSelect={setIcon}
-          />
+          <div className="relative">
+            <IconPicker
+              thumbnail={thumbnail || undefined}
+              selectedIcon={icon}
+              onSelect={setIcon}
+            />
+            {isLoadingThumbnail && (
+              <div className="absolute inset-0 flex items-center justify-center bg-background/50 rounded-xl">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            )}
+          </div>
         </div>
         
         {/* PDF Resume Toggle - only shown for PDFs */}
@@ -127,16 +140,21 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
           </p>
           <div className="flex flex-col items-center gap-2">
             <div
-              className="h-14 w-14 rounded-2xl flex items-center justify-center elevation-2 overflow-hidden"
+              className="h-14 w-14 rounded-2xl flex items-center justify-center elevation-2 overflow-hidden relative"
               style={icon.type === 'thumbnail' ? {} : { backgroundColor: 'hsl(var(--primary))' }}
             >
-              {icon.type === 'thumbnail' && (
+              {isLoadingThumbnail && (
+                <div className="absolute inset-0 flex items-center justify-center bg-muted">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              )}
+              {!isLoadingThumbnail && icon.type === 'thumbnail' && (
                 <img src={icon.value} alt="" className="h-full w-full object-cover" />
               )}
-              {icon.type === 'emoji' && (
+              {!isLoadingThumbnail && icon.type === 'emoji' && (
                 <span className="text-2xl">{icon.value}</span>
               )}
-              {icon.type === 'text' && (
+              {!isLoadingThumbnail && icon.type === 'text' && (
                 <span className="text-xl font-bold text-primary-foreground">
                   {icon.value.slice(0, 2).toUpperCase()}
                 </span>
