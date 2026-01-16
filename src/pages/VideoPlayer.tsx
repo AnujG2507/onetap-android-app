@@ -4,6 +4,7 @@ import { ArrowLeft, AlertCircle, Loader2, RefreshCw } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import ShortcutPlugin from '@/plugins/ShortcutPlugin';
+import { useBackButton } from '@/hooks/useBackButton';
 
 /**
  * Resolve a URI to a playable file path.
@@ -256,6 +257,12 @@ const VideoPlayer = () => {
   }, [playableUrl, state, resolvedPath]);
 
   const handleBack = () => navigate('/');
+  
+  // Handle Android back button
+  useBackButton({
+    isHomeScreen: false,
+    onBack: handleBack,
+  });
 
   const handleRetry = () => {
     // Force re-resolve by updating the mount ID

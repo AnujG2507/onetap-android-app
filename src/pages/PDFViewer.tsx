@@ -4,6 +4,7 @@ import { Capacitor } from '@capacitor/core';
 import { ArrowLeft, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCw, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getLastPage, saveLastPage } from '@/lib/pdfResumeManager';
+import { useBackButton } from '@/hooks/useBackButton';
 import * as pdfjs from 'pdfjs-dist';
 
 // Configure PDF.js worker
@@ -220,8 +221,22 @@ export default function PDFViewer() {
     resetControlsTimer();
   };
   
+  // Close handler that saves page position and navigates home
+  const handleClose = useCallback(() => {
+    if (resumeEnabled && shortcutId && currentPage > 0) {
+      saveLastPage(shortcutId, currentPage);
+    }
+    navigate('/');
+  }, [resumeEnabled, shortcutId, currentPage, navigate]);
+  
+  // Handle Android back button
+  useBackButton({
+    isHomeScreen: false,
+    onBack: handleClose,
+  });
+  
   const handleBack = () => {
-    navigate(-1);
+    handleClose();
   };
   
   if (loading) {
