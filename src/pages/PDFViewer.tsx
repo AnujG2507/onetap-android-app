@@ -3,7 +3,6 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
 import { 
   Search, 
-  Bookmark, 
   Sun, 
   Moon, 
   BookOpen,
@@ -23,9 +22,6 @@ import {
   saveZoom,
   getReadingMode,
   saveReadingMode,
-  getBookmarks,
-  toggleBookmark,
-  isPageBookmarked,
   ReadingMode,
 } from '@/lib/pdfResumeManager';
 import { useBackButton } from '@/hooks/useBackButton';
@@ -54,9 +50,6 @@ export default function PDFViewer() {
   // UI state
   const [showControls, setShowControls] = useState(false);
   const [readingMode, setReadingMode] = useState<ReadingMode>('system');
-  const [isBookmarked, setIsBookmarked] = useState(false);
-  const [bookmarks, setBookmarks] = useState<number[]>([]);
-  const [showBookmarkList, setShowBookmarkList] = useState(false);
   
   // Search state
   const [showSearch, setShowSearch] = useState(false);
@@ -134,9 +127,6 @@ export default function PDFViewer() {
           
           const savedMode = getReadingMode(shortcutId);
           setReadingMode(savedMode);
-          
-          const savedBookmarks = getBookmarks(shortcutId);
-          setBookmarks(savedBookmarks);
         }
         
         setLoading(false);
@@ -149,13 +139,6 @@ export default function PDFViewer() {
     
     loadPdf();
   }, [uri, resumeEnabled, shortcutId]);
-  
-  // Update bookmark status when page changes
-  useEffect(() => {
-    if (shortcutId && currentPage > 0) {
-      setIsBookmarked(isPageBookmarked(shortcutId, currentPage));
-    }
-  }, [shortcutId, currentPage, bookmarks]);
   
   // Render current page
   useEffect(() => {
@@ -212,11 +195,11 @@ export default function PDFViewer() {
     }
     
     hideControlsTimer.current = setTimeout(() => {
-      if (!showSearch && !showBookmarkList && !showPageJump) {
+      if (!showSearch && !showPageJump) {
         setShowControls(false);
       }
     }, 3000);
-  }, [showSearch, showBookmarkList, showPageJump]);
+  }, [showSearch, showPageJump]);
   
   useEffect(() => {
     if (showControls) {
@@ -322,14 +305,6 @@ export default function PDFViewer() {
       default: return <Sun className="h-5 w-5 opacity-50" />;
     }
   };
-  
-  // Bookmark handling
-  const handleToggleBookmark = useCallback(() => {
-    if (!shortcutId) return;
-    const nowBookmarked = toggleBookmark(shortcutId, currentPage);
-    setIsBookmarked(nowBookmarked);
-    setBookmarks(getBookmarks(shortcutId));
-  }, [shortcutId, currentPage]);
   
   // Search handling
   const handleSearch = useCallback(async () => {
@@ -511,33 +486,6 @@ export default function PDFViewer() {
         </div>
       )}
       
-      {/* Bookmark List */}
-      {showBookmarkList && bookmarks.length > 0 && (
-        <div 
-          className="absolute top-0 left-0 right-0 z-30 bg-background/95 backdrop-blur-sm border-b p-3 animate-fade-in"
-          onClick={e => e.stopPropagation()}
-        >
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-medium">Bookmarks</h3>
-            <Button size="icon" variant="ghost" onClick={() => setShowBookmarkList(false)}>
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {bookmarks.map(page => (
-              <Button
-                key={page}
-                variant={page === currentPage ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => { goToPage(page); setShowBookmarkList(false); }}
-              >
-                Page {page}
-              </Button>
-            ))}
-          </div>
-        </div>
-      )}
-      
       {/* Page Jump Dialog */}
       {showPageJump && (
         <div 
@@ -625,20 +573,10 @@ export default function PDFViewer() {
             {/* Right: Tools */}
             <div className="flex items-center gap-1">
               <button
-                onClick={() => { setShowSearch(true); setShowBookmarkList(false); }}
+                onClick={() => setShowSearch(true)}
                 className="p-2.5 rounded-full hover:bg-muted active:scale-95 transition-all"
               >
                 <Search className="h-5 w-5" />
-              </button>
-              
-              <button
-                onClick={bookmarks.length > 0 ? () => setShowBookmarkList(!showBookmarkList) : handleToggleBookmark}
-                onDoubleClick={handleToggleBookmark}
-                className={`p-2.5 rounded-full hover:bg-muted active:scale-95 transition-all ${
-                  isBookmarked ? 'text-primary' : ''
-                }`}
-              >
-                <Bookmark className={`h-5 w-5 ${isBookmarked ? 'fill-current' : ''}`} />
               </button>
               
               <button

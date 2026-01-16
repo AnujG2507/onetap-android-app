@@ -1,6 +1,6 @@
 /**
  * PDF Resume Manager
- * Stores and retrieves last viewed page positions, zoom levels, and bookmarks for PDF shortcuts
+ * Stores and retrieves last viewed page positions, zoom levels, and reading modes for PDF shortcuts
  */
 
 const STORAGE_KEY = 'onetap_pdf_positions';
@@ -11,7 +11,6 @@ interface PDFPosition {
   page: number;
   zoom: number;
   readingMode: ReadingMode;
-  bookmarks: number[];
   lastAccessed: number;
 }
 
@@ -42,7 +41,6 @@ function getOrCreatePosition(shortcutId: string): PDFPosition {
     page: 1,
     zoom: 1,
     readingMode: 'system',
-    bookmarks: [],
     lastAccessed: Date.now(),
   };
 }
@@ -134,56 +132,6 @@ export function saveReadingMode(shortcutId: string, mode: ReadingMode): void {
   };
   
   savePositions(positions);
-}
-
-/**
- * Get bookmarks for a shortcut
- */
-export function getBookmarks(shortcutId: string): number[] {
-  const positions = getPositions();
-  const position = positions[shortcutId];
-  return position?.bookmarks || [];
-}
-
-/**
- * Toggle a bookmark for a page
- */
-export function toggleBookmark(shortcutId: string, page: number): boolean {
-  if (!shortcutId || page < 1) return false;
-  
-  const positions = getPositions();
-  const existing = positions[shortcutId] || getOrCreatePosition(shortcutId);
-  const bookmarks = existing.bookmarks || [];
-  
-  const index = bookmarks.indexOf(page);
-  let isBookmarked: boolean;
-  
-  if (index === -1) {
-    bookmarks.push(page);
-    bookmarks.sort((a, b) => a - b);
-    isBookmarked = true;
-  } else {
-    bookmarks.splice(index, 1);
-    isBookmarked = false;
-  }
-  
-  positions[shortcutId] = {
-    ...existing,
-    bookmarks,
-    lastAccessed: Date.now(),
-  };
-  
-  savePositions(positions);
-  console.log(`[PDFResumeManager] ${isBookmarked ? 'Added' : 'Removed'} bookmark for page ${page}`);
-  return isBookmarked;
-}
-
-/**
- * Check if a page is bookmarked
- */
-export function isPageBookmarked(shortcutId: string, page: number): boolean {
-  const bookmarks = getBookmarks(shortcutId);
-  return bookmarks.includes(page);
 }
 
 /**
