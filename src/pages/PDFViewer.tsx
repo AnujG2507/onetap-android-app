@@ -3,9 +3,22 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
 import { ArrowLeft, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCw, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { getLastPage, saveLastPage } from '@/lib/pdfResumeManager';
 import { useBackButton } from '@/hooks/useBackButton';
 import * as pdfjs from 'pdfjs-dist';
+
+// Reading threshold before showing exit confirmation (30 seconds)
+const READING_THRESHOLD_MS = 30000;
 
 // Configure PDF.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.mjs`;
@@ -24,6 +37,8 @@ export default function PDFViewer() {
   const [zoom, setZoom] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showExitDialog, setShowExitDialog] = useState(false);
+  const [startTime] = useState(() => Date.now());
   const [showControls, setShowControls] = useState(true);
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -221,13 +236,27 @@ export default function PDFViewer() {
     resetControlsTimer();
   };
   
-  // Close handler that saves page position and navigates home
-  const handleClose = useCallback(() => {
+  // Confirm exit and navigate home
+  const confirmExit = useCallback(() => {
     if (resumeEnabled && shortcutId && currentPage > 0) {
       saveLastPage(shortcutId, currentPage);
     }
     navigate('/');
   }, [resumeEnabled, shortcutId, currentPage, navigate]);
+  
+  // Close handler that checks reading duration before closing
+  const handleClose = useCallback(() => {
+    const readingDuration = Date.now() - startTime;
+    
+    // Show confirmation if reading for more than threshold
+    if (readingDuration > READING_THRESHOLD_MS) {
+      setShowExitDialog(true);
+      return;
+    }
+    
+    // Otherwise close immediately
+    confirmExit();
+  }, [startTime, confirmExit]);
   
   // Handle Android back button
   useBackButton({
@@ -369,6 +398,23 @@ export default function PDFViewer() {
           </button>
         </div>
       </footer>
+      
+      {/* Exit Confirmation Dialog */}
+      <AlertDialog open={showExitDialog} onOpenChange={setShowExitDialog}>
+        <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Leave PDF?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You've been reading for a while. Your current page ({currentPage}) will be saved 
+              so you can continue where you left off.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep Reading</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmExit}>Leave</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
