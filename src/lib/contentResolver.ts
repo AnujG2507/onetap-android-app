@@ -557,6 +557,12 @@ export async function generateThumbnail(source: ContentSource): Promise<string |
   
   // Handle local video files - extract first frame
   if (source.mimeType?.startsWith('video/') && source.type === 'file') {
+    // On native Android, content:// URIs cannot be loaded into HTML5 video for frame capture
+    // Let native handle thumbnail generation via MediaMetadataRetriever
+    if (Capacitor.isNativePlatform() && source.uri.startsWith('content:')) {
+      console.log('[ContentResolver] Native video with content:// URI - skipping HTML5 thumbnail, native will generate');
+      return null;
+    }
     console.log('[ContentResolver] Generating video thumbnail for:', source.name);
     return generateVideoThumbnail(source.uri);
   }
