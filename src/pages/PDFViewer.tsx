@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import { Capacitor } from '@capacitor/core';
 import { ArrowLeft, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getLastPage, saveLastPage } from '@/lib/pdfResumeManager';
@@ -47,9 +48,20 @@ export default function PDFViewer() {
         setLoading(true);
         setError(null);
         
-        console.log('[PDFViewer] Loading PDF from:', uri);
+        console.log('[PDFViewer] Raw URI from params:', uri);
         
-        const loadingTask = pdfjs.getDocument(uri);
+        // Convert native URIs to WebView-accessible URLs on native platforms
+        let pdfSource = uri;
+        if (Capacitor.isNativePlatform()) {
+          if (uri.startsWith('file://') || uri.startsWith('content://')) {
+            pdfSource = Capacitor.convertFileSrc(uri);
+            console.log('[PDFViewer] Converted URI for native WebView:', pdfSource);
+          }
+        }
+        
+        console.log('[PDFViewer] Loading PDF from:', pdfSource);
+        
+        const loadingTask = pdfjs.getDocument(pdfSource);
         const pdf = await loadingTask.promise;
         
         setPdfDoc(pdf);
