@@ -6,12 +6,12 @@ import {
   Sun, 
   Moon, 
   BookOpen,
-  ChevronLeft, 
-  ChevronRight,
   ChevronUp,
   ChevronDown,
   X,
   FileText,
+  ZoomIn,
+  ZoomOut,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -31,6 +31,11 @@ import * as pdfjs from 'pdfjs-dist';
 // Configure PDF.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.mjs`;
 
+interface PageRenderState {
+  rendered: boolean;
+  height: number;
+}
+
 export default function PDFViewer() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -47,6 +52,9 @@ export default function PDFViewer() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
+  // Page render tracking
+  const [pageStates, setPageStates] = useState<PageRenderState[]>([]);
+  
   // UI state
   const [showControls, setShowControls] = useState(false);
   const [readingMode, setReadingMode] = useState<ReadingMode>('system');
@@ -62,13 +70,17 @@ export default function PDFViewer() {
   const [showPageJump, setShowPageJump] = useState(false);
   const [pageJumpValue, setPageJumpValue] = useState('');
   
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const canvasRefs = useRef<Map<number, HTMLCanvasElement>>(new Map());
+  const pageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const hideControlsTimer = useRef<NodeJS.Timeout | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const pageJumpInputRef = useRef<HTMLInputElement>(null);
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const saveScrollDebounce = useRef<NodeJS.Timeout | null>(null);
+  const initialScrollDone = useRef(false);
   
-  // Touch gesture state
+  // Touch gesture state for pinch zoom
   const [touchState, setTouchState] = useState<{
     initialDistance: number;
     initialZoom: number;
@@ -112,12 +124,17 @@ export default function PDFViewer() {
         setPdfDoc(pdf);
         setTotalPages(pdf.numPages);
         
+        // Initialize page states with estimated heights
+        const containerWidth = containerRef.current?.clientWidth || window.innerWidth;
+        const defaultHeight = containerWidth * 1.4; // Approximate A4 ratio
+        setPageStates(Array(pdf.numPages).fill({ rendered: false, height: defaultHeight }));
+        
         // Restore state if resume enabled
         if (resumeEnabled && shortcutId) {
           const savedPage = getLastPage(shortcutId);
           if (savedPage && savedPage >= 1 && savedPage <= pdf.numPages) {
             setCurrentPage(savedPage);
-            console.log('[PDFViewer] Resuming at page:', savedPage);
+            console.log('[PDFViewer] Will resume at page:', savedPage);
           }
           
           const savedZoom = getLastZoom(shortcutId);
@@ -140,51 +157,164 @@ export default function PDFViewer() {
     loadPdf();
   }, [uri, resumeEnabled, shortcutId]);
   
-  // Render current page
-  useEffect(() => {
-    if (!pdfDoc || !canvasRef.current) return;
+  // Render a single page with high DPI support
+  const renderPage = useCallback(async (pageNum: number) => {
+    if (!pdfDoc) return;
     
-    const renderPage = async () => {
-      try {
-        const page = await pdfDoc.getPage(currentPage);
-        const canvas = canvasRef.current!;
-        const context = canvas.getContext('2d')!;
+    const canvas = canvasRefs.current.get(pageNum);
+    if (!canvas) return;
+    
+    try {
+      const page = await pdfDoc.getPage(pageNum);
+      const context = canvas.getContext('2d')!;
+      
+      // Get device pixel ratio for crystal-clear rendering
+      const dpr = window.devicePixelRatio || 1;
+      
+      // Calculate scale to fit container width
+      const containerWidth = containerRef.current?.clientWidth || window.innerWidth;
+      const viewport = page.getViewport({ scale: 1 });
+      const baseScale = containerWidth / viewport.width;
+      const displayScale = baseScale * zoom;
+      const renderScale = displayScale * dpr; // Render at high resolution
+      
+      const scaledViewport = page.getViewport({ scale: renderScale });
+      
+      // Set canvas to high-res dimensions
+      canvas.width = scaledViewport.width;
+      canvas.height = scaledViewport.height;
+      
+      // Scale down via CSS for display (maintains sharpness)
+      canvas.style.width = `${scaledViewport.width / dpr}px`;
+      canvas.style.height = `${scaledViewport.height / dpr}px`;
+      
+      await page.render({
+        canvasContext: context,
+        viewport: scaledViewport,
+      }).promise;
+      
+      // Update page state with actual height
+      setPageStates(prev => {
+        const updated = [...prev];
+        updated[pageNum - 1] = { 
+          rendered: true, 
+          height: scaledViewport.height / dpr 
+        };
+        return updated;
+      });
+      
+      console.log('[PDFViewer] Rendered page:', pageNum, 'at', dpr + 'x DPR');
+    } catch (err) {
+      console.error('[PDFViewer] Failed to render page:', pageNum, err);
+    }
+  }, [pdfDoc, zoom]);
+  
+  // Set up intersection observer for lazy loading
+  useEffect(() => {
+    if (!pdfDoc || loading) return;
+    
+    // Clean up previous observer
+    if (observerRef.current) {
+      observerRef.current.disconnect();
+    }
+    
+    const visiblePages = new Set<number>();
+    
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        entries.forEach(entry => {
+          const pageNum = parseInt(entry.target.getAttribute('data-page') || '0', 10);
+          if (pageNum === 0) return;
+          
+          if (entry.isIntersecting) {
+            visiblePages.add(pageNum);
+            // Render this page and adjacent pages
+            [pageNum - 1, pageNum, pageNum + 1].forEach(p => {
+              if (p >= 1 && p <= totalPages && !pageStates[p - 1]?.rendered) {
+                renderPage(p);
+              }
+            });
+          } else {
+            visiblePages.delete(pageNum);
+          }
+        });
         
-        // Calculate scale to fit container width
-        const containerWidth = containerRef.current?.clientWidth || window.innerWidth;
-        const viewport = page.getViewport({ scale: 1 });
-        const baseScale = containerWidth / viewport.width;
-        const scaledViewport = page.getViewport({ scale: baseScale * zoom });
-        
-        canvas.width = scaledViewport.width;
-        canvas.height = scaledViewport.height;
-        
-        await page.render({
-          canvasContext: context,
-          viewport: scaledViewport,
-        }).promise;
-        
-        console.log('[PDFViewer] Rendered page:', currentPage);
-      } catch (err) {
-        console.error('[PDFViewer] Failed to render page:', err);
+        // Update current page based on most visible page
+        if (visiblePages.size > 0) {
+          const minVisible = Math.min(...visiblePages);
+          setCurrentPage(minVisible);
+        }
+      },
+      {
+        root: containerRef.current,
+        rootMargin: '100px 0px', // Preload pages slightly before they're visible
+        threshold: 0.1,
+      }
+    );
+    
+    // Observe all page containers
+    pageRefs.current.forEach((ref) => {
+      if (ref) {
+        observerRef.current?.observe(ref);
+      }
+    });
+    
+    return () => {
+      observerRef.current?.disconnect();
+    };
+  }, [pdfDoc, loading, totalPages, pageStates, renderPage]);
+  
+  // Re-render all visible pages when zoom changes
+  useEffect(() => {
+    if (!pdfDoc || loading) return;
+    
+    // Reset rendered state to force re-render
+    setPageStates(prev => prev.map(state => ({ ...state, rendered: false })));
+    canvasRefs.current.clear();
+  }, [zoom, pdfDoc, loading]);
+  
+  // Scroll to saved page on initial load
+  useEffect(() => {
+    if (!pdfDoc || loading || initialScrollDone.current) return;
+    
+    const savedPage = resumeEnabled && shortcutId ? getLastPage(shortcutId) : null;
+    const targetPage = savedPage || 1;
+    
+    // Small delay to ensure pages are in DOM
+    setTimeout(() => {
+      const pageElement = pageRefs.current.get(targetPage);
+      if (pageElement && containerRef.current) {
+        pageElement.scrollIntoView({ behavior: 'instant', block: 'start' });
+        initialScrollDone.current = true;
+        console.log('[PDFViewer] Scrolled to page:', targetPage);
+      }
+    }, 100);
+  }, [pdfDoc, loading, resumeEnabled, shortcutId]);
+  
+  // Save current page on scroll (debounced)
+  useEffect(() => {
+    if (!resumeEnabled || !shortcutId || !pdfDoc) return;
+    
+    if (saveScrollDebounce.current) {
+      clearTimeout(saveScrollDebounce.current);
+    }
+    
+    saveScrollDebounce.current = setTimeout(() => {
+      if (currentPage > 0) {
+        saveLastPage(shortcutId, currentPage);
+      }
+    }, 500);
+    
+    return () => {
+      if (saveScrollDebounce.current) {
+        clearTimeout(saveScrollDebounce.current);
       }
     };
-    
-    renderPage();
-  }, [pdfDoc, currentPage, zoom]);
+  }, [currentPage, resumeEnabled, shortcutId, pdfDoc]);
   
-  // Save state when it changes (only after PDF is loaded)
+  // Save zoom level
   useEffect(() => {
     if (!pdfDoc || loading || !resumeEnabled || !shortcutId) return;
-    
-    if (currentPage > 0) {
-      saveLastPage(shortcutId, currentPage);
-    }
-  }, [currentPage, resumeEnabled, shortcutId, pdfDoc, loading]);
-  
-  useEffect(() => {
-    if (!pdfDoc || loading || !resumeEnabled || !shortcutId) return;
-    
     saveZoom(shortcutId, zoom);
   }, [zoom, resumeEnabled, shortcutId, pdfDoc, loading]);
   
@@ -212,24 +342,24 @@ export default function PDFViewer() {
     };
   }, [showControls, resetControlsTimer]);
   
-  // Navigation
-  const goToPrevPage = useCallback(() => {
-    if (currentPage > 1) {
-      setCurrentPage(prev => prev - 1);
-    }
-  }, [currentPage]);
-  
-  const goToNextPage = useCallback(() => {
-    if (currentPage < totalPages) {
-      setCurrentPage(prev => prev + 1);
-    }
-  }, [currentPage, totalPages]);
-  
-  const goToPage = useCallback((page: number) => {
+  // Scroll to specific page
+  const scrollToPage = useCallback((page: number) => {
     if (page >= 1 && page <= totalPages) {
-      setCurrentPage(page);
+      const pageElement = pageRefs.current.get(page);
+      if (pageElement) {
+        pageElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
     }
   }, [totalPages]);
+  
+  // Zoom controls
+  const handleZoomIn = useCallback(() => {
+    setZoom(prev => Math.min(prev + 0.25, 3));
+  }, []);
+  
+  const handleZoomOut = useCallback(() => {
+    setZoom(prev => Math.max(prev - 0.25, 0.5));
+  }, []);
   
   // Touch handlers for pinch-to-zoom
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -337,38 +467,38 @@ export default function PDFViewer() {
       
       setSearchResults(results);
       if (results.length > 0) {
-        setCurrentPage(results[0].page);
+        scrollToPage(results[0].page);
       }
     } catch (err) {
       console.error('[PDFViewer] Search error:', err);
     } finally {
       setIsSearching(false);
     }
-  }, [pdfDoc, searchQuery]);
+  }, [pdfDoc, searchQuery, scrollToPage]);
   
   const goToPrevResult = useCallback(() => {
     if (searchResults.length === 0) return;
     const newIndex = currentSearchIndex > 0 ? currentSearchIndex - 1 : searchResults.length - 1;
     setCurrentSearchIndex(newIndex);
-    setCurrentPage(searchResults[newIndex].page);
-  }, [searchResults, currentSearchIndex]);
+    scrollToPage(searchResults[newIndex].page);
+  }, [searchResults, currentSearchIndex, scrollToPage]);
   
   const goToNextResult = useCallback(() => {
     if (searchResults.length === 0) return;
     const newIndex = (currentSearchIndex + 1) % searchResults.length;
     setCurrentSearchIndex(newIndex);
-    setCurrentPage(searchResults[newIndex].page);
-  }, [searchResults, currentSearchIndex]);
+    scrollToPage(searchResults[newIndex].page);
+  }, [searchResults, currentSearchIndex, scrollToPage]);
   
   // Page jump handling
   const handlePageJump = useCallback(() => {
     const page = parseInt(pageJumpValue, 10);
     if (!isNaN(page) && page >= 1 && page <= totalPages) {
-      setCurrentPage(page);
+      scrollToPage(page);
       setShowPageJump(false);
       setPageJumpValue('');
     }
-  }, [pageJumpValue, totalPages]);
+  }, [pageJumpValue, totalPages, scrollToPage]);
   
   // Close and navigate home
   const handleClose = useCallback(() => {
@@ -399,6 +529,10 @@ export default function PDFViewer() {
     }
   }, [showPageJump]);
   
+  // Get container width for placeholder sizing
+  const containerWidth = containerRef.current?.clientWidth || window.innerWidth;
+  const placeholderHeight = containerWidth * 1.4;
+  
   // Loading state - instant placeholder
   if (loading) {
     return (
@@ -427,7 +561,6 @@ export default function PDFViewer() {
   return (
     <div 
       className={`fixed inset-0 flex flex-col ${getReadingModeClass()}`}
-      style={{ backgroundColor: readingMode === 'system' ? undefined : undefined }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -520,16 +653,46 @@ export default function PDFViewer() {
         </div>
       )}
       
-      {/* PDF Canvas Container */}
+      {/* PDF Pages Container - Vertical Scrolling */}
       <div 
         ref={containerRef}
-        className="flex-1 overflow-auto"
+        className="flex-1 overflow-y-auto overflow-x-hidden"
+        style={{ touchAction: 'pan-y pinch-zoom' }}
       >
-        <canvas
-          ref={canvasRef}
-          className="mx-auto"
-          style={{ touchAction: 'pan-x pan-y' }}
-        />
+        <div className="flex flex-col items-center pb-24">
+          {Array.from({ length: totalPages }, (_, i) => {
+            const pageNum = i + 1;
+            const pageState = pageStates[i];
+            
+            return (
+              <div
+                key={pageNum}
+                ref={(el) => {
+                  if (el) {
+                    pageRefs.current.set(pageNum, el);
+                    observerRef.current?.observe(el);
+                  }
+                }}
+                data-page={pageNum}
+                className="relative w-full flex justify-center mb-2"
+                style={{ minHeight: pageState?.height || placeholderHeight }}
+              >
+                <canvas
+                  ref={(el) => {
+                    if (el) {
+                      canvasRefs.current.set(pageNum, el);
+                    }
+                  }}
+                  className="shadow-lg"
+                />
+                {/* Page number overlay */}
+                <div className="absolute bottom-2 right-2 bg-background/80 backdrop-blur-sm text-xs px-2 py-1 rounded text-muted-foreground">
+                  {pageNum}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
       
       {/* Minimal Floating Controls */}
@@ -552,21 +715,24 @@ export default function PDFViewer() {
         {/* Control bar */}
         <div className="bg-background/90 backdrop-blur-sm border-t safe-bottom">
           <div className="flex items-center justify-between px-4 py-3">
-            {/* Left: Navigation */}
+            {/* Left: Zoom controls */}
             <div className="flex items-center gap-1">
               <button
-                onClick={goToPrevPage}
-                disabled={currentPage <= 1}
+                onClick={handleZoomOut}
+                disabled={zoom <= 0.5}
                 className="p-2.5 rounded-full hover:bg-muted active:scale-95 transition-all disabled:opacity-30"
               >
-                <ChevronLeft className="h-5 w-5" />
+                <ZoomOut className="h-5 w-5" />
               </button>
+              <span className="text-sm font-medium min-w-[3rem] text-center">
+                {Math.round(zoom * 100)}%
+              </span>
               <button
-                onClick={goToNextPage}
-                disabled={currentPage >= totalPages}
+                onClick={handleZoomIn}
+                disabled={zoom >= 3}
                 className="p-2.5 rounded-full hover:bg-muted active:scale-95 transition-all disabled:opacity-30"
               >
-                <ChevronRight className="h-5 w-5" />
+                <ZoomIn className="h-5 w-5" />
               </button>
             </div>
             
