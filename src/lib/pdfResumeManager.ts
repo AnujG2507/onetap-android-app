@@ -1,12 +1,17 @@
 /**
  * PDF Resume Manager
- * Stores and retrieves last viewed page positions for PDF shortcuts
+ * Stores and retrieves last viewed page positions, zoom levels, and bookmarks for PDF shortcuts
  */
 
 const STORAGE_KEY = 'onetap_pdf_positions';
 
+export type ReadingMode = 'system' | 'light' | 'dark' | 'sepia';
+
 interface PDFPosition {
   page: number;
+  zoom: number;
+  readingMode: ReadingMode;
+  bookmarks: number[];
   lastAccessed: number;
 }
 
@@ -31,9 +36,20 @@ function savePositions(positions: PDFPositions): void {
   }
 }
 
+function getOrCreatePosition(shortcutId: string): PDFPosition {
+  const positions = getPositions();
+  return positions[shortcutId] || {
+    page: 1,
+    zoom: 1,
+    readingMode: 'system',
+    bookmarks: [],
+    lastAccessed: Date.now(),
+  };
+}
+
 /**
  * Get the last viewed page for a shortcut
- * Returns null if no position saved or resume not enabled
+ * Returns null if no position saved
  */
 export function getLastPage(shortcutId: string): number | null {
   const positions = getPositions();
@@ -54,13 +70,120 @@ export function saveLastPage(shortcutId: string, page: number): void {
   if (!shortcutId || page < 1) return;
   
   const positions = getPositions();
+  const existing = positions[shortcutId] || getOrCreatePosition(shortcutId);
+  
   positions[shortcutId] = {
+    ...existing,
     page,
     lastAccessed: Date.now(),
   };
   
   savePositions(positions);
   console.log(`[PDFResumeManager] Saved page ${page} for shortcut ${shortcutId}`);
+}
+
+/**
+ * Get the last zoom level for a shortcut
+ */
+export function getLastZoom(shortcutId: string): number {
+  const positions = getPositions();
+  const position = positions[shortcutId];
+  return position?.zoom || 1;
+}
+
+/**
+ * Save the zoom level for a shortcut
+ */
+export function saveZoom(shortcutId: string, zoom: number): void {
+  if (!shortcutId || zoom < 0.5 || zoom > 3) return;
+  
+  const positions = getPositions();
+  const existing = positions[shortcutId] || getOrCreatePosition(shortcutId);
+  
+  positions[shortcutId] = {
+    ...existing,
+    zoom,
+    lastAccessed: Date.now(),
+  };
+  
+  savePositions(positions);
+}
+
+/**
+ * Get the reading mode for a shortcut
+ */
+export function getReadingMode(shortcutId: string): ReadingMode {
+  const positions = getPositions();
+  const position = positions[shortcutId];
+  return position?.readingMode || 'system';
+}
+
+/**
+ * Save the reading mode for a shortcut
+ */
+export function saveReadingMode(shortcutId: string, mode: ReadingMode): void {
+  if (!shortcutId) return;
+  
+  const positions = getPositions();
+  const existing = positions[shortcutId] || getOrCreatePosition(shortcutId);
+  
+  positions[shortcutId] = {
+    ...existing,
+    readingMode: mode,
+    lastAccessed: Date.now(),
+  };
+  
+  savePositions(positions);
+}
+
+/**
+ * Get bookmarks for a shortcut
+ */
+export function getBookmarks(shortcutId: string): number[] {
+  const positions = getPositions();
+  const position = positions[shortcutId];
+  return position?.bookmarks || [];
+}
+
+/**
+ * Toggle a bookmark for a page
+ */
+export function toggleBookmark(shortcutId: string, page: number): boolean {
+  if (!shortcutId || page < 1) return false;
+  
+  const positions = getPositions();
+  const existing = positions[shortcutId] || getOrCreatePosition(shortcutId);
+  const bookmarks = existing.bookmarks || [];
+  
+  const index = bookmarks.indexOf(page);
+  let isBookmarked: boolean;
+  
+  if (index === -1) {
+    bookmarks.push(page);
+    bookmarks.sort((a, b) => a - b);
+    isBookmarked = true;
+  } else {
+    bookmarks.splice(index, 1);
+    isBookmarked = false;
+  }
+  
+  positions[shortcutId] = {
+    ...existing,
+    bookmarks,
+    lastAccessed: Date.now(),
+  };
+  
+  savePositions(positions);
+  console.log(`[PDFResumeManager] ${isBookmarked ? 'Added' : 'Removed'} bookmark for page ${page}`);
+  return isBookmarked;
+}
+
+/**
+ * Check if a page is bookmarked
+ */
+export function isPageBookmarked(shortcutId: string, page: number): boolean {
+  const bookmarks = getBookmarks(shortcutId);
+  return bookmarks.includes(page);
 }
 
 /**

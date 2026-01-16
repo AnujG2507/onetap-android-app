@@ -131,4 +131,26 @@ All colors MUST be HSL.
       width: 0%;
     }
   }
+
+  /* PDF Reading Mode Filters */
+  .pdf-reading-sepia canvas {
+    filter: sepia(20%) brightness(95%);
+  }
+  .pdf-reading-sepia {
+    background-color: hsl(40 40% 94%);
+  }
+
+  .pdf-reading-dark canvas {
+    filter: invert(0.9) hue-rotate(180deg);
+  }
+  .pdf-reading-dark {
+    background-color: hsl(0 0% 8%);
+  }
+
+  .pdf-reading-light canvas {
+    filter: none;
+  }
+  .pdf-reading-light {
+    background-color: hsl(0 0% 100%);
+  }
 }

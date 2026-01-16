@@ -1,25 +1,36 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
-import { ArrowLeft, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCw, FileText } from 'lucide-react';
+import { 
+  Search, 
+  Bookmark, 
+  Sun, 
+  Moon, 
+  BookOpen,
+  ChevronLeft, 
+  ChevronRight,
+  ChevronUp,
+  ChevronDown,
+  X,
+  FileText,
+} from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { getLastPage, saveLastPage } from '@/lib/pdfResumeManager';
+import { 
+  getLastPage, 
+  saveLastPage,
+  getLastZoom,
+  saveZoom,
+  getReadingMode,
+  saveReadingMode,
+  getBookmarks,
+  toggleBookmark,
+  isPageBookmarked,
+  ReadingMode,
+} from '@/lib/pdfResumeManager';
 import { useBackButton } from '@/hooks/useBackButton';
 import ShortcutPlugin from '@/plugins/ShortcutPlugin';
 import * as pdfjs from 'pdfjs-dist';
-
-// Reading threshold before showing exit confirmation (30 seconds)
-const READING_THRESHOLD_MS = 30000;
 
 // Configure PDF.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.mjs`;
@@ -32,19 +43,37 @@ export default function PDFViewer() {
   const shortcutId = searchParams.get('shortcutId') || '';
   const resumeEnabled = searchParams.get('resume') === 'true';
   
+  // Core state
   const [pdfDoc, setPdfDoc] = useState<pdfjs.PDFDocumentProxy | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [zoom, setZoom] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showExitDialog, setShowExitDialog] = useState(false);
-  const [startTime] = useState(() => Date.now());
-  const [showControls, setShowControls] = useState(true);
+  
+  // UI state
+  const [showControls, setShowControls] = useState(false);
+  const [readingMode, setReadingMode] = useState<ReadingMode>('system');
+  const [isBookmarked, setIsBookmarked] = useState(false);
+  const [bookmarks, setBookmarks] = useState<number[]>([]);
+  const [showBookmarkList, setShowBookmarkList] = useState(false);
+  
+  // Search state
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<{ page: number; index: number }[]>([]);
+  const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
+  const [isSearching, setIsSearching] = useState(false);
+  
+  // Page jump state
+  const [showPageJump, setShowPageJump] = useState(false);
+  const [pageJumpValue, setPageJumpValue] = useState('');
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const hideControlsTimer = useRef<NodeJS.Timeout | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const pageJumpInputRef = useRef<HTMLInputElement>(null);
   
   // Touch gesture state
   const [touchState, setTouchState] = useState<{
@@ -90,25 +119,43 @@ export default function PDFViewer() {
         setPdfDoc(pdf);
         setTotalPages(pdf.numPages);
         
-        // Restore last page if resume enabled
+        // Restore state if resume enabled
         if (resumeEnabled && shortcutId) {
           const savedPage = getLastPage(shortcutId);
           if (savedPage && savedPage >= 1 && savedPage <= pdf.numPages) {
             setCurrentPage(savedPage);
             console.log('[PDFViewer] Resuming at page:', savedPage);
           }
+          
+          const savedZoom = getLastZoom(shortcutId);
+          if (savedZoom) {
+            setZoom(savedZoom);
+          }
+          
+          const savedMode = getReadingMode(shortcutId);
+          setReadingMode(savedMode);
+          
+          const savedBookmarks = getBookmarks(shortcutId);
+          setBookmarks(savedBookmarks);
         }
         
         setLoading(false);
       } catch (err) {
         console.error('[PDFViewer] Failed to load PDF:', err);
-        setError('Failed to load PDF. The file may be corrupted or inaccessible.');
+        setError('The file may have been moved or is no longer accessible.');
         setLoading(false);
       }
     };
     
     loadPdf();
   }, [uri, resumeEnabled, shortcutId]);
+  
+  // Update bookmark status when page changes
+  useEffect(() => {
+    if (shortcutId && currentPage > 0) {
+      setIsBookmarked(isPageBookmarked(shortcutId, currentPage));
+    }
+  }, [shortcutId, currentPage, bookmarks]);
   
   // Render current page
   useEffect(() => {
@@ -143,68 +190,63 @@ export default function PDFViewer() {
     renderPage();
   }, [pdfDoc, currentPage, zoom]);
   
-  // Save page position when it changes (only after PDF is loaded to avoid overwriting with page 1)
+  // Save state when it changes (only after PDF is loaded)
   useEffect(() => {
-    // Don't save during initial load - wait until PDF is ready
-    if (!pdfDoc || loading) return;
+    if (!pdfDoc || loading || !resumeEnabled || !shortcutId) return;
     
-    if (resumeEnabled && shortcutId && currentPage > 0) {
+    if (currentPage > 0) {
       saveLastPage(shortcutId, currentPage);
     }
   }, [currentPage, resumeEnabled, shortcutId, pdfDoc, loading]);
   
-  // Auto-hide controls
-  const resetControlsTimer = useCallback(() => {
-    setShowControls(true);
+  useEffect(() => {
+    if (!pdfDoc || loading || !resumeEnabled || !shortcutId) return;
     
+    saveZoom(shortcutId, zoom);
+  }, [zoom, resumeEnabled, shortcutId, pdfDoc, loading]);
+  
+  // Hide controls after inactivity
+  const resetControlsTimer = useCallback(() => {
     if (hideControlsTimer.current) {
       clearTimeout(hideControlsTimer.current);
     }
     
     hideControlsTimer.current = setTimeout(() => {
-      setShowControls(false);
+      if (!showSearch && !showBookmarkList && !showPageJump) {
+        setShowControls(false);
+      }
     }, 3000);
-  }, []);
+  }, [showSearch, showBookmarkList, showPageJump]);
   
   useEffect(() => {
-    resetControlsTimer();
+    if (showControls) {
+      resetControlsTimer();
+    }
     return () => {
       if (hideControlsTimer.current) {
         clearTimeout(hideControlsTimer.current);
       }
     };
-  }, [resetControlsTimer]);
+  }, [showControls, resetControlsTimer]);
   
   // Navigation
-  const goToPrevPage = () => {
+  const goToPrevPage = useCallback(() => {
     if (currentPage > 1) {
       setCurrentPage(prev => prev - 1);
-      resetControlsTimer();
     }
-  };
+  }, [currentPage]);
   
-  const goToNextPage = () => {
+  const goToNextPage = useCallback(() => {
     if (currentPage < totalPages) {
       setCurrentPage(prev => prev + 1);
-      resetControlsTimer();
     }
-  };
+  }, [currentPage, totalPages]);
   
-  // Zoom controls
-  const zoomIn = () => {
-    setZoom(prev => Math.min(prev + 0.25, 3));
-    resetControlsTimer();
-  };
-  
-  const zoomOut = () => {
-    setZoom(prev => Math.max(prev - 0.25, 0.5));
-    resetControlsTimer();
-  };
-  
-  const resetZoom = () => {
-    setZoom(1);
-    resetControlsTimer();
-  };
+  const goToPage = useCallback((page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  }, [totalPages]);
   
   // Touch handlers for pinch-to-zoom
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -215,7 +257,6 @@ export default function PDFViewer() {
       );
       setTouchState({ initialDistance: distance, initialZoom: zoom });
     }
-    resetControlsTimer();
   };
   
   const handleTouchMove = (e: React.TouchEvent) => {
@@ -236,37 +277,132 @@ export default function PDFViewer() {
   
   // Double tap to toggle zoom
   const lastTapRef = useRef<number>(0);
-  const handleTap = () => {
-    const now = Date.now();
-    if (now - lastTapRef.current < 300) {
-      // Double tap
-      setZoom(prev => prev === 1 ? 2 : 1);
-    }
-    lastTapRef.current = now;
-    resetControlsTimer();
-  };
-  
-  // Confirm exit and navigate home (replace to prevent back-bounce)
-  const confirmExit = useCallback(() => {
-    if (resumeEnabled && shortcutId && currentPage > 0) {
-      saveLastPage(shortcutId, currentPage);
-    }
-    navigate('/', { replace: true });
-  }, [resumeEnabled, shortcutId, currentPage, navigate]);
-  
-  // Close handler that checks reading duration before closing
-  const handleClose = useCallback(() => {
-    const readingDuration = Date.now() - startTime;
-    
-    // Show confirmation if reading for more than threshold
-    if (readingDuration > READING_THRESHOLD_MS) {
-      setShowExitDialog(true);
+  const handleTap = (e: React.MouseEvent | React.TouchEvent) => {
+    // Don't toggle controls if interacting with UI elements
+    if ((e.target as HTMLElement).closest('button, input, [role="dialog"]')) {
       return;
     }
     
-    // Otherwise close immediately
-    confirmExit();
-  }, [startTime, confirmExit]);
+    const now = Date.now();
+    if (now - lastTapRef.current < 300) {
+      // Double tap - toggle zoom
+      setZoom(prev => prev === 1 ? 2 : 1);
+    } else {
+      // Single tap - toggle controls
+      setShowControls(prev => !prev);
+    }
+    lastTapRef.current = now;
+  };
+  
+  // Reading mode handling
+  const cycleReadingMode = useCallback(() => {
+    const modes: ReadingMode[] = ['system', 'light', 'dark', 'sepia'];
+    const currentIndex = modes.indexOf(readingMode);
+    const nextMode = modes[(currentIndex + 1) % modes.length];
+    setReadingMode(nextMode);
+    if (shortcutId) {
+      saveReadingMode(shortcutId, nextMode);
+    }
+  }, [readingMode, shortcutId]);
+  
+  const getReadingModeClass = () => {
+    switch (readingMode) {
+      case 'light': return 'pdf-reading-light';
+      case 'dark': return 'pdf-reading-dark';
+      case 'sepia': return 'pdf-reading-sepia';
+      default: return '';
+    }
+  };
+  
+  const getReadingModeIcon = () => {
+    switch (readingMode) {
+      case 'light': return <Sun className="h-5 w-5" />;
+      case 'dark': return <Moon className="h-5 w-5" />;
+      case 'sepia': return <BookOpen className="h-5 w-5" />;
+      default: return <Sun className="h-5 w-5 opacity-50" />;
+    }
+  };
+  
+  // Bookmark handling
+  const handleToggleBookmark = useCallback(() => {
+    if (!shortcutId) return;
+    const nowBookmarked = toggleBookmark(shortcutId, currentPage);
+    setIsBookmarked(nowBookmarked);
+    setBookmarks(getBookmarks(shortcutId));
+  }, [shortcutId, currentPage]);
+  
+  // Search handling
+  const handleSearch = useCallback(async () => {
+    if (!pdfDoc || !searchQuery.trim()) return;
+    
+    setIsSearching(true);
+    setSearchResults([]);
+    setCurrentSearchIndex(0);
+    
+    const results: { page: number; index: number }[] = [];
+    const query = searchQuery.toLowerCase();
+    
+    try {
+      for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
+        const page = await pdfDoc.getPage(pageNum);
+        const textContent = await page.getTextContent();
+        const text = textContent.items
+          .map((item: any) => item.str)
+          .join(' ')
+          .toLowerCase();
+        
+        let index = 0;
+        let position = text.indexOf(query);
+        while (position !== -1) {
+          results.push({ page: pageNum, index });
+          index++;
+          position = text.indexOf(query, position + 1);
+        }
+      }
+      
+      setSearchResults(results);
+      if (results.length > 0) {
+        setCurrentPage(results[0].page);
+      }
+    } catch (err) {
+      console.error('[PDFViewer] Search error:', err);
+    } finally {
+      setIsSearching(false);
+    }
+  }, [pdfDoc, searchQuery]);
+  
+  const goToPrevResult = useCallback(() => {
+    if (searchResults.length === 0) return;
+    const newIndex = currentSearchIndex > 0 ? currentSearchIndex - 1 : searchResults.length - 1;
+    setCurrentSearchIndex(newIndex);
+    setCurrentPage(searchResults[newIndex].page);
+  }, [searchResults, currentSearchIndex]);
+  
+  const goToNextResult = useCallback(() => {
+    if (searchResults.length === 0) return;
+    const newIndex = (currentSearchIndex + 1) % searchResults.length;
+    setCurrentSearchIndex(newIndex);
+    setCurrentPage(searchResults[newIndex].page);
+  }, [searchResults, currentSearchIndex]);
+  
+  // Page jump handling
+  const handlePageJump = useCallback(() => {
+    const page = parseInt(pageJumpValue, 10);
+    if (!isNaN(page) && page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+      setShowPageJump(false);
+      setPageJumpValue('');
+    }
+  }, [pageJumpValue, totalPages]);
+  
+  // Close and navigate home
+  const handleClose = useCallback(() => {
+    if (resumeEnabled && shortcutId && currentPage > 0) {
+      saveLastPage(shortcutId, currentPage);
+      saveZoom(shortcutId, zoom);
+    }
+    navigate('/', { replace: true });
+  }, [resumeEnabled, shortcutId, currentPage, zoom, navigate]);
   
   // Handle Android back button
   useBackButton({
@@ -274,44 +410,40 @@ export default function PDFViewer() {
     onBack: handleClose,
   });
   
-  const handleBack = () => {
-    handleClose();
-  };
+  // Focus search input when opened
+  useEffect(() => {
+    if (showSearch && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [showSearch]);
   
+  // Focus page jump input when opened
+  useEffect(() => {
+    if (showPageJump && pageJumpInputRef.current) {
+      pageJumpInputRef.current.focus();
+    }
+  }, [showPageJump]);
+  
+  // Loading state - instant placeholder
   if (loading) {
     return (
-      <div className="fixed inset-0 bg-background flex items-center justify-center">
-        <div className="flex flex-col items-center gap-6 animate-fade-in">
-          {/* Document icon with pulse effect */}
-          <div className="relative">
-            <div className="absolute inset-0 bg-primary/20 rounded-2xl blur-xl animate-pulse" />
-            <div className="relative bg-muted/50 rounded-2xl p-6">
-              <FileText className="h-16 w-16 text-primary" />
-            </div>
-          </div>
-          
-          {/* Loading indicator */}
-          <div className="flex flex-col items-center gap-3">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-              <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-              <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-            </div>
-            <p className="text-muted-foreground font-medium">Loading document...</p>
-          </div>
-        </div>
+      <div className="fixed inset-0 bg-muted flex items-center justify-center">
+        <div className="w-full max-w-md aspect-[3/4] bg-background rounded-lg shadow-lg mx-4" />
       </div>
     );
   }
   
+  // Error state - calm and clear
   if (error) {
     return (
-      <div className="fixed inset-0 bg-background flex flex-col items-center justify-center p-4">
+      <div className="fixed inset-0 bg-background flex flex-col items-center justify-center p-6">
         <div className="text-center max-w-sm">
-          <div className="text-6xl mb-4">📄</div>
-          <h2 className="text-xl font-semibold mb-2">Unable to Load PDF</h2>
-          <p className="text-muted-foreground mb-6">{error}</p>
-          <Button onClick={handleBack}>Go Back</Button>
+          <FileText className="h-16 w-16 text-muted-foreground mx-auto mb-6" />
+          <h2 className="text-xl font-medium mb-2">Unable to open document</h2>
+          <p className="text-muted-foreground mb-8">{error}</p>
+          <Button variant="outline" onClick={handleClose} className="min-w-32">
+            ← Go Back
+          </Button>
         </div>
       </div>
     );
@@ -319,59 +451,131 @@ export default function PDFViewer() {
   
   return (
     <div 
-      className="fixed inset-0 bg-background flex flex-col"
+      className={`fixed inset-0 flex flex-col ${getReadingModeClass()}`}
+      style={{ backgroundColor: readingMode === 'system' ? undefined : undefined }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
       onClick={handleTap}
     >
-      {/* Header */}
-      <header 
-        className={`absolute top-0 left-0 right-0 z-20 bg-background/90 backdrop-blur-sm border-b transition-opacity duration-300 ${
-          showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
-        }`}
-      >
-        <div className="flex items-center justify-between p-3 safe-top">
-          <button
-            onClick={(e) => { e.stopPropagation(); handleBack(); }}
-            className="p-2 -ml-2 rounded-full hover:bg-muted active:bg-muted/80"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </button>
+      {/* Search Bar - slides in from top */}
+      {showSearch && (
+        <div 
+          className="absolute top-0 left-0 right-0 z-30 bg-background/95 backdrop-blur-sm border-b p-3 animate-fade-in"
+          onClick={e => e.stopPropagation()}
+        >
+          <div className="flex items-center gap-2">
+            <div className="flex-1 relative">
+              <Input
+                ref={searchInputRef}
+                type="text"
+                placeholder="Search in document..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                className="pr-10"
+              />
+              {isSearching && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                </div>
+              )}
+            </div>
+            <Button size="icon" variant="ghost" onClick={handleSearch}>
+              <Search className="h-4 w-4" />
+            </Button>
+            <Button size="icon" variant="ghost" onClick={() => { setShowSearch(false); setSearchQuery(''); setSearchResults([]); }}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
           
-          <span className="text-sm font-medium">
-            Page {currentPage} of {totalPages}
-          </span>
+          {searchResults.length > 0 && (
+            <div className="flex items-center justify-between mt-2 text-sm">
+              <span className="text-muted-foreground">
+                {currentSearchIndex + 1} of {searchResults.length} matches
+              </span>
+              <div className="flex gap-1">
+                <Button size="icon" variant="ghost" className="h-8 w-8" onClick={goToPrevResult}>
+                  <ChevronUp className="h-4 w-4" />
+                </Button>
+                <Button size="icon" variant="ghost" className="h-8 w-8" onClick={goToNextResult}>
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
           
-          <div className="flex items-center gap-1">
-            <button
-              onClick={(e) => { e.stopPropagation(); zoomOut(); }}
-              className="p-2 rounded-full hover:bg-muted active:bg-muted/80"
-              disabled={zoom <= 0.5}
-            >
-              <ZoomOut className="h-5 w-5" />
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); resetZoom(); }}
-              className="p-2 rounded-full hover:bg-muted active:bg-muted/80"
-            >
-              <RotateCw className="h-4 w-4" />
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); zoomIn(); }}
-              className="p-2 rounded-full hover:bg-muted active:bg-muted/80"
-              disabled={zoom >= 3}
-            >
-              <ZoomIn className="h-5 w-5" />
-            </button>
+          {searchQuery && searchResults.length === 0 && !isSearching && (
+            <p className="text-sm text-muted-foreground mt-2">No matches found</p>
+          )}
+        </div>
+      )}
+      
+      {/* Bookmark List */}
+      {showBookmarkList && bookmarks.length > 0 && (
+        <div 
+          className="absolute top-0 left-0 right-0 z-30 bg-background/95 backdrop-blur-sm border-b p-3 animate-fade-in"
+          onClick={e => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-medium">Bookmarks</h3>
+            <Button size="icon" variant="ghost" onClick={() => setShowBookmarkList(false)}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {bookmarks.map(page => (
+              <Button
+                key={page}
+                variant={page === currentPage ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => { goToPage(page); setShowBookmarkList(false); }}
+              >
+                Page {page}
+              </Button>
+            ))}
           </div>
         </div>
-      </header>
+      )}
       
-      {/* PDF Canvas */}
+      {/* Page Jump Dialog */}
+      {showPageJump && (
+        <div 
+          className="absolute inset-0 z-40 bg-background/80 backdrop-blur-sm flex items-center justify-center p-6"
+          onClick={() => setShowPageJump(false)}
+        >
+          <div 
+            className="bg-card border rounded-xl p-6 w-full max-w-xs shadow-xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-medium mb-4 text-center">Go to page</h3>
+            <Input
+              ref={pageJumpInputRef}
+              type="number"
+              min={1}
+              max={totalPages}
+              placeholder={`1 - ${totalPages}`}
+              value={pageJumpValue}
+              onChange={(e) => setPageJumpValue(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handlePageJump()}
+              className="text-center text-lg mb-4"
+            />
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => setShowPageJump(false)}>
+                Cancel
+              </Button>
+              <Button className="flex-1" onClick={handlePageJump}>
+                Go
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* PDF Canvas Container */}
       <div 
         ref={containerRef}
-        className="flex-1 overflow-auto pt-14 pb-16"
+        className="flex-1 overflow-auto"
       >
         <canvas
           ref={canvasRef}
@@ -380,51 +584,82 @@ export default function PDFViewer() {
         />
       </div>
       
-      {/* Navigation Footer */}
-      <footer 
-        className={`absolute bottom-0 left-0 right-0 z-20 bg-background/90 backdrop-blur-sm border-t transition-opacity duration-300 ${
+      {/* Minimal Floating Controls */}
+      <div 
+        className={`absolute inset-x-0 bottom-0 z-20 transition-opacity duration-200 ${
           showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
+        onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center justify-center gap-8 p-3 safe-bottom">
+        {/* Page indicator - centered, tappable for page jump */}
+        <div className="absolute left-1/2 -translate-x-1/2 bottom-24 mb-safe">
           <button
-            onClick={(e) => { e.stopPropagation(); goToPrevPage(); }}
-            disabled={currentPage <= 1}
-            className="p-3 rounded-full bg-muted hover:bg-muted/80 active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+            onClick={() => setShowPageJump(true)}
+            className="bg-background/90 backdrop-blur-sm rounded-full px-4 py-2 shadow-lg border text-sm font-medium"
           >
-            <ChevronLeft className="h-6 w-6" />
-          </button>
-          
-          <span className="text-lg font-medium min-w-[80px] text-center">
             {currentPage} / {totalPages}
-          </span>
-          
-          <button
-            onClick={(e) => { e.stopPropagation(); goToNextPage(); }}
-            disabled={currentPage >= totalPages}
-            className="p-3 rounded-full bg-muted hover:bg-muted/80 active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-          >
-            <ChevronRight className="h-6 w-6" />
           </button>
         </div>
-      </footer>
-      
-      {/* Exit Confirmation Dialog */}
-      <AlertDialog open={showExitDialog} onOpenChange={setShowExitDialog}>
-        <AlertDialogContent onClick={(e) => e.stopPropagation()}>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Leave PDF?</AlertDialogTitle>
-            <AlertDialogDescription>
-              You've been reading for a while. Your current page ({currentPage}) will be saved 
-              so you can continue where you left off.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Keep Reading</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmExit}>Leave</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        
+        {/* Control bar */}
+        <div className="bg-background/90 backdrop-blur-sm border-t safe-bottom">
+          <div className="flex items-center justify-between px-4 py-3">
+            {/* Left: Navigation */}
+            <div className="flex items-center gap-1">
+              <button
+                onClick={goToPrevPage}
+                disabled={currentPage <= 1}
+                className="p-2.5 rounded-full hover:bg-muted active:scale-95 transition-all disabled:opacity-30"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+              <button
+                onClick={goToNextPage}
+                disabled={currentPage >= totalPages}
+                className="p-2.5 rounded-full hover:bg-muted active:scale-95 transition-all disabled:opacity-30"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+            </div>
+            
+            {/* Right: Tools */}
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => { setShowSearch(true); setShowBookmarkList(false); }}
+                className="p-2.5 rounded-full hover:bg-muted active:scale-95 transition-all"
+              >
+                <Search className="h-5 w-5" />
+              </button>
+              
+              <button
+                onClick={bookmarks.length > 0 ? () => setShowBookmarkList(!showBookmarkList) : handleToggleBookmark}
+                onDoubleClick={handleToggleBookmark}
+                className={`p-2.5 rounded-full hover:bg-muted active:scale-95 transition-all ${
+                  isBookmarked ? 'text-primary' : ''
+                }`}
+              >
+                <Bookmark className={`h-5 w-5 ${isBookmarked ? 'fill-current' : ''}`} />
+              </button>
+              
+              <button
+                onClick={cycleReadingMode}
+                className={`p-2.5 rounded-full hover:bg-muted active:scale-95 transition-all ${
+                  readingMode !== 'system' ? 'text-primary' : ''
+                }`}
+              >
+                {getReadingModeIcon()}
+              </button>
+              
+              <button
+                onClick={handleClose}
+                className="p-2.5 rounded-full hover:bg-muted active:scale-95 transition-all"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
