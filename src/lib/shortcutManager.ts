@@ -208,18 +208,8 @@ export async function createHomeScreenShortcut(
         console.log('[ShortcutManager] Using thumbnail icon URI');
       }
     } else if (shortcut.icon.type === 'emoji') {
-      // For video files with the default 🎬 emoji, omit it so native can auto-generate thumbnail
-      // Native Priority 5 will use MediaMetadataRetriever to extract first frame
-      const isVideo = isVideoMimeType(mimeType);
-      const isDefaultVideoEmoji = shortcut.icon.value === '🎬';
-      
-      if (isVideo && isDefaultVideoEmoji) {
-        console.log('[ShortcutManager] Video with default emoji - omitting iconEmoji so native can auto-generate thumbnail');
-        // Don't set iconEmoji - let native generate video thumbnail
-      } else {
-        iconOptions.iconEmoji = shortcut.icon.value;
-        console.log('[ShortcutManager] Using emoji icon:', shortcut.icon.value);
-      }
+      iconOptions.iconEmoji = shortcut.icon.value;
+      console.log('[ShortcutManager] Using emoji icon:', shortcut.icon.value);
     } else if (shortcut.icon.type === 'text') {
       iconOptions.iconText = shortcut.icon.value;
       console.log('[ShortcutManager] Using text icon:', shortcut.icon.value);
