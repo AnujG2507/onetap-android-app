@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
 import { 
@@ -12,6 +12,7 @@ import {
   FileText,
   ZoomIn,
   ZoomOut,
+  MapPin,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -85,6 +86,12 @@ export default function PDFViewer() {
   // Page jump state
   const [showPageJump, setShowPageJump] = useState(false);
   const [pageJumpValue, setPageJumpValue] = useState('');
+  
+  // Match flash animation state
+  const [matchFlash, setMatchFlash] = useState(false);
+  
+  // Mini-map visibility
+  const [showMiniMap, setShowMiniMap] = useState(false);
   
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRefs = useRef<Map<number, HTMLCanvasElement>>(new Map());
@@ -559,15 +566,35 @@ export default function PDFViewer() {
     if (searchResults.length === 0) return;
     const newIndex = currentSearchIndex > 0 ? currentSearchIndex - 1 : searchResults.length - 1;
     setCurrentSearchIndex(newIndex);
-    scrollToPage(searchResults[newIndex].page);
-  }, [searchResults, currentSearchIndex, scrollToPage]);
+    
+    // Trigger flash animation
+    setMatchFlash(true);
+    setTimeout(() => setMatchFlash(false), 600);
+    
+    // Smooth scroll to center the match
+    const match = searchResults[newIndex];
+    const pageElement = pageRefs.current.get(match.page);
+    if (pageElement) {
+      pageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [searchResults, currentSearchIndex]);
   
   const goToNextResult = useCallback(() => {
     if (searchResults.length === 0) return;
     const newIndex = (currentSearchIndex + 1) % searchResults.length;
     setCurrentSearchIndex(newIndex);
-    scrollToPage(searchResults[newIndex].page);
-  }, [searchResults, currentSearchIndex, scrollToPage]);
+    
+    // Trigger flash animation
+    setMatchFlash(true);
+    setTimeout(() => setMatchFlash(false), 600);
+    
+    // Smooth scroll to center the match
+    const match = searchResults[newIndex];
+    const pageElement = pageRefs.current.get(match.page);
+    if (pageElement) {
+      pageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [searchResults, currentSearchIndex]);
   
   // Page jump handling
   const handlePageJump = useCallback(() => {
@@ -607,6 +634,20 @@ export default function PDFViewer() {
       pageJumpInputRef.current.focus();
     }
   }, [showPageJump]);
+  
+  // Show/hide mini-map based on search results
+  useEffect(() => {
+    setShowMiniMap(searchResults.length > 0);
+  }, [searchResults]);
+  
+  // Compute pages with matches for mini-map
+  const pagesWithMatches = useMemo(() => {
+    const pageMatchCounts = new Map<number, number>();
+    searchResults.forEach(result => {
+      pageMatchCounts.set(result.page, (pageMatchCounts.get(result.page) || 0) + 1);
+    });
+    return pageMatchCounts;
+  }, [searchResults]);
   
   // Get container width for placeholder sizing
   const containerWidth = containerRef.current?.clientWidth || window.innerWidth;
@@ -787,9 +828,9 @@ export default function PDFViewer() {
                           return (
                             <div
                               key={`${matchIdx}-${rectIdx}`}
-                              className={`absolute rounded-sm transition-colors ${
+                              className={`absolute rounded-sm transition-all ${
                                 isCurrentMatch 
-                                  ? 'bg-orange-400/60 ring-2 ring-orange-500' 
+                                  ? `bg-orange-400/60 ring-2 ring-orange-500 ${matchFlash ? 'animate-match-flash' : ''}` 
                                   : 'bg-yellow-300/50'
                               }`}
                               style={{
@@ -816,8 +857,79 @@ export default function PDFViewer() {
         </div>
       </div>
       
+      {/* Search Mini-Map */}
+      {showMiniMap && searchResults.length > 0 && (
+        <div 
+          className="absolute right-2 top-1/2 -translate-y-1/2 z-25 flex flex-col items-center"
+          onClick={e => e.stopPropagation()}
+        >
+          <div className="bg-background/90 backdrop-blur-sm rounded-full border shadow-lg p-1.5 max-h-[50vh] overflow-y-auto scrollbar-none">
+            <div className="flex flex-col gap-0.5">
+              {totalPages <= 40 ? (
+                // Show all pages as markers for smaller documents
+                Array.from({ length: totalPages }, (_, i) => {
+                  const pageNum = i + 1;
+                  const matchCount = pagesWithMatches.get(pageNum) || 0;
+                  const hasCurrentMatch = searchResults[currentSearchIndex]?.page === pageNum;
+                  const hasMatches = matchCount > 0;
+                  
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => scrollToPage(pageNum)}
+                      className={`
+                        w-3 h-3 rounded-full transition-all flex-shrink-0
+                        ${hasCurrentMatch 
+                          ? 'bg-orange-500 ring-2 ring-orange-300 scale-125' 
+                          : hasMatches 
+                            ? 'bg-yellow-400 hover:bg-yellow-500' 
+                            : 'bg-muted hover:bg-muted-foreground/30'
+                        }
+                      `}
+                      title={`Page ${pageNum}${hasMatches ? ` (${matchCount} match${matchCount > 1 ? 'es' : ''})` : ''}`}
+                    />
+                  );
+                })
+              ) : (
+                // For large documents, show only pages with matches
+                [...pagesWithMatches.entries()]
+                  .sort(([a], [b]) => a - b)
+                  .map(([pageNum, matchCount]) => {
+                    const hasCurrentMatch = searchResults[currentSearchIndex]?.page === pageNum;
+                    
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => scrollToPage(pageNum)}
+                        className={`
+                          w-3 h-3 rounded-full transition-all flex-shrink-0
+                          ${hasCurrentMatch 
+                            ? 'bg-orange-500 ring-2 ring-orange-300 scale-125' 
+                            : 'bg-yellow-400 hover:bg-yellow-500'
+                          }
+                        `}
+                        title={`Page ${pageNum} (${matchCount} match${matchCount > 1 ? 'es' : ''})`}
+                      />
+                    );
+                  })
+              )}
+            </div>
+          </div>
+          
+          {/* Match count badge */}
+          <div className="bg-primary text-primary-foreground text-xs font-medium rounded-full px-2 py-1 mt-2 shadow-md">
+            {searchResults.length}
+          </div>
+          
+          {/* Current page indicator */}
+          <div className="text-xs text-muted-foreground mt-1 bg-background/80 rounded px-1.5 py-0.5">
+            p.{searchResults[currentSearchIndex]?.page || 1}
+          </div>
+        </div>
+      )}
+      
       {/* Minimal Floating Controls */}
-      <div 
+      <div
         className={`absolute inset-x-0 bottom-0 z-20 transition-opacity duration-200 ${
           showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}

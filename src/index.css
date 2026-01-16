@@ -153,4 +153,20 @@ All colors MUST be HSL.
   .pdf-reading-light {
     background-color: hsl(0 0% 100%);
   }
+
+  /* Search match flash animation */
+  @keyframes match-flash {
+    0%, 100% { 
+      transform: scale(1); 
+      box-shadow: 0 0 0 0 hsl(25 95% 53% / 0.7);
+    }
+    50% { 
+      transform: scale(1.08); 
+      box-shadow: 0 0 0 8px hsl(25 95% 53% / 0);
+    }
+  }
+
+  .animate-match-flash {
+    animation: match-flash 0.6s ease-out;
+  }
 }
