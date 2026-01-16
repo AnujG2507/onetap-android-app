@@ -36,6 +36,19 @@ interface PageRenderState {
   height: number;
 }
 
+interface HighlightRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+interface SearchMatch {
+  page: number;
+  index: number;
+  rects: HighlightRect[];
+}
+
 export default function PDFViewer() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -62,9 +75,12 @@ export default function PDFViewer() {
   // Search state
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<{ page: number; index: number }[]>([]);
+  const [searchResults, setSearchResults] = useState<SearchMatch[]>([]);
   const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
   const [isSearching, setIsSearching] = useState(false);
+  
+  // Track page dimensions for highlight positioning
+  const [pageDimensions, setPageDimensions] = useState<Map<number, { width: number; height: number; scale: number }>>(new Map());
   
   // Page jump state
   const [showPageJump, setShowPageJump] = useState(false);
@@ -185,8 +201,21 @@ export default function PDFViewer() {
       canvas.height = scaledViewport.height;
       
       // Scale down via CSS for display (maintains sharpness)
-      canvas.style.width = `${scaledViewport.width / dpr}px`;
-      canvas.style.height = `${scaledViewport.height / dpr}px`;
+      const displayWidth = scaledViewport.width / dpr;
+      const displayHeight = scaledViewport.height / dpr;
+      canvas.style.width = `${displayWidth}px`;
+      canvas.style.height = `${displayHeight}px`;
+      
+      // Store page dimensions for highlight positioning
+      setPageDimensions(prev => {
+        const updated = new Map(prev);
+        updated.set(pageNum, {
+          width: displayWidth,
+          height: displayHeight,
+          scale: displayScale
+        });
+        return updated;
+      });
       
       await page.render({
         canvasContext: context,
@@ -198,7 +227,7 @@ export default function PDFViewer() {
         const updated = [...prev];
         updated[pageNum - 1] = { 
           rendered: true, 
-          height: scaledViewport.height / dpr 
+          height: displayHeight 
         };
         return updated;
       });
@@ -271,6 +300,11 @@ export default function PDFViewer() {
     // Reset rendered state to force re-render
     setPageStates(prev => prev.map(state => ({ ...state, rendered: false })));
     canvasRefs.current.clear();
+    
+    // Clear search results to force recalculation with new zoom level
+    if (searchResults.length > 0) {
+      setSearchResults([]);
+    }
   }, [zoom, pdfDoc, loading]);
   
   // Scroll to saved page on initial load
@@ -436,7 +470,7 @@ export default function PDFViewer() {
     }
   };
   
-  // Search handling
+  // Search handling with position extraction for highlights
   const handleSearch = useCallback(async () => {
     if (!pdfDoc || !searchQuery.trim()) return;
     
@@ -444,24 +478,68 @@ export default function PDFViewer() {
     setSearchResults([]);
     setCurrentSearchIndex(0);
     
-    const results: { page: number; index: number }[] = [];
+    const results: SearchMatch[] = [];
     const query = searchQuery.toLowerCase();
     
     try {
       for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
         const page = await pdfDoc.getPage(pageNum);
         const textContent = await page.getTextContent();
-        const text = textContent.items
-          .map((item: any) => item.str)
-          .join(' ')
-          .toLowerCase();
+        const viewport = page.getViewport({ scale: 1 });
+        const pageHeight = viewport.height;
         
-        let index = 0;
-        let position = text.indexOf(query);
-        while (position !== -1) {
-          results.push({ page: pageNum, index });
-          index++;
-          position = text.indexOf(query, position + 1);
+        // Get current scale for this page
+        const containerWidth = containerRef.current?.clientWidth || window.innerWidth;
+        const baseScale = containerWidth / viewport.width;
+        const displayScale = baseScale * zoom;
+        
+        // Build a map of text items with their positions
+        const items = textContent.items as any[];
+        let globalIndex = 0;
+        
+        for (let itemIdx = 0; itemIdx < items.length; itemIdx++) {
+          const item = items[itemIdx];
+          if (!item.str) continue;
+          
+          const itemText = item.str.toLowerCase();
+          const queryLower = query.toLowerCase();
+          
+          // Find all occurrences of query in this text item
+          let searchPos = 0;
+          let matchPos = itemText.indexOf(queryLower, searchPos);
+          
+          while (matchPos !== -1) {
+            // Get the transform matrix [scaleX, skewY, skewX, scaleY, translateX, translateY]
+            const transform = item.transform;
+            const x = transform[4];
+            const y = transform[5];
+            const itemWidth = item.width || 0;
+            const itemHeight = item.height || (transform[3] || 12); // Fallback height
+            
+            // Calculate approximate position of the match within the item
+            const charWidth = itemWidth / Math.max(item.str.length, 1);
+            const matchX = x + (matchPos * charWidth);
+            const matchWidth = Math.min(queryLower.length * charWidth, itemWidth - (matchPos * charWidth));
+            
+            // Convert PDF coordinates to canvas coordinates
+            // PDF origin is bottom-left, canvas origin is top-left
+            const rect: HighlightRect = {
+              x: matchX * displayScale,
+              y: (pageHeight - y - itemHeight) * displayScale,
+              width: matchWidth * displayScale,
+              height: itemHeight * displayScale * 1.2, // Slight padding
+            };
+            
+            results.push({
+              page: pageNum,
+              index: globalIndex,
+              rects: [rect],
+            });
+            
+            globalIndex++;
+            searchPos = matchPos + 1;
+            matchPos = itemText.indexOf(queryLower, searchPos);
+          }
         }
       }
       
@@ -469,12 +547,13 @@ export default function PDFViewer() {
       if (results.length > 0) {
         scrollToPage(results[0].page);
       }
+      console.log('[PDFViewer] Found', results.length, 'search matches');
     } catch (err) {
       console.error('[PDFViewer] Search error:', err);
     } finally {
       setIsSearching(false);
     }
-  }, [pdfDoc, searchQuery, scrollToPage]);
+  }, [pdfDoc, searchQuery, scrollToPage, zoom]);
   
   const goToPrevResult = useCallback(() => {
     if (searchResults.length === 0) return;
@@ -663,6 +742,11 @@ export default function PDFViewer() {
           {Array.from({ length: totalPages }, (_, i) => {
             const pageNum = i + 1;
             const pageState = pageStates[i];
+            const dims = pageDimensions.get(pageNum);
+            
+            // Get highlights for this page
+            const pageHighlights = searchResults.filter(r => r.page === pageNum);
+            const currentMatchOnPage = searchResults[currentSearchIndex];
             
             return (
               <div
@@ -677,14 +761,51 @@ export default function PDFViewer() {
                 className="relative w-full flex justify-center mb-2"
                 style={{ minHeight: pageState?.height || placeholderHeight }}
               >
-                <canvas
-                  ref={(el) => {
-                    if (el) {
-                      canvasRefs.current.set(pageNum, el);
-                    }
-                  }}
-                  className="shadow-lg"
-                />
+                {/* Canvas container with highlight overlay */}
+                <div className="relative">
+                  <canvas
+                    ref={(el) => {
+                      if (el) {
+                        canvasRefs.current.set(pageNum, el);
+                      }
+                    }}
+                    className="shadow-lg"
+                  />
+                  
+                  {/* Search highlight overlay */}
+                  {pageHighlights.length > 0 && dims && (
+                    <div 
+                      className="absolute inset-0 pointer-events-none"
+                      style={{ width: dims.width, height: dims.height }}
+                    >
+                      {pageHighlights.map((match, matchIdx) => 
+                        match.rects.map((rect, rectIdx) => {
+                          const isCurrentMatch = 
+                            currentMatchOnPage?.page === pageNum && 
+                            currentMatchOnPage?.index === match.index;
+                          
+                          return (
+                            <div
+                              key={`${matchIdx}-${rectIdx}`}
+                              className={`absolute rounded-sm transition-colors ${
+                                isCurrentMatch 
+                                  ? 'bg-orange-400/60 ring-2 ring-orange-500' 
+                                  : 'bg-yellow-300/50'
+                              }`}
+                              style={{
+                                left: rect.x,
+                                top: rect.y,
+                                width: Math.max(rect.width, 20),
+                                height: rect.height,
+                              }}
+                            />
+                          );
+                        })
+                      )}
+                    </div>
+                  )}
+                </div>
+                
                 {/* Page number overlay */}
                 <div className="absolute bottom-2 right-2 bg-background/80 backdrop-blur-sm text-xs px-2 py-1 rounded text-muted-foreground">
                   {pageNum}
