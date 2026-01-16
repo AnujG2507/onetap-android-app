@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { ArrowLeft, AlertCircle, Loader2, RefreshCw } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -256,7 +256,9 @@ const VideoPlayer = () => {
     };
   }, [playableUrl, state, resolvedPath]);
 
-  const handleBack = () => navigate('/');
+  const handleBack = useCallback(() => {
+    navigate('/', { replace: true });
+  }, [navigate]);
   
   // Handle Android back button
   useBackButton({
