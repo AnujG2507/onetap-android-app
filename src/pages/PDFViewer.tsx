@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
-import { ArrowLeft, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCw } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCw, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getLastPage, saveLastPage } from '@/lib/pdfResumeManager';
 import * as pdfjs from 'pdfjs-dist';
@@ -227,9 +227,24 @@ export default function PDFViewer() {
   if (loading) {
     return (
       <div className="fixed inset-0 bg-background flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-          <p className="text-muted-foreground">Loading PDF...</p>
+        <div className="flex flex-col items-center gap-6 animate-fade-in">
+          {/* Document icon with pulse effect */}
+          <div className="relative">
+            <div className="absolute inset-0 bg-primary/20 rounded-2xl blur-xl animate-pulse" />
+            <div className="relative bg-muted/50 rounded-2xl p-6">
+              <FileText className="h-16 w-16 text-primary" />
+            </div>
+          </div>
+          
+          {/* Loading indicator */}
+          <div className="flex flex-col items-center gap-3">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+              <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+              <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+            </div>
+            <p className="text-muted-foreground font-medium">Loading document...</p>
+          </div>
         </div>
       </div>
     );
