@@ -255,21 +255,6 @@ export async function createHomeScreenShortcut(
       resumeEnabled: shortcut.resumeEnabled, // PDF resume support
     };
     
-    // === DIAGNOSTIC: Log full params to verify PDF proxy is being set ===
-    console.log('[ShortcutManager] ========== SHORTCUT PARAMS ==========');
-    console.log('[ShortcutManager] id:', params.id);
-    console.log('[ShortcutManager] intentType:', params.intentType);
-    console.log('[ShortcutManager] usePDFProxy:', params.usePDFProxy);
-    console.log('[ShortcutManager] useVideoProxy:', params.useVideoProxy);
-    console.log('[ShortcutManager] resumeEnabled:', params.resumeEnabled);
-    console.log('[ShortcutManager] intentData:', params.intentData);
-    console.log('[ShortcutManager] =====================================');
-    
-    // Show alert on device so user can see without logcat
-    if (typeof window !== 'undefined' && params.usePDFProxy) {
-      alert(`PDF SHORTCUT DEBUG:\nusePDFProxy = ${params.usePDFProxy}\nintentType = ${params.intentType}\nThis should use PDFProxyActivity`);
-    }
-    
     const result = await ShortcutPlugin.createPinnedShortcut(params);
     console.log('[ShortcutManager] createPinnedShortcut result:', result);
     
