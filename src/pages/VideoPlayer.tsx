@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
+import { App } from '@capacitor/app';
 import { ArrowLeft, AlertCircle, Loader2, RefreshCw, ExternalLink, Share2 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Share } from '@capacitor/share';
@@ -258,7 +259,14 @@ const VideoPlayer = () => {
   }, [playableUrl, state, resolvedPath]);
 
   const handleBack = useCallback(() => {
-    navigate('/', { replace: true });
+    // Exit the app to return to Android home screen
+    // Since shortcuts launch the app directly to this viewer,
+    // back should exit rather than navigate within the app
+    if (Capacitor.isNativePlatform()) {
+      App.exitApp();
+    } else {
+      navigate('/', { replace: true });
+    }
   }, [navigate]);
   
   // Handle Android back button

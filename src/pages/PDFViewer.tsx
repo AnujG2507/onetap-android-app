@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
+import { App } from '@capacitor/app';
 import { Share } from '@capacitor/share';
 import { 
   Search, 
@@ -1039,7 +1040,14 @@ export default function PDFViewer() {
       saveLastPage(shortcutId, currentPage);
       saveZoom(shortcutId, zoom);
     }
-    navigate('/', { replace: true });
+    // Exit the app to return to Android home screen
+    // Since shortcuts launch the app directly to this viewer,
+    // back should exit rather than navigate within the app
+    if (Capacitor.isNativePlatform()) {
+      App.exitApp();
+    } else {
+      navigate('/', { replace: true });
+    }
   }, [resumeEnabled, shortcutId, currentPage, zoom, navigate]);
   
   // Handle share/open in other apps
