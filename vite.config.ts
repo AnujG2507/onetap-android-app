@@ -26,6 +26,10 @@ export default defineConfig(({ mode }) => ({
       },
     },
   },
+  // Ensure PDF.js worker is properly bundled for offline support
+  worker: {
+    format: 'es',
+  },
   optimizeDeps: {
     esbuildOptions: {
       target: "esnext",

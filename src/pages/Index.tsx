@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Capacitor } from '@capacitor/core';
 import ShortcutPlugin from '@/plugins/ShortcutPlugin';
 import { useNavigate } from 'react-router-dom';
-import { Plus } from 'lucide-react';
+import { Plus, WifiOff } from 'lucide-react';
 import { ContentSourcePicker } from '@/components/ContentSourcePicker';
 import { UrlInput } from '@/components/UrlInput';
 import { ShortcutCustomizer } from '@/components/ShortcutCustomizer';
@@ -14,6 +14,7 @@ import { useBackButton } from '@/hooks/useBackButton';
 import { useSharedContent } from '@/hooks/useSharedContent';
 import { useClipboardDetection } from '@/hooks/useClipboardDetection';
 import { useSettings } from '@/hooks/useSettings';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useToast } from '@/hooks/use-toast';
 import { pickFile, FileTypeFilter } from '@/lib/contentResolver';
 import { createHomeScreenShortcut } from '@/lib/shortcutManager';
@@ -31,6 +32,7 @@ const Index = () => {
   const { toast } = useToast();
   const { sharedContent, sharedAction, isLoading: isLoadingShared, clearSharedContent } = useSharedContent();
   const { settings } = useSettings();
+  const { isOnline } = useNetworkStatus();
   
   // Auto-detect clipboard URL (only on source screen and if enabled in settings)
   const clipboardEnabled = step === 'source' && settings.clipboardDetectionEnabled;
@@ -214,6 +216,16 @@ const Index = () => {
     <div className="min-h-screen bg-background flex flex-col">
       {step === 'source' && (
         <>
+          {/* Offline indicator banner */}
+          {!isOnline && (
+            <div className="bg-muted/80 border-b border-border px-5 py-2 flex items-center gap-2">
+              <WifiOff className="h-4 w-4 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">
+                You're offline. Some features may be limited.
+              </span>
+            </div>
+          )}
+          
           <header className="px-5 pt-8 pb-6">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">

@@ -602,6 +602,11 @@ async function fetchImageAsBase64(imageUrl: string): Promise<string | null> {
   }
 }
 
+// Check if the app is currently online
+function isOnline(): boolean {
+  return typeof navigator !== 'undefined' ? navigator.onLine : true;
+}
+
 // Generate thumbnail from content
 export async function generateThumbnail(source: ContentSource): Promise<string | null> {
   if (source.mimeType?.startsWith('image/')) {
@@ -616,6 +621,12 @@ export async function generateThumbnail(source: ContentSource): Promise<string |
   }
   
   if (source.type === 'url' || source.type === 'share') {
+    // Skip network requests when offline to avoid timeouts
+    if (!isOnline()) {
+      console.log('[ContentResolver] Offline - skipping thumbnail fetch for URL');
+      return null;
+    }
+    
     // Try YouTube thumbnail first
     const ytThumbnail = getYouTubeThumbnailUrl(source.uri);
     if (ytThumbnail) {
