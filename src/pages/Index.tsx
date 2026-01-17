@@ -8,10 +8,12 @@ import { UrlInput } from '@/components/UrlInput';
 import { ShortcutCustomizer } from '@/components/ShortcutCustomizer';
 import { SuccessScreen } from '@/components/SuccessScreen';
 import { ClipboardSuggestion } from '@/components/ClipboardSuggestion';
+import { SettingsSheet } from '@/components/SettingsSheet';
 import { useShortcuts } from '@/hooks/useShortcuts';
 import { useBackButton } from '@/hooks/useBackButton';
 import { useSharedContent } from '@/hooks/useSharedContent';
 import { useClipboardDetection } from '@/hooks/useClipboardDetection';
+import { useSettings } from '@/hooks/useSettings';
 import { useToast } from '@/hooks/use-toast';
 import { pickFile, FileTypeFilter } from '@/lib/contentResolver';
 import { createHomeScreenShortcut } from '@/lib/shortcutManager';
@@ -28,9 +30,11 @@ const Index = () => {
   const { createShortcut } = useShortcuts();
   const { toast } = useToast();
   const { sharedContent, sharedAction, isLoading: isLoadingShared, clearSharedContent } = useSharedContent();
+  const { settings } = useSettings();
   
-  // Auto-detect clipboard URL (only on source screen)
-  const { detectedUrl, dismissDetection } = useClipboardDetection(step === 'source');
+  // Auto-detect clipboard URL (only on source screen and if enabled in settings)
+  const clipboardEnabled = step === 'source' && settings.clipboardDetectionEnabled;
+  const { detectedUrl, dismissDetection } = useClipboardDetection(clipboardEnabled);
 
   const handleClipboardUse = (url: string) => {
     dismissDetection();
@@ -211,11 +215,14 @@ const Index = () => {
       {step === 'source' && (
         <>
           <header className="px-5 pt-8 pb-6">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-                <Plus className="h-4 w-4 text-primary-foreground" />
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
+                  <Plus className="h-4 w-4 text-primary-foreground" />
+                </div>
+                <span className="text-sm font-medium text-muted-foreground tracking-wide">OneTap</span>
               </div>
-              <span className="text-sm font-medium text-muted-foreground tracking-wide">OneTap</span>
+              <SettingsSheet />
             </div>
             <h1 className="text-2xl font-semibold text-foreground leading-tight tracking-tight">
               One tap to what matters
