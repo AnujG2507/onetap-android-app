@@ -171,13 +171,19 @@ export function IconPicker({ thumbnail, selectedIcon, onSelect }: IconPickerProp
       {selectedIcon.type === 'emoji' && (
         <div 
           key="emoji-scroll"
-          className="py-4 animate-fade-in overflow-hidden"
+          className="py-4 animate-fade-in relative"
         >
-        <div 
-          ref={scrollContainerRef}
-          onScroll={handleScroll}
-          className="flex gap-2 overflow-x-auto scrollbar-hide snap-x snap-mandatory px-[calc(50%-28px)]"
-        >
+          {/* Left fade gradient */}
+          <div className="absolute left-0 top-0 bottom-0 w-12 bg-gradient-to-r from-background to-transparent z-10 pointer-events-none" />
+          
+          {/* Right fade gradient */}
+          <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-background to-transparent z-10 pointer-events-none" />
+          
+          <div 
+            ref={scrollContainerRef}
+            onScroll={handleScroll}
+            className="flex gap-2 overflow-x-auto scrollbar-hide snap-x snap-mandatory px-[calc(50%-28px)]"
+          >
             {COMMON_EMOJIS.map((emoji) => (
               <button
                 key={emoji}
