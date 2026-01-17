@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
-import { ArrowLeft, AlertCircle, Loader2, RefreshCw } from 'lucide-react';
+import { ArrowLeft, AlertCircle, Loader2, RefreshCw, ExternalLink, Share2 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Share } from '@capacitor/share';
 import { Button } from '@/components/ui/button';
 import ShortcutPlugin from '@/plugins/ShortcutPlugin';
 import { useBackButton } from '@/hooks/useBackButton';
@@ -266,6 +267,36 @@ const VideoPlayer = () => {
     onBack: handleBack,
   });
 
+  // Open in external app (ACTION_VIEW - shows video players)
+  const handleOpenExternal = useCallback(async () => {
+    if (!videoUri) return;
+    try {
+      const result = await ShortcutPlugin.openWithExternalApp({
+        uri: videoUri,
+        mimeType: 'video/*',
+      });
+      if (!result.success) {
+        console.log('[VideoPlayer] Failed to open in external app:', result.error);
+      }
+    } catch (error) {
+      console.log('[VideoPlayer] Error opening external app:', error);
+    }
+  }, [videoUri]);
+
+  // Share video (ACTION_SEND - shows messaging apps, cloud storage)
+  const handleShare = useCallback(async () => {
+    if (!videoUri) return;
+    try {
+      await Share.share({
+        title: 'Share Video',
+        url: videoUri,
+        dialogTitle: 'Share video...',
+      });
+    } catch (error) {
+      console.log('[VideoPlayer] Share cancelled or failed:', error);
+    }
+  }, [videoUri]);
+
   const handleRetry = () => {
     // Force re-resolve by updating the mount ID
     mountIdRef.current = Date.now();
@@ -326,9 +357,19 @@ const VideoPlayer = () => {
   return (
     <div className="min-h-screen bg-black flex flex-col">
       <header className="absolute top-0 left-0 right-0 z-10 p-4 bg-gradient-to-b from-black/80 to-transparent">
-        <Button onClick={handleBack} variant="ghost" size="icon" className="text-white hover:bg-white/20">
-          <ArrowLeft className="h-6 w-6" />
-        </Button>
+        <div className="flex items-center justify-between">
+          <Button onClick={handleBack} variant="ghost" size="icon" className="text-white hover:bg-white/20">
+            <ArrowLeft className="h-6 w-6" />
+          </Button>
+          <div className="flex items-center gap-2">
+            <Button onClick={handleOpenExternal} variant="ghost" size="icon" className="text-white hover:bg-white/20">
+              <ExternalLink className="h-5 w-5" />
+            </Button>
+            <Button onClick={handleShare} variant="ghost" size="icon" className="text-white hover:bg-white/20">
+              <Share2 className="h-5 w-5" />
+            </Button>
+          </div>
+        </div>
       </header>
 
       <div className="flex-1 flex items-center justify-center relative">
