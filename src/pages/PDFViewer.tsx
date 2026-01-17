@@ -10,9 +10,6 @@ import {
   ChevronDown,
   X,
   FileText,
-  ZoomIn,
-  ZoomOut,
-  MapPin,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -106,11 +103,18 @@ export default function PDFViewer() {
   const saveScrollDebounce = useRef<NodeJS.Timeout | null>(null);
   const initialScrollDone = useRef(false);
   
-  // Touch gesture state for pinch zoom
+  // Touch gesture state for pinch zoom with focal point anchoring
   const [touchState, setTouchState] = useState<{
     initialDistance: number;
     initialZoom: number;
+    centerX: number;
+    centerY: number;
+    scrollTop: number;
+    scrollLeft: number;
   } | null>(null);
+  
+  // Track if actively zooming for transition control
+  const [isZooming, setIsZooming] = useState(false);
   
   // Load PDF document
   useEffect(() => {
@@ -398,62 +402,66 @@ export default function PDFViewer() {
     }
   }, [totalPages]);
   
-  // Zoom controls - smooth CSS transform with debounced re-render
-  const handleZoomIn = useCallback(() => {
-    setDisplayZoom(prev => {
-      const newZoom = Math.min(Math.round((prev + 0.1) * 10) / 10, 3);
-      
-      // Debounce the actual canvas re-render
-      if (zoomDebounceRef.current) clearTimeout(zoomDebounceRef.current);
-      zoomDebounceRef.current = setTimeout(() => {
-        setZoom(newZoom);
-        renderZoomRef.current = newZoom;
-      }, 250);
-      
-      return newZoom;
-    });
-  }, []);
-  
-  const handleZoomOut = useCallback(() => {
-    setDisplayZoom(prev => {
-      const newZoom = Math.max(Math.round((prev - 0.1) * 10) / 10, 0.5);
-      
-      // Debounce the actual canvas re-render
-      if (zoomDebounceRef.current) clearTimeout(zoomDebounceRef.current);
-      zoomDebounceRef.current = setTimeout(() => {
-        setZoom(newZoom);
-        renderZoomRef.current = newZoom;
-      }, 250);
-      
-      return newZoom;
-    });
-  }, []);
-  
-  // Touch handlers for pinch-to-zoom
+  // Touch handlers for pinch-to-zoom with focal point anchoring
   const handleTouchStart = (e: React.TouchEvent) => {
     if (e.touches.length === 2) {
       const distance = Math.hypot(
         e.touches[0].clientX - e.touches[1].clientX,
         e.touches[0].clientY - e.touches[1].clientY
       );
-      setTouchState({ initialDistance: distance, initialZoom: zoom });
+      const centerX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+      const centerY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+      const container = containerRef.current;
+      
+      setIsZooming(true);
+      setTouchState({ 
+        initialDistance: distance, 
+        initialZoom: displayZoom,
+        centerX,
+        centerY,
+        scrollTop: container?.scrollTop || 0,
+        scrollLeft: container?.scrollLeft || 0,
+      });
     }
   };
   
   const handleTouchMove = (e: React.TouchEvent) => {
     if (e.touches.length === 2 && touchState) {
+      // Prevent default to avoid browser zoom
+      e.preventDefault();
+      
       const distance = Math.hypot(
         e.touches[0].clientX - e.touches[1].clientX,
         e.touches[0].clientY - e.touches[1].clientY
       );
       const scale = distance / touchState.initialDistance;
-      const newZoom = Math.min(Math.max(touchState.initialZoom * scale, 0.5), 3);
-      setDisplayZoom(newZoom); // Instant visual feedback
+      // Allow zoom out to 15% for multi-page view
+      const newZoom = Math.min(Math.max(touchState.initialZoom * scale, 0.15), 3);
+      
+      // Calculate new scroll position to keep focal point stable
+      const container = containerRef.current;
+      if (container) {
+        const zoomRatio = newZoom / touchState.initialZoom;
+        
+        // Point in document at pinch center before zoom
+        const docX = touchState.scrollLeft + touchState.centerX;
+        const docY = touchState.scrollTop + touchState.centerY;
+        
+        // New scroll position to keep that point under finger
+        const newScrollTop = (docY * zoomRatio) - touchState.centerY;
+        const newScrollLeft = (docX * zoomRatio) - touchState.centerX;
+        
+        container.scrollTop = Math.max(0, newScrollTop);
+        container.scrollLeft = Math.max(0, newScrollLeft);
+      }
+      
+      setDisplayZoom(newZoom);
     }
   };
   
   const handleTouchEnd = () => {
     if (touchState) {
+      setIsZooming(false);
       // Trigger actual re-render after pinch ends
       if (zoomDebounceRef.current) clearTimeout(zoomDebounceRef.current);
       zoomDebounceRef.current = setTimeout(() => {
@@ -464,7 +472,7 @@ export default function PDFViewer() {
     setTouchState(null);
   };
   
-  // Double tap to toggle zoom
+  // Double tap to toggle zoom centered on tap point
   const lastTapRef = useRef<number>(0);
   const handleTap = (e: React.MouseEvent | React.TouchEvent) => {
     // Don't toggle controls if interacting with UI elements
@@ -472,16 +480,48 @@ export default function PDFViewer() {
       return;
     }
     
+    // Get tap coordinates
+    const clientX = 'touches' in e 
+      ? (e as React.TouchEvent).changedTouches?.[0]?.clientX || 0 
+      : (e as React.MouseEvent).clientX;
+    const clientY = 'touches' in e 
+      ? (e as React.TouchEvent).changedTouches?.[0]?.clientY || 0 
+      : (e as React.MouseEvent).clientY;
+    
     const now = Date.now();
     if (now - lastTapRef.current < 300) {
-      // Double tap - toggle zoom with smooth animation
-      const newZoom = displayZoom === 1 ? 2 : 1;
-      setDisplayZoom(newZoom);
-      if (zoomDebounceRef.current) clearTimeout(zoomDebounceRef.current);
-      zoomDebounceRef.current = setTimeout(() => {
-        setZoom(newZoom);
-        renderZoomRef.current = newZoom;
-      }, 250);
+      // Double tap - toggle zoom centered on tap point
+      // Cycle: multi-page (0.3) -> fit (1) -> readable (2) -> back to fit (1)
+      const newZoom = displayZoom < 0.5 ? 1 : (displayZoom === 1 ? 2 : 1);
+      
+      // Calculate scroll position to center tap point after zoom
+      const container = containerRef.current;
+      if (container) {
+        const zoomRatio = newZoom / displayZoom;
+        const docX = container.scrollLeft + clientX;
+        const docY = container.scrollTop + clientY;
+        
+        setDisplayZoom(newZoom);
+        
+        // Apply scroll after state update
+        requestAnimationFrame(() => {
+          container.scrollTop = Math.max(0, (docY * zoomRatio) - clientY);
+          container.scrollLeft = Math.max(0, (docX * zoomRatio) - clientX);
+        });
+        
+        if (zoomDebounceRef.current) clearTimeout(zoomDebounceRef.current);
+        zoomDebounceRef.current = setTimeout(() => {
+          setZoom(newZoom);
+          renderZoomRef.current = newZoom;
+        }, 250);
+      } else {
+        setDisplayZoom(newZoom);
+        if (zoomDebounceRef.current) clearTimeout(zoomDebounceRef.current);
+        zoomDebounceRef.current = setTimeout(() => {
+          setZoom(newZoom);
+          renderZoomRef.current = newZoom;
+        }, 250);
+      }
     } else {
       // Single tap - toggle controls
       setShowControls(prev => !prev);
@@ -817,8 +857,8 @@ export default function PDFViewer() {
       {/* PDF Pages Container - Vertical Scrolling */}
       <div 
         ref={containerRef}
-        className="flex-1 overflow-y-auto overflow-x-hidden"
-        style={{ touchAction: 'pan-y pinch-zoom' }}
+        className={`flex-1 overflow-y-auto ${displayZoom > 1 ? 'overflow-x-auto' : 'overflow-x-hidden'}`}
+        style={{ touchAction: 'none' }}
       >
         <div className="flex flex-col items-center pb-24">
           {Array.from({ length: totalPages }, (_, i) => {
@@ -840,15 +880,18 @@ export default function PDFViewer() {
                   }
                 }}
                 data-page={pageNum}
-                className="relative w-full flex justify-center mb-2"
-                style={{ minHeight: pageState?.height || placeholderHeight }}
+                className="relative w-full flex justify-center"
+                style={{ 
+                  minHeight: pageState?.height || placeholderHeight,
+                  marginBottom: displayZoom < 0.5 ? 2 : 8, // Tighter margins at low zoom
+                }}
               >
                 {/* Canvas container with highlight overlay and smooth zoom transform */}
                 <div 
-                  className="relative pdf-zoom-container"
+                  className={`relative pdf-zoom-container ${isZooming ? 'zooming' : ''}`}
                   style={{
                     transform: `scale(${displayZoom / (renderZoomRef.current || 1)})`,
-                    transformOrigin: 'top center',
+                    transformOrigin: 'center top',
                   }}
                 >
                   <canvas
@@ -992,55 +1035,31 @@ export default function PDFViewer() {
           </button>
         </div>
         
-        {/* Control bar */}
+        {/* Control bar - minimal, no zoom buttons */}
         <div className="bg-background/90 backdrop-blur-sm border-t safe-bottom">
-          <div className="flex items-center justify-between px-4 py-3">
-            {/* Left: Zoom controls */}
-            <div className="flex items-center gap-1">
-              <button
-                onClick={handleZoomOut}
-                disabled={zoom <= 0.5}
-                className="p-2.5 rounded-full hover:bg-muted active:scale-95 transition-all disabled:opacity-30"
-              >
-                <ZoomOut className="h-5 w-5" />
-              </button>
-              <span className="text-sm font-medium min-w-[3rem] text-center">
-                {Math.round(zoom * 100)}%
-              </span>
-              <button
-                onClick={handleZoomIn}
-                disabled={zoom >= 3}
-                className="p-2.5 rounded-full hover:bg-muted active:scale-95 transition-all disabled:opacity-30"
-              >
-                <ZoomIn className="h-5 w-5" />
-              </button>
-            </div>
+          <div className="flex items-center justify-center gap-2 px-4 py-3">
+            <button
+              onClick={() => setShowSearch(true)}
+              className="p-2.5 rounded-full hover:bg-muted active:scale-95 transition-all"
+            >
+              <Search className="h-5 w-5" />
+            </button>
             
-            {/* Right: Tools */}
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setShowSearch(true)}
-                className="p-2.5 rounded-full hover:bg-muted active:scale-95 transition-all"
-              >
-                <Search className="h-5 w-5" />
-              </button>
-              
-              <button
-                onClick={cycleReadingMode}
-                className={`p-2.5 rounded-full hover:bg-muted active:scale-95 transition-all ${
-                  readingMode !== 'system' ? 'text-primary' : ''
-                }`}
-              >
-                {getReadingModeIcon()}
-              </button>
-              
-              <button
-                onClick={handleClose}
-                className="p-2.5 rounded-full hover:bg-muted active:scale-95 transition-all"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
+            <button
+              onClick={cycleReadingMode}
+              className={`p-2.5 rounded-full hover:bg-muted active:scale-95 transition-all ${
+                readingMode !== 'system' ? 'text-primary' : ''
+              }`}
+            >
+              {getReadingModeIcon()}
+            </button>
+            
+            <button
+              onClick={handleClose}
+              className="p-2.5 rounded-full hover:bg-muted active:scale-95 transition-all"
+            >
+              <X className="h-5 w-5" />
+            </button>
           </div>
         </div>
       </div>

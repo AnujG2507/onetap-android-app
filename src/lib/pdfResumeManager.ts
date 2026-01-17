@@ -93,7 +93,7 @@ export function getLastZoom(shortcutId: string): number {
  * Save the zoom level for a shortcut
  */
 export function saveZoom(shortcutId: string, zoom: number): void {
-  if (!shortcutId || zoom < 0.5 || zoom > 3) return;
+  if (!shortcutId || zoom < 0.15 || zoom > 3) return;
   
   const positions = getPositions();
   const existing = positions[shortcutId] || getOrCreatePosition(shortcutId);

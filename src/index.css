@@ -175,4 +175,9 @@ All colors MUST be HSL.
     transition: transform 0.2s ease-out;
     will-change: transform;
   }
+  
+  /* Disable transition during active pinch for responsiveness */
+  .pdf-zoom-container.zooming {
+    transition: none;
+  }
 }
