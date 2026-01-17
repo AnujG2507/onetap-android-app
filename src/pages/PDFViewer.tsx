@@ -13,6 +13,7 @@ import {
   FileText,
   Share2,
   ExternalLink,
+  Lock,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -68,6 +69,13 @@ export default function PDFViewer() {
   const zoomDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Password protection state
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [pdfPassword, setPdfPassword] = useState('');
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordAttempt, setPasswordAttempt] = useState(0);
+  const passwordInputRef = useRef<HTMLInputElement>(null);
   
   // Page render tracking
   const [pageStates, setPageStates] = useState<PageRenderState[]>([]);
@@ -191,8 +199,15 @@ export default function PDFViewer() {
           console.log('[PDFViewer] Cleared shared intent');
         }
         
-        const loadingTask = pdfjs.getDocument(pdfSource);
+        const loadingTask = pdfjs.getDocument({
+          url: pdfSource,
+          password: pdfPassword || undefined,
+        });
         const pdf = await loadingTask.promise;
+        
+        // Successfully loaded - reset password state
+        setShowPasswordDialog(false);
+        setPasswordError(null);
         
         setPdfDoc(pdf);
         setTotalPages(pdf.numPages);
@@ -222,8 +237,25 @@ export default function PDFViewer() {
         }
         
         setLoading(false);
-      } catch (err) {
+      } catch (err: unknown) {
         console.error('[PDFViewer] Failed to load PDF:', err);
+        
+        // Check if it's a password-related error
+        const errorObj = err as { name?: string; code?: number };
+        if (errorObj.name === 'PasswordException') {
+          setLoading(false);
+          setShowPasswordDialog(true);
+          
+          if (errorObj.code === 2) {
+            // INCORRECT_PASSWORD
+            setPasswordError('Incorrect password. Please try again.');
+          } else {
+            // NEED_PASSWORD (code 1)
+            setPasswordError(null);
+          }
+          return;
+        }
+        
         const errorMessage = err instanceof Error ? err.message : String(err);
         
         if (errorMessage.includes('Missing PDF') || errorMessage.includes('fetch') || errorMessage.includes('Failed to fetch')) {
@@ -236,7 +268,22 @@ export default function PDFViewer() {
     };
     
     loadPdf();
-  }, [uri, resumeEnabled, shortcutId]);
+  }, [uri, resumeEnabled, shortcutId, pdfPassword, passwordAttempt]);
+  
+  // Focus password input when dialog opens
+  useEffect(() => {
+    if (showPasswordDialog && passwordInputRef.current) {
+      setTimeout(() => passwordInputRef.current?.focus(), 100);
+    }
+  }, [showPasswordDialog]);
+  
+  // Handle password submission
+  const handlePasswordSubmit = useCallback(() => {
+    if (!pdfPassword) return;
+    setPasswordError(null);
+    setLoading(true);
+    setPasswordAttempt(prev => prev + 1);
+  }, [pdfPassword]);
   
   // Track active render tasks to cancel competing renders
   const renderTasksRef = useRef<Map<number, pdfjs.RenderTask>>(new Map());
@@ -1078,6 +1125,58 @@ export default function PDFViewer() {
     );
   }
   
+  // Password dialog
+  if (showPasswordDialog) {
+    return (
+      <div className="fixed inset-0 bg-background flex flex-col items-center justify-center p-6">
+        <div className="w-full max-w-sm space-y-6">
+          <div className="text-center">
+            <Lock className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <h2 className="text-xl font-medium mb-2">Password Required</h2>
+            <p className="text-sm text-muted-foreground">
+              This PDF is password-protected. Please enter the password to view it.
+            </p>
+          </div>
+          
+          {passwordError && (
+            <p className="text-sm text-destructive text-center">{passwordError}</p>
+          )}
+          
+          <Input
+            ref={passwordInputRef}
+            type="password"
+            placeholder="Enter password"
+            value={pdfPassword}
+            onChange={(e) => setPdfPassword(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                handlePasswordSubmit();
+              }
+            }}
+            className="text-center"
+          />
+          
+          <div className="flex gap-3">
+            <Button 
+              variant="outline" 
+              onClick={() => navigate(-1)}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handlePasswordSubmit} 
+              disabled={!pdfPassword || loading}
+              className="flex-1"
+            >
+              {loading ? 'Unlocking...' : 'Unlock'}
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Error state - calm and clear
   if (error) {
     return (
