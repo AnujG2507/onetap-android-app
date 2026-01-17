@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Phone, MessageCircle, Check } from 'lucide-react';
+import { ArrowLeft, Phone, MessageCircle, Check, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -191,12 +191,25 @@ export function ContactShortcutCustomizer({
         {/* Shortcut Name */}
         <div className="space-y-2">
           <Label htmlFor="name">Shortcut Name</Label>
-          <Input
-            id="name"
-            placeholder={mode === 'dial' ? 'Call Mom' : 'Message Team'}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
+          <div className="relative">
+            <Input
+              id="name"
+              placeholder={mode === 'dial' ? 'Call Mom' : 'Message Team'}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="pr-10"
+            />
+            {name && (
+              <button
+                type="button"
+                onClick={() => setName('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
+                aria-label="Clear shortcut name"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Icon Picker */}
