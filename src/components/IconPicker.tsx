@@ -82,7 +82,10 @@ export function IconPicker({ thumbnail, selectedIcon, onSelect }: IconPickerProp
       
       {/* Icon preview - only for thumbnail and text */}
       {selectedIcon.type !== 'emoji' && (
-        <div className="flex justify-center py-4">
+        <div 
+          key={`preview-${selectedIcon.type}`}
+          className="flex justify-center py-4 animate-fade-in"
+        >
           <div
             className={cn(
               "h-16 w-16 rounded-2xl flex items-center justify-center elevation-2",
@@ -107,7 +110,10 @@ export function IconPicker({ thumbnail, selectedIcon, onSelect }: IconPickerProp
       
       {/* Emoji picker - centered carousel */}
       {selectedIcon.type === 'emoji' && (
-        <div className="py-4">
+        <div 
+          key="emoji-carousel"
+          className="py-4 animate-fade-in"
+        >
           <Carousel
             opts={{
               align: 'center',
@@ -146,7 +152,8 @@ export function IconPicker({ thumbnail, selectedIcon, onSelect }: IconPickerProp
       
       {/* Text input */}
       {selectedIcon.type === 'text' && (
-        <Input
+        <div key="text-input" className="animate-fade-in">
+          <Input
           value={textValue}
           onChange={(e) => {
             const value = e.target.value.slice(0, 2);
@@ -155,8 +162,9 @@ export function IconPicker({ thumbnail, selectedIcon, onSelect }: IconPickerProp
           }}
           placeholder="1-2 characters"
           maxLength={2}
-          className="text-center text-lg font-medium h-12"
-        />
+            className="text-center text-lg font-medium h-12"
+          />
+        </div>
       )}
     </div>
   );
