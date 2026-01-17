@@ -3,9 +3,10 @@ import { Capacitor } from '@capacitor/core';
 import ShortcutPlugin from '@/plugins/ShortcutPlugin';
 import { useNavigate } from 'react-router-dom';
 import { Plus, WifiOff } from 'lucide-react';
-import { ContentSourcePicker } from '@/components/ContentSourcePicker';
+import { ContentSourcePicker, ContactMode } from '@/components/ContentSourcePicker';
 import { UrlInput } from '@/components/UrlInput';
 import { ShortcutCustomizer } from '@/components/ShortcutCustomizer';
+import { ContactShortcutCustomizer } from '@/components/ContactShortcutCustomizer';
 import { SuccessScreen } from '@/components/SuccessScreen';
 import { ClipboardSuggestion } from '@/components/ClipboardSuggestion';
 import { SettingsSheet } from '@/components/SettingsSheet';
@@ -18,17 +19,25 @@ import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useToast } from '@/hooks/use-toast';
 import { pickFile, FileTypeFilter } from '@/lib/contentResolver';
 import { createHomeScreenShortcut } from '@/lib/shortcutManager';
-import type { ContentSource, ShortcutIcon } from '@/types/shortcut';
+import type { ContentSource, ShortcutIcon, MessageApp } from '@/types/shortcut';
 
-type Step = 'source' | 'url' | 'customize' | 'success';
+type Step = 'source' | 'url' | 'customize' | 'contact' | 'success';
+
+interface ContactData {
+  name?: string;
+  phoneNumber?: string;
+  photoUri?: string;
+}
 
 const Index = () => {
   const [step, setStep] = useState<Step>('source');
   const [contentSource, setContentSource] = useState<ContentSource | null>(null);
   const [lastCreatedName, setLastCreatedName] = useState('');
+  const [contactData, setContactData] = useState<ContactData | null>(null);
+  const [contactMode, setContactMode] = useState<ContactMode>('dial');
   const lastSharedIdRef = useRef<string | null>(null);
   const navigate = useNavigate();
-  const { createShortcut } = useShortcuts();
+  const { createShortcut, createContactShortcut } = useShortcuts();
   const { toast } = useToast();
   const { sharedContent, sharedAction, isLoading: isLoadingShared, clearSharedContent } = useSharedContent();
   const { settings } = useSettings();
@@ -131,9 +140,13 @@ const Index = () => {
         } else {
           setStep('source');
         }
+      } else if (step === 'contact') {
+        setStep('source');
+        setContactData(null);
       } else if (step === 'success') {
         setStep('source');
         setContentSource(null);
+        setContactData(null);
         setLastCreatedName('');
       }
     }
@@ -166,6 +179,68 @@ const Index = () => {
       uri: url,
     });
     setStep('customize');
+  };
+
+  const handleSelectContact = async (mode: ContactMode) => {
+    setContactMode(mode);
+    
+    // Try to pick a contact from the native picker
+    try {
+      const result = await ShortcutPlugin.pickContact();
+      if (result.success && result.phoneNumber) {
+        setContactData({
+          name: result.name,
+          phoneNumber: result.phoneNumber,
+          photoUri: result.photoUri,
+        });
+      }
+    } catch (error) {
+      console.log('[Index] Contact picker not available, proceeding without contact');
+    }
+    
+    setStep('contact');
+  };
+
+  const handleContactConfirm = async (data: {
+    name: string;
+    icon: ShortcutIcon;
+    phoneNumber: string;
+    messageApp?: MessageApp;
+    slackTeamId?: string;
+    slackUserId?: string;
+  }) => {
+    try {
+      const shortcut = createContactShortcut(
+        contactMode === 'dial' ? 'contact' : 'message',
+        data.name,
+        data.icon,
+        data.phoneNumber,
+        data.messageApp,
+        data.slackTeamId && data.slackUserId 
+          ? { teamId: data.slackTeamId, userId: data.slackUserId }
+          : undefined
+      );
+      
+      const success = await createHomeScreenShortcut(shortcut);
+      
+      if (success) {
+        setLastCreatedName(data.name);
+        setStep('success');
+      } else {
+        toast({
+          title: 'Something went wrong',
+          description: 'Could not add to home screen. Please try again.',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      console.error('[Index] Contact shortcut creation error:', error);
+      toast({
+        title: 'Unable to add',
+        description: error instanceof Error ? error.message : 'Could not create this shortcut.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleConfirm = async (name: string, icon: ShortcutIcon, resumeEnabled?: boolean) => {
@@ -209,6 +284,7 @@ const Index = () => {
   const handleReset = () => {
     setStep('source');
     setContentSource(null);
+    setContactData(null);
     setLastCreatedName('');
   };
 
@@ -243,6 +319,7 @@ const Index = () => {
           <ContentSourcePicker
             onSelectFile={handleSelectFile}
             onSelectUrl={handleSelectUrl}
+            onSelectContact={handleSelectContact}
           />
           
           {/* Clipboard URL auto-detection */}
@@ -274,6 +351,18 @@ const Index = () => {
             } else {
               setStep('source');
             }
+          }}
+        />
+      )}
+
+      {step === 'contact' && (
+        <ContactShortcutCustomizer
+          mode={contactMode}
+          contact={contactData || undefined}
+          onConfirm={handleContactConfirm}
+          onBack={() => {
+            setStep('source');
+            setContactData(null);
           }}
         />
       )}

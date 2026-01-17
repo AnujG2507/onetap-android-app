@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import type { ShortcutData, ContentSource, ShortcutIcon } from '@/types/shortcut';
+import type { ShortcutData, ContentSource, ShortcutIcon, MessageApp } from '@/types/shortcut';
 
 const STORAGE_KEY = 'quicklaunch_shortcuts';
 
@@ -50,6 +50,33 @@ export function useShortcuts() {
     saveShortcuts(updated);
     return shortcut;
   }, [shortcuts, saveShortcuts]);
+
+  const createContactShortcut = useCallback((
+    type: 'contact' | 'message',
+    name: string,
+    icon: ShortcutIcon,
+    phoneNumber: string,
+    messageApp?: MessageApp,
+    slackDetails?: { teamId: string; userId: string }
+  ): ShortcutData => {
+    const shortcut: ShortcutData = {
+      id: crypto.randomUUID(),
+      name,
+      type,
+      contentUri: type === 'contact' ? `tel:${phoneNumber}` : '',
+      icon,
+      createdAt: Date.now(),
+      usageCount: 0,
+      phoneNumber,
+      messageApp,
+      slackTeamId: slackDetails?.teamId,
+      slackUserId: slackDetails?.userId,
+    };
+
+    const updated = [...shortcuts, shortcut];
+    saveShortcuts(updated);
+    return shortcut;
+  }, [shortcuts, saveShortcuts]);
   
   // Helper to detect file type from MIME type (robust detection)
   function detectFileTypeFromMime(mimeType?: string, filename?: string): 'image' | 'video' | 'pdf' | 'document' | undefined {
@@ -86,6 +113,7 @@ export function useShortcuts() {
   return {
     shortcuts,
     createShortcut,
+    createContactShortcut,
     deleteShortcut,
     incrementUsage,
   };

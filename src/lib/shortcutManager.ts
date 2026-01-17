@@ -12,6 +12,52 @@ export interface ShortcutIntent {
 
 // Build intent for opening content
 export function buildContentIntent(shortcut: ShortcutData): ShortcutIntent {
+  // Dial shortcut - opens phone dialer
+  if (shortcut.type === 'contact') {
+    const phoneNumber = shortcut.phoneNumber?.replace(/[^0-9+]/g, '') || '';
+    return {
+      action: 'android.intent.action.DIAL',
+      data: `tel:${phoneNumber}`,
+    };
+  }
+
+  // Message shortcuts - deep links to messaging apps
+  if (shortcut.type === 'message' && shortcut.messageApp) {
+    const phoneNumber = shortcut.phoneNumber?.replace(/[^0-9]/g, '') || '';
+    
+    switch (shortcut.messageApp) {
+      case 'whatsapp':
+        // WhatsApp uses wa.me for universal linking
+        return {
+          action: 'android.intent.action.VIEW',
+          data: `https://wa.me/${phoneNumber}`,
+        };
+      case 'telegram':
+        return {
+          action: 'android.intent.action.VIEW',
+          data: `tg://resolve?phone=${phoneNumber}`,
+        };
+      case 'signal':
+        return {
+          action: 'android.intent.action.VIEW',
+          data: `sgnl://signal.me/#p/+${phoneNumber}`,
+        };
+      case 'slack':
+        // Slack requires team and user IDs
+        if (shortcut.slackTeamId && shortcut.slackUserId) {
+          return {
+            action: 'android.intent.action.VIEW',
+            data: `slack://user?team=${shortcut.slackTeamId}&id=${shortcut.slackUserId}`,
+          };
+        }
+        // Fallback to Slack app
+        return {
+          action: 'android.intent.action.VIEW',
+          data: 'slack://',
+        };
+    }
+  }
+
   if (shortcut.type === 'link') {
     return {
       action: 'android.intent.action.VIEW',

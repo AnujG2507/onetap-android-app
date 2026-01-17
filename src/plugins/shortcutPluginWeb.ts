@@ -138,4 +138,15 @@ export class ShortcutPluginWeb implements ShortcutPluginInterface {
     console.log('[ShortcutPluginWeb] getFileInfo called (web fallback)', options.path);
     return { success: false, error: 'Not supported on web' };
   }
+
+  async pickContact(): Promise<{
+    success: boolean;
+    name?: string;
+    phoneNumber?: string;
+    photoUri?: string;
+    error?: string;
+  }> {
+    console.log('[ShortcutPluginWeb] pickContact called (web fallback)');
+    return { success: false, error: 'Not supported on web' };
+  }
 }

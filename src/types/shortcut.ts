@@ -1,8 +1,10 @@
-export type ShortcutType = 'file' | 'link';
+export type ShortcutType = 'file' | 'link' | 'contact' | 'message';
 
 export type FileType = 'image' | 'video' | 'pdf' | 'document' | 'audio';
 
 export type IconType = 'thumbnail' | 'emoji' | 'text';
+
+export type MessageApp = 'whatsapp' | 'telegram' | 'signal' | 'slack';
 
 export interface ShortcutIcon {
   type: IconType;
@@ -26,10 +28,17 @@ export interface ShortcutData {
   thumbnailData?: string;
   // PDF Resume Support
   resumeEnabled?: boolean; // Whether "Resume where I left off" is enabled for PDFs
+  // Contact/Message shortcut fields
+  phoneNumber?: string;        // For dial and WhatsApp/Telegram/Signal
+  contactName?: string;        // Display name from contacts
+  contactPhotoUri?: string;    // Contact photo for icon
+  messageApp?: MessageApp;     // Which messaging app to use
+  slackUserId?: string;        // For Slack DM shortcuts
+  slackTeamId?: string;        // For Slack workspace
 }
 
 export interface ContentSource {
-  type: 'file' | 'url' | 'share';
+  type: 'file' | 'url' | 'share' | 'contact';
   uri: string;
   mimeType?: string;
   name?: string;
@@ -40,6 +49,9 @@ export interface ContentSource {
   isLargeFile?: boolean;
   // Small thumbnail for icon (base64)
   thumbnailData?: string;
+  // Contact picker result
+  phoneNumber?: string;
+  contactPhotoUri?: string;
 }
 
 // File size threshold for copying vs direct access (5MB for general files)

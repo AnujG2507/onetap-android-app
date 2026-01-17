@@ -97,6 +97,15 @@ export interface ShortcutPluginInterface {
     isDirectory?: boolean;
     error?: string;
   }>;
+
+  // Native contact picker - opens Android contact picker and returns phone number
+  pickContact(): Promise<{
+    success: boolean;
+    name?: string;
+    phoneNumber?: string;
+    photoUri?: string;
+    error?: string;
+  }>;
 }
 
 // This plugin bridges to native Android code

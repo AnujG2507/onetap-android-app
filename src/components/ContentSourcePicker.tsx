@@ -1,15 +1,18 @@
 import { useState } from 'react';
-import { Image, Video, FileText, Link, Music, FolderOpen, Star } from 'lucide-react';
+import { Image, Video, FileText, Link, Music, FolderOpen, Star, Phone, MessageCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { FileTypeFilter } from '@/lib/contentResolver';
 import { SavedLinksSheet } from './SavedLinksSheet';
 
+export type ContactMode = 'dial' | 'message';
+
 interface ContentSourcePickerProps {
   onSelectFile: (filter: FileTypeFilter) => void;
   onSelectUrl: (prefillUrl?: string) => void;
+  onSelectContact?: (mode: ContactMode) => void;
 }
 
-export function ContentSourcePicker({ onSelectFile, onSelectUrl }: ContentSourcePickerProps) {
+export function ContentSourcePicker({ onSelectFile, onSelectUrl, onSelectContact }: ContentSourcePickerProps) {
   const [savedLinksOpen, setSavedLinksOpen] = useState(false);
 
   const handleSelectSavedLink = (url: string) => {
@@ -61,7 +64,28 @@ export function ContentSourcePicker({ onSelectFile, onSelectUrl }: ContentSource
         </button>
       </div>
 
-      {/* Section 2: Links (Secondary) */}
+      {/* Section 2: Quick Actions (Contacts) */}
+      {onSelectContact && (
+        <div className="rounded-2xl bg-card elevation-1 p-6">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-5">
+            Quick Actions
+          </h2>
+          <div className="grid grid-cols-2 gap-4">
+            <FileTypeButton
+              icon={<Phone className="h-6 w-6" />}
+              label="Call Contact"
+              onClick={() => onSelectContact('dial')}
+            />
+            <FileTypeButton
+              icon={<MessageCircle className="h-6 w-6" />}
+              label="Message"
+              onClick={() => onSelectContact('message')}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Section 3: Links (Secondary) */}
       <div className="rounded-2xl bg-card elevation-1 p-6">
         <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-5">
           Distraction-free links
