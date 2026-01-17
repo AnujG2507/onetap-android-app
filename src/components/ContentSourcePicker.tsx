@@ -21,30 +21,30 @@ export function ContentSourcePicker({ onSelectFile, onSelectUrl, onSelectContact
 
   return (
     <>
-    <div className="flex flex-col gap-6 p-5 animate-fade-in">
+    <div className="flex flex-col gap-4 p-5 animate-fade-in">
       {/* Section 1: What Matters (Primary) */}
-      <div className="rounded-2xl bg-card elevation-1 p-6">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-5">
+      <div className="rounded-2xl bg-card elevation-1 p-4">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
           What matters on your phone
         </h2>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-3">
           <FileTypeButton
-            icon={<Image className="h-6 w-6" />}
+            icon={<Image className="h-5 w-5" />}
             label="Photo"
             onClick={() => onSelectFile('image')}
           />
           <FileTypeButton
-            icon={<Video className="h-6 w-6" />}
+            icon={<Video className="h-5 w-5" />}
             label="Video"
             onClick={() => onSelectFile('video')}
           />
           <FileTypeButton
-            icon={<Music className="h-6 w-6" />}
+            icon={<Music className="h-5 w-5" />}
             label="Audio"
             onClick={() => onSelectFile('audio')}
           />
           <FileTypeButton
-            icon={<FileText className="h-6 w-6" />}
+            icon={<FileText className="h-5 w-5" />}
             label="Document"
             onClick={() => onSelectFile('document')}
           />
@@ -66,18 +66,18 @@ export function ContentSourcePicker({ onSelectFile, onSelectUrl, onSelectContact
 
       {/* Section 2: Quick Actions (Contacts) */}
       {onSelectContact && (
-        <div className="rounded-2xl bg-card elevation-1 p-6">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-5">
+        <div className="rounded-2xl bg-card elevation-1 p-4">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
             Quick Actions
           </h2>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3">
             <FileTypeButton
-              icon={<Phone className="h-6 w-6" />}
+              icon={<Phone className="h-5 w-5" />}
               label="Call Contact"
               onClick={() => onSelectContact('dial')}
             />
             <FileTypeButton
-              icon={<MessageCircle className="h-6 w-6" />}
+              icon={<MessageCircle className="h-5 w-5" />}
               label="Message"
               onClick={() => onSelectContact('message')}
             />
@@ -86,8 +86,8 @@ export function ContentSourcePicker({ onSelectFile, onSelectUrl, onSelectContact
       )}
 
       {/* Section 3: Links (Secondary) */}
-      <div className="rounded-2xl bg-card elevation-1 p-6">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-5">
+      <div className="rounded-2xl bg-card elevation-1 p-4">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
           Distraction-free links
         </h2>
         
@@ -141,12 +141,12 @@ function FileTypeButton({ icon, label, onClick }: FileTypeButtonProps) {
     <button
       onClick={onClick}
       className={cn(
-        "flex flex-col items-center gap-3 rounded-xl bg-muted/40 p-4",
-        "shadow-sm active:scale-[0.96] transition-transform",
+        "flex items-center gap-3 rounded-xl bg-muted/40 px-4 py-3",
+        "shadow-sm active:scale-[0.98] transition-transform",
         "focus:outline-none focus:ring-2 focus:ring-ring"
       )}
     >
-      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary shrink-0">
         {icon}
       </div>
       <span className="text-sm font-medium text-foreground">{label}</span>
