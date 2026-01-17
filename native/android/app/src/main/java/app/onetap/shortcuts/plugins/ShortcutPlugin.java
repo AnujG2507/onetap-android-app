@@ -441,6 +441,60 @@ public class ShortcutPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void openWithExternalApp(PluginCall call) {
+        android.util.Log.d("ShortcutPlugin", "openWithExternalApp called");
+
+        if (getActivity() == null) {
+            JSObject result = new JSObject();
+            result.put("success", false);
+            result.put("error", "Activity is null");
+            call.resolve(result);
+            return;
+        }
+
+        String uriString = call.getString("uri");
+        String mimeType = call.getString("mimeType", "*/*");
+
+        if (uriString == null || uriString.isEmpty()) {
+            JSObject result = new JSObject();
+            result.put("success", false);
+            result.put("error", "Missing uri");
+            call.resolve(result);
+            return;
+        }
+
+        try {
+            Uri uri = Uri.parse(uriString);
+            Intent intent = new Intent(Intent.ACTION_VIEW);
+            intent.setDataAndType(uri, mimeType);
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+            // ClipData helps propagate URI grants reliably
+            if ("content".equals(uri.getScheme())) {
+                try {
+                    intent.setClipData(ClipData.newUri(getActivity().getContentResolver(), "onetap-file", uri));
+                } catch (Exception e) {
+                    android.util.Log.w("ShortcutPlugin", "Failed to set ClipData: " + e.getMessage());
+                }
+            }
+
+            // Use chooser to show app picker
+            Intent chooser = Intent.createChooser(intent, "Open with...");
+            getActivity().startActivity(chooser);
+
+            JSObject result = new JSObject();
+            result.put("success", true);
+            call.resolve(result);
+        } catch (Exception e) {
+            android.util.Log.e("ShortcutPlugin", "openWithExternalApp failed: " + e.getMessage());
+            JSObject result = new JSObject();
+            result.put("success", false);
+            result.put("error", e.getMessage());
+            call.resolve(result);
+        }
+    }
+
+    @PluginMethod
     public void clearSharedIntent(PluginCall call) {
         android.util.Log.d("ShortcutPlugin", "clearSharedIntent called");
         

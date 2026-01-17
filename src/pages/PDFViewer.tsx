@@ -12,6 +12,7 @@ import {
   X,
   FileText,
   Share2,
+  ExternalLink,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -923,10 +924,25 @@ export default function PDFViewer() {
       await Share.share({
         title: 'Open PDF',
         url: uri,
-        dialogTitle: 'Open with...',
+        dialogTitle: 'Share PDF...',
       });
     } catch (error) {
       console.log('[PDFViewer] Share cancelled or failed:', error);
+    }
+  };
+  
+  // Handle open in external app (ACTION_VIEW)
+  const handleOpenExternal = async () => {
+    try {
+      const result = await ShortcutPlugin.openWithExternalApp({
+        uri: uri,
+        mimeType: 'application/pdf',
+      });
+      if (!result.success) {
+        console.log('[PDFViewer] Failed to open in external app:', result.error);
+      }
+    } catch (error) {
+      console.log('[PDFViewer] Error opening external app:', error);
     }
   };
   
@@ -1323,6 +1339,13 @@ export default function PDFViewer() {
               className="p-2.5 rounded-full hover:bg-muted active:scale-95 transition-all"
             >
               <Search className="h-5 w-5" />
+            </button>
+            
+            <button
+              onClick={handleOpenExternal}
+              className="p-2.5 rounded-full hover:bg-muted active:scale-95 transition-all"
+            >
+              <ExternalLink className="h-5 w-5" />
             </button>
             
             <button

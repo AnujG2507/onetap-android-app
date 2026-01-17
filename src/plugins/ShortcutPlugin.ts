@@ -49,6 +49,9 @@ export interface ShortcutPluginInterface {
   // Launch the in-app native video player (Android).
   openNativeVideoPlayer(options: { uri: string; mimeType?: string }): Promise<{ success: boolean; error?: string }>;
 
+  // Open file in external app using ACTION_VIEW intent (shows app picker)
+  openWithExternalApp(options: { uri: string; mimeType?: string }): Promise<{ success: boolean; error?: string }>;
+
   // Clear the shared intent after processing to prevent re-processing
   clearSharedIntent(): Promise<void>;
 
