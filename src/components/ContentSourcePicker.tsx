@@ -27,22 +27,22 @@ export function ContentSourcePicker({ onSelectFile, onSelectUrl }: ContentSource
         <div className="grid grid-cols-2 gap-4">
           <FileTypeButton
             icon={<Image className="h-6 w-6" />}
-            label="Access a photo"
+            label="Photo"
             onClick={() => onSelectFile('image')}
           />
           <FileTypeButton
             icon={<Video className="h-6 w-6" />}
-            label="Access a video"
+            label="Video"
             onClick={() => onSelectFile('video')}
           />
           <FileTypeButton
             icon={<Music className="h-6 w-6" />}
-            label="Access audio"
+            label="Audio"
             onClick={() => onSelectFile('audio')}
           />
           <FileTypeButton
             icon={<FileText className="h-6 w-6" />}
-            label="Access a document"
+            label="Document"
             onClick={() => onSelectFile('document')}
           />
         </div>
