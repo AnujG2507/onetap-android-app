@@ -92,13 +92,18 @@ export function UrlInput({ onSubmit, onBack, initialUrl }: UrlInputProps) {
     
     // Save to library if toggle is on
     if (saveToLibrary) {
-      addSavedLink(
+      const result = addSavedLink(
         finalUrl, 
         linkTitle.trim() || undefined, 
         linkDescription.trim() || undefined, 
         selectedTags
       );
-      toast.success('Link saved to library!');
+      
+      if (!result.isNew) {
+        toast.info('Link already in library');
+      } else {
+        toast.success('Link saved to library!');
+      }
     }
     
     setError('');
