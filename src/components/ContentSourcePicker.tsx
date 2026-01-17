@@ -18,13 +18,13 @@ export function ContentSourcePicker({ onSelectFile, onSelectUrl }: ContentSource
 
   return (
     <>
-    <div className="flex flex-col gap-5 p-5 animate-fade-in">
+    <div className="flex flex-col gap-6 p-5 animate-fade-in">
       {/* Section 1: What Matters (Primary) */}
-      <div className="rounded-2xl bg-card border border-border p-5">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-4">
+      <div className="rounded-2xl bg-card elevation-1 p-6">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-5">
           What matters on your phone
         </h2>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-4">
           <FileTypeButton
             icon={<Image className="h-6 w-6" />}
             label="Access a photo"
@@ -51,7 +51,7 @@ export function ContentSourcePicker({ onSelectFile, onSelectUrl }: ContentSource
         <button
           onClick={() => onSelectFile('all')}
           className={cn(
-            "w-full flex items-center gap-3 rounded-xl bg-muted/30 p-3 mt-3",
+            "w-full flex items-center gap-3 rounded-xl bg-muted/20 p-3.5 mt-4",
             "active:scale-[0.98] transition-all duration-150",
             "focus:outline-none focus:ring-2 focus:ring-ring"
           )}
@@ -62,8 +62,8 @@ export function ContentSourcePicker({ onSelectFile, onSelectUrl }: ContentSource
       </div>
 
       {/* Section 2: Links (Secondary) */}
-      <div className="rounded-2xl bg-card border border-border p-5">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-4">
+      <div className="rounded-2xl bg-card elevation-1 p-6">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-5">
           Distraction-free links
         </h2>
         
@@ -71,8 +71,8 @@ export function ContentSourcePicker({ onSelectFile, onSelectUrl }: ContentSource
         <button
           onClick={() => onSelectUrl()}
           className={cn(
-            "w-full flex items-center gap-3 rounded-xl bg-muted/50 p-4 text-left",
-            "active:scale-[0.98] transition-all duration-150",
+            "w-full flex items-center gap-4 rounded-xl bg-muted/40 p-4 text-left",
+            "shadow-sm active:scale-[0.98] transition-all duration-150",
             "focus:outline-none focus:ring-2 focus:ring-ring"
           )}
         >
@@ -86,7 +86,7 @@ export function ContentSourcePicker({ onSelectFile, onSelectUrl }: ContentSource
         <button
           onClick={() => setSavedLinksOpen(true)}
           className={cn(
-            "w-full flex items-center gap-3 rounded-xl bg-muted/30 p-3 mt-3",
+            "w-full flex items-center gap-3 rounded-xl bg-muted/20 p-3.5 mt-4",
             "active:scale-[0.98] transition-all duration-150",
             "focus:outline-none focus:ring-2 focus:ring-ring"
           )}
@@ -117,8 +117,8 @@ function FileTypeButton({ icon, label, onClick }: FileTypeButtonProps) {
     <button
       onClick={onClick}
       className={cn(
-        "flex flex-col items-center gap-2 rounded-xl bg-muted/50 p-4",
-        "active:scale-[0.96] transition-transform",
+        "flex flex-col items-center gap-3 rounded-xl bg-muted/40 p-4",
+        "shadow-sm active:scale-[0.96] transition-transform",
         "focus:outline-none focus:ring-2 focus:ring-ring"
       )}
     >
