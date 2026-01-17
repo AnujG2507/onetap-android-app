@@ -22,6 +22,7 @@ import android.content.res.AssetFileDescriptor;
 import android.os.Build;
 import android.os.Environment;
 import android.os.ParcelFileDescriptor;
+import android.provider.ContactsContract;
 import android.provider.MediaStore;
 import android.provider.OpenableColumns;
 import android.util.Base64;
@@ -594,6 +595,122 @@ public class ShortcutPlugin extends Plugin {
         }
         
         call.resolve();
+    }
+
+    @PluginMethod
+    public void pickContact(PluginCall call) {
+        android.util.Log.d("ShortcutPlugin", "pickContact called");
+
+        if (getActivity() == null) {
+            JSObject result = new JSObject();
+            result.put("success", false);
+            result.put("error", "Activity is null");
+            call.resolve(result);
+            return;
+        }
+
+        // Use ACTION_PICK with Phone.CONTENT_URI to show only contacts with phone numbers
+        Intent intent = new Intent(Intent.ACTION_PICK, 
+            ContactsContract.CommonDataKinds.Phone.CONTENT_URI);
+        
+        startActivityForResult(call, intent, "pickContactResult");
+    }
+
+    @ActivityCallback
+    private void pickContactResult(PluginCall call, ActivityResult result) {
+        android.util.Log.d("ShortcutPlugin", "pickContactResult called");
+
+        JSObject ret = new JSObject();
+
+        if (call == null) {
+            android.util.Log.w("ShortcutPlugin", "pickContactResult: PluginCall is null");
+            return;
+        }
+
+        if (result == null || result.getResultCode() != Activity.RESULT_OK) {
+            ret.put("success", false);
+            ret.put("error", "cancelled");
+            call.resolve(ret);
+            return;
+        }
+
+        Intent data = result.getData();
+        if (data == null || data.getData() == null) {
+            ret.put("success", false);
+            ret.put("error", "No contact selected");
+            call.resolve(ret);
+            return;
+        }
+
+        Uri contactUri = data.getData();
+        android.util.Log.d("ShortcutPlugin", "Selected contact URI: " + contactUri);
+
+        String name = null;
+        String phoneNumber = null;
+        String photoUri = null;
+
+        try {
+            Context context = getContext();
+            if (context != null) {
+                ContentResolver resolver = context.getContentResolver();
+                
+                // Query the contact data - the system grants temporary permission for this specific URI
+                String[] projection = {
+                    ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+                    ContactsContract.CommonDataKinds.Phone.NUMBER,
+                    ContactsContract.CommonDataKinds.Phone.PHOTO_URI
+                };
+                
+                Cursor cursor = resolver.query(contactUri, projection, null, null, null);
+                if (cursor != null) {
+                    if (cursor.moveToFirst()) {
+                        int nameIndex = cursor.getColumnIndex(
+                            ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME);
+                        int numberIndex = cursor.getColumnIndex(
+                            ContactsContract.CommonDataKinds.Phone.NUMBER);
+                        int photoIndex = cursor.getColumnIndex(
+                            ContactsContract.CommonDataKinds.Phone.PHOTO_URI);
+                        
+                        if (nameIndex >= 0) {
+                            name = cursor.getString(nameIndex);
+                        }
+                        if (numberIndex >= 0) {
+                            phoneNumber = cursor.getString(numberIndex);
+                        }
+                        if (photoIndex >= 0) {
+                            photoUri = cursor.getString(photoIndex);
+                        }
+                    }
+                    cursor.close();
+                }
+            }
+        } catch (Exception e) {
+            android.util.Log.e("ShortcutPlugin", "Failed to query contact: " + e.getMessage());
+            e.printStackTrace();
+            ret.put("success", false);
+            ret.put("error", "Failed to read contact: " + e.getMessage());
+            call.resolve(ret);
+            return;
+        }
+
+        if (phoneNumber == null || phoneNumber.isEmpty()) {
+            ret.put("success", false);
+            ret.put("error", "No phone number found for contact");
+            call.resolve(ret);
+            return;
+        }
+
+        android.util.Log.d("ShortcutPlugin", "Contact picked - name: " + name + 
+            ", phone: " + phoneNumber + ", photoUri: " + photoUri);
+
+        ret.put("success", true);
+        ret.put("name", name != null ? name : "");
+        ret.put("phoneNumber", phoneNumber);
+        if (photoUri != null) {
+            ret.put("photoUri", photoUri);
+        }
+
+        call.resolve(ret);
     }
     
     // Create intent with Samsung and other launcher compatibility fixes
