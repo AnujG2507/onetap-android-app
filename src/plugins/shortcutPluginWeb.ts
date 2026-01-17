@@ -70,6 +70,13 @@ export class ShortcutPluginWeb implements ShortcutPluginInterface {
     return { success: false, error: 'Not supported on web' };
   }
 
+  async openWithExternalApp(options: { uri: string; mimeType?: string }): Promise<{ success: boolean; error?: string }> {
+    console.log('[ShortcutPluginWeb] openWithExternalApp called (web fallback)', options.uri);
+    // On web, just open in new tab
+    window.open(options.uri, '_blank');
+    return { success: true };
+  }
+
   async clearSharedIntent(): Promise<void> {
     // Clear URL params on web
     const url = new URL(window.location.href);
