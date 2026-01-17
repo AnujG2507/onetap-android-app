@@ -118,6 +118,15 @@ All colors MUST be HSL.
     box-shadow: 0 10px 15px -3px hsl(0 0% 0% / 0.1), 0 4px 6px -4px hsl(0 0% 0% / 0.1);
   }
 
+  /* Hidden scrollbar utility */
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
   /* Shrink width animation for progress bars */
   .animate-shrink-width {
     animation: shrink-width linear forwards;
