@@ -951,10 +951,10 @@ export default function PDFViewer() {
   
   // Get container width for placeholder sizing
   const containerWidth = containerRef.current?.clientWidth || window.innerWidth;
-  const basePlaceholderHeight = containerWidth * 1.4;
-  // Scale placeholder based on current display zoom to prevent gaps/overlaps
+  const placeholderHeight = containerWidth * 1.4; // Fixed height - scaling handled by wrapper
+  
+  // Single zoom ratio for the unified container transform
   const zoomRatio = displayZoom / (renderZoomRef.current || 1);
-  const placeholderHeight = basePlaceholderHeight * zoomRatio;
   
   // Loading state - instant placeholder
   if (loading) {
@@ -1082,13 +1082,23 @@ export default function PDFViewer() {
         className={`flex-1 overflow-y-auto ${displayZoom > 1 ? 'overflow-x-auto' : 'overflow-x-hidden'}`}
         style={{ touchAction: displayZoom > 1 ? 'none' : 'pan-y' }}
       >
+        {/* Single unified zoom wrapper - scales entire document as one unit */}
         <div 
-          className="flex flex-col items-center pb-24"
+          className={`pdf-zoom-container ${isZooming ? 'zooming' : ''}`}
           style={{
-            transform: `translate(${overscroll.x}px, ${overscroll.y}px)`,
-            transition: overscroll.x === 0 && overscroll.y === 0 ? 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'none',
+            transform: `scale(${zoomRatio})`,
+            transformOrigin: 'center top',
+            // Adjust wrapper dimensions to match scaled content size
+            width: zoomRatio !== 1 ? `${100 * zoomRatio}%` : '100%',
           }}
         >
+          <div 
+            className="flex flex-col items-center pb-24"
+            style={{
+              transform: `translate(${overscroll.x}px, ${overscroll.y}px)`,
+              transition: overscroll.x === 0 && overscroll.y === 0 ? 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'none',
+            }}
+          >
           {Array.from({ length: totalPages }, (_, i) => {
             const pageNum = i + 1;
             const pageState = pageStates[i];
@@ -1110,19 +1120,13 @@ export default function PDFViewer() {
                 data-page={pageNum}
                 className="relative w-full flex justify-center"
                 style={{ 
-                  // Adjust height for the visual scale difference to prevent gaps/overlaps
-                  minHeight: ((pageState?.height || basePlaceholderHeight) * displayZoom) / (renderZoomRef.current || 1),
-                  marginBottom: Math.max(2, Math.min(16, 8 * zoomRatio)), // Scale margin proportionally
+                  // Fixed height - scaling handled by parent wrapper
+                  minHeight: pageState?.height || placeholderHeight,
+                  marginBottom: 8, // Fixed spacing between pages
                 }}
               >
-                {/* Canvas container with highlight overlay and smooth zoom transform */}
-                <div 
-                  className={`relative pdf-zoom-container ${isZooming ? 'zooming' : ''}`}
-                  style={{
-                    transform: `scale(${displayZoom / (renderZoomRef.current || 1)})`,
-                    transformOrigin: 'center top',
-                  }}
-                >
+                {/* Canvas container with highlight overlay - no individual scaling */}
+                <div className="relative">
                   <canvas
                     ref={(el) => {
                       if (el) {
@@ -1173,6 +1177,7 @@ export default function PDFViewer() {
               </div>
             );
           })}
+          </div>
         </div>
       </div>
       
