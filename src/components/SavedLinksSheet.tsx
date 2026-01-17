@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Search, Star, Trash2, Plus, X, Edit2, Tag } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Input } from '@/components/ui/input';
@@ -35,6 +35,17 @@ export function SavedLinksSheet({ open, onOpenChange, onSelectLink }: SavedLinks
   const [newDescription, setNewDescription] = useState('');
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
 
+  // CRITICAL: Load links whenever the sheet opens (handles both controlled and uncontrolled open)
+  useEffect(() => {
+    if (open) {
+      console.log('[SavedLinksSheet] Sheet opened, refreshing links...');
+      setLinks(getSavedLinks());
+      setSearchQuery('');
+      setActiveTagFilter(null);
+      resetForm();
+    }
+  }, [open]);
+
   const allUsedTags = useMemo(() => getAllTags(), [links]);
   const availableTags = useMemo(() => {
     const combined = new Set([...PRESET_TAGS, ...allUsedTags]);
@@ -51,12 +62,7 @@ export function SavedLinksSheet({ open, onOpenChange, onSelectLink }: SavedLinks
   };
 
   const handleOpenChange = (isOpen: boolean) => {
-    if (isOpen) {
-      setLinks(getSavedLinks());
-      setSearchQuery('');
-      setActiveTagFilter(null);
-      resetForm();
-    }
+    // Forward to parent - useEffect handles the refresh when open changes
     onOpenChange(isOpen);
   };
 
