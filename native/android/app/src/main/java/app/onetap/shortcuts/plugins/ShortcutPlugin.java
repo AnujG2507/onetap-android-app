@@ -468,6 +468,7 @@ public class ShortcutPlugin extends Plugin {
 
         try {
             Uri uri = Uri.parse(uriString);
+            android.util.Log.d("ShortcutPlugin", "openWithExternalApp - original URI: " + uri + ", scheme: " + uri.getScheme());
             
             // If it's a file:// URI pointing to our app storage, convert to content:// via FileProvider
             if ("file".equals(uri.getScheme())) {
@@ -481,47 +482,46 @@ public class ShortcutPlugin extends Plugin {
                         String authority = context.getPackageName() + ".fileprovider";
                         uri = FileProvider.getUriForFile(context, authority, file);
                         android.util.Log.d("ShortcutPlugin", "Converted file:// to content:// URI: " + uri);
+                    } else {
+                        android.util.Log.e("ShortcutPlugin", "File does not exist: " + path);
                     }
                 }
             }
             
-            Intent intent = new Intent(Intent.ACTION_VIEW);
-            intent.setDataAndType(uri, mimeType);
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-
-            // ClipData helps propagate URI grants reliably
-            if ("content".equals(uri.getScheme())) {
-                try {
-                    intent.setClipData(ClipData.newUri(activity.getContentResolver(), "onetap-file", uri));
-                } catch (Exception e) {
-                    android.util.Log.w("ShortcutPlugin", "Failed to set ClipData: " + e.getMessage());
-                }
-                
-                // Grant URI permission to all apps that can handle this intent
-                try {
-                    List<android.content.pm.ResolveInfo> resolveInfos =
-                        context.getPackageManager().queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY);
-                    
-                    for (android.content.pm.ResolveInfo resolveInfo : resolveInfos) {
-                        String packageName = resolveInfo.activityInfo.packageName;
-                        context.grantUriPermission(packageName, uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                        android.util.Log.d("ShortcutPlugin", "Granted URI permission to: " + packageName);
-                    }
-                } catch (Exception e) {
-                    android.util.Log.w("ShortcutPlugin", "Error granting URI permissions: " + e.getMessage());
-                }
-            }
-
-            // Use chooser but also add flags to it
+            // Use the robust createCompatibleIntent helper which handles all the edge cases
+            Intent intent = createCompatibleIntent(context, Intent.ACTION_VIEW, uri, mimeType);
+            intent.addCategory(Intent.CATEGORY_DEFAULT);
+            
+            android.util.Log.d("ShortcutPlugin", "openWithExternalApp - final URI: " + uri + ", mimeType: " + mimeType);
+            
+            // Create chooser for app selection
             Intent chooser = Intent.createChooser(intent, "Open with...");
+            
+            // CRITICAL: Copy ClipData from the original intent to the chooser
+            // Without this, URI permissions may not propagate through the chooser
+            if (intent.getClipData() != null) {
+                chooser.setClipData(intent.getClipData());
+                android.util.Log.d("ShortcutPlugin", "Copied ClipData to chooser intent");
+            }
+            
+            // Add flags to chooser as well for maximum compatibility
             chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             chooser.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+                chooser.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+            }
             
             activity.startActivity(chooser);
+            android.util.Log.d("ShortcutPlugin", "openWithExternalApp - chooser started successfully");
 
             JSObject result = new JSObject();
             result.put("success", true);
+            call.resolve(result);
+        } catch (android.content.ActivityNotFoundException e) {
+            android.util.Log.e("ShortcutPlugin", "No app found to open file: " + e.getMessage());
+            JSObject result = new JSObject();
+            result.put("success", false);
+            result.put("error", "No app found to open this file type");
             call.resolve(result);
         } catch (Exception e) {
             android.util.Log.e("ShortcutPlugin", "openWithExternalApp failed: " + e.getMessage());

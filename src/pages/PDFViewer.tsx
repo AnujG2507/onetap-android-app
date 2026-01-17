@@ -215,12 +215,36 @@ export default function PDFViewer() {
     loadPdf();
   }, [uri, resumeEnabled, shortcutId]);
   
+  // Track active render tasks to cancel competing renders
+  const renderTasksRef = useRef<Map<number, pdfjs.RenderTask>>(new Map());
+  const renderingPagesRef = useRef<Set<number>>(new Set());
+  
   // Render a single page with high DPI support
   const renderPage = useCallback(async (pageNum: number) => {
     if (!pdfDoc) return;
     
+    // Avoid duplicate renders for pages already being rendered
+    if (renderingPagesRef.current.has(pageNum)) {
+      console.log('[PDFViewer] Page', pageNum, 'already rendering, skipping');
+      return;
+    }
+    
     const canvas = canvasRefs.current.get(pageNum);
     if (!canvas) return;
+    
+    // Cancel any existing render task for this page
+    const existingTask = renderTasksRef.current.get(pageNum);
+    if (existingTask) {
+      try {
+        existingTask.cancel();
+        console.log('[PDFViewer] Cancelled existing render for page:', pageNum);
+      } catch (e) {
+        // Ignore cancel errors
+      }
+      renderTasksRef.current.delete(pageNum);
+    }
+    
+    renderingPagesRef.current.add(pageNum);
     
     try {
       const page = await pdfDoc.getPage(pageNum);
@@ -231,16 +255,31 @@ export default function PDFViewer() {
       
       // Calculate scale to fit container width
       const containerWidth = containerRef.current?.clientWidth || window.innerWidth;
-      const viewport = page.getViewport({ scale: 1 });
-      const baseScale = containerWidth / viewport.width;
+      
+      // CRITICAL: Use explicit rotation and dontFlip to prevent upside-down pages
+      // The page.rotate property contains the PDF's internal rotation value
+      const baseViewport = page.getViewport({ 
+        scale: 1,
+        rotation: page.rotate,  // Respect the page's inherent rotation
+        dontFlip: false         // Ensure proper orientation
+      });
+      const baseScale = containerWidth / baseViewport.width;
       const displayScale = baseScale * zoom;
       const renderScale = displayScale * dpr; // Render at high resolution
       
-      const scaledViewport = page.getViewport({ scale: renderScale });
+      const scaledViewport = page.getViewport({ 
+        scale: renderScale,
+        rotation: page.rotate,
+        dontFlip: false
+      });
       
       // Set canvas to high-res dimensions
       canvas.width = scaledViewport.width;
       canvas.height = scaledViewport.height;
+      
+      // Reset canvas transform before rendering to prevent issues
+      context.setTransform(1, 0, 0, 1, 0, 0);
+      context.clearRect(0, 0, canvas.width, canvas.height);
       
       // Scale down via CSS for display (maintains sharpness)
       const displayWidth = scaledViewport.width / dpr;
@@ -259,10 +298,18 @@ export default function PDFViewer() {
         return updated;
       });
       
-      await page.render({
+      const renderTask = page.render({
         canvasContext: context,
         viewport: scaledViewport,
-      }).promise;
+      });
+      
+      // Track the render task so we can cancel it if needed
+      renderTasksRef.current.set(pageNum, renderTask);
+      
+      await renderTask.promise;
+      
+      // Clean up after successful render
+      renderTasksRef.current.delete(pageNum);
       
       // Update page state with actual height
       setPageStates(prev => {
@@ -274,9 +321,16 @@ export default function PDFViewer() {
         return updated;
       });
       
-      console.log('[PDFViewer] Rendered page:', pageNum, 'at', dpr + 'x DPR');
-    } catch (err) {
-      console.error('[PDFViewer] Failed to render page:', pageNum, err);
+      console.log('[PDFViewer] Rendered page:', pageNum, 'at', dpr + 'x DPR, rotation:', page.rotate);
+    } catch (err: unknown) {
+      // Don't log cancelled renders as errors
+      if (err && typeof err === 'object' && 'name' in err && err.name === 'RenderingCancelledException') {
+        console.log('[PDFViewer] Render cancelled for page:', pageNum);
+      } else {
+        console.error('[PDFViewer] Failed to render page:', pageNum, err);
+      }
+    } finally {
+      renderingPagesRef.current.delete(pageNum);
     }
   }, [pdfDoc, zoom]);
   
@@ -933,16 +987,21 @@ export default function PDFViewer() {
   
   // Handle open in external app (ACTION_VIEW)
   const handleOpenExternal = async () => {
+    console.log('[PDFViewer] Opening in external app, URI:', uri);
     try {
       const result = await ShortcutPlugin.openWithExternalApp({
         uri: uri,
         mimeType: 'application/pdf',
       });
+      console.log('[PDFViewer] openWithExternalApp result:', result);
       if (!result.success) {
-        console.log('[PDFViewer] Failed to open in external app:', result.error);
+        console.error('[PDFViewer] Failed to open in external app:', result.error);
+        // Show error to user via alert since we don't have toast here
+        alert(`Could not open in external app: ${result.error || 'Unknown error'}`);
       }
     } catch (error) {
-      console.log('[PDFViewer] Error opening external app:', error);
+      console.error('[PDFViewer] Error opening external app:', error);
+      alert(`Error opening external app: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
   
