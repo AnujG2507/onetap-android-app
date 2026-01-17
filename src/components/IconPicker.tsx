@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Image, Type, Smile } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { triggerSelectionFeedback } from '@/lib/haptics';
 import { Input } from '@/components/ui/input';
 import type { ShortcutIcon, IconType } from '@/types/shortcut';
 
@@ -97,6 +98,7 @@ export function IconPicker({ thumbnail, selectedIcon, onSelect }: IconPickerProp
       
       const centeredEmoji = COMMON_EMOJIS[closestIndex];
       if (centeredEmoji && centeredEmoji !== selectedIcon.value) {
+        triggerSelectionFeedback();
         onSelect({ type: 'emoji', value: centeredEmoji });
       }
     }, 100);
