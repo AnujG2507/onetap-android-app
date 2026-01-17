@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Image, Type, Smile } from 'lucide-react';
+import { Image, Type, Smile, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { triggerSelectionFeedback } from '@/lib/haptics';
 import { Input } from '@/components/ui/input';
@@ -204,20 +204,32 @@ export function IconPicker({ thumbnail, selectedIcon, onSelect }: IconPickerProp
         </div>
       )}
       
-      {/* Text input */}
       {selectedIcon.type === 'text' && (
-        <div key="text-input" className="animate-fade-in">
+        <div key="text-input" className="animate-fade-in relative">
           <Input
-          value={textValue}
-          onChange={(e) => {
-            const value = e.target.value.slice(0, 2);
-            setTextValue(value);
-            onSelect({ type: 'text', value: value || 'A' });
-          }}
-          placeholder="1-2 characters"
-          maxLength={2}
-            className="text-center text-lg font-medium h-12"
+            value={textValue}
+            onChange={(e) => {
+              const value = e.target.value.slice(0, 2);
+              setTextValue(value);
+              onSelect({ type: 'text', value: value || 'A' });
+            }}
+            placeholder="1-2 characters"
+            maxLength={2}
+            className="text-center text-lg font-medium h-12 pr-10"
           />
+          {textValue && (
+            <button
+              type="button"
+              onClick={() => {
+                setTextValue('');
+                onSelect({ type: 'text', value: 'A' });
+              }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
+              aria-label="Clear text"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
       )}
     </div>

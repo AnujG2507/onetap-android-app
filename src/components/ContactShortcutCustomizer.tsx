@@ -123,14 +123,26 @@ export function ContactShortcutCustomizer({
         {!contact?.phoneNumber && selectedApp !== 'slack' && (
           <div className="space-y-2">
             <Label htmlFor="phone">Phone Number</Label>
-            <Input
-              id="phone"
-              type="tel"
-              placeholder="+1 234 567 8900"
-              value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value)}
-              className="text-lg"
-            />
+            <div className="relative">
+              <Input
+                id="phone"
+                type="tel"
+                placeholder="+1 234 567 8900"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                className="text-lg pr-10"
+              />
+              {phoneNumber && (
+                <button
+                  type="button"
+                  onClick={() => setPhoneNumber('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
+                  aria-label="Clear phone number"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
           </div>
         )}
 
@@ -169,21 +181,47 @@ export function ContactShortcutCustomizer({
             </p>
             <div className="space-y-2">
               <Label htmlFor="slackTeam">Team ID</Label>
-              <Input
-                id="slackTeam"
-                placeholder="T0123456789"
-                value={slackTeamId}
-                onChange={(e) => setSlackTeamId(e.target.value)}
-              />
+              <div className="relative">
+                <Input
+                  id="slackTeam"
+                  placeholder="T0123456789"
+                  value={slackTeamId}
+                  onChange={(e) => setSlackTeamId(e.target.value)}
+                  className="pr-10"
+                />
+                {slackTeamId && (
+                  <button
+                    type="button"
+                    onClick={() => setSlackTeamId('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
+                    aria-label="Clear Team ID"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="slackUser">User ID</Label>
-              <Input
-                id="slackUser"
-                placeholder="U0123456789"
-                value={slackUserId}
-                onChange={(e) => setSlackUserId(e.target.value)}
-              />
+              <div className="relative">
+                <Input
+                  id="slackUser"
+                  placeholder="U0123456789"
+                  value={slackUserId}
+                  onChange={(e) => setSlackUserId(e.target.value)}
+                  className="pr-10"
+                />
+                {slackUserId && (
+                  <button
+                    type="button"
+                    onClick={() => setSlackUserId('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
+                    aria-label="Clear User ID"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         )}

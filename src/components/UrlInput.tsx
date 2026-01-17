@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, ArrowRight, Globe, Instagram, Youtube, Clipboard, Star, Tag } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Globe, Instagram, Youtube, Clipboard, Star, Tag, X } from 'lucide-react';
 import { Clipboard as CapClipboard } from '@capacitor/clipboard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -165,12 +165,22 @@ export function UrlInput({ onSubmit, onBack, initialUrl }: UrlInputProps) {
               }}
               placeholder="Paste or type a URL"
               className={cn(
-                "pl-11 pr-4 h-12 text-base",
+                "pl-11 pr-10 h-12 text-base",
                 error && "border-destructive focus-visible:ring-destructive"
               )}
               autoFocus
               onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
             />
+            {url && (
+              <button
+                type="button"
+                onClick={() => setUrl('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
+                aria-label="Clear URL"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
           </div>
           <button
             onClick={handlePaste}
@@ -210,12 +220,24 @@ export function UrlInput({ onSubmit, onBack, initialUrl }: UrlInputProps) {
           {/* Expandable options when toggle is ON */}
           {saveToLibrary && (
             <div className="p-4 rounded-xl bg-muted/20 space-y-3 animate-fade-in">
-              <Input
-                value={linkTitle}
-                onChange={(e) => setLinkTitle(e.target.value)}
-                placeholder="Title (optional)"
-                className="h-10"
-              />
+              <div className="relative">
+                <Input
+                  value={linkTitle}
+                  onChange={(e) => setLinkTitle(e.target.value)}
+                  placeholder="Title (optional)"
+                  className="h-10 pr-10"
+                />
+                {linkTitle && (
+                  <button
+                    type="button"
+                    onClick={() => setLinkTitle('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
+                    aria-label="Clear title"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
               
               <Textarea
                 value={linkDescription}

@@ -150,8 +150,18 @@ export function SavedLinksSheet({ open, onOpenChange, onSelectLink }: SavedLinks
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search saved links..."
-            className="pl-10"
+            className="pl-10 pr-10"
           />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
+              aria-label="Clear search"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
 
         {/* Tag Filter Bar */}
@@ -201,31 +211,67 @@ export function SavedLinksSheet({ open, onOpenChange, onSelectLink }: SavedLinks
             </div>
             
             {!editingLink && (
-              <Input
-                value={newUrl}
-                onChange={(e) => setNewUrl(e.target.value)}
-                placeholder="URL (e.g., youtube.com)"
-                className="mb-2"
-                autoFocus
-              />
+              <div className="relative mb-2">
+                <Input
+                  value={newUrl}
+                  onChange={(e) => setNewUrl(e.target.value)}
+                  placeholder="URL (e.g., youtube.com)"
+                  className="pr-10"
+                  autoFocus
+                />
+                {newUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setNewUrl('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
+                    aria-label="Clear URL"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
             )}
             
-            <Input
-              value={newTitle}
-              onChange={(e) => setNewTitle(e.target.value)}
-              placeholder="Title (optional)"
-              className="mb-2"
-              autoFocus={!!editingLink}
-            />
+            <div className="relative mb-2">
+              <Input
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+                placeholder="Title (optional)"
+                className="pr-10"
+                autoFocus={!!editingLink}
+              />
+              {newTitle && (
+                <button
+                  type="button"
+                  onClick={() => setNewTitle('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
+                  aria-label="Clear title"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
             
-            <Textarea
-              value={newDescription}
-              onChange={(e) => setNewDescription(e.target.value)}
-              placeholder="Description (optional)"
-              className="mb-3 resize-none"
-              rows={2}
-              maxLength={200}
-            />
+            <div className="relative mb-3">
+              <Textarea
+                value={newDescription}
+                onChange={(e) => setNewDescription(e.target.value)}
+                placeholder="Description (optional)"
+                className="resize-none pr-10"
+                rows={2}
+                maxLength={200}
+              />
+              {newDescription && (
+                <button
+                  type="button"
+                  onClick={() => setNewDescription('')}
+                  className="absolute right-3 top-3 p-1 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
+                  aria-label="Clear description"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
             
             {/* Single Tag Selector */}
             <div className="mb-3">
