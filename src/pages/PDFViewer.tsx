@@ -116,6 +116,21 @@ export default function PDFViewer() {
   // Track if actively zooming for transition control
   const [isZooming, setIsZooming] = useState(false);
   
+  // Pan state for momentum scrolling
+  const [panState, setPanState] = useState<{
+    startX: number;
+    startY: number;
+    startScrollLeft: number;
+    startScrollTop: number;
+    lastX: number;
+    lastY: number;
+    lastTime: number;
+    velocityX: number;
+    velocityY: number;
+  } | null>(null);
+  
+  const momentumRef = useRef<number | null>(null);
+  
   // Load PDF document
   useEffect(() => {
     if (!uri) {
@@ -392,6 +407,15 @@ export default function PDFViewer() {
     };
   }, [showControls, resetControlsTimer]);
   
+  // Cleanup momentum animation on unmount
+  useEffect(() => {
+    return () => {
+      if (momentumRef.current) {
+        cancelAnimationFrame(momentumRef.current);
+      }
+    };
+  }, []);
+  
   // Scroll to specific page
   const scrollToPage = useCallback((page: number) => {
     if (page >= 1 && page <= totalPages) {
@@ -404,7 +428,14 @@ export default function PDFViewer() {
   
   // Touch handlers for pinch-to-zoom with focal point anchoring
   const handleTouchStart = (e: React.TouchEvent) => {
+    // Cancel any ongoing momentum animation
+    if (momentumRef.current) {
+      cancelAnimationFrame(momentumRef.current);
+      momentumRef.current = null;
+    }
+    
     if (e.touches.length === 2) {
+      // Two finger pinch-to-zoom
       const distance = Math.hypot(
         e.touches[0].clientX - e.touches[1].clientX,
         e.touches[0].clientY - e.touches[1].clientY
@@ -413,6 +444,7 @@ export default function PDFViewer() {
       const centerY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
       const container = containerRef.current;
       
+      setPanState(null); // Cancel any pan state
       setIsZooming(true);
       setTouchState({ 
         initialDistance: distance, 
@@ -421,6 +453,21 @@ export default function PDFViewer() {
         centerY,
         scrollTop: container?.scrollTop || 0,
         scrollLeft: container?.scrollLeft || 0,
+      });
+    } else if (e.touches.length === 1 && displayZoom > 1) {
+      // Single finger pan when zoomed in
+      const touch = e.touches[0];
+      const container = containerRef.current;
+      setPanState({
+        startX: touch.clientX,
+        startY: touch.clientY,
+        startScrollLeft: container?.scrollLeft || 0,
+        startScrollTop: container?.scrollTop || 0,
+        lastX: touch.clientX,
+        lastY: touch.clientY,
+        lastTime: Date.now(),
+        velocityX: 0,
+        velocityY: 0,
       });
     }
   };
@@ -456,6 +503,36 @@ export default function PDFViewer() {
       }
       
       setDisplayZoom(newZoom);
+    } else if (e.touches.length === 1 && panState && displayZoom > 1) {
+      // Single finger pan with velocity tracking
+      e.preventDefault();
+      
+      const touch = e.touches[0];
+      const container = containerRef.current;
+      if (!container) return;
+      
+      const now = Date.now();
+      const dt = Math.max(now - panState.lastTime, 1); // Avoid division by zero
+      
+      // Calculate current velocity (pixels per ms)
+      const vx = (panState.lastX - touch.clientX) / dt;
+      const vy = (panState.lastY - touch.clientY) / dt;
+      
+      // Update scroll position
+      const deltaX = panState.startX - touch.clientX;
+      const deltaY = panState.startY - touch.clientY;
+      container.scrollLeft = panState.startScrollLeft + deltaX;
+      container.scrollTop = panState.startScrollTop + deltaY;
+      
+      // Update pan state with velocity (exponential smoothing for stability)
+      setPanState(prev => prev ? {
+        ...prev,
+        lastX: touch.clientX,
+        lastY: touch.clientY,
+        lastTime: now,
+        velocityX: vx * 0.6 + prev.velocityX * 0.4, // Smooth velocity
+        velocityY: vy * 0.6 + prev.velocityY * 0.4,
+      } : null);
     }
   };
   
@@ -470,6 +547,50 @@ export default function PDFViewer() {
       }, 250);
     }
     setTouchState(null);
+    
+    // Apply momentum when pan ends
+    if (panState && displayZoom > 1) {
+      const { velocityX, velocityY } = panState;
+      const container = containerRef.current;
+      
+      // Only apply momentum if velocity is significant
+      if (container && (Math.abs(velocityX) > 0.1 || Math.abs(velocityY) > 0.1)) {
+        let vx = velocityX * 16; // Convert to pixels per frame (assuming 60fps)
+        let vy = velocityY * 16;
+        const friction = 0.95; // Deceleration factor
+        const minVelocity = 0.5; // Stop threshold
+        
+        const applyMomentum = () => {
+          vx *= friction;
+          vy *= friction;
+          
+          // Edge resistance - quick stop at boundaries
+          const maxScrollLeft = container.scrollWidth - container.clientWidth;
+          const maxScrollTop = container.scrollHeight - container.clientHeight;
+          
+          if (container.scrollLeft <= 0 || container.scrollLeft >= maxScrollLeft) {
+            vx *= 0.3;
+          }
+          if (container.scrollTop <= 0 || container.scrollTop >= maxScrollTop) {
+            vy *= 0.3;
+          }
+          
+          container.scrollLeft += vx;
+          container.scrollTop += vy;
+          
+          // Continue if still moving significantly
+          if (Math.abs(vx) > minVelocity || Math.abs(vy) > minVelocity) {
+            momentumRef.current = requestAnimationFrame(applyMomentum);
+          } else {
+            momentumRef.current = null;
+          }
+        };
+        
+        momentumRef.current = requestAnimationFrame(applyMomentum);
+      }
+      
+      setPanState(null);
+    }
   };
   
   // Double tap to toggle zoom centered on tap point
@@ -858,7 +979,7 @@ export default function PDFViewer() {
       <div 
         ref={containerRef}
         className={`flex-1 overflow-y-auto ${displayZoom > 1 ? 'overflow-x-auto' : 'overflow-x-hidden'}`}
-        style={{ touchAction: 'none' }}
+        style={{ touchAction: displayZoom > 1 ? 'none' : 'pan-y' }}
       >
         <div className="flex flex-col items-center pb-24">
           {Array.from({ length: totalPages }, (_, i) => {
