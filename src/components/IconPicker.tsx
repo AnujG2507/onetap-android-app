@@ -10,7 +10,18 @@ interface IconPickerProps {
   onSelect: (icon: ShortcutIcon) => void;
 }
 
-const COMMON_EMOJIS = ['🎬', '📺', '▶️', '🎵', '📷', '🐦', '✨', '🏏', '🎥', '🔗', '⭐', '❤️'];
+const COMMON_EMOJIS = [
+  // Platform & media
+  '🎬', '📺', '▶️', '🎵', '📷', '🐦', '✨', '🏏', '🎥', '🔗',
+  // Social & services  
+  '🎞️', '🍎', '👤', '💼', '🔶', '📌', '🎮',
+  // File types
+  '🖼️', '📄', '📑', '📊', '📽️', '📝', '📃', '🌐',
+  // Tech & misc
+  '🎨', '💻', '📦', '📚', '⚙️', '🔊', '📻',
+  // Common extras
+  '⭐', '❤️', '🔥', '💡', '🎯', '🚀', '📱', '🏠'
+];
 
 export function IconPicker({ thumbnail, selectedIcon, onSelect }: IconPickerProps) {
   const [textValue, setTextValue] = useState(
@@ -22,23 +33,29 @@ export function IconPicker({ thumbnail, selectedIcon, onSelect }: IconPickerProp
 
   // Scroll to selected emoji when switching to emoji type or on selection
   useEffect(() => {
-    if (scrollContainerRef.current && selectedIcon.type === 'emoji') {
-      isUserScrolling.current = false; // Mark as programmatic scroll
-      
-      const index = COMMON_EMOJIS.indexOf(selectedIcon.value);
-      if (index >= 0) {
-        const container = scrollContainerRef.current;
-        const itemWidth = 64; // 56px button + 8px gap
-        const containerWidth = container.clientWidth;
-        const scrollPosition = (index * itemWidth) - (containerWidth / 2) + (itemWidth / 2);
-        container.scrollTo({ left: scrollPosition, behavior: 'smooth' });
-      }
-      
-      // Reset flag after scroll completes
-      setTimeout(() => {
-        isUserScrolling.current = true;
-      }, 350);
+    if (!scrollContainerRef.current || selectedIcon.type !== 'emoji') return;
+    
+    const index = COMMON_EMOJIS.indexOf(selectedIcon.value);
+    if (index < 0) return;
+    
+    isUserScrolling.current = false;
+    
+    const container = scrollContainerRef.current;
+    const buttons = container.querySelectorAll('button');
+    const targetButton = buttons[index] as HTMLElement;
+    
+    if (targetButton) {
+      const buttonCenter = targetButton.offsetLeft + targetButton.offsetWidth / 2;
+      const scrollPosition = buttonCenter - container.clientWidth / 2;
+      container.scrollTo({ left: scrollPosition, behavior: 'smooth' });
     }
+    
+    // Reset flag after scroll animation completes
+    const timer = setTimeout(() => {
+      isUserScrolling.current = true;
+    }, 400);
+    
+    return () => clearTimeout(timer);
   }, [selectedIcon.type, selectedIcon.value]);
 
   // Cleanup timeout on unmount
@@ -52,36 +69,37 @@ export function IconPicker({ thumbnail, selectedIcon, onSelect }: IconPickerProp
 
   // Handle scroll to detect centered emoji and auto-select
   const handleScroll = useCallback(() => {
-    if (!isUserScrolling.current) return; // Skip if programmatic scroll
+    if (!isUserScrolling.current || !scrollContainerRef.current) return;
     
-    // Clear existing timeout
     if (scrollTimeoutRef.current) {
       clearTimeout(scrollTimeoutRef.current);
     }
     
-    // Debounce: wait for scroll to settle
     scrollTimeoutRef.current = setTimeout(() => {
       if (!scrollContainerRef.current) return;
       
       const container = scrollContainerRef.current;
-      const containerWidth = container.clientWidth;
-      const scrollLeft = container.scrollLeft;
-      const itemWidth = 64;
+      const containerCenter = container.scrollLeft + container.clientWidth / 2;
       
-      // Calculate which item is at center
-      const paddingOffset = containerWidth / 2 - 28; // Account for px-[calc(50%-28px)]
-      const adjustedScrollLeft = scrollLeft + paddingOffset;
-      const centeredIndex = Math.round(adjustedScrollLeft / itemWidth);
+      // Find which button is closest to center
+      const buttons = container.querySelectorAll('button');
+      let closestIndex = 0;
+      let closestDistance = Infinity;
       
-      // Clamp to valid range
-      const validIndex = Math.max(0, Math.min(centeredIndex, COMMON_EMOJIS.length - 1));
-      const centeredEmoji = COMMON_EMOJIS[validIndex];
+      buttons.forEach((button, index) => {
+        const buttonCenter = (button as HTMLElement).offsetLeft + button.clientWidth / 2;
+        const distance = Math.abs(containerCenter - buttonCenter);
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          closestIndex = index;
+        }
+      });
       
-      // Only update if different from current selection
+      const centeredEmoji = COMMON_EMOJIS[closestIndex];
       if (centeredEmoji && centeredEmoji !== selectedIcon.value) {
         onSelect({ type: 'emoji', value: centeredEmoji });
       }
-    }, 50); // 50ms debounce for responsive feel
+    }, 100);
   }, [selectedIcon.value, onSelect]);
 
   const iconTypes: { type: IconType; icon: React.ReactNode; label: string }[] = [
@@ -158,7 +176,7 @@ export function IconPicker({ thumbnail, selectedIcon, onSelect }: IconPickerProp
         <div 
           ref={scrollContainerRef}
           onScroll={handleScroll}
-          className="flex gap-2 overflow-x-auto scrollbar-hide scroll-smooth snap-x snap-mandatory px-[calc(50%-28px)]"
+          className="flex gap-2 overflow-x-auto scrollbar-hide snap-x snap-mandatory px-[calc(50%-28px)]"
         >
             {COMMON_EMOJIS.map((emoji) => (
               <button
