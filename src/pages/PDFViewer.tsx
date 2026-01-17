@@ -63,6 +63,9 @@ export default function PDFViewer() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [zoom, setZoom] = useState(1);
+  const [displayZoom, setDisplayZoom] = useState(1);
+  const renderZoomRef = useRef(1);
+  const zoomDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -163,6 +166,8 @@ export default function PDFViewer() {
           const savedZoom = getLastZoom(shortcutId);
           if (savedZoom) {
             setZoom(savedZoom);
+            setDisplayZoom(savedZoom);
+            renderZoomRef.current = savedZoom;
           }
           
           const savedMode = getReadingMode(shortcutId);
@@ -393,13 +398,35 @@ export default function PDFViewer() {
     }
   }, [totalPages]);
   
-  // Zoom controls - smaller steps for smoother experience
+  // Zoom controls - smooth CSS transform with debounced re-render
   const handleZoomIn = useCallback(() => {
-    setZoom(prev => Math.min(Math.round((prev + 0.1) * 10) / 10, 3));
+    setDisplayZoom(prev => {
+      const newZoom = Math.min(Math.round((prev + 0.1) * 10) / 10, 3);
+      
+      // Debounce the actual canvas re-render
+      if (zoomDebounceRef.current) clearTimeout(zoomDebounceRef.current);
+      zoomDebounceRef.current = setTimeout(() => {
+        setZoom(newZoom);
+        renderZoomRef.current = newZoom;
+      }, 250);
+      
+      return newZoom;
+    });
   }, []);
   
   const handleZoomOut = useCallback(() => {
-    setZoom(prev => Math.max(Math.round((prev - 0.1) * 10) / 10, 0.5));
+    setDisplayZoom(prev => {
+      const newZoom = Math.max(Math.round((prev - 0.1) * 10) / 10, 0.5);
+      
+      // Debounce the actual canvas re-render
+      if (zoomDebounceRef.current) clearTimeout(zoomDebounceRef.current);
+      zoomDebounceRef.current = setTimeout(() => {
+        setZoom(newZoom);
+        renderZoomRef.current = newZoom;
+      }, 250);
+      
+      return newZoom;
+    });
   }, []);
   
   // Touch handlers for pinch-to-zoom
@@ -421,11 +448,19 @@ export default function PDFViewer() {
       );
       const scale = distance / touchState.initialDistance;
       const newZoom = Math.min(Math.max(touchState.initialZoom * scale, 0.5), 3);
-      setZoom(newZoom);
+      setDisplayZoom(newZoom); // Instant visual feedback
     }
   };
   
   const handleTouchEnd = () => {
+    if (touchState) {
+      // Trigger actual re-render after pinch ends
+      if (zoomDebounceRef.current) clearTimeout(zoomDebounceRef.current);
+      zoomDebounceRef.current = setTimeout(() => {
+        setZoom(displayZoom);
+        renderZoomRef.current = displayZoom;
+      }, 250);
+    }
     setTouchState(null);
   };
   
@@ -439,8 +474,14 @@ export default function PDFViewer() {
     
     const now = Date.now();
     if (now - lastTapRef.current < 300) {
-      // Double tap - toggle zoom
-      setZoom(prev => prev === 1 ? 2 : 1);
+      // Double tap - toggle zoom with smooth animation
+      const newZoom = displayZoom === 1 ? 2 : 1;
+      setDisplayZoom(newZoom);
+      if (zoomDebounceRef.current) clearTimeout(zoomDebounceRef.current);
+      zoomDebounceRef.current = setTimeout(() => {
+        setZoom(newZoom);
+        renderZoomRef.current = newZoom;
+      }, 250);
     } else {
       // Single tap - toggle controls
       setShowControls(prev => !prev);
@@ -802,8 +843,14 @@ export default function PDFViewer() {
                 className="relative w-full flex justify-center mb-2"
                 style={{ minHeight: pageState?.height || placeholderHeight }}
               >
-                {/* Canvas container with highlight overlay */}
-                <div className="relative">
+                {/* Canvas container with highlight overlay and smooth zoom transform */}
+                <div 
+                  className="relative pdf-zoom-container"
+                  style={{
+                    transform: `scale(${displayZoom / (renderZoomRef.current || 1)})`,
+                    transformOrigin: 'top center',
+                  }}
+                >
                   <canvas
                     ref={(el) => {
                       if (el) {
