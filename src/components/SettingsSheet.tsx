@@ -1,4 +1,5 @@
-import { Settings } from 'lucide-react';
+import { Settings, Sun, Moon, Monitor } from 'lucide-react';
+import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -11,9 +12,19 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { useSettings } from '@/hooks/useSettings';
+import { cn } from '@/lib/utils';
+
+type ThemeOption = 'light' | 'dark' | 'system';
+
+const themeOptions: { value: ThemeOption; label: string; icon: React.ReactNode }[] = [
+  { value: 'light', label: 'Light', icon: <Sun className="h-4 w-4" /> },
+  { value: 'dark', label: 'Dark', icon: <Moon className="h-4 w-4" /> },
+  { value: 'system', label: 'System', icon: <Monitor className="h-4 w-4" /> },
+];
 
 export function SettingsSheet() {
   const { settings, updateSettings } = useSettings();
+  const { theme, setTheme } = useTheme();
 
   return (
     <Sheet>
@@ -31,6 +42,30 @@ export function SettingsSheet() {
           </SheetDescription>
         </SheetHeader>
         <div className="mt-6 space-y-6">
+          {/* Theme Selection */}
+          <div className="space-y-3">
+            <Label className="text-base">Appearance</Label>
+            <div className="flex gap-2">
+              {themeOptions.map((option) => (
+                <button
+                  key={option.value}
+                  onClick={() => setTheme(option.value)}
+                  className={cn(
+                    "flex-1 flex items-center justify-center gap-2 rounded-xl p-3 transition-all",
+                    "border-2",
+                    theme === option.value
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-transparent bg-muted/50 text-muted-foreground hover:bg-muted"
+                  )}
+                >
+                  {option.icon}
+                  <span className="text-sm font-medium">{option.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Clipboard Detection Toggle */}
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <Label htmlFor="clipboard-detection" className="text-base">
