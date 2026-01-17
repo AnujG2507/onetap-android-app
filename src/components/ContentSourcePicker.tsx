@@ -79,7 +79,7 @@ export function ContentSourcePicker({ onSelectFile, onSelectUrl }: ContentSource
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
             <Link className="h-5 w-5" />
           </div>
-          <span className="font-medium text-foreground">Access a link directly</span>
+          <span className="font-medium text-foreground">Link</span>
         </button>
 
         {/* Saved links button */}
