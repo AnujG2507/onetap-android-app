@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Phone, MessageCircle, Check, X } from 'lucide-react';
+import { ArrowLeft, Phone, MessageCircle, Check, X, UserCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { IconPicker } from '@/components/IconPicker';
+import ShortcutPlugin from '@/plugins/ShortcutPlugin';
 import type { ShortcutIcon, MessageApp } from '@/types/shortcut';
 
 interface ContactData {
@@ -45,6 +46,8 @@ export function ContactShortcutCustomizer({
   const [selectedApp, setSelectedApp] = useState<MessageApp>('whatsapp');
   const [slackTeamId, setSlackTeamId] = useState('');
   const [slackUserId, setSlackUserId] = useState('');
+  const [isPickingContact, setIsPickingContact] = useState(false);
+  const [pickedContact, setPickedContact] = useState<ContactData | null>(contact || null);
   const [icon, setIcon] = useState<ShortcutIcon>(() => {
     // Default icon based on mode
     if (mode === 'dial') {
@@ -52,6 +55,34 @@ export function ContactShortcutCustomizer({
     }
     return { type: 'emoji', value: '💬' };
   });
+
+  const handlePickContact = async () => {
+    setIsPickingContact(true);
+    try {
+      const result = await ShortcutPlugin.pickContact();
+      if (result.success && result.phoneNumber) {
+        const newContact = {
+          name: result.name,
+          phoneNumber: result.phoneNumber,
+          photoUri: result.photoUri,
+        };
+        setPickedContact(newContact);
+        setPhoneNumber(result.phoneNumber);
+        if (result.name && !name) {
+          if (mode === 'dial') {
+            setName(`Call ${result.name}`);
+          } else {
+            const app = MESSAGE_APPS.find(a => a.id === selectedApp);
+            setName(`${app?.label || 'Message'} ${result.name}`);
+          }
+        }
+      }
+    } catch (error) {
+      console.log('[ContactShortcutCustomizer] Contact picker not available');
+    } finally {
+      setIsPickingContact(false);
+    }
+  };
 
   // Update icon when app changes
   useEffect(() => {
@@ -65,15 +96,15 @@ export function ContactShortcutCustomizer({
 
   // Generate default name
   useEffect(() => {
-    if (!name && contact?.name) {
+    if (!name && pickedContact?.name) {
       if (mode === 'dial') {
-        setName(`Call ${contact.name}`);
+        setName(`Call ${pickedContact.name}`);
       } else {
         const app = MESSAGE_APPS.find(a => a.id === selectedApp);
-        setName(`${app?.label || 'Message'} ${contact.name}`);
+        setName(`${app?.label || 'Message'} ${pickedContact.name}`);
       }
     }
-  }, [contact?.name, mode, selectedApp, name]);
+  }, [pickedContact?.name, mode, selectedApp, name]);
 
   const handleConfirm = () => {
     const shortcutName = name || (mode === 'dial' ? 'Call' : 'Message');
@@ -107,41 +138,57 @@ export function ContactShortcutCustomizer({
 
       <div className="flex-1 px-5 pb-6 flex flex-col gap-6 overflow-y-auto">
         {/* Contact Info Display */}
-        {contact?.name && (
+        {pickedContact?.name && (
           <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/30">
             <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-2xl">
               {mode === 'dial' ? <Phone className="h-6 w-6 text-primary" /> : <MessageCircle className="h-6 w-6 text-primary" />}
             </div>
             <div>
-              <p className="font-medium text-foreground">{contact.name}</p>
-              <p className="text-sm text-muted-foreground">{contact.phoneNumber}</p>
+              <p className="font-medium text-foreground">{pickedContact.name}</p>
+              <p className="text-sm text-muted-foreground">{pickedContact.phoneNumber}</p>
             </div>
           </div>
         )}
 
-        {/* Phone Number Input (if no contact) */}
-        {!contact?.phoneNumber && selectedApp !== 'slack' && (
+        {/* Phone Number Input with Contact Picker */}
+        {selectedApp !== 'slack' && (
           <div className="space-y-2">
             <Label htmlFor="phone">Phone Number</Label>
-            <div className="relative">
-              <Input
-                id="phone"
-                type="tel"
-                placeholder="+1 234 567 8900"
-                value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
-                className="text-lg pr-10"
-              />
-              {phoneNumber && (
-                <button
-                  type="button"
-                  onClick={() => setPhoneNumber('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
-                  aria-label="Clear phone number"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              )}
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Input
+                  id="phone"
+                  type="tel"
+                  placeholder="+1 234 567 8900"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  className="text-lg pr-10"
+                />
+                {phoneNumber && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPhoneNumber('');
+                      setPickedContact(null);
+                    }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
+                    aria-label="Clear phone number"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={handlePickContact}
+                disabled={isPickingContact}
+                className="h-12 w-12 shrink-0"
+                aria-label="Pick from contacts"
+              >
+                <UserCircle2 className="h-5 w-5" />
+              </Button>
             </div>
           </div>
         )}

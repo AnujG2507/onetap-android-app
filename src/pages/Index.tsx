@@ -181,23 +181,9 @@ const Index = () => {
     setStep('customize');
   };
 
-  const handleSelectContact = async (mode: ContactMode) => {
+  const handleSelectContact = (mode: ContactMode) => {
     setContactMode(mode);
-    
-    // Try to pick a contact from the native picker
-    try {
-      const result = await ShortcutPlugin.pickContact();
-      if (result.success && result.phoneNumber) {
-        setContactData({
-          name: result.name,
-          phoneNumber: result.phoneNumber,
-          photoUri: result.photoUri,
-        });
-      }
-    } catch (error) {
-      console.log('[Index] Contact picker not available, proceeding without contact');
-    }
-    
+    setContactData(null); // Clear any previous contact data
     setStep('contact');
   };
 
