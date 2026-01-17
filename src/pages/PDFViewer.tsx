@@ -268,7 +268,7 @@ export default function PDFViewer() {
     };
     
     loadPdf();
-  }, [uri, resumeEnabled, shortcutId, pdfPassword, passwordAttempt]);
+  }, [uri, resumeEnabled, shortcutId, passwordAttempt]);
   
   // Focus password input when dialog opens
   useEffect(() => {
