@@ -2,7 +2,12 @@ package app.onetap.shortcuts;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.ColorFilter;
+import android.graphics.Paint;
+import android.graphics.PixelFormat;
+import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.media.MediaPlayer;
 import android.net.Uri;
@@ -17,6 +22,7 @@ import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.MediaController;
@@ -28,7 +34,7 @@ import android.widget.VideoView;
  */
 public class NativeVideoPlayerActivity extends Activity {
     private static final String TAG = "NativeVideoPlayer";
-    private static final int AUTO_HIDE_DELAY_MS = 3000;
+    private static final int AUTO_HIDE_DELAY_MS = 4000;
 
     private ImageButton closeButton;
     private View headerGradient;
@@ -43,7 +49,7 @@ public class NativeVideoPlayerActivity extends Activity {
     };
 
     private void exitPlayerAndApp() {
-        Log.d(TAG, "Exiting player (back pressed)");
+        Log.d(TAG, "Exiting player");
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             finishAndRemoveTask();
         } else {
@@ -68,12 +74,16 @@ public class NativeVideoPlayerActivity extends Activity {
         controlsVisible = false;
         if (closeButton != null) {
             closeButton.animate().alpha(0f).setDuration(200).withEndAction(() -> {
-                if (!controlsVisible) closeButton.setVisibility(View.GONE);
+                if (!controlsVisible && closeButton != null) {
+                    closeButton.setVisibility(View.INVISIBLE);
+                }
             }).start();
         }
         if (headerGradient != null) {
             headerGradient.animate().alpha(0f).setDuration(200).withEndAction(() -> {
-                if (!controlsVisible) headerGradient.setVisibility(View.GONE);
+                if (!controlsVisible && headerGradient != null) {
+                    headerGradient.setVisibility(View.INVISIBLE);
+                }
             }).start();
         }
     }
@@ -106,9 +116,54 @@ public class NativeVideoPlayerActivity extends Activity {
         exitPlayerAndApp();
     }
 
+    /**
+     * Custom drawable that draws an X icon
+     */
+    private static class CloseIconDrawable extends Drawable {
+        private final Paint paint;
+        
+        public CloseIconDrawable() {
+            paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            paint.setColor(Color.WHITE);
+            paint.setStrokeWidth(6f);
+            paint.setStrokeCap(Paint.Cap.ROUND);
+            paint.setStyle(Paint.Style.STROKE);
+        }
+
+        @Override
+        public void draw(Canvas canvas) {
+            int width = getBounds().width();
+            int height = getBounds().height();
+            int padding = (int) (width * 0.3f);
+            
+            // Draw X
+            canvas.drawLine(padding, padding, width - padding, height - padding, paint);
+            canvas.drawLine(width - padding, padding, padding, height - padding, paint);
+        }
+
+        @Override
+        public void setAlpha(int alpha) {
+            paint.setAlpha(alpha);
+        }
+
+        @Override
+        public void setColorFilter(ColorFilter colorFilter) {
+            paint.setColorFilter(colorFilter);
+        }
+
+        @Override
+        public int getOpacity() {
+            return PixelFormat.TRANSLUCENT;
+        }
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // Make fullscreen
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         // Create root FrameLayout
         FrameLayout root = new FrameLayout(this);
@@ -124,14 +179,23 @@ public class NativeVideoPlayerActivity extends Activity {
         );
         root.addView(videoView, videoParams);
 
+        // Create overlay container (on top of video)
+        FrameLayout overlayContainer = new FrameLayout(this);
+        overlayContainer.setClickable(false);
+        FrameLayout.LayoutParams overlayParams = new FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        );
+        root.addView(overlayContainer, overlayParams);
+
         // Create header gradient overlay
         headerGradient = new View(this);
         int gradientHeight = (int) TypedValue.applyDimension(
-            TypedValue.COMPLEX_UNIT_DIP, 100, getResources().getDisplayMetrics()
+            TypedValue.COMPLEX_UNIT_DIP, 120, getResources().getDisplayMetrics()
         );
         GradientDrawable gradient = new GradientDrawable(
             GradientDrawable.Orientation.TOP_BOTTOM,
-            new int[]{0xCC000000, 0x00000000}
+            new int[]{0xDD000000, 0x00000000}
         );
         headerGradient.setBackground(gradient);
         FrameLayout.LayoutParams gradientParams = new FrameLayout.LayoutParams(
@@ -139,28 +203,46 @@ public class NativeVideoPlayerActivity extends Activity {
             gradientHeight,
             Gravity.TOP
         );
-        root.addView(headerGradient, gradientParams);
+        overlayContainer.addView(headerGradient, gradientParams);
 
-        // Create close button
+        // Create close button with custom X drawable
         closeButton = new ImageButton(this);
-        closeButton.setImageResource(android.R.drawable.ic_menu_close_clear_cancel);
-        closeButton.setColorFilter(Color.WHITE);
-        closeButton.setBackgroundColor(Color.TRANSPARENT);
+        closeButton.setImageDrawable(new CloseIconDrawable());
+        
+        // Create circular semi-transparent background
+        GradientDrawable buttonBg = new GradientDrawable();
+        buttonBg.setShape(GradientDrawable.OVAL);
+        buttonBg.setColor(0x66000000); // Semi-transparent black
+        closeButton.setBackground(buttonBg);
         closeButton.setContentDescription("Close");
+        closeButton.setClickable(true);
+        closeButton.setFocusable(true);
         
         int buttonSize = (int) TypedValue.applyDimension(
             TypedValue.COMPLEX_UNIT_DIP, 48, getResources().getDisplayMetrics()
         );
         int buttonMargin = (int) TypedValue.applyDimension(
-            TypedValue.COMPLEX_UNIT_DIP, 16, getResources().getDisplayMetrics()
+            TypedValue.COMPLEX_UNIT_DIP, 20, getResources().getDisplayMetrics()
         );
+        int buttonPadding = (int) TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_DIP, 12, getResources().getDisplayMetrics()
+        );
+        
         FrameLayout.LayoutParams buttonParams = new FrameLayout.LayoutParams(buttonSize, buttonSize);
         buttonParams.gravity = Gravity.TOP | Gravity.START;
         buttonParams.setMargins(buttonMargin, buttonMargin, 0, 0);
-        closeButton.setPadding(buttonMargin / 2, buttonMargin / 2, buttonMargin / 2, buttonMargin / 2);
-        root.addView(closeButton, buttonParams);
+        closeButton.setPadding(buttonPadding, buttonPadding, buttonPadding, buttonPadding);
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            closeButton.setElevation(8f);
+        }
+        
+        overlayContainer.addView(closeButton, buttonParams);
 
-        closeButton.setOnClickListener(v -> exitPlayerAndApp());
+        closeButton.setOnClickListener(v -> {
+            Log.d(TAG, "Close button clicked");
+            exitPlayerAndApp();
+        });
 
         // Tap on video toggles controls
         videoView.setOnTouchListener((v, event) -> {
@@ -194,7 +276,7 @@ public class NativeVideoPlayerActivity extends Activity {
         videoView.setOnPreparedListener(mp -> {
             Log.d(TAG, "Video prepared, starting playback");
             videoView.start();
-            scheduleHide();
+            showControls();
         });
 
         try {
