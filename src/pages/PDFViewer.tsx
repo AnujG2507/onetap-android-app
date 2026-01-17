@@ -30,8 +30,10 @@ import { useBackButton } from '@/hooks/useBackButton';
 import ShortcutPlugin from '@/plugins/ShortcutPlugin';
 import * as pdfjs from 'pdfjs-dist';
 
-// Configure PDF.js worker
-pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.mjs`;
+// Configure PDF.js worker - use local bundled worker for offline support
+// Falls back to CDN only if local worker fails to load
+const workerUrl = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).href;
+pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
 interface PageRenderState {
   rendered: boolean;
