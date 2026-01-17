@@ -6,7 +6,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Share } from '@capacitor/share';
 import { Button } from '@/components/ui/button';
 import ShortcutPlugin from '@/plugins/ShortcutPlugin';
-import { useBackButton } from '@/hooks/useBackButton';
+
 
 /**
  * Resolve a URI to a playable file path.
@@ -269,11 +269,19 @@ const VideoPlayer = () => {
     }
   }, [navigate]);
   
-  // Handle Android back button
-  useBackButton({
-    isHomeScreen: false,
-    onBack: handleBack,
-  });
+  // Handle Android back button - direct listener to immediately exit
+  // Bypasses any interference from video controls
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    const handler = App.addListener('backButton', () => {
+      App.exitApp();
+    });
+
+    return () => {
+      handler.then(h => h.remove());
+    };
+  }, []);
 
   // Open in external app (ACTION_VIEW - shows video players)
   const handleOpenExternal = useCallback(async () => {
