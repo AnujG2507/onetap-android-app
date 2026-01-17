@@ -43,6 +43,17 @@ export function IconPicker({ thumbnail, selectedIcon, onSelect }: IconPickerProp
     }
   }, [carouselApi, selectedIcon.type]);
 
+  // Re-initialize carousel after animation completes to fix scroll positions
+  useEffect(() => {
+    if (!carouselApi) return;
+    
+    const timer = setTimeout(() => {
+      carouselApi.reInit();
+    }, 350);
+    
+    return () => clearTimeout(timer);
+  }, [carouselApi]);
+
   const iconTypes: { type: IconType; icon: React.ReactNode; label: string }[] = [
     ...(thumbnail ? [{ type: 'thumbnail' as IconType, icon: <Image className="h-5 w-5" />, label: 'Image' }] : []),
     { type: 'emoji', icon: <Smile className="h-5 w-5" />, label: 'Emoji' },
@@ -118,6 +129,7 @@ export function IconPicker({ thumbnail, selectedIcon, onSelect }: IconPickerProp
             opts={{
               align: 'center',
               loop: true,
+              dragFree: true,
               startIndex: selectedEmojiIndex >= 0 ? selectedEmojiIndex : 0,
             }}
             setApi={setCarouselApi}
