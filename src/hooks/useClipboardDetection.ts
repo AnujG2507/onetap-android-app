@@ -39,13 +39,39 @@ function wasUrlRecentlyShown(url: string): boolean {
   return entries.some(e => e.url === url);
 }
 
+// Regex pattern to match URLs in text
+const URL_PATTERN = /https?:\/\/[^\s<>"{}|\\^`\[\]]+/gi;
+
+function extractUrlFromText(text: string): string | null {
+  const matches = text.match(URL_PATTERN);
+  if (!matches || matches.length === 0) {
+    return null;
+  }
+  
+  // Return the first valid URL found
+  for (const match of matches) {
+    // Clean up trailing punctuation that might have been captured
+    let cleanUrl = match.replace(/[.,;:!?)]+$/, '');
+    
+    if (isValidUrl(cleanUrl)) {
+      return cleanUrl;
+    }
+  }
+  
+  return null;
+}
+
 async function readClipboardUrl(): Promise<string | null> {
   const processClipboardText = (value: string): string | null => {
     const trimmed = value.trim();
     
-    // Skip if empty, contains newlines, or has spaces (URLs don't have unencoded spaces)
-    if (!trimmed || trimmed.includes('\n') || trimmed.includes(' ')) {
+    if (!trimmed) {
       return null;
+    }
+    
+    // If it contains newlines or spaces, try to extract a URL from it
+    if (trimmed.includes('\n') || trimmed.includes(' ')) {
+      return extractUrlFromText(trimmed);
     }
     
     // Check if it's already a valid URL
