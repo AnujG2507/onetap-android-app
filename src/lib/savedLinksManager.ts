@@ -11,10 +11,51 @@ export interface SavedLink {
   createdAt: number;
 }
 
+/**
+ * Normalize URL for consistent duplicate detection
+ * - Ensures protocol exists (defaults to https://)
+ * - Lowercases hostname
+ * - Removes trailing slash for cleaner comparison
+ * - Removes fragment (#...) as it's usually not meaningful for bookmarks
+ */
+function normalizeUrl(url: string): string {
+  try {
+    let normalized = url.trim();
+    
+    // Add protocol if missing
+    if (!/^https?:\/\//i.test(normalized)) {
+      normalized = 'https://' + normalized;
+    }
+    
+    const urlObj = new URL(normalized);
+    
+    // Lowercase hostname
+    urlObj.hostname = urlObj.hostname.toLowerCase();
+    
+    // Remove fragment
+    urlObj.hash = '';
+    
+    // Get the full URL and remove trailing slash (but not for paths like /page/)
+    let result = urlObj.href;
+    if (result.endsWith('/') && urlObj.pathname === '/') {
+      result = result.slice(0, -1);
+    }
+    
+    return result;
+  } catch {
+    // If URL parsing fails, return trimmed original
+    return url.trim().toLowerCase();
+  }
+}
+
 export function getSavedLinks(): SavedLink[] {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    const links = stored ? JSON.parse(stored) : [];
+    if (!stored) return [];
+    
+    const links = JSON.parse(stored);
+    if (!Array.isArray(links)) return [];
+    
     // Migrate old links with tags array to single tag
     return links.map((link: any) => ({
       ...link,
@@ -22,14 +63,17 @@ export function getSavedLinks(): SavedLink[] {
       tag: link.tag !== undefined ? link.tag : (link.tags?.[0] || null),
       description: link.description || '',
     }));
-  } catch {
+  } catch (e) {
+    console.error('[SavedLinks] Failed to read from localStorage:', e);
     return [];
   }
 }
 
+export type AddLinkStatus = 'added' | 'duplicate' | 'failed';
+
 export interface AddLinkResult {
-  link: SavedLink;
-  isNew: boolean;
+  link: SavedLink | null;
+  status: AddLinkStatus;
 }
 
 export function addSavedLink(
@@ -38,30 +82,42 @@ export function addSavedLink(
   description?: string, 
   tag?: string | null
 ): AddLinkResult {
-  const links = getSavedLinks();
-  
-  // Check if URL already exists
-  const existing = links.find(link => link.url === url);
-  if (existing) {
-    return { link: existing, isNew: false };
+  try {
+    const links = getSavedLinks();
+    const normalizedNewUrl = normalizeUrl(url);
+    
+    // Check if URL already exists (using normalized comparison)
+    const existing = links.find(link => normalizeUrl(link.url) === normalizedNewUrl);
+    if (existing) {
+      console.log('[SavedLinks] Duplicate detected:', url);
+      return { link: existing, status: 'duplicate' };
+    }
+    
+    const newLink: SavedLink = {
+      id: crypto.randomUUID(),
+      url: normalizedNewUrl, // Store the normalized URL
+      title: title || extractTitleFromUrl(normalizedNewUrl),
+      description: description || '',
+      tag: tag || null,
+      createdAt: Date.now(),
+    };
+    
+    links.unshift(newLink);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(links));
+    
+    // Verify save was successful
+    const verified = getSavedLinks().find(l => l.id === newLink.id);
+    if (!verified) {
+      console.error('[SavedLinks] Failed to verify save');
+      return { link: null, status: 'failed' };
+    }
+    
+    console.log('[SavedLinks] Successfully saved:', newLink.url);
+    return { link: newLink, status: 'added' };
+  } catch (e) {
+    console.error('[SavedLinks] Failed to save link:', e);
+    return { link: null, status: 'failed' };
   }
-  
-  const newLink: SavedLink = {
-    id: crypto.randomUUID(),
-    url,
-    title: title || extractTitleFromUrl(url),
-    description: description || '',
-    tag: tag || null,
-    createdAt: Date.now(),
-  };
-  
-  links.unshift(newLink);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(links));
-  
-  // Verify save was successful
-  const verified = getSavedLinks().find(l => l.id === newLink.id);
-  
-  return { link: newLink, isNew: !!verified };
 }
 
 export function updateSavedLink(

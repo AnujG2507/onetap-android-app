@@ -81,10 +81,16 @@ export function UrlInput({ onSubmit, onBack, initialUrl }: UrlInputProps) {
         selectedTag
       );
       
-      if (!result.isNew) {
-        toast.info('Link already in library');
-      } else {
-        toast.success('Link saved to library!');
+      switch (result.status) {
+        case 'added':
+          toast.success('Link saved to library!');
+          break;
+        case 'duplicate':
+          toast.info('Link already in library');
+          break;
+        case 'failed':
+          toast.error('Could not save link');
+          break;
       }
     }
     
