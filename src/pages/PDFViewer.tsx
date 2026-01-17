@@ -951,7 +951,10 @@ export default function PDFViewer() {
   
   // Get container width for placeholder sizing
   const containerWidth = containerRef.current?.clientWidth || window.innerWidth;
-  const placeholderHeight = containerWidth * 1.4;
+  const basePlaceholderHeight = containerWidth * 1.4;
+  // Scale placeholder based on current display zoom to prevent gaps/overlaps
+  const zoomRatio = displayZoom / (renderZoomRef.current || 1);
+  const placeholderHeight = basePlaceholderHeight * zoomRatio;
   
   // Loading state - instant placeholder
   if (loading) {
@@ -1107,8 +1110,9 @@ export default function PDFViewer() {
                 data-page={pageNum}
                 className="relative w-full flex justify-center"
                 style={{ 
-                  minHeight: pageState?.height || placeholderHeight,
-                  marginBottom: displayZoom < 0.5 ? 2 : 8, // Tighter margins at low zoom
+                  // Adjust height for the visual scale difference to prevent gaps/overlaps
+                  minHeight: ((pageState?.height || basePlaceholderHeight) * displayZoom) / (renderZoomRef.current || 1),
+                  marginBottom: Math.max(2, Math.min(16, 8 * zoomRatio)), // Scale margin proportionally
                 }}
               >
                 {/* Canvas container with highlight overlay and smooth zoom transform */}
