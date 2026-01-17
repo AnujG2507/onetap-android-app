@@ -26,18 +26,23 @@ export function getSavedLinks(): SavedLink[] {
   }
 }
 
+export interface AddLinkResult {
+  link: SavedLink;
+  isNew: boolean;
+}
+
 export function addSavedLink(
   url: string, 
   title?: string, 
   description?: string, 
   tags: string[] = []
-): SavedLink {
+): AddLinkResult {
   const links = getSavedLinks();
   
   // Check if URL already exists
   const existing = links.find(link => link.url === url);
   if (existing) {
-    return existing;
+    return { link: existing, isNew: false };
   }
   
   const newLink: SavedLink = {
@@ -52,7 +57,10 @@ export function addSavedLink(
   links.unshift(newLink);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(links));
   
-  return newLink;
+  // Verify save was successful
+  const verified = getSavedLinks().find(l => l.id === newLink.id);
+  
+  return { link: newLink, isNew: !!verified };
 }
 
 export function updateSavedLink(
