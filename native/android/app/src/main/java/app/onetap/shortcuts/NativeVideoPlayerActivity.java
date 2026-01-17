@@ -4,8 +4,10 @@ import android.app.Activity;
 import android.content.Intent;
 import android.media.MediaPlayer;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.KeyEvent;
 import android.widget.MediaController;
 import android.widget.VideoView;
 
@@ -15,6 +17,31 @@ import android.widget.VideoView;
  */
 public class NativeVideoPlayerActivity extends Activity {
     private static final String TAG = "NativeVideoPlayer";
+
+    private void exitPlayerAndApp() {
+        Log.d(TAG, "Exiting player (back pressed)");
+        // When started from a shortcut we want to close the whole task, not return to the WebView.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            finishAndRemoveTask();
+        } else {
+            finish();
+        }
+    }
+
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        // MediaController can consume BACK; intercept it at Activity level so it always exits.
+        if (event != null && event.getKeyCode() == KeyEvent.KEYCODE_BACK && event.getAction() == KeyEvent.ACTION_UP) {
+            exitPlayerAndApp();
+            return true;
+        }
+        return super.dispatchKeyEvent(event);
+    }
+
+    @Override
+    public void onBackPressed() {
+        exitPlayerAndApp();
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
