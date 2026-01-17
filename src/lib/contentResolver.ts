@@ -121,14 +121,37 @@ export function getPlatformEmoji(url: string): string {
   }
 }
 
-// Validate URL
+// Validate URL - must have valid protocol and proper domain structure
 export function isValidUrl(string: string): boolean {
+  let url: URL;
   try {
-    new URL(string);
-    return true;
+    url = new URL(string);
   } catch {
     return false;
   }
+  
+  // Only allow http and https protocols
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    return false;
+  }
+  
+  const hostname = url.hostname;
+  if (!hostname || hostname.length === 0) {
+    return false;
+  }
+  
+  // Check for valid domain structure:
+  // - Must contain at least one dot (e.g., google.com, sub.example.org)
+  // - OR be localhost for development
+  // - OR be an IP address
+  const isLocalhost = hostname === 'localhost';
+  const isIPAddress = /^(\d{1,3}\.){3}\d{1,3}$/.test(hostname);
+  const hasDomain = hostname.includes('.') && 
+    !hostname.startsWith('.') && 
+    !hostname.endsWith('.') &&
+    hostname.split('.').pop()!.length >= 2;
+  
+  return isLocalhost || isIPAddress || hasDomain;
 }
 
 // Get file name from path or URL

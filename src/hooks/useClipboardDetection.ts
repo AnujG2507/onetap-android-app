@@ -40,32 +40,44 @@ function wasUrlRecentlyShown(url: string): boolean {
 }
 
 async function readClipboardUrl(): Promise<string | null> {
+  const processClipboardText = (value: string): string | null => {
+    const trimmed = value.trim();
+    
+    // Skip if empty, contains newlines, or has spaces (URLs don't have unencoded spaces)
+    if (!trimmed || trimmed.includes('\n') || trimmed.includes(' ')) {
+      return null;
+    }
+    
+    // Check if it's already a valid URL
+    if (isValidUrl(trimmed)) {
+      return trimmed;
+    }
+    
+    // Only try adding https if it looks like a domain pattern (has a dot)
+    if (trimmed.includes('.') && !trimmed.startsWith('http')) {
+      const withProtocol = `https://${trimmed}`;
+      if (isValidUrl(withProtocol)) {
+        return withProtocol;
+      }
+    }
+    
+    return null;
+  };
+
   try {
     // Try Capacitor clipboard first
     const { value } = await CapClipboard.read();
     if (value) {
-      // Check if it's a valid URL
-      if (isValidUrl(value)) {
-        return value;
-      }
-      // Try adding https prefix
-      const withProtocol = value.startsWith('http') ? value : `https://${value}`;
-      if (isValidUrl(withProtocol)) {
-        return withProtocol;
-      }
+      const result = processClipboardText(value);
+      if (result) return result;
     }
   } catch {
     // Fallback to web clipboard API
     try {
       const text = await navigator.clipboard.readText();
       if (text) {
-        if (isValidUrl(text)) {
-          return text;
-        }
-        const withProtocol = text.startsWith('http') ? text : `https://${text}`;
-        if (isValidUrl(withProtocol)) {
-          return withProtocol;
-        }
+        const result = processClipboardText(text);
+        if (result) return result;
       }
     } catch {
       // Clipboard access denied or unavailable
