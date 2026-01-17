@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Image, Type, Smile } from 'lucide-react';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import type { ShortcutIcon, IconType } from '@/types/shortcut';
@@ -80,24 +81,27 @@ export function IconPicker({ thumbnail, selectedIcon, onSelect }: IconPickerProp
         </div>
       </div>
       
-      {/* Emoji picker */}
+      {/* Emoji picker - horizontal scroll */}
       {selectedIcon.type === 'emoji' && (
-        <div className="grid grid-cols-6 gap-2">
-          {COMMON_EMOJIS.map((emoji) => (
-            <button
-              key={emoji}
-              onClick={() => onSelect({ type: 'emoji', value: emoji })}
-              className={cn(
-                "h-12 w-12 rounded-lg text-2xl flex items-center justify-center transition-colors",
-                selectedIcon.value === emoji
-                  ? "bg-accent ring-2 ring-primary"
-                  : "bg-secondary hover:bg-muted"
-              )}
-            >
-              {emoji}
-            </button>
-          ))}
-        </div>
+        <ScrollArea className="w-full">
+          <div className="flex gap-3 pb-3">
+            {COMMON_EMOJIS.map((emoji) => (
+              <button
+                key={emoji}
+                onClick={() => onSelect({ type: 'emoji', value: emoji })}
+                className={cn(
+                  "h-14 w-14 shrink-0 rounded-xl text-2xl flex items-center justify-center transition-all",
+                  selectedIcon.value === emoji
+                    ? "bg-primary/10 ring-2 ring-primary scale-110"
+                    : "bg-secondary hover:bg-muted active:scale-95"
+                )}
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+          <ScrollBar orientation="horizontal" className="h-1.5" />
+        </ScrollArea>
       )}
       
       {/* Text input */}
