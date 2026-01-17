@@ -393,13 +393,13 @@ export default function PDFViewer() {
     }
   }, [totalPages]);
   
-  // Zoom controls
+  // Zoom controls - smaller steps for smoother experience
   const handleZoomIn = useCallback(() => {
-    setZoom(prev => Math.min(prev + 0.25, 3));
+    setZoom(prev => Math.min(Math.round((prev + 0.1) * 10) / 10, 3));
   }, []);
   
   const handleZoomOut = useCallback(() => {
-    setZoom(prev => Math.max(prev - 0.25, 0.5));
+    setZoom(prev => Math.max(Math.round((prev - 0.1) * 10) / 10, 0.5));
   }, []);
   
   // Touch handlers for pinch-to-zoom

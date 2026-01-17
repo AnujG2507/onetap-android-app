@@ -166,7 +166,16 @@ All colors MUST be HSL.
     }
   }
 
-  .animate-match-flash {
-    animation: match-flash 0.6s ease-out;
-  }
+.animate-match-flash {
+  animation: match-flash 0.6s ease-out;
+}
+
+/* PDF page container smooth zoom transition */
+.pdf-page-container {
+  transition: transform 0.15s ease-out;
+}
+
+.pdf-page-canvas {
+  transition: width 0.15s ease-out, height 0.15s ease-out;
+}
 }
