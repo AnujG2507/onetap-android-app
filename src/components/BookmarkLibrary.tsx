@@ -719,14 +719,16 @@ export function BookmarkLibrary({ onCreateShortcut }: BookmarkLibraryProps) {
           <span className="hidden sm:inline">Move</span>
         </button>
         
-        <button
-          onClick={handleBulkCreateShortcuts}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-muted transition-colors text-sm font-medium"
-          aria-label="Create shortcuts"
-        >
-          <Home className="h-4 w-4" />
-          <span className="hidden sm:inline">Shortcuts</span>
-        </button>
+        {shortlistedLinks.length === 1 && (
+          <button
+            onClick={handleBulkCreateShortcuts}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-muted transition-colors text-sm font-medium"
+            aria-label="Create shortcut"
+          >
+            <Home className="h-4 w-4" />
+            <span className="hidden sm:inline">Shortcut</span>
+          </button>
+        )}
         
         <button
           onClick={() => setShowBulkDeleteConfirm(true)}
