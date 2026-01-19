@@ -17,6 +17,7 @@ import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
@@ -78,6 +79,7 @@ public class DesktopWebViewActivity extends Activity {
     private TextView titleText;
     private ImageButton closeButton;
     private ImageButton refreshButton;
+    private SwipeRefreshLayout swipeRefreshLayout;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -143,6 +145,11 @@ public class DesktopWebViewActivity extends Activity {
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
                 progressBar.setVisibility(View.GONE);
+                
+                // Stop pull-to-refresh indicator
+                if (swipeRefreshLayout != null && swipeRefreshLayout.isRefreshing()) {
+                    swipeRefreshLayout.setRefreshing(false);
+                }
                 
                 // Update title from page if available
                 String pageTitle = view.getTitle();
@@ -438,13 +445,33 @@ public class DesktopWebViewActivity extends Activity {
         progressBar.setLayoutParams(progressParams);
         root.addView(progressBar);
 
-        // WebView (below header)
-        webView = new WebView(this);
-        FrameLayout.LayoutParams webViewParams = new FrameLayout.LayoutParams(
+        // SwipeRefreshLayout wrapper for pull-to-refresh
+        swipeRefreshLayout = new SwipeRefreshLayout(this);
+        FrameLayout.LayoutParams swipeParams = new FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT);
-        webViewParams.topMargin = headerHeight;
-        webView.setLayoutParams(webViewParams);
-        root.addView(webView);
+        swipeParams.topMargin = headerHeight;
+        swipeRefreshLayout.setLayoutParams(swipeParams);
+        
+        // Set refresh colors
+        swipeRefreshLayout.setColorSchemeColors(0xFF2196F3, 0xFF4CAF50, 0xFFFF9800);
+        
+        // Set refresh listener
+        swipeRefreshLayout.setOnRefreshListener(() -> {
+            if (webView != null) {
+                webView.reload();
+            }
+        });
+
+        // WebView (inside SwipeRefreshLayout)
+        webView = new WebView(this);
+        swipeRefreshLayout.addView(webView);
+        
+        // Only enable pull-to-refresh when WebView is scrolled to top
+        webView.setOnScrollChangeListener((v, scrollX, scrollY, oldScrollX, oldScrollY) -> {
+            swipeRefreshLayout.setEnabled(scrollY == 0);
+        });
+        
+        root.addView(swipeRefreshLayout);
 
         setContentView(root);
     }
