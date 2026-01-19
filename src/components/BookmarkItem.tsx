@@ -1,11 +1,13 @@
-import { Bookmark, Globe, Star } from 'lucide-react';
+import { Globe } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import type { SavedLink } from '@/lib/savedLinksManager';
 
 interface BookmarkItemProps {
   link: SavedLink;
   onTap: () => void;
+  onToggleShortlist: (id: string) => void;
 }
 
 function extractFaviconUrl(url: string): string {
@@ -17,8 +19,13 @@ function extractFaviconUrl(url: string): string {
   }
 }
 
-export function BookmarkItem({ link, onTap }: BookmarkItemProps) {
+export function BookmarkItem({ link, onTap, onToggleShortlist }: BookmarkItemProps) {
   const faviconUrl = extractFaviconUrl(link.url);
+  
+  const handleCheckboxClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onToggleShortlist(link.id);
+  };
   
   return (
     <button
@@ -30,6 +37,17 @@ export function BookmarkItem({ link, onTap }: BookmarkItemProps) {
         "text-left group border border-border/50"
       )}
     >
+      {/* Checkbox for shortlisting */}
+      <div 
+        className="flex items-center justify-center pt-1"
+        onClick={handleCheckboxClick}
+      >
+        <Checkbox 
+          checked={link.isShortlisted || false}
+          className="h-5 w-5"
+        />
+      </div>
+      
       {/* Favicon or fallback icon */}
       <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted overflow-hidden">
         {faviconUrl ? (
@@ -44,13 +62,6 @@ export function BookmarkItem({ link, onTap }: BookmarkItemProps) {
           />
         ) : null}
         <Globe className={cn("h-5 w-5 text-muted-foreground", faviconUrl && "hidden")} />
-        
-        {/* Shortlist indicator */}
-        {link.isShortlisted && (
-          <div className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-primary flex items-center justify-center">
-            <Star className="h-2.5 w-2.5 text-primary-foreground fill-current" />
-          </div>
-        )}
       </div>
       
       {/* Content */}
