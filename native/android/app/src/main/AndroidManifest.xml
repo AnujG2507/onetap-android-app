@@ -130,6 +130,13 @@
             android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen"
             android:exported="false" />
 
+        <!-- Desktop WebView Activity - custom WebView with User-Agent control -->
+        <activity
+            android:name=".DesktopWebViewActivity"
+            android:theme="@android:style/Theme.NoTitleBar"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|keyboard|keyboardHidden" />
+
 
         <provider
             android:name="androidx.core.content.FileProvider"

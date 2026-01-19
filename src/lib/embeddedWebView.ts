@@ -1,9 +1,9 @@
-import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
+import ShortcutPlugin from '@/plugins/ShortcutPlugin';
 
 export type ViewMode = 'desktop' | 'mobile';
 
-// User Agent strings
+// User Agent strings (for reference)
 const DESKTOP_USER_AGENT = 
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
   "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
@@ -23,17 +23,32 @@ export function getUserAgent(viewMode: ViewMode): string {
 }
 
 /**
- * Opens URL in native in-app browser.
- * Note: Chrome Custom Tabs and SFSafariViewController don't support
- * programmatic User-Agent changes. The viewMode is stored for user intent.
+ * Opens URL in custom native WebView with proper User-Agent control.
+ * This allows true desktop/mobile site viewing on Android.
  */
-export async function openInAppBrowser(url: string, viewMode: ViewMode = 'desktop'): Promise<void> {
+export async function openInAppBrowser(url: string, viewMode: ViewMode = 'desktop', title?: string): Promise<void> {
   if (Capacitor.isNativePlatform()) {
-    await Browser.open({ 
-      url,
-      presentationStyle: 'fullscreen',
-      toolbarColor: '#ffffff',
-    });
+    try {
+      const result = await ShortcutPlugin.openDesktopWebView({
+        url,
+        viewMode,
+        title: title || '',
+      });
+      
+      if (!result.success) {
+        console.error('Failed to open desktop WebView:', result.error);
+        // Fallback to opening in external browser
+        window.open(url, '_blank', 'noopener,noreferrer');
+      }
+      
+      // Trigger callback after opening (user will close manually)
+      setTimeout(() => {
+        browserCloseCallback?.();
+      }, 500);
+    } catch (error) {
+      console.error('Error opening desktop WebView:', error);
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
   } else {
     // Web fallback - open in new tab
     window.open(url, '_blank', 'noopener,noreferrer');
@@ -41,28 +56,14 @@ export async function openInAppBrowser(url: string, viewMode: ViewMode = 'deskto
 }
 
 export async function closeInAppBrowser(): Promise<void> {
-  if (Capacitor.isNativePlatform()) {
-    try {
-      await Browser.close();
-    } catch (error) {
-      // Browser may already be closed
-      console.log('Browser close error (may already be closed):', error);
-    }
-  }
+  // Custom WebView is closed by user via back button or close button
+  // No programmatic close needed
 }
 
 export function addBrowserCloseListener(callback: () => void): void {
   browserCloseCallback = callback;
-  if (Capacitor.isNativePlatform()) {
-    Browser.addListener('browserFinished', () => {
-      browserCloseCallback?.();
-    });
-  }
 }
 
 export function removeBrowserListeners(): void {
   browserCloseCallback = null;
-  if (Capacitor.isNativePlatform()) {
-    Browser.removeAllListeners();
-  }
 }

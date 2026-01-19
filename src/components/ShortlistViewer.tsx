@@ -103,8 +103,8 @@ export function ShortlistViewer({
     setIsLoading(true);
     
     if (isNative) {
-      await openInAppBrowser(currentLink.url, viewMode);
-      // Loading will be cleared when browser closes
+      await openInAppBrowser(currentLink.url, viewMode, currentLink.title);
+      // Loading will be cleared by callback or timeout
     } else {
       // Web: Open in iframe or new tab
       window.open(currentLink.url, '_blank', 'noopener,noreferrer');

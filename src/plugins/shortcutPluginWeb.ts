@@ -149,4 +149,15 @@ export class ShortcutPluginWeb implements ShortcutPluginInterface {
     console.log('[ShortcutPluginWeb] pickContact called (web fallback)');
     return { success: false, error: 'Not supported on web' };
   }
+
+  async openDesktopWebView(options: {
+    url: string;
+    viewMode?: 'desktop' | 'mobile';
+    title?: string;
+  }): Promise<{ success: boolean; error?: string }> {
+    console.log('[ShortcutPluginWeb] openDesktopWebView called (web fallback)', options.url);
+    // On web, just open in new tab
+    window.open(options.url, '_blank', 'noopener,noreferrer');
+    return { success: true };
+  }
 }
