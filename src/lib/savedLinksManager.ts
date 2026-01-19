@@ -9,6 +9,7 @@ export interface SavedLink {
   description?: string;
   tag: string | null;
   createdAt: number;
+  isShortlisted?: boolean;
 }
 
 /**
@@ -181,4 +182,27 @@ export function searchSavedLinks(query: string): SavedLink[] {
     link.title.toLowerCase().includes(lowerQuery) ||
     link.url.toLowerCase().includes(lowerQuery)
   );
+}
+
+// Shortlist functions
+export function toggleShortlist(id: string): void {
+  const links = getSavedLinks();
+  const link = links.find(l => l.id === id);
+  if (link) {
+    link.isShortlisted = !link.isShortlisted;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(links));
+  }
+}
+
+export function getShortlistedLinks(): SavedLink[] {
+  const links = getSavedLinks();
+  return links.filter(link => link.isShortlisted === true);
+}
+
+export function clearAllShortlist(): void {
+  const links = getSavedLinks();
+  links.forEach(link => {
+    link.isShortlisted = false;
+  });
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(links));
 }

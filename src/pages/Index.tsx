@@ -10,6 +10,8 @@ import { ContactShortcutCustomizer } from '@/components/ContactShortcutCustomize
 import { SuccessScreen } from '@/components/SuccessScreen';
 import { ClipboardSuggestion } from '@/components/ClipboardSuggestion';
 import { SettingsSheet } from '@/components/SettingsSheet';
+import { BottomNav, TabType } from '@/components/BottomNav';
+import { BookmarkLibrary } from '@/components/BookmarkLibrary';
 import { useShortcuts } from '@/hooks/useShortcuts';
 import { useBackButton } from '@/hooks/useBackButton';
 import { useSharedContent } from '@/hooks/useSharedContent';
@@ -19,6 +21,7 @@ import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useToast } from '@/hooks/use-toast';
 import { pickFile, FileTypeFilter } from '@/lib/contentResolver';
 import { createHomeScreenShortcut } from '@/lib/shortcutManager';
+import { getShortlistedLinks } from '@/lib/savedLinksManager';
 import type { ContentSource, ShortcutIcon, MessageApp } from '@/types/shortcut';
 
 type Step = 'source' | 'url' | 'customize' | 'contact' | 'success';
@@ -30,6 +33,7 @@ interface ContactData {
 }
 
 const Index = () => {
+  const [activeTab, setActiveTab] = useState<TabType>('access');
   const [step, setStep] = useState<Step>('source');
   const [contentSource, setContentSource] = useState<ContentSource | null>(null);
   const [lastCreatedName, setLastCreatedName] = useState('');
@@ -43,8 +47,11 @@ const Index = () => {
   const { settings } = useSettings();
   const { isOnline } = useNetworkStatus();
   
+  // Check if shortlist has items
+  const hasShortlist = getShortlistedLinks().length > 0;
+  
   // Auto-detect clipboard URL (only on source screen and if enabled in settings)
-  const clipboardEnabled = step === 'source' && settings.clipboardDetectionEnabled;
+  const clipboardEnabled = step === 'source' && activeTab === 'access' && settings.clipboardDetectionEnabled;
   const { detectedUrl, dismissDetection } = useClipboardDetection(clipboardEnabled);
 
   const handleClipboardUse = (url: string) => {
@@ -129,9 +136,16 @@ const Index = () => {
 
   // Handle Android back button
   useBackButton({
-    isHomeScreen: step === 'source',
+    isHomeScreen: step === 'source' && activeTab === 'access',
     onBack: () => {
-      console.log('[Index] Back button triggered, current step:', step);
+      console.log('[Index] Back button triggered, current step:', step, 'tab:', activeTab);
+      
+      // If on bookmarks tab, go back to access tab
+      if (activeTab === 'bookmarks') {
+        setActiveTab('access');
+        return;
+      }
+      
       if (step === 'url') {
         setStep('source');
       } else if (step === 'customize') {
@@ -274,89 +288,118 @@ const Index = () => {
     setLastCreatedName('');
   };
 
+  // Handler for creating shortcut from bookmark library
+  const handleCreateShortcutFromBookmark = (url: string) => {
+    setContentSource({ type: 'url', uri: url });
+    setActiveTab('access');
+    setStep('customize');
+  };
+
+  // Show bottom nav only on main screens (not during sub-flows)
+  const showBottomNav = step === 'source';
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {step === 'source' && (
+      {/* Access Tab Content */}
+      {activeTab === 'access' && (
         <>
-          {/* Offline indicator banner */}
-          {!isOnline && (
-            <div className="bg-muted/80 border-b border-border px-5 py-2 flex items-center gap-2">
-              <WifiOff className="h-4 w-4 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">
-                You're offline. Some features may be limited.
-              </span>
-            </div>
+          {step === 'source' && (
+            <>
+              {/* Offline indicator banner */}
+              {!isOnline && (
+                <div className="bg-muted/80 border-b border-border px-5 py-2 flex items-center gap-2">
+                  <WifiOff className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">
+                    You're offline. Some features may be limited.
+                  </span>
+                </div>
+              )}
+              
+              <header className="px-5 pt-8 pb-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
+                      <Plus className="h-4 w-4 text-primary-foreground" />
+                    </div>
+                    <span className="text-sm font-medium text-muted-foreground tracking-wide">OneTap</span>
+                  </div>
+                  <SettingsSheet />
+                </div>
+                <h1 className="text-2xl font-semibold text-foreground leading-tight tracking-tight">
+                  One tap to what matters
+                </h1>
+              </header>
+              <ContentSourcePicker
+                onSelectFile={handleSelectFile}
+                onSelectUrl={handleSelectUrl}
+                onSelectContact={handleSelectContact}
+              />
+              
+              {/* Clipboard URL auto-detection */}
+              {detectedUrl && (
+                <ClipboardSuggestion
+                  url={detectedUrl}
+                  onUse={handleClipboardUse}
+                  onDismiss={dismissDetection}
+                />
+              )}
+            </>
           )}
           
-          <header className="px-5 pt-8 pb-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-                  <Plus className="h-4 w-4 text-primary-foreground" />
-                </div>
-                <span className="text-sm font-medium text-muted-foreground tracking-wide">OneTap</span>
-              </div>
-              <SettingsSheet />
-            </div>
-            <h1 className="text-2xl font-semibold text-foreground leading-tight tracking-tight">
-              One tap to what matters
-            </h1>
-          </header>
-          <ContentSourcePicker
-            onSelectFile={handleSelectFile}
-            onSelectUrl={handleSelectUrl}
-            onSelectContact={handleSelectContact}
-          />
+          {step === 'url' && (
+            <UrlInput
+              onSubmit={handleUrlSubmit}
+              onBack={() => setStep('source')}
+              initialUrl={prefillUrl}
+            />
+          )}
           
-          {/* Clipboard URL auto-detection */}
-          {detectedUrl && (
-            <ClipboardSuggestion
-              url={detectedUrl}
-              onUse={handleClipboardUse}
-              onDismiss={dismissDetection}
+          {step === 'customize' && contentSource && (
+            <ShortcutCustomizer
+              source={contentSource}
+              onConfirm={handleConfirm}
+              onBack={() => {
+                if (contentSource.type === 'url') {
+                  setStep('url');
+                } else {
+                  setStep('source');
+                }
+              }}
+            />
+          )}
+
+          {step === 'contact' && (
+            <ContactShortcutCustomizer
+              mode={contactMode}
+              contact={contactData || undefined}
+              onConfirm={handleContactConfirm}
+              onBack={() => {
+                setStep('source');
+                setContactData(null);
+              }}
+            />
+          )}
+          
+          {step === 'success' && (
+            <SuccessScreen
+              shortcutName={lastCreatedName}
+              onDone={handleReset}
             />
           )}
         </>
       )}
-      
-      {step === 'url' && (
-        <UrlInput
-          onSubmit={handleUrlSubmit}
-          onBack={() => setStep('source')}
-          initialUrl={prefillUrl}
-        />
-      )}
-      
-      {step === 'customize' && contentSource && (
-        <ShortcutCustomizer
-          source={contentSource}
-          onConfirm={handleConfirm}
-          onBack={() => {
-            if (contentSource.type === 'url') {
-              setStep('url');
-            } else {
-              setStep('source');
-            }
-          }}
-        />
+
+      {/* Bookmarks Tab Content */}
+      {activeTab === 'bookmarks' && (
+        <BookmarkLibrary onCreateShortcut={handleCreateShortcutFromBookmark} />
       )}
 
-      {step === 'contact' && (
-        <ContactShortcutCustomizer
-          mode={contactMode}
-          contact={contactData || undefined}
-          onConfirm={handleContactConfirm}
-          onBack={() => {
-            setStep('source');
-            setContactData(null);
-          }}
-        />
-      )}
-      
-      {step === 'success' && (
-        <SuccessScreen
-          shortcutName={lastCreatedName}
-          onDone={handleReset}
+      {/* Bottom Navigation */}
+      {showBottomNav && (
+        <BottomNav
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          hasShortlist={hasShortlist}
         />
       )}
     </div>

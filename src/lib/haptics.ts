@@ -31,3 +31,15 @@ export async function triggerSelectionFeedback() {
     // Silently fail
   }
 }
+
+// Alias for simpler API - maps to appropriate haptic styles
+export function triggerHaptic(type: 'light' | 'medium' | 'heavy' | 'success' | 'warning' = 'light') {
+  const styleMap: Record<string, 'light' | 'medium' | 'heavy'> = {
+    light: 'light',
+    medium: 'medium',
+    heavy: 'heavy',
+    success: 'light',
+    warning: 'medium',
+  };
+  triggerHapticFeedback(styleMap[type] || 'light');
+}

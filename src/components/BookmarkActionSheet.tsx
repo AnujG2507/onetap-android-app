@@ -1,0 +1,289 @@
+import { useState } from 'react';
+import { 
+  ExternalLink, 
+  Star, 
+  Plus, 
+  Edit2, 
+  Trash2, 
+  X, 
+  Eye,
+  Tag
+} from 'lucide-react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Button } from '@/components/ui/button';
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { cn } from '@/lib/utils';
+import { PRESET_TAGS, type SavedLink } from '@/lib/savedLinksManager';
+import { triggerHaptic } from '@/lib/haptics';
+
+interface BookmarkActionSheetProps {
+  link: SavedLink | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onOpenExternal: (url: string) => void;
+  onToggleShortlist: (id: string) => void;
+  onViewInApp: (link: SavedLink) => void;
+  onCreateShortcut: (url: string) => void;
+  onEdit: (id: string, updates: { title?: string; description?: string; tag?: string | null }) => void;
+  onDelete: (id: string) => void;
+}
+
+export function BookmarkActionSheet({
+  link,
+  open,
+  onOpenChange,
+  onOpenExternal,
+  onToggleShortlist,
+  onViewInApp,
+  onCreateShortcut,
+  onEdit,
+  onDelete,
+}: BookmarkActionSheetProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  
+  // Edit form state
+  const [editTitle, setEditTitle] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editTag, setEditTag] = useState<string | null>(null);
+
+  const handleOpenChange = (isOpen: boolean) => {
+    if (!isOpen) {
+      setIsEditing(false);
+    }
+    onOpenChange(isOpen);
+  };
+
+  const handleStartEdit = () => {
+    if (!link) return;
+    setEditTitle(link.title);
+    setEditDescription(link.description || '');
+    setEditTag(link.tag);
+    setIsEditing(true);
+    triggerHaptic('light');
+  };
+
+  const handleSaveEdit = () => {
+    if (!link) return;
+    onEdit(link.id, {
+      title: editTitle.trim() || link.title,
+      description: editDescription.trim(),
+      tag: editTag,
+    });
+    setIsEditing(false);
+    onOpenChange(false);
+    triggerHaptic('success');
+  };
+
+  const handleDelete = () => {
+    if (!link) return;
+    onDelete(link.id);
+    setShowDeleteConfirm(false);
+    onOpenChange(false);
+    triggerHaptic('warning');
+  };
+
+  const handleAction = (action: () => void) => {
+    triggerHaptic('light');
+    action();
+  };
+
+  if (!link) return null;
+
+  return (
+    <>
+      <Sheet open={open} onOpenChange={handleOpenChange}>
+        <SheetContent side="bottom" className="rounded-t-3xl">
+          <SheetHeader className="pb-4">
+            <SheetTitle className="text-left truncate pr-8">
+              {link.title}
+            </SheetTitle>
+            <p className="text-xs text-muted-foreground truncate text-left">
+              {link.url}
+            </p>
+          </SheetHeader>
+
+          {isEditing ? (
+            /* Edit Form */
+            <div className="space-y-4 pb-6">
+              <div className="relative">
+                <Input
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  placeholder="Title"
+                  className="pr-10"
+                  autoFocus
+                />
+                {editTitle && (
+                  <button
+                    type="button"
+                    onClick={() => setEditTitle('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50"
+                  >
+                    <X className="h-4 w-4 text-muted-foreground" />
+                  </button>
+                )}
+              </div>
+              
+              <Textarea
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                placeholder="Description (optional)"
+                className="resize-none"
+                rows={2}
+                maxLength={200}
+              />
+              
+              {/* Tag Selector */}
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <Tag className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">Tag</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {PRESET_TAGS.map(tag => (
+                    <button
+                      key={tag}
+                      onClick={() => setEditTag(editTag === tag ? null : tag)}
+                      className={cn(
+                        "px-2.5 py-1 rounded-full text-xs font-medium transition-colors",
+                        editTag === tag
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted text-muted-foreground hover:bg-muted/80"
+                      )}
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              <div className="flex gap-2 pt-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setIsEditing(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button onClick={handleSaveEdit} className="flex-1">
+                  Save
+                </Button>
+              </div>
+            </div>
+          ) : (
+            /* Action List */
+            <div className="space-y-1 pb-6">
+              {/* Open External */}
+              <button
+                onClick={() => handleAction(() => {
+                  onOpenExternal(link.url);
+                  onOpenChange(false);
+                })}
+                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 transition-colors"
+              >
+                <ExternalLink className="h-5 w-5 text-muted-foreground" />
+                <span className="font-medium">Open link</span>
+              </button>
+
+              {/* Toggle Shortlist */}
+              <button
+                onClick={() => handleAction(() => {
+                  onToggleShortlist(link.id);
+                  onOpenChange(false);
+                })}
+                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 transition-colors"
+              >
+                <Star className={cn(
+                  "h-5 w-5",
+                  link.isShortlisted 
+                    ? "text-primary fill-current" 
+                    : "text-muted-foreground"
+                )} />
+                <span className="font-medium">
+                  {link.isShortlisted ? 'Remove from Shortlist' : 'Add to Shortlist'}
+                </span>
+              </button>
+
+              {/* View in App (only if shortlisted) */}
+              {link.isShortlisted && (
+                <button
+                  onClick={() => handleAction(() => {
+                    onViewInApp(link);
+                    onOpenChange(false);
+                  })}
+                  className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 transition-colors"
+                >
+                  <Eye className="h-5 w-5 text-muted-foreground" />
+                  <span className="font-medium">View in App</span>
+                </button>
+              )}
+
+              {/* Create Shortcut */}
+              <button
+                onClick={() => handleAction(() => {
+                  onCreateShortcut(link.url);
+                  onOpenChange(false);
+                })}
+                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 transition-colors"
+              >
+                <Plus className="h-5 w-5 text-muted-foreground" />
+                <span className="font-medium">Create Home Screen Shortcut</span>
+              </button>
+
+              {/* Edit */}
+              <button
+                onClick={() => handleAction(handleStartEdit)}
+                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 transition-colors"
+              >
+                <Edit2 className="h-5 w-5 text-muted-foreground" />
+                <span className="font-medium">Edit</span>
+              </button>
+
+              {/* Delete */}
+              <button
+                onClick={() => handleAction(() => setShowDeleteConfirm(true))}
+                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-destructive/10 transition-colors text-destructive"
+              >
+                <Trash2 className="h-5 w-5" />
+                <span className="font-medium">Delete</span>
+              </button>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete bookmark?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove "{link.title}" from your bookmarks.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}
