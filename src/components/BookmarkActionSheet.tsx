@@ -182,7 +182,7 @@ export function BookmarkActionSheet({
           ) : (
             /* Action List */
             <div className="space-y-1 pb-6">
-              {/* Open External */}
+              {/* Open in In-App Browser */}
               <button
                 onClick={() => handleAction(() => {
                   onOpenExternal(link.url);
@@ -191,7 +191,7 @@ export function BookmarkActionSheet({
                 className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 transition-colors"
               >
                 <ExternalLink className="h-5 w-5 text-muted-foreground" />
-                <span className="font-medium">Open link</span>
+                <span className="font-medium">Open in Browser</span>
               </button>
 
               {/* View in App (only if shortlisted) */}

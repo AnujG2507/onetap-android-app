@@ -241,8 +241,8 @@ export function ShortlistViewer({
               
               <p className="text-xs text-muted-foreground mt-4">
                 {viewMode === 'desktop' 
-                  ? 'Opens in browser with desktop layout' 
-                  : 'Opens in browser with mobile layout'}
+                  ? 'Opens in-app browser with desktop layout' 
+                  : 'Opens in-app browser with mobile layout'}
               </p>
             </div>
           </div>
