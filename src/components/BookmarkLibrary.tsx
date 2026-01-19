@@ -591,6 +591,10 @@ export function BookmarkLibrary({ onCreateShortcut }: BookmarkLibraryProps) {
                     onBookmarkTap={handleBookmarkTap}
                     onToggleShortlist={handleToggleShortlist}
                     onDeleteFolder={handleDeleteFolder}
+                    onFolderUpdated={() => {
+                      refreshLinks();
+                      setFolderRefreshKey(k => k + 1);
+                    }}
                     isDragDisabled={isDragDisabled}
                   />
                 ))}
