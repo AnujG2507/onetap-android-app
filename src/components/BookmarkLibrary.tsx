@@ -297,6 +297,7 @@ export function BookmarkLibrary({ onCreateShortcut }: BookmarkLibraryProps) {
                 key={link.id}
                 link={link}
                 onTap={() => handleBookmarkTap(link)}
+                onToggleShortlist={handleToggleShortlist}
               />
             ))}
           </div>
@@ -309,7 +310,6 @@ export function BookmarkLibrary({ onCreateShortcut }: BookmarkLibraryProps) {
         open={showActionSheet}
         onOpenChange={setShowActionSheet}
         onOpenExternal={handleOpenExternal}
-        onToggleShortlist={handleToggleShortlist}
         onViewInApp={handleViewInApp}
         onCreateShortcut={onCreateShortcut}
         onEdit={handleEdit}

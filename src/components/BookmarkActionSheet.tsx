@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { 
   ExternalLink, 
-  Star, 
   Plus, 
   Edit2, 
   Trash2, 
@@ -32,7 +31,6 @@ interface BookmarkActionSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onOpenExternal: (url: string) => void;
-  onToggleShortlist: (id: string) => void;
   onViewInApp: (link: SavedLink) => void;
   onCreateShortcut: (url: string) => void;
   onEdit: (id: string, updates: { title?: string; description?: string; tag?: string | null }) => void;
@@ -44,7 +42,6 @@ export function BookmarkActionSheet({
   open,
   onOpenChange,
   onOpenExternal,
-  onToggleShortlist,
   onViewInApp,
   onCreateShortcut,
   onEdit,
@@ -195,25 +192,6 @@ export function BookmarkActionSheet({
               >
                 <ExternalLink className="h-5 w-5 text-muted-foreground" />
                 <span className="font-medium">Open link</span>
-              </button>
-
-              {/* Toggle Shortlist */}
-              <button
-                onClick={() => handleAction(() => {
-                  onToggleShortlist(link.id);
-                  onOpenChange(false);
-                })}
-                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 transition-colors"
-              >
-                <Star className={cn(
-                  "h-5 w-5",
-                  link.isShortlisted 
-                    ? "text-primary fill-current" 
-                    : "text-muted-foreground"
-                )} />
-                <span className="font-medium">
-                  {link.isShortlisted ? 'Remove from Shortlist' : 'Add to Shortlist'}
-                </span>
               </button>
 
               {/* View in App (only if shortlisted) */}
