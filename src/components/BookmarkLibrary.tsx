@@ -603,6 +603,7 @@ export function BookmarkLibrary({ onCreateShortcut }: BookmarkLibraryProps) {
                       link={link}
                       onTap={() => handleBookmarkTap(link)}
                       onToggleShortlist={handleToggleShortlist}
+                      onCreateShortcut={onCreateShortcut}
                       isDragDisabled={isDragDisabled}
                     />
                   ))}
@@ -628,6 +629,7 @@ export function BookmarkLibrary({ onCreateShortcut }: BookmarkLibraryProps) {
                     links={groupedLinks.groups[tag]}
                     onBookmarkTap={handleBookmarkTap}
                     onToggleShortlist={handleToggleShortlist}
+                    onCreateShortcut={onCreateShortcut}
                     onDeleteFolder={handleDeleteFolder}
                     onFolderUpdated={() => {
                       refreshLinks();
@@ -643,6 +645,7 @@ export function BookmarkLibrary({ onCreateShortcut }: BookmarkLibraryProps) {
                   links={groupedLinks.uncategorized}
                   onBookmarkTap={handleBookmarkTap}
                   onToggleShortlist={handleToggleShortlist}
+                  onCreateShortcut={onCreateShortcut}
                   isDragDisabled={isDragDisabled}
                   defaultOpen={groupedLinks.sortedTags.length === 0}
                 />

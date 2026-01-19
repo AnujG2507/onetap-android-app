@@ -1,15 +1,18 @@
-import { Globe, GripVertical } from 'lucide-react';
+import { useRef, useCallback } from 'react';
+import { Globe, GripVertical, Home } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { triggerHaptic } from '@/lib/haptics';
 import type { SavedLink } from '@/lib/savedLinksManager';
 
 interface BookmarkItemProps {
   link: SavedLink;
   onTap: () => void;
   onToggleShortlist: (id: string) => void;
+  onCreateShortcut?: (url: string) => void;
   isDragDisabled?: boolean;
 }
 
@@ -22,8 +25,18 @@ function extractFaviconUrl(url: string): string {
   }
 }
 
-export function BookmarkItem({ link, onTap, onToggleShortlist, isDragDisabled }: BookmarkItemProps) {
+const LONG_PRESS_DURATION = 500;
+
+export function BookmarkItem({ 
+  link, 
+  onTap, 
+  onToggleShortlist, 
+  onCreateShortcut,
+  isDragDisabled 
+}: BookmarkItemProps) {
   const faviconUrl = extractFaviconUrl(link.url);
+  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+  const isLongPress = useRef(false);
   
   const {
     attributes,
@@ -46,6 +59,31 @@ export function BookmarkItem({ link, onTap, onToggleShortlist, isDragDisabled }:
     e.stopPropagation();
     onToggleShortlist(link.id);
   };
+
+  const handleLongPressStart = useCallback(() => {
+    isLongPress.current = false;
+    longPressTimer.current = setTimeout(() => {
+      isLongPress.current = true;
+      triggerHaptic('medium');
+      if (onCreateShortcut) {
+        onCreateShortcut(link.url);
+      }
+    }, LONG_PRESS_DURATION);
+  }, [link.url, onCreateShortcut]);
+
+  const handleLongPressEnd = useCallback(() => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  }, []);
+
+  const handleClick = useCallback(() => {
+    if (!isLongPress.current) {
+      onTap();
+    }
+    isLongPress.current = false;
+  }, [onTap]);
   
   return (
     <div
@@ -85,8 +123,14 @@ export function BookmarkItem({ link, onTap, onToggleShortlist, isDragDisabled }:
       {/* Clickable content area */}
       <button
         type="button"
-        onClick={onTap}
-        className="flex-1 flex items-start gap-3 text-left active:scale-[0.99] transition-transform"
+        onClick={handleClick}
+        onMouseDown={handleLongPressStart}
+        onMouseUp={handleLongPressEnd}
+        onMouseLeave={handleLongPressEnd}
+        onTouchStart={handleLongPressStart}
+        onTouchEnd={handleLongPressEnd}
+        onTouchCancel={handleLongPressEnd}
+        className="flex-1 flex items-start gap-3 text-left active:scale-[0.99] transition-transform select-none"
       >
         {/* Favicon or fallback icon */}
         <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted overflow-hidden">
@@ -113,13 +157,19 @@ export function BookmarkItem({ link, onTap, onToggleShortlist, isDragDisabled }:
               {link.description}
             </p>
           )}
-          {link.tag && (
-            <div className="mt-2">
+          <div className="flex items-center gap-2 mt-2">
+            {link.tag && (
               <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-normal">
                 {link.tag}
               </Badge>
-            </div>
-          )}
+            )}
+            {onCreateShortcut && (
+              <span className="text-[10px] text-muted-foreground/60 hidden group-hover:inline-flex items-center gap-1">
+                <Home className="h-3 w-3" />
+                Hold to create shortcut
+              </span>
+            )}
+          </div>
         </div>
       </button>
     </div>
