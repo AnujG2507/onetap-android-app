@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Phone, MessageCircle, Check, X, UserCircle2 } from 'lucide-react';
+import { ArrowLeft, Phone, X, UserCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { IconPicker } from '@/components/IconPicker';
 import ShortcutPlugin from '@/plugins/ShortcutPlugin';
-import type { ShortcutIcon, MessageApp } from '@/types/shortcut';
+import type { ShortcutIcon } from '@/types/shortcut';
 
 interface ContactData {
   name?: string;
@@ -21,19 +21,17 @@ interface ContactShortcutCustomizerProps {
     name: string;
     icon: ShortcutIcon;
     phoneNumber: string;
-    messageApp?: MessageApp;
-    slackTeamId?: string;
-    slackUserId?: string;
+    messageApp?: 'whatsapp';
   }) => void;
   onBack: () => void;
 }
 
-const MESSAGE_APPS: { id: MessageApp; label: string; icon: string }[] = [
-  { id: 'whatsapp', label: 'WhatsApp', icon: '💬' },
-  { id: 'telegram', label: 'Telegram', icon: '✈️' },
-  { id: 'signal', label: 'Signal', icon: '🔒' },
-  { id: 'slack', label: 'Slack', icon: '💼' },
-];
+// WhatsApp icon SVG component
+const WhatsAppIcon = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" className={className} fill="currentColor">
+    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+  </svg>
+);
 
 export function ContactShortcutCustomizer({
   mode,
@@ -43,9 +41,6 @@ export function ContactShortcutCustomizer({
 }: ContactShortcutCustomizerProps) {
   const [name, setName] = useState(contact?.name || '');
   const [phoneNumber, setPhoneNumber] = useState(contact?.phoneNumber || '');
-  const [selectedApp, setSelectedApp] = useState<MessageApp>('whatsapp');
-  const [slackTeamId, setSlackTeamId] = useState('');
-  const [slackUserId, setSlackUserId] = useState('');
   const [isPickingContact, setIsPickingContact] = useState(false);
   const [pickedContact, setPickedContact] = useState<ContactData | null>(contact || null);
   const [icon, setIcon] = useState<ShortcutIcon>(() => {
@@ -72,8 +67,7 @@ export function ContactShortcutCustomizer({
           if (mode === 'dial') {
             setName(`Call ${result.name}`);
           } else {
-            const app = MESSAGE_APPS.find(a => a.id === selectedApp);
-            setName(`${app?.label || 'Message'} ${result.name}`);
+            setName(`WhatsApp ${result.name}`);
           }
         }
       }
@@ -84,42 +78,29 @@ export function ContactShortcutCustomizer({
     }
   };
 
-  // Update icon when app changes
-  useEffect(() => {
-    if (mode === 'message') {
-      const app = MESSAGE_APPS.find(a => a.id === selectedApp);
-      if (app) {
-        setIcon({ type: 'emoji', value: app.icon });
-      }
-    }
-  }, [selectedApp, mode]);
-
   // Generate default name
   useEffect(() => {
     if (!name && pickedContact?.name) {
       if (mode === 'dial') {
         setName(`Call ${pickedContact.name}`);
       } else {
-        const app = MESSAGE_APPS.find(a => a.id === selectedApp);
-        setName(`${app?.label || 'Message'} ${pickedContact.name}`);
+        setName(`WhatsApp ${pickedContact.name}`);
       }
     }
-  }, [pickedContact?.name, mode, selectedApp, name]);
+  }, [pickedContact?.name, mode, name]);
 
   const handleConfirm = () => {
-    const shortcutName = name || (mode === 'dial' ? 'Call' : 'Message');
+    const shortcutName = name || (mode === 'dial' ? 'Call' : 'WhatsApp');
     
     onConfirm({
       name: shortcutName,
       icon,
       phoneNumber,
-      messageApp: mode === 'message' ? selectedApp : undefined,
-      slackTeamId: selectedApp === 'slack' ? slackTeamId : undefined,
-      slackUserId: selectedApp === 'slack' ? slackUserId : undefined,
+      messageApp: mode === 'message' ? 'whatsapp' : undefined,
     });
   };
 
-  const isValid = phoneNumber.length > 0 || (selectedApp === 'slack' && slackUserId && slackTeamId);
+  const isValid = phoneNumber.length > 0;
 
   return (
     <div className="min-h-screen bg-background flex flex-col animate-fade-in">
@@ -132,7 +113,7 @@ export function ContactShortcutCustomizer({
           <ArrowLeft className="h-5 w-5 text-muted-foreground" />
         </button>
         <h1 className="text-lg font-semibold text-foreground">
-          {mode === 'dial' ? 'Call Shortcut' : 'Message Shortcut'}
+          {mode === 'dial' ? 'Call Shortcut' : 'WhatsApp Shortcut'}
         </h1>
       </header>
 
@@ -141,7 +122,11 @@ export function ContactShortcutCustomizer({
         {pickedContact?.name && (
           <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/30">
             <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-2xl">
-              {mode === 'dial' ? <Phone className="h-6 w-6 text-primary" /> : <MessageCircle className="h-6 w-6 text-primary" />}
+              {mode === 'dial' ? (
+                <Phone className="h-6 w-6 text-primary" />
+              ) : (
+                <WhatsAppIcon className="h-6 w-6 text-primary" />
+              )}
             </div>
             <div>
               <p className="font-medium text-foreground">{pickedContact.name}</p>
@@ -151,127 +136,45 @@ export function ContactShortcutCustomizer({
         )}
 
         {/* Phone Number Input with Contact Picker */}
-        {selectedApp !== 'slack' && (
-          <div className="space-y-2">
-            <Label htmlFor="phone">Phone Number</Label>
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Input
-                  id="phone"
-                  type="tel"
-                  placeholder="+1 234 567 8900"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  className="text-lg pr-10"
-                />
-                {phoneNumber && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPhoneNumber('');
-                      setPickedContact(null);
-                    }}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
-                    aria-label="Clear phone number"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                onClick={handlePickContact}
-                disabled={isPickingContact}
-                className="h-12 w-12 shrink-0"
-                aria-label="Pick from contacts"
-              >
-                <UserCircle2 className="h-5 w-5" />
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* Message App Selector */}
-        {mode === 'message' && (
-          <div className="space-y-3">
-            <Label>Messaging App</Label>
-            <div className="grid grid-cols-2 gap-3">
-              {MESSAGE_APPS.map((app) => (
+        <div className="space-y-2">
+          <Label htmlFor="phone">Phone Number</Label>
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Input
+                id="phone"
+                type="tel"
+                placeholder="+1 234 567 8900"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                className="text-lg pr-10"
+              />
+              {phoneNumber && (
                 <button
-                  key={app.id}
-                  onClick={() => setSelectedApp(app.id)}
-                  className={cn(
-                    "flex items-center gap-3 p-4 rounded-xl border-2 transition-all",
-                    selectedApp === app.id
-                      ? "border-primary bg-primary/5"
-                      : "border-transparent bg-muted/40 hover:bg-muted/60"
-                  )}
+                  type="button"
+                  onClick={() => {
+                    setPhoneNumber('');
+                    setPickedContact(null);
+                  }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
+                  aria-label="Clear phone number"
                 >
-                  <span className="text-2xl">{app.icon}</span>
-                  <span className="font-medium text-foreground">{app.label}</span>
-                  {selectedApp === app.id && (
-                    <Check className="h-4 w-4 text-primary ml-auto" />
-                  )}
+                  <X className="h-4 w-4" />
                 </button>
-              ))}
+              )}
             </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={handlePickContact}
+              disabled={isPickingContact}
+              className="h-12 w-12 shrink-0"
+              aria-label="Pick from contacts"
+            >
+              <UserCircle2 className="h-5 w-5" />
+            </Button>
           </div>
-        )}
-
-        {/* Slack-specific fields */}
-        {mode === 'message' && selectedApp === 'slack' && (
-          <div className="space-y-4 p-4 rounded-xl bg-muted/20">
-            <p className="text-sm text-muted-foreground">
-              Slack requires Team ID and User ID for direct messages.
-            </p>
-            <div className="space-y-2">
-              <Label htmlFor="slackTeam">Team ID</Label>
-              <div className="relative">
-                <Input
-                  id="slackTeam"
-                  placeholder="T0123456789"
-                  value={slackTeamId}
-                  onChange={(e) => setSlackTeamId(e.target.value)}
-                  className="pr-10"
-                />
-                {slackTeamId && (
-                  <button
-                    type="button"
-                    onClick={() => setSlackTeamId('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
-                    aria-label="Clear Team ID"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="slackUser">User ID</Label>
-              <div className="relative">
-                <Input
-                  id="slackUser"
-                  placeholder="U0123456789"
-                  value={slackUserId}
-                  onChange={(e) => setSlackUserId(e.target.value)}
-                  className="pr-10"
-                />
-                {slackUserId && (
-                  <button
-                    type="button"
-                    onClick={() => setSlackUserId('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
-                    aria-label="Clear User ID"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
+        </div>
 
         {/* Shortcut Name */}
         <div className="space-y-2">
@@ -279,7 +182,7 @@ export function ContactShortcutCustomizer({
           <div className="relative">
             <Input
               id="name"
-              placeholder={mode === 'dial' ? 'Call Mom' : 'Message Team'}
+              placeholder={mode === 'dial' ? 'Call Mom' : 'WhatsApp Mom'}
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="pr-10"
