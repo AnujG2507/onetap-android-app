@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { Search, Plus, X, Bookmark, ListChecks, Trash2 } from 'lucide-react';
+import { Search, Plus, X, Bookmark, ListChecks, Trash2, Home, Eye } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -190,6 +190,31 @@ export function BookmarkLibrary({ onCreateShortcut }: BookmarkLibraryProps) {
     triggerHaptic('medium');
   };
 
+  // Bulk actions for selected items
+  const handleBulkDelete = () => {
+    const selectedCount = shortlistedLinks.length;
+    shortlistedLinks.forEach(link => {
+      removeSavedLink(link.id);
+    });
+    refreshLinks();
+    toast({
+      title: `${selectedCount} bookmark${selectedCount > 1 ? 's' : ''} deleted`,
+      duration: 2000,
+    });
+    triggerHaptic('warning');
+  };
+
+  const handleBulkCreateShortcuts = () => {
+    shortlistedLinks.forEach(link => {
+      onCreateShortcut(link.url);
+    });
+    toast({
+      title: `Creating ${shortlistedLinks.length} shortcut${shortlistedLinks.length > 1 ? 's' : ''}...`,
+      duration: 2000,
+    });
+    triggerHaptic('success');
+  };
+
   return (
     <div className="flex flex-col h-full pb-14">
       {/* Header */}
@@ -202,25 +227,6 @@ export function BookmarkLibrary({ onCreateShortcut }: BookmarkLibraryProps) {
             <span className="text-sm font-medium text-muted-foreground tracking-wide">Bookmarks</span>
           </div>
           
-          {/* Shortlist actions */}
-          {hasShortlist && (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleViewShortlist}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium"
-              >
-                <ListChecks className="h-4 w-4" />
-                <span>View ({shortlistedLinks.length})</span>
-              </button>
-              <button
-                onClick={handleClearShortlist}
-                className="p-1.5 rounded-full hover:bg-destructive/10 hover:text-destructive transition-colors"
-                aria-label="Clear shortlist"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-            </div>
-          )}
         </div>
         <h1 className="text-2xl font-semibold text-foreground leading-tight tracking-tight">
           Your saved links
@@ -370,6 +376,62 @@ export function BookmarkLibrary({ onCreateShortcut }: BookmarkLibraryProps) {
         startIndex={viewerStartIndex}
         onOpenExternal={handleOpenExternal}
       />
+
+      {/* Floating Action Bar */}
+      <div
+        className={cn(
+          "fixed bottom-20 left-1/2 -translate-x-1/2 z-50",
+          "flex items-center gap-2 px-4 py-3 rounded-2xl",
+          "bg-card border border-border shadow-lg",
+          "transition-all duration-300 ease-out",
+          hasShortlist
+            ? "opacity-100 translate-y-0"
+            : "opacity-0 translate-y-4 pointer-events-none"
+        )}
+      >
+        <span className="text-sm font-medium text-foreground mr-2">
+          {shortlistedLinks.length} selected
+        </span>
+        
+        <div className="h-5 w-px bg-border" />
+        
+        <button
+          onClick={handleViewShortlist}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-muted transition-colors text-sm font-medium"
+          aria-label="View selected"
+        >
+          <Eye className="h-4 w-4" />
+          <span className="hidden sm:inline">View</span>
+        </button>
+        
+        <button
+          onClick={handleBulkCreateShortcuts}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-muted transition-colors text-sm font-medium"
+          aria-label="Create shortcuts"
+        >
+          <Home className="h-4 w-4" />
+          <span className="hidden sm:inline">Shortcuts</span>
+        </button>
+        
+        <button
+          onClick={handleBulkDelete}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-destructive/10 text-destructive transition-colors text-sm font-medium"
+          aria-label="Delete selected"
+        >
+          <Trash2 className="h-4 w-4" />
+          <span className="hidden sm:inline">Delete</span>
+        </button>
+        
+        <div className="h-5 w-px bg-border" />
+        
+        <button
+          onClick={handleClearShortlist}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-muted transition-colors text-sm text-muted-foreground"
+          aria-label="Clear selection"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
     </div>
   );
 }
