@@ -291,6 +291,32 @@ export function removeCustomFolder(name: string): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(links));
 }
 
+export function renameFolder(oldName: string, newName: string): void {
+  // Update custom folders list
+  const folders = getCustomFolders();
+  const index = folders.indexOf(oldName);
+  if (index !== -1) {
+    folders[index] = newName;
+    localStorage.setItem(CUSTOM_FOLDERS_KEY, JSON.stringify(folders));
+  }
+  
+  // Move icon to new name
+  const icon = getFolderIcon(oldName);
+  if (icon) {
+    removeFolderIcon(oldName);
+    setFolderIcon(newName, icon);
+  }
+  
+  // Update all links with this tag
+  const links = getSavedLinks();
+  links.forEach(link => {
+    if (link.tag === oldName) {
+      link.tag = newName;
+    }
+  });
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(links));
+}
+
 export function getAllFolders(): string[] {
   const custom = getCustomFolders();
   const used = getAllTags();

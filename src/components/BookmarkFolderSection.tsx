@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, Folder, FolderOpen, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Folder, FolderOpen, Trash2, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
@@ -7,6 +7,7 @@ import { useDroppable } from '@dnd-kit/core';
 import { BookmarkItem } from './BookmarkItem';
 import { PRESET_TAGS, getFolderIcon, type SavedLink } from '@/lib/savedLinksManager';
 import { getIconByName } from './FolderIconPicker';
+import { EditFolderDialog } from './EditFolderDialog';
 
 interface BookmarkFolderSectionProps {
   title: string;
@@ -16,6 +17,7 @@ interface BookmarkFolderSectionProps {
   onBookmarkTap: (link: SavedLink) => void;
   onToggleShortlist: (id: string) => void;
   onDeleteFolder?: (name: string) => void;
+  onFolderUpdated?: () => void;
   isDragDisabled?: boolean;
   isOver?: boolean;
 }
@@ -28,9 +30,11 @@ export function BookmarkFolderSection({
   onBookmarkTap,
   onToggleShortlist,
   onDeleteFolder,
+  onFolderUpdated,
   isDragDisabled,
 }: BookmarkFolderSectionProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
   
   const { setNodeRef, isOver } = useDroppable({
     id: `folder-${folderId}`,
@@ -43,7 +47,9 @@ export function BookmarkFolderSection({
   
   const selectedCount = links.filter(l => l.isShortlisted).length;
   const isPreset = PRESET_TAGS.includes(title);
-  const canDelete = !isPreset && title !== 'Uncategorized' && onDeleteFolder;
+  const isCustomFolder = !isPreset && title !== 'Uncategorized';
+  const canDelete = isCustomFolder && onDeleteFolder;
+  const canEdit = isCustomFolder;
   
   // Get custom icon for this folder
   const customIconName = getFolderIcon(title);
@@ -108,6 +114,20 @@ export function BookmarkFolderSection({
               </span>
             )}
             
+            {/* Edit button for custom folders */}
+            {canEdit && (
+              <span
+                role="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEditDialogOpen(true);
+                }}
+                className="p-1 rounded hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </span>
+            )}
+            
             {/* Delete button for custom folders */}
             {canDelete && (
               <span
@@ -151,6 +171,14 @@ export function BookmarkFolderSection({
           </SortableContext>
         </CollapsibleContent>
       </div>
+      
+      {/* Edit Folder Dialog */}
+      <EditFolderDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        folderName={title}
+        onFolderUpdated={() => onFolderUpdated?.()}
+      />
     </Collapsible>
   );
 }
