@@ -106,6 +106,13 @@ export interface ShortcutPluginInterface {
     photoUri?: string;
     error?: string;
   }>;
+
+  // Open URL in custom WebView with User-Agent control (true desktop/mobile view)
+  openDesktopWebView(options: {
+    url: string;
+    viewMode?: 'desktop' | 'mobile';
+    title?: string;
+  }): Promise<{ success: boolean; error?: string }>;
 }
 
 // This plugin bridges to native Android code

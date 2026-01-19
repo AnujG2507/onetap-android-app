@@ -52,6 +52,7 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 
+import app.onetap.shortcuts.DesktopWebViewActivity;
 import app.onetap.shortcuts.NativeVideoPlayerActivity;
 import app.onetap.shortcuts.PDFProxyActivity;
 import app.onetap.shortcuts.VideoProxyActivity;
@@ -1877,5 +1878,59 @@ public class ShortcutPlugin extends Plugin {
             return MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension.toLowerCase());
         }
         return null;
+    }
+
+    /**
+     * Opens a URL in a custom WebView with configurable User-Agent.
+     * This allows true desktop or mobile site viewing.
+     */
+    @PluginMethod
+    public void openDesktopWebView(PluginCall call) {
+        android.util.Log.d("ShortcutPlugin", "openDesktopWebView called");
+        
+        String url = call.getString("url");
+        String viewMode = call.getString("viewMode", "desktop");
+        String title = call.getString("title", "");
+        
+        if (url == null || url.isEmpty()) {
+            JSObject result = new JSObject();
+            result.put("success", false);
+            result.put("error", "URL is required");
+            call.resolve(result);
+            return;
+        }
+        
+        Context context = getContext();
+        Activity activity = getActivity();
+        
+        if (context == null || activity == null) {
+            JSObject result = new JSObject();
+            result.put("success", false);
+            result.put("error", "Context or activity is null");
+            call.resolve(result);
+            return;
+        }
+        
+        try {
+            Intent intent = new Intent(context, DesktopWebViewActivity.class);
+            intent.putExtra(DesktopWebViewActivity.EXTRA_URL, url);
+            intent.putExtra(DesktopWebViewActivity.EXTRA_VIEW_MODE, viewMode);
+            intent.putExtra(DesktopWebViewActivity.EXTRA_TITLE, title);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            
+            activity.startActivity(intent);
+            
+            android.util.Log.d("ShortcutPlugin", "Launched DesktopWebViewActivity with URL: " + url + ", mode: " + viewMode);
+            
+            JSObject result = new JSObject();
+            result.put("success", true);
+            call.resolve(result);
+        } catch (Exception e) {
+            android.util.Log.e("ShortcutPlugin", "Error launching DesktopWebViewActivity: " + e.getMessage());
+            JSObject result = new JSObject();
+            result.put("success", false);
+            result.put("error", e.getMessage());
+            call.resolve(result);
+        }
     }
 }
