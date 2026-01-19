@@ -1,4 +1,4 @@
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useState } from 'react';
 import { Globe, GripVertical, Home } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -6,7 +6,16 @@ import { cn } from '@/lib/utils';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { triggerHaptic } from '@/lib/haptics';
-import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import type { SavedLink } from '@/lib/savedLinksManager';
 
 interface BookmarkItemProps {
@@ -38,7 +47,7 @@ export function BookmarkItem({
   const faviconUrl = extractFaviconUrl(link.url);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
   const isLongPress = useRef(false);
-  const { toast } = useToast();
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   
   const {
     attributes,
@@ -68,15 +77,10 @@ export function BookmarkItem({
       isLongPress.current = true;
       triggerHaptic('medium');
       if (onCreateShortcut) {
-        onCreateShortcut(link.url);
-        toast({
-          title: 'Creating shortcut...',
-          description: link.title,
-          duration: 2000,
-        });
+        setShowConfirmDialog(true);
       }
     }, LONG_PRESS_DURATION);
-  }, [link.url, link.title, onCreateShortcut, toast]);
+  }, [onCreateShortcut]);
 
   const handleLongPressEnd = useCallback(() => {
     if (longPressTimer.current) {
@@ -84,6 +88,13 @@ export function BookmarkItem({
       longPressTimer.current = null;
     }
   }, []);
+
+  const handleConfirmCreateShortcut = useCallback(() => {
+    if (onCreateShortcut) {
+      onCreateShortcut(link.url);
+    }
+    setShowConfirmDialog(false);
+  }, [link.url, onCreateShortcut]);
 
   const handleClick = useCallback(() => {
     if (!isLongPress.current) {
@@ -179,6 +190,24 @@ export function BookmarkItem({
           </div>
         </div>
       </button>
+
+      {/* Confirmation Dialog */}
+      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Create Shortcut?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Create a home screen shortcut for "{link.title}"?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmCreateShortcut}>
+              Create
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
