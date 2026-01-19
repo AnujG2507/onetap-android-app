@@ -4,6 +4,7 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.net.Uri;
 import android.os.Bundle;
 import android.view.View;
 import android.view.Window;
@@ -17,9 +18,18 @@ import android.widget.ImageButton;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+
 /**
  * Custom WebView Activity that allows setting a custom User-Agent.
  * This enables true desktop/mobile site viewing regardless of device.
+ * Also intercepts deep links and keeps all navigation within the WebView.
  */
 public class DesktopWebViewActivity extends Activity {
 
@@ -36,6 +46,32 @@ public class DesktopWebViewActivity extends Activity {
     private static final String MOBILE_USER_AGENT = 
         "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 " +
         "(KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36";
+
+    // Tracking parameters to strip from URLs
+    private static final Set<String> TRACKING_PARAMS = new HashSet<>(Arrays.asList(
+        "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content", "utm_id",
+        "fbclid", "gclid", "dclid", "twclid", "msclkid", "mc_eid",
+        "oly_anon_id", "oly_enc_id", "_openstat", "vero_id", "wickedid", "yclid",
+        "ref", "ref_src", "ref_url", "source", "feature",
+        "_ga", "_gl", "si", "igshid"
+    ));
+
+    // Deep link to web URL mappings
+    private static final Map<String, String> DEEP_LINK_TO_WEB = new HashMap<>();
+    static {
+        DEEP_LINK_TO_WEB.put("youtube://", "https://www.youtube.com/");
+        DEEP_LINK_TO_WEB.put("vnd.youtube:", "https://www.youtube.com/");
+        DEEP_LINK_TO_WEB.put("instagram://", "https://www.instagram.com/");
+        DEEP_LINK_TO_WEB.put("twitter://", "https://twitter.com/");
+        DEEP_LINK_TO_WEB.put("x://", "https://x.com/");
+        DEEP_LINK_TO_WEB.put("spotify://", "https://open.spotify.com/");
+        DEEP_LINK_TO_WEB.put("fb://", "https://www.facebook.com/");
+        DEEP_LINK_TO_WEB.put("messenger://", "https://www.messenger.com/");
+        DEEP_LINK_TO_WEB.put("linkedin://", "https://www.linkedin.com/");
+        DEEP_LINK_TO_WEB.put("reddit://", "https://www.reddit.com/");
+        DEEP_LINK_TO_WEB.put("tiktok://", "https://www.tiktok.com/");
+        DEEP_LINK_TO_WEB.put("discord://", "https://discord.com/");
+    }
 
     private WebView webView;
     private ProgressBar progressBar;
@@ -117,8 +153,14 @@ public class DesktopWebViewActivity extends Activity {
 
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-                // Keep navigation within this WebView
-                return false;
+                String url = request.getUrl().toString();
+                return handleUrlLoading(view, url);
+            }
+
+            @Override
+            @SuppressWarnings("deprecation")
+            public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                return handleUrlLoading(view, url);
             }
         });
 
@@ -141,8 +183,191 @@ public class DesktopWebViewActivity extends Activity {
             }
         });
 
-        // Load URL
-        webView.loadUrl(url);
+        // Clean URL before loading
+        String cleanedUrl = stripTrackingParams(url);
+        webView.loadUrl(cleanedUrl);
+    }
+
+    /**
+     * Handle URL loading - intercept deep links and keep navigation in WebView
+     */
+    private boolean handleUrlLoading(WebView view, String url) {
+        android.util.Log.d("DesktopWebView", "Intercepted URL: " + url);
+        
+        // Handle intent:// URLs
+        if (url.startsWith("intent://")) {
+            String fallbackUrl = extractIntentFallbackUrl(url);
+            if (fallbackUrl != null) {
+                android.util.Log.d("DesktopWebView", "Loading intent fallback URL: " + fallbackUrl);
+                view.loadUrl(stripTrackingParams(fallbackUrl));
+            }
+            return true; // Block the intent:// URL
+        }
+        
+        // Handle non-HTTP schemes (deep links)
+        if (!url.startsWith("http://") && !url.startsWith("https://")) {
+            // Skip tel:, mailto:, sms: - these should be blocked entirely
+            if (url.startsWith("tel:") || url.startsWith("mailto:") || 
+                url.startsWith("sms:") || url.startsWith("geo:") || url.startsWith("maps:")) {
+                android.util.Log.d("DesktopWebView", "Blocking non-web URL: " + url);
+                return true; // Block these URLs
+            }
+            
+            // Try to convert deep link to web URL
+            String webUrl = convertDeepLinkToWebUrl(url);
+            if (webUrl != null) {
+                android.util.Log.d("DesktopWebView", "Converted deep link to web URL: " + webUrl);
+                view.loadUrl(stripTrackingParams(webUrl));
+                return true;
+            }
+            
+            // Block unknown deep links
+            android.util.Log.d("DesktopWebView", "Blocking unknown deep link: " + url);
+            return true;
+        }
+        
+        // For HTTP/HTTPS URLs, strip tracking params
+        String cleanedUrl = stripTrackingParams(url);
+        if (!cleanedUrl.equals(url)) {
+            android.util.Log.d("DesktopWebView", "Loading cleaned URL: " + cleanedUrl);
+            view.loadUrl(cleanedUrl);
+            return true;
+        }
+        
+        // Allow normal navigation within WebView
+        return false;
+    }
+
+    /**
+     * Extract browser fallback URL from intent:// URL
+     */
+    private String extractIntentFallbackUrl(String intentUrl) {
+        // Look for S.browser_fallback_url= parameter
+        int start = intentUrl.indexOf("S.browser_fallback_url=");
+        if (start == -1) {
+            start = intentUrl.indexOf("browser_fallback_url=");
+        }
+        
+        if (start != -1) {
+            int valueStart = intentUrl.indexOf("=", start) + 1;
+            int end = intentUrl.indexOf(";", valueStart);
+            if (end == -1) {
+                end = intentUrl.length();
+            }
+            
+            String encoded = intentUrl.substring(valueStart, end);
+            try {
+                return URLDecoder.decode(encoded, "UTF-8");
+            } catch (UnsupportedEncodingException e) {
+                return null;
+            }
+        }
+        
+        // Try to extract scheme from intent URL
+        // intent://video/xyz#Intent;scheme=https;package=com.google.android.youtube;end
+        int schemeStart = intentUrl.indexOf("scheme=");
+        if (schemeStart != -1) {
+            int schemeEnd = intentUrl.indexOf(";", schemeStart);
+            String scheme = intentUrl.substring(schemeStart + 7, schemeEnd);
+            
+            // Get the path from intent://
+            String path = intentUrl.substring(9); // Skip "intent://"
+            int hashIndex = path.indexOf("#");
+            if (hashIndex != -1) {
+                path = path.substring(0, hashIndex);
+            }
+            
+            return scheme + "://" + path;
+        }
+        
+        return null;
+    }
+
+    /**
+     * Convert a deep link scheme to its web URL equivalent
+     */
+    private String convertDeepLinkToWebUrl(String url) {
+        String lowerUrl = url.toLowerCase();
+        
+        for (Map.Entry<String, String> entry : DEEP_LINK_TO_WEB.entrySet()) {
+            if (lowerUrl.startsWith(entry.getKey())) {
+                String path = url.substring(entry.getKey().length());
+                
+                // Handle YouTube video links
+                if (entry.getKey().contains("youtube")) {
+                    // youtube://video?v=xxx or youtube://watch?v=xxx
+                    if (path.contains("v=")) {
+                        int vStart = path.indexOf("v=") + 2;
+                        int vEnd = path.indexOf("&", vStart);
+                        if (vEnd == -1) vEnd = path.length();
+                        String videoId = path.substring(vStart, vEnd);
+                        return "https://www.youtube.com/watch?v=" + videoId;
+                    }
+                }
+                
+                // Handle Instagram user links
+                if (entry.getKey().equals("instagram://")) {
+                    if (path.contains("username=")) {
+                        int uStart = path.indexOf("username=") + 9;
+                        int uEnd = path.indexOf("&", uStart);
+                        if (uEnd == -1) uEnd = path.length();
+                        String username = path.substring(uStart, uEnd);
+                        return "https://www.instagram.com/" + username;
+                    }
+                }
+                
+                // Handle Twitter/X user links
+                if (entry.getKey().equals("twitter://") || entry.getKey().equals("x://")) {
+                    if (path.contains("screen_name=")) {
+                        int uStart = path.indexOf("screen_name=") + 12;
+                        int uEnd = path.indexOf("&", uStart);
+                        if (uEnd == -1) uEnd = path.length();
+                        String username = path.substring(uStart, uEnd);
+                        return "https://twitter.com/" + username;
+                    }
+                }
+                
+                // Default: append path to web base
+                return entry.getValue() + path;
+            }
+        }
+        
+        return null;
+    }
+
+    /**
+     * Strip tracking/UTM parameters from a URL
+     */
+    private String stripTrackingParams(String url) {
+        try {
+            Uri uri = Uri.parse(url);
+            Set<String> paramNames = uri.getQueryParameterNames();
+            
+            // Check if any tracking params exist
+            boolean hasTrackingParams = false;
+            for (String param : paramNames) {
+                if (TRACKING_PARAMS.contains(param.toLowerCase())) {
+                    hasTrackingParams = true;
+                    break;
+                }
+            }
+            
+            if (!hasTrackingParams) {
+                return url;
+            }
+            
+            // Rebuild URL without tracking params
+            Uri.Builder builder = uri.buildUpon().clearQuery();
+            for (String param : paramNames) {
+                if (!TRACKING_PARAMS.contains(param.toLowerCase())) {
+                    builder.appendQueryParameter(param, uri.getQueryParameter(param));
+                }
+            }
+            
+            return builder.build().toString();
+        } catch (Exception e) {
+            return url;
+        }
     }
 
     private void createUI() {

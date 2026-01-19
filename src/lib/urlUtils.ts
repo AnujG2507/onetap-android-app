@@ -37,6 +37,158 @@ const APP_REDIRECT_PATTERNS = [
   'music.apple.com',
 ];
 
+// UTM and tracking parameters to remove
+const TRACKING_PARAMS = [
+  'utm_source',
+  'utm_medium',
+  'utm_campaign',
+  'utm_term',
+  'utm_content',
+  'utm_id',
+  'fbclid',
+  'gclid',
+  'dclid',
+  'twclid',
+  'msclkid',
+  'mc_eid',
+  'oly_anon_id',
+  'oly_enc_id',
+  '_openstat',
+  'vero_id',
+  'wickedid',
+  'yclid',
+  'ref',
+  'ref_src',
+  'ref_url',
+  'source',
+  'feature',
+  '_ga',
+  '_gl',
+  'si',
+  'igshid',
+];
+
+// Deep link to web URL mappings
+const DEEP_LINK_TO_WEB: Record<string, string> = {
+  'youtube://': 'https://www.youtube.com/',
+  'vnd.youtube:': 'https://www.youtube.com/',
+  'instagram://': 'https://www.instagram.com/',
+  'twitter://': 'https://twitter.com/',
+  'x://': 'https://x.com/',
+  'spotify://': 'https://open.spotify.com/',
+  'fb://': 'https://www.facebook.com/',
+  'messenger://': 'https://www.messenger.com/',
+  'linkedin://': 'https://www.linkedin.com/',
+  'reddit://': 'https://www.reddit.com/',
+  'tiktok://': 'https://www.tiktok.com/',
+  'discord://': 'https://discord.com/',
+};
+
+/**
+ * Strip tracking/UTM parameters from a URL
+ */
+export function stripTrackingParams(url: string): string {
+  try {
+    const urlObj = new URL(url);
+    const params = urlObj.searchParams;
+    
+    // Remove tracking parameters
+    TRACKING_PARAMS.forEach(param => {
+      params.delete(param);
+    });
+    
+    // Reconstruct URL
+    urlObj.search = params.toString();
+    return urlObj.toString();
+  } catch {
+    // If URL parsing fails, return original
+    return url;
+  }
+}
+
+/**
+ * Convert a deep link to its web URL equivalent
+ * Returns null if the deep link cannot be converted (e.g., tel:, mailto:)
+ */
+export function convertDeepLinkToWebUrl(url: string): string | null {
+  const lowerUrl = url.toLowerCase();
+  
+  // Non-convertible schemes
+  if (lowerUrl.startsWith('tel:') || 
+      lowerUrl.startsWith('mailto:') || 
+      lowerUrl.startsWith('sms:') ||
+      lowerUrl.startsWith('geo:') ||
+      lowerUrl.startsWith('maps:')) {
+    return null;
+  }
+  
+  // Handle intent:// URLs - extract browser_fallback_url
+  if (lowerUrl.startsWith('intent://')) {
+    const fallbackMatch = url.match(/S\.browser_fallback_url=([^;]+)/);
+    if (fallbackMatch) {
+      try {
+        return decodeURIComponent(fallbackMatch[1]);
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }
+  
+  // Try to convert known deep link schemes
+  for (const [scheme, webBase] of Object.entries(DEEP_LINK_TO_WEB)) {
+    if (lowerUrl.startsWith(scheme)) {
+      // Extract path after the scheme
+      const path = url.substring(scheme.length);
+      
+      // Handle YouTube video links
+      if (scheme.includes('youtube')) {
+        const videoMatch = path.match(/video[/?]v=([^&]+)/);
+        if (videoMatch) {
+          return `https://www.youtube.com/watch?v=${videoMatch[1]}`;
+        }
+        // Handle channel links
+        const channelMatch = path.match(/channel\/([^?&]+)/);
+        if (channelMatch) {
+          return `https://www.youtube.com/channel/${channelMatch[1]}`;
+        }
+        // Handle user links
+        const userMatch = path.match(/user\/([^?&]+)/);
+        if (userMatch) {
+          return `https://www.youtube.com/@${userMatch[1]}`;
+        }
+      }
+      
+      // Handle Instagram user links
+      if (scheme === 'instagram://') {
+        const userMatch = path.match(/user\?username=([^&]+)/);
+        if (userMatch) {
+          return `https://www.instagram.com/${userMatch[1]}`;
+        }
+      }
+      
+      // Handle Twitter/X user links
+      if (scheme === 'twitter://' || scheme === 'x://') {
+        const userMatch = path.match(/user\?screen_name=([^&]+)/);
+        if (userMatch) {
+          return `https://twitter.com/${userMatch[1]}`;
+        }
+      }
+      
+      // Handle Spotify links
+      if (scheme === 'spotify://') {
+        // spotify://track/xxx -> open.spotify.com/track/xxx
+        return webBase + path;
+      }
+      
+      // Default: just append path to web base
+      return webBase + path;
+    }
+  }
+  
+  return null;
+}
+
 /**
  * Check if URL is a deep link (non-web URL that opens apps directly)
  */
