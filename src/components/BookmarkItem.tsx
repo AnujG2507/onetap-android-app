@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { triggerHaptic } from '@/lib/haptics';
+import { useToast } from '@/hooks/use-toast';
 import type { SavedLink } from '@/lib/savedLinksManager';
 
 interface BookmarkItemProps {
@@ -37,6 +38,7 @@ export function BookmarkItem({
   const faviconUrl = extractFaviconUrl(link.url);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
   const isLongPress = useRef(false);
+  const { toast } = useToast();
   
   const {
     attributes,
@@ -67,9 +69,14 @@ export function BookmarkItem({
       triggerHaptic('medium');
       if (onCreateShortcut) {
         onCreateShortcut(link.url);
+        toast({
+          title: 'Creating shortcut...',
+          description: link.title,
+          duration: 2000,
+        });
       }
     }, LONG_PRESS_DURATION);
-  }, [link.url, onCreateShortcut]);
+  }, [link.url, link.title, onCreateShortcut, toast]);
 
   const handleLongPressEnd = useCallback(() => {
     if (longPressTimer.current) {
