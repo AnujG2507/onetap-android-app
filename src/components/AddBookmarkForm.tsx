@@ -1,24 +1,42 @@
-import { useState } from 'react';
-import { X, Tag } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, Tag, AlertCircle, Pencil, SkipForward } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { PRESET_TAGS } from '@/lib/savedLinksManager';
+import { PRESET_TAGS, findSavedLinkByUrl, type SavedLink } from '@/lib/savedLinksManager';
 
 interface AddBookmarkFormProps {
   onSave: (url: string, title?: string, description?: string, tag?: string | null) => void;
   onCancel: () => void;
+  onEditExisting?: (link: SavedLink) => void;
 }
 
-export function AddBookmarkForm({ onSave, onCancel }: AddBookmarkFormProps) {
+export function AddBookmarkForm({ onSave, onCancel, onEditExisting }: AddBookmarkFormProps) {
   const [url, setUrl] = useState('');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [existingLink, setExistingLink] = useState<SavedLink | null>(null);
+
+  // Check for duplicate URL when URL changes
+  useEffect(() => {
+    if (!url.trim()) {
+      setExistingLink(null);
+      return;
+    }
+
+    // Debounce the check
+    const timer = setTimeout(() => {
+      const found = findSavedLinkByUrl(url);
+      setExistingLink(found);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [url]);
 
   const handleSubmit = () => {
-    if (!url.trim()) return;
+    if (!url.trim() || existingLink) return;
     
     let finalUrl = url.trim();
     if (!finalUrl.startsWith('http://') && !finalUrl.startsWith('https://')) {
@@ -26,6 +44,17 @@ export function AddBookmarkForm({ onSave, onCancel }: AddBookmarkFormProps) {
     }
     
     onSave(finalUrl, title.trim() || undefined, description.trim() || undefined, selectedTag);
+  };
+
+  const handleEditExisting = () => {
+    if (existingLink && onEditExisting) {
+      onEditExisting(existingLink);
+    }
+  };
+
+  const handleSkip = () => {
+    setUrl('');
+    setExistingLink(null);
   };
 
   return (
@@ -43,7 +72,10 @@ export function AddBookmarkForm({ onSave, onCancel }: AddBookmarkFormProps) {
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           placeholder="URL (e.g., youtube.com)"
-          className="pr-10"
+          className={cn(
+            "pr-10",
+            existingLink && "border-amber-500 focus-visible:ring-amber-500"
+          )}
           autoFocus
         />
         {url && (
@@ -56,74 +88,123 @@ export function AddBookmarkForm({ onSave, onCancel }: AddBookmarkFormProps) {
           </button>
         )}
       </div>
-      
-      {/* Title */}
-      <div className="relative mb-2">
-        <Input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Title (optional)"
-          className="pr-10"
-        />
-        {title && (
-          <button
-            type="button"
-            onClick={() => setTitle('')}
-            className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50"
-          >
-            <X className="h-4 w-4 text-muted-foreground" />
-          </button>
-        )}
-      </div>
-      
-      {/* Description */}
-      <div className="relative mb-3">
-        <Textarea
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder="Description (optional)"
-          className="resize-none pr-10"
-          rows={2}
-          maxLength={200}
-        />
-        {description && (
-          <button
-            type="button"
-            onClick={() => setDescription('')}
-            className="absolute right-3 top-3 p-1 rounded-full hover:bg-muted/50"
-          >
-            <X className="h-4 w-4 text-muted-foreground" />
-          </button>
-        )}
-      </div>
-      
-      {/* Tag Selector */}
-      <div className="mb-3">
-        <div className="flex items-center gap-2 mb-2">
-          <Tag className="h-4 w-4 text-muted-foreground" />
-          <span className="text-xs text-muted-foreground">Tag (optional)</span>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {PRESET_TAGS.map(tag => (
-            <button
-              key={tag}
-              onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
-              className={cn(
-                "px-2.5 py-1 rounded-full text-xs font-medium transition-colors",
-                selectedTag === tag
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+
+      {/* Duplicate Warning */}
+      {existingLink && (
+        <div className="mb-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+          <div className="flex items-start gap-2 mb-3">
+            <AlertCircle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-amber-600 dark:text-amber-400">
+                This URL already exists
+              </p>
+              <p className="text-xs text-muted-foreground mt-1 truncate">
+                Saved as: {existingLink.title}
+              </p>
+              {existingLink.tag && (
+                <p className="text-xs text-muted-foreground">
+                  Folder: {existingLink.tag}
+                </p>
               )}
+            </div>
+          </div>
+          <div className="flex gap-2">
+            {onEditExisting && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleEditExisting}
+                className="flex-1 gap-1.5"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                Edit Existing
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSkip}
+              className="flex-1 gap-1.5"
             >
-              {tag}
-            </button>
-          ))}
+              <SkipForward className="h-3.5 w-3.5" />
+              Clear & Skip
+            </Button>
+          </div>
         </div>
-      </div>
-      
-      <Button onClick={handleSubmit} disabled={!url.trim()} className="w-full">
-        Save Bookmark
-      </Button>
+      )}
+
+      {/* Only show rest of form if no duplicate */}
+      {!existingLink && (
+        <>
+          {/* Title */}
+          <div className="relative mb-2">
+            <Input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Title (optional)"
+              className="pr-10"
+            />
+            {title && (
+              <button
+                type="button"
+                onClick={() => setTitle('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50"
+              >
+                <X className="h-4 w-4 text-muted-foreground" />
+              </button>
+            )}
+          </div>
+          
+          {/* Description */}
+          <div className="relative mb-3">
+            <Textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Description (optional)"
+              className="resize-none pr-10"
+              rows={2}
+              maxLength={200}
+            />
+            {description && (
+              <button
+                type="button"
+                onClick={() => setDescription('')}
+                className="absolute right-3 top-3 p-1 rounded-full hover:bg-muted/50"
+              >
+                <X className="h-4 w-4 text-muted-foreground" />
+              </button>
+            )}
+          </div>
+          
+          {/* Tag Selector */}
+          <div className="mb-3">
+            <div className="flex items-center gap-2 mb-2">
+              <Tag className="h-4 w-4 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">Tag (optional)</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {PRESET_TAGS.map(tag => (
+                <button
+                  key={tag}
+                  onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
+                  className={cn(
+                    "px-2.5 py-1 rounded-full text-xs font-medium transition-colors",
+                    selectedTag === tag
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground hover:bg-muted/80"
+                  )}
+                >
+                  {tag}
+                </button>
+              ))}
+            </div>
+          </div>
+          
+          <Button onClick={handleSubmit} disabled={!url.trim()} className="w-full">
+            Save Bookmark
+          </Button>
+        </>
+      )}
     </div>
   );
 }

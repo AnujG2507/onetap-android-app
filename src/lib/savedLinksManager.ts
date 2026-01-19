@@ -16,7 +16,7 @@ export interface SavedLink {
 /**
  * Normalize URL for consistent duplicate detection
  */
-function normalizeUrl(url: string): string {
+export function normalizeUrl(url: string): string {
   try {
     let normalized = url.trim();
     
@@ -36,6 +36,21 @@ function normalizeUrl(url: string): string {
     return result;
   } catch {
     return url.trim().toLowerCase();
+  }
+}
+
+/**
+ * Find an existing saved link by URL
+ */
+export function findSavedLinkByUrl(url: string): SavedLink | null {
+  if (!url.trim()) return null;
+  
+  try {
+    const links = getSavedLinks();
+    const normalizedUrl = normalizeUrl(url);
+    return links.find(link => normalizeUrl(link.url) === normalizedUrl) || null;
+  } catch {
+    return null;
   }
 }
 

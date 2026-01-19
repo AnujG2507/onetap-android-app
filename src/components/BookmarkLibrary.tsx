@@ -527,6 +527,11 @@ export function BookmarkLibrary({ onCreateShortcut }: BookmarkLibraryProps) {
           <AddBookmarkForm
             onSave={handleAddBookmark}
             onCancel={() => setShowAddForm(false)}
+            onEditExisting={(link) => {
+              setShowAddForm(false);
+              setSelectedLink(link);
+              setShowActionSheet(true);
+            }}
           />
         ) : (
           <button
