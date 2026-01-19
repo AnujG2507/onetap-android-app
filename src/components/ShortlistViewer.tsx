@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { X, ExternalLink, ChevronLeft, ChevronRight, Loader2, Smartphone } from 'lucide-react';
+import { X, ExternalLink, ChevronLeft, ChevronRight, Globe } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { triggerHaptic } from '@/lib/haptics';
-import { isDeepLink, getAppNameFromUrl } from '@/lib/urlUtils';
+import { openInAppBrowser } from '@/lib/inAppBrowser';
 import type { SavedLink } from '@/lib/savedLinksManager';
 
 interface ShortlistViewerProps {
@@ -13,47 +13,44 @@ interface ShortlistViewerProps {
   onOpenExternal: (url: string) => void;
 }
 
+// Extract favicon URL from a website URL
+function extractFaviconUrl(url: string): string {
+  try {
+    const urlObj = new URL(url);
+    return `https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=128`;
+  } catch {
+    return '';
+  }
+}
+
 export function ShortlistViewer({
   isOpen,
   onClose,
   links,
   startIndex = 0,
-  onOpenExternal,
 }: ShortlistViewerProps) {
   const [currentIndex, setCurrentIndex] = useState(startIndex);
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState(false);
 
   // Reset index when viewer opens
   useEffect(() => {
     if (isOpen) {
       setCurrentIndex(startIndex);
-      setIsLoading(true);
-      setLoadError(false);
     }
   }, [isOpen, startIndex]);
 
   // Current link
   const currentLink = links[currentIndex];
   const totalLinks = links.length;
-  
-  // Check if current link is a deep link (cannot be loaded in iframe)
-  const isCurrentDeepLink = currentLink ? isDeepLink(currentLink.url) : false;
-  const appName = currentLink ? getAppNameFromUrl(currentLink.url) : null;
 
   const handlePrevious = useCallback(() => {
     if (totalLinks <= 1) return;
     triggerHaptic('light');
-    setIsLoading(true);
-    setLoadError(false);
     setCurrentIndex((prev) => (prev === 0 ? totalLinks - 1 : prev - 1));
   }, [totalLinks]);
 
   const handleNext = useCallback(() => {
     if (totalLinks <= 1) return;
     triggerHaptic('light');
-    setIsLoading(true);
-    setLoadError(false);
     setCurrentIndex((prev) => (prev === totalLinks - 1 ? 0 : prev + 1));
   }, [totalLinks]);
 
@@ -62,19 +59,10 @@ export function ShortlistViewer({
     onClose();
   };
 
-  const handleOpenExternal = () => {
+  const handleOpenLink = async () => {
     if (!currentLink) return;
     triggerHaptic('medium');
-    onOpenExternal(currentLink.url);
-  };
-
-  const handleIframeLoad = () => {
-    setIsLoading(false);
-  };
-
-  const handleIframeError = () => {
-    setIsLoading(false);
-    setLoadError(true);
+    await openInAppBrowser(currentLink.url);
   };
 
   // Keyboard navigation
@@ -97,6 +85,8 @@ export function ShortlistViewer({
 
   if (!isOpen || !currentLink) return null;
 
+  const faviconUrl = extractFaviconUrl(currentLink.url);
+
   return (
     <div className="fixed inset-0 z-50 bg-background flex flex-col">
       {/* Header - Minimal controls */}
@@ -118,90 +108,48 @@ export function ShortlistViewer({
           </p>
         </div>
 
-        {/* Open external button */}
-        <button
-          onClick={handleOpenExternal}
-          className="p-2 -mr-2 rounded-full hover:bg-muted transition-colors"
-          aria-label="Open in browser"
-        >
-          <ExternalLink className="h-5 w-5" />
-        </button>
+        {/* Placeholder for symmetry */}
+        <div className="w-9" />
       </header>
 
-      {/* WebView Container */}
-      <div className="flex-1 relative overflow-hidden">
-        {/* Loading indicator */}
-        {isLoading && !isCurrentDeepLink && (
-          <div className="absolute inset-0 flex items-center justify-center bg-background z-10">
-            <div className="flex flex-col items-center gap-3">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p className="text-sm text-muted-foreground">Loading...</p>
+      {/* Link Preview Card */}
+      <div className="flex-1 flex items-center justify-center p-6">
+        <div className="bg-card border border-border rounded-2xl p-8 max-w-sm w-full text-center shadow-lg">
+          {/* Favicon */}
+          <div className="flex justify-center mb-6">
+            <div className="h-20 w-20 rounded-2xl bg-muted flex items-center justify-center overflow-hidden">
+              {faviconUrl ? (
+                <img
+                  src={faviconUrl}
+                  alt=""
+                  className="h-12 w-12 object-contain"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                    e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                  }}
+                />
+              ) : null}
+              <Globe className={cn("h-10 w-10 text-muted-foreground", faviconUrl && "hidden")} />
             </div>
           </div>
-        )}
 
-        {/* Deep link state - cannot load in iframe */}
-        {isCurrentDeepLink && (
-          <div className="absolute inset-0 flex items-center justify-center bg-background z-10">
-            <div className="flex flex-col items-center gap-4 p-6 text-center max-w-xs">
-              <div className="h-16 w-16 rounded-2xl bg-muted flex items-center justify-center">
-                <Smartphone className="h-8 w-8 text-muted-foreground" />
-              </div>
-              <div>
-                <p className="font-medium">
-                  {appName ? `${appName} Link` : 'App Link'}
-                </p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  This link opens in {appName || 'another app'} and cannot be previewed here
-                </p>
-              </div>
-              <button
-                onClick={handleOpenExternal}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground"
-              >
-                <ExternalLink className="h-4 w-4" />
-                Open in {appName || 'App'}
-              </button>
-            </div>
-          </div>
-        )}
+          {/* Title */}
+          <h3 className="font-semibold text-lg mb-2 line-clamp-2">{currentLink.title}</h3>
+          
+          {/* URL */}
+          <p className="text-sm text-muted-foreground truncate mb-6">
+            {currentLink.url}
+          </p>
 
-        {/* Error state */}
-        {loadError && !isCurrentDeepLink && (
-          <div className="absolute inset-0 flex items-center justify-center bg-background z-10">
-            <div className="flex flex-col items-center gap-4 p-6 text-center">
-              <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center">
-                <X className="h-8 w-8 text-muted-foreground" />
-              </div>
-              <div>
-                <p className="font-medium">Unable to load this page</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  This site may not allow embedding
-                </p>
-              </div>
-              <button
-                onClick={handleOpenExternal}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground"
-              >
-                <ExternalLink className="h-4 w-4" />
-                Open in browser
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* iframe - Only render for non-deep links */}
-        {!isCurrentDeepLink && (
-          <iframe
-            key={currentLink.url}
-            src={currentLink.url}
-            className="w-full h-full border-0"
-            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-            onLoad={handleIframeLoad}
-            onError={handleIframeError}
-            title={currentLink.title}
-          />
-        )}
+          {/* Open Button */}
+          <button
+            onClick={handleOpenLink}
+            className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors"
+          >
+            <ExternalLink className="h-5 w-5" />
+            Open Link
+          </button>
+        </div>
       </div>
 
       {/* Navigation Footer - Only if multiple links */}

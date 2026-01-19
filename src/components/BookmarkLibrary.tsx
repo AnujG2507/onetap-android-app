@@ -40,6 +40,7 @@ import { AddBookmarkForm } from './AddBookmarkForm';
 import { BulkMoveDialog } from './BulkMoveDialog';
 import { useToast } from '@/hooks/use-toast';
 import { triggerHaptic } from '@/lib/haptics';
+import { openInAppBrowser } from '@/lib/inAppBrowser';
 import {
   DndContext,
   closestCenter,
@@ -279,8 +280,8 @@ export function BookmarkLibrary({ onCreateShortcut }: BookmarkLibraryProps) {
     setShowActionSheet(true);
   };
 
-  const handleOpenExternal = (url: string) => {
-    window.open(url, '_blank');
+  const handleOpenExternal = async (url: string) => {
+    await openInAppBrowser(url);
   };
 
   const handleToggleShortlist = (id: string) => {
