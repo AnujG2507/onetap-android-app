@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { Search, Plus, X, Bookmark, ListChecks, Trash2, Home, Eye } from 'lucide-react';
+import { Search, Plus, X, Bookmark, ListChecks, Trash2, Home, Eye, LayoutGrid, List } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -19,6 +19,7 @@ import {
 } from '@/lib/savedLinksManager';
 import { BookmarkItem } from './BookmarkItem';
 import { BookmarkDragOverlay } from './BookmarkDragOverlay';
+import { BookmarkFolderSection } from './BookmarkFolderSection';
 import { BookmarkActionSheet } from './BookmarkActionSheet';
 import { ShortlistViewer } from './ShortlistViewer';
 import { AddBookmarkForm } from './AddBookmarkForm';
@@ -43,6 +44,8 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 
+type ViewMode = 'list' | 'folders';
+
 interface BookmarkLibraryProps {
   onCreateShortcut: (url: string) => void;
 }
@@ -52,6 +55,7 @@ export function BookmarkLibrary({ onCreateShortcut }: BookmarkLibraryProps) {
   const [links, setLinks] = useState<SavedLink[]>([]);
   const [activeTagFilter, setActiveTagFilter] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
   
   // Action sheet state
   const [selectedLink, setSelectedLink] = useState<SavedLink | null>(null);
@@ -105,6 +109,28 @@ export function BookmarkLibrary({ onCreateShortcut }: BookmarkLibraryProps) {
     
     return result;
   }, [links, searchQuery, activeTagFilter]);
+
+  // Group links by tag for folder view
+  const groupedLinks = useMemo(() => {
+    const groups: Record<string, SavedLink[]> = {};
+    const uncategorized: SavedLink[] = [];
+    
+    filteredLinks.forEach(link => {
+      if (link.tag) {
+        if (!groups[link.tag]) {
+          groups[link.tag] = [];
+        }
+        groups[link.tag].push(link);
+      } else {
+        uncategorized.push(link);
+      }
+    });
+    
+    // Sort tags alphabetically
+    const sortedTags = Object.keys(groups).sort();
+    
+    return { groups, sortedTags, uncategorized };
+  }, [filteredLinks]);
 
   // Check if filtering/searching is active (disable drag in this case)
   const isDragDisabled = Boolean(searchQuery.trim() || activeTagFilter);
@@ -301,6 +327,36 @@ export function BookmarkLibrary({ onCreateShortcut }: BookmarkLibraryProps) {
         <h1 className="text-2xl font-semibold text-foreground leading-tight tracking-tight">
           Your saved links
         </h1>
+        
+        {/* View Mode Toggle */}
+        {links.length > 0 && (
+          <div className="flex items-center gap-1 mt-3 p-1 bg-muted rounded-lg w-fit">
+            <button
+              onClick={() => setViewMode('list')}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors",
+                viewMode === 'list'
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <List className="h-3.5 w-3.5" />
+              List
+            </button>
+            <button
+              onClick={() => setViewMode('folders')}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors",
+                viewMode === 'folders'
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+              Folders
+            </button>
+          </div>
+        )}
       </header>
 
       {/* Search */}
@@ -419,22 +475,50 @@ export function BookmarkLibrary({ onCreateShortcut }: BookmarkLibraryProps) {
             onDragEnd={handleDragEnd}
             onDragCancel={handleDragCancel}
           >
-            <SortableContext
-              items={filteredLinks.map(l => l.id)}
-              strategy={verticalListSortingStrategy}
-            >
-              <div className="space-y-2 pb-6">
-                {filteredLinks.map((link) => (
-                  <BookmarkItem
-                    key={link.id}
-                    link={link}
-                    onTap={() => handleBookmarkTap(link)}
+            {viewMode === 'list' ? (
+              /* List View */
+              <SortableContext
+                items={filteredLinks.map(l => l.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="space-y-2 pb-6">
+                  {filteredLinks.map((link) => (
+                    <BookmarkItem
+                      key={link.id}
+                      link={link}
+                      onTap={() => handleBookmarkTap(link)}
+                      onToggleShortlist={handleToggleShortlist}
+                      isDragDisabled={isDragDisabled}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            ) : (
+              /* Folder View */
+              <div className="pb-6">
+                {groupedLinks.sortedTags.map((tag) => (
+                  <BookmarkFolderSection
+                    key={tag}
+                    title={tag}
+                    links={groupedLinks.groups[tag]}
+                    onBookmarkTap={handleBookmarkTap}
                     onToggleShortlist={handleToggleShortlist}
                     isDragDisabled={isDragDisabled}
                   />
                 ))}
+                
+                {groupedLinks.uncategorized.length > 0 && (
+                  <BookmarkFolderSection
+                    title="Uncategorized"
+                    links={groupedLinks.uncategorized}
+                    onBookmarkTap={handleBookmarkTap}
+                    onToggleShortlist={handleToggleShortlist}
+                    isDragDisabled={isDragDisabled}
+                    defaultOpen={groupedLinks.sortedTags.length === 0}
+                  />
+                )}
               </div>
-            </SortableContext>
+            )}
             
             <DragOverlay dropAnimation={{
               duration: 200,
