@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { Search, Plus, X, Bookmark, ListChecks, Trash2, Home, Eye, LayoutGrid, List } from 'lucide-react';
+import { Search, Plus, X, Bookmark, ListChecks, Trash2, Home, Eye, LayoutGrid, List, FolderInput } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -37,6 +37,7 @@ import { CreateFolderDialog } from './CreateFolderDialog';
 import { BookmarkActionSheet } from './BookmarkActionSheet';
 import { ShortlistViewer } from './ShortlistViewer';
 import { AddBookmarkForm } from './AddBookmarkForm';
+import { BulkMoveDialog } from './BulkMoveDialog';
 import { useToast } from '@/hooks/use-toast';
 import { triggerHaptic } from '@/lib/haptics';
 import {
@@ -89,6 +90,9 @@ export function BookmarkLibrary({ onCreateShortcut }: BookmarkLibraryProps) {
   
   // Bulk delete confirmation
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+  
+  // Bulk move dialog
+  const [showBulkMoveDialog, setShowBulkMoveDialog] = useState(false);
   
   const { toast } = useToast();
 
@@ -401,6 +405,21 @@ export function BookmarkLibrary({ onCreateShortcut }: BookmarkLibraryProps) {
     triggerHaptic('success');
   };
 
+  const handleBulkMove = (folderName: string | null) => {
+    const count = shortlistedLinks.length;
+    shortlistedLinks.forEach(link => {
+      moveToFolder(link.id, folderName);
+    });
+    refreshLinks();
+    clearAllShortlist();
+    toast({
+      title: `${count} bookmark${count > 1 ? 's' : ''} moved`,
+      description: `Moved to ${folderName || 'Uncategorized'}`,
+      duration: 2000,
+    });
+    triggerHaptic('success');
+  };
+
   return (
     <div className="flex flex-col h-full pb-14">
       {/* Header */}
@@ -687,6 +706,15 @@ export function BookmarkLibrary({ onCreateShortcut }: BookmarkLibraryProps) {
         </button>
         
         <button
+          onClick={() => setShowBulkMoveDialog(true)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-muted transition-colors text-sm font-medium"
+          aria-label="Move to folder"
+        >
+          <FolderInput className="h-4 w-4" />
+          <span className="hidden sm:inline">Move</span>
+        </button>
+        
+        <button
           onClick={handleBulkCreateShortcuts}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-muted transition-colors text-sm font-medium"
           aria-label="Create shortcuts"
@@ -735,6 +763,14 @@ export function BookmarkLibrary({ onCreateShortcut }: BookmarkLibraryProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      
+      {/* Bulk Move Dialog */}
+      <BulkMoveDialog
+        open={showBulkMoveDialog}
+        onOpenChange={setShowBulkMoveDialog}
+        selectedCount={shortlistedLinks.length}
+        onMove={handleBulkMove}
+      />
     </div>
   );
 }
