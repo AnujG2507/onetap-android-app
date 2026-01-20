@@ -300,7 +300,10 @@ export function AccessFlow({ onStepChange, onContentSourceTypeChange }: AccessFl
       {step === 'url' && (
         <UrlInput
           onSubmit={handleUrlSubmit}
-          onBack={() => setStep('source')}
+          onBack={() => {
+            setStep('source');
+            setContentSource(null);
+          }}
           initialUrl={prefillUrl}
         />
       )}
@@ -312,8 +315,10 @@ export function AccessFlow({ onStepChange, onContentSourceTypeChange }: AccessFl
           onBack={() => {
             if (contentSource.type === 'url') {
               setStep('url');
+              // Keep contentSource for URL to preserve state when going back to url input
             } else {
               setStep('source');
+              setContentSource(null);
             }
           }}
         />
@@ -327,6 +332,7 @@ export function AccessFlow({ onStepChange, onContentSourceTypeChange }: AccessFl
           onBack={() => {
             setStep('source');
             setContactData(null);
+            setContentSource(null);
           }}
         />
       )}
