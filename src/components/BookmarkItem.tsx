@@ -48,6 +48,7 @@ export function BookmarkItem({
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
   const isLongPress = useRef(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [isUrlExpanded, setIsUrlExpanded] = useState(false);
   
   const {
     attributes,
@@ -169,7 +170,18 @@ export function BookmarkItem({
         {/* Content */}
         <div className="flex-1 min-w-0">
           <p className="font-medium text-foreground truncate">{link.title}</p>
-          <p className="text-xs text-muted-foreground mt-0.5 break-all line-clamp-2">{link.url}</p>
+          <p 
+            className={cn(
+              "text-xs text-muted-foreground mt-0.5 break-all cursor-pointer hover:text-muted-foreground/80",
+              !isUrlExpanded && "line-clamp-2"
+            )}
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsUrlExpanded(!isUrlExpanded);
+            }}
+          >
+            {link.url}
+          </p>
           {link.description && (
             <p className="text-xs text-muted-foreground/80 mt-1.5 line-clamp-2">
               {link.description}
