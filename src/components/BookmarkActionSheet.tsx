@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   ExternalLink, 
   Plus, 
@@ -31,10 +31,10 @@ interface BookmarkActionSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onOpenExternal: (url: string) => void;
-  
   onCreateShortcut: (url: string) => void;
   onEdit: (id: string, updates: { title?: string; description?: string; tag?: string | null; url?: string }) => void;
   onDelete: (id: string) => void;
+  startInEditMode?: boolean;
 }
 
 export function BookmarkActionSheet({
@@ -42,10 +42,10 @@ export function BookmarkActionSheet({
   open,
   onOpenChange,
   onOpenExternal,
-  
   onCreateShortcut,
   onEdit,
   onDelete,
+  startInEditMode = false,
 }: BookmarkActionSheetProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -89,6 +89,18 @@ export function BookmarkActionSheet({
   const handleUrlBlur = () => {
     setUrlError(validateUrl(editUrl));
   };
+
+  // Start in edit mode when requested
+  useEffect(() => {
+    if (open && startInEditMode && link) {
+      setEditTitle(link.title);
+      setEditDescription(link.description || '');
+      setEditTag(link.tag);
+      setEditUrl(link.url);
+      setUrlError('');
+      setIsEditing(true);
+    }
+  }, [open, startInEditMode, link]);
 
   const handleOpenChange = (isOpen: boolean) => {
     if (!isOpen) {
