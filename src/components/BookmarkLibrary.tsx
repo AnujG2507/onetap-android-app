@@ -89,6 +89,7 @@ export function BookmarkLibrary({ onCreateShortcut, onSelectionModeChange, clear
   // Action sheet state
   const [selectedLink, setSelectedLink] = useState<SavedLink | null>(null);
   const [showActionSheet, setShowActionSheet] = useState(false);
+  const [startInEditMode, setStartInEditMode] = useState(false);
   
   
   // Drag state for overlay
@@ -761,6 +762,11 @@ export function BookmarkLibrary({ onCreateShortcut, onSelectionModeChange, clear
                       onTap={() => handleBookmarkTap(link)}
                       onToggleShortlist={handleToggleShortlist}
                       onCreateShortcut={onCreateShortcut}
+                      onOpenMenu={() => {
+                        setSelectedLink(link);
+                        setStartInEditMode(false);
+                        setShowActionSheet(true);
+                      }}
                       isDragDisabled={isDragDisabled}
                       isSelectionMode={hasShortlist}
                     />
@@ -829,12 +835,15 @@ export function BookmarkLibrary({ onCreateShortcut, onSelectionModeChange, clear
       <BookmarkActionSheet
         link={selectedLink}
         open={showActionSheet}
-        onOpenChange={setShowActionSheet}
+        onOpenChange={(open) => {
+          setShowActionSheet(open);
+          if (!open) setStartInEditMode(false);
+        }}
         onOpenExternal={handleOpenExternal}
-        
         onCreateShortcut={onCreateShortcut}
         onEdit={handleEdit}
         onDelete={handleDelete}
+        startInEditMode={startInEditMode}
       />
 
       {/* Floating Action Bar */}
@@ -869,6 +878,7 @@ export function BookmarkLibrary({ onCreateShortcut, onSelectionModeChange, clear
             <button
               onClick={() => {
                 setSelectedLink(shortlistedLinks[0]);
+                setStartInEditMode(true);
                 setShowActionSheet(true);
               }}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-muted transition-colors text-sm font-medium"
