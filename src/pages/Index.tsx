@@ -142,8 +142,12 @@ const Index = () => {
   }, []);
 
   // Handle Android back button
+  // Both access tab (at source step) and bookmarks tab (when not selecting) are "home" screens
+  const isOnHomeScreen = (step === 'source' && activeTab === 'access') || 
+                          (activeTab === 'bookmarks' && !isBookmarkSelectionMode);
+  
   useBackButton({
-    isHomeScreen: step === 'source' && activeTab === 'access' && !isBookmarkSelectionMode,
+    isHomeScreen: isOnHomeScreen,
     onBack: () => {
       console.log('[Index] Back button triggered, current step:', step, 'tab:', activeTab, 'selectionMode:', isBookmarkSelectionMode);
       
@@ -153,11 +157,8 @@ const Index = () => {
         return;
       }
       
-      // If on bookmarks tab, go back to access tab
-      if (activeTab === 'bookmarks') {
-        setActiveTab('access');
-        return;
-      }
+      // Note: If on bookmarks tab with nothing selected, isHomeScreen is true so this won't be called
+      // The app will exit instead
       
       if (step === 'url') {
         setStep('source');
