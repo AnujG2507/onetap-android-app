@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
 import ShortcutPlugin from '@/plugins/ShortcutPlugin';
 import { useNavigate } from 'react-router-dom';
@@ -21,7 +21,7 @@ import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useToast } from '@/hooks/use-toast';
 import { pickFile, FileTypeFilter } from '@/lib/contentResolver';
 import { createHomeScreenShortcut } from '@/lib/shortcutManager';
-import { getShortlistedLinks } from '@/lib/savedLinksManager';
+import { getShortlistedLinks, clearAllShortlist } from '@/lib/savedLinksManager';
 import type { ContentSource, ShortcutIcon, MessageApp } from '@/types/shortcut';
 
 type Step = 'source' | 'url' | 'customize' | 'contact' | 'success';
@@ -40,6 +40,7 @@ const Index = () => {
   const [contactData, setContactData] = useState<ContactData | null>(null);
   const [contactMode, setContactMode] = useState<ContactMode>('dial');
   const lastSharedIdRef = useRef<string | null>(null);
+  const [isBookmarkSelectionMode, setIsBookmarkSelectionMode] = useState(false);
   const navigate = useNavigate();
   const { createShortcut, createContactShortcut } = useShortcuts();
   const { toast } = useToast();
@@ -134,11 +135,23 @@ const Index = () => {
     }
   }, [sharedContent, sharedAction, isLoadingShared, clearSharedContent, navigate]);
 
+  // Handle clearing bookmark selection
+  const handleClearBookmarkSelection = useCallback(() => {
+    clearAllShortlist();
+    setIsBookmarkSelectionMode(false);
+  }, []);
+
   // Handle Android back button
   useBackButton({
-    isHomeScreen: step === 'source' && activeTab === 'access',
+    isHomeScreen: step === 'source' && activeTab === 'access' && !isBookmarkSelectionMode,
     onBack: () => {
-      console.log('[Index] Back button triggered, current step:', step, 'tab:', activeTab);
+      console.log('[Index] Back button triggered, current step:', step, 'tab:', activeTab, 'selectionMode:', isBookmarkSelectionMode);
+      
+      // If in bookmark selection mode, clear selection instead of navigating
+      if (activeTab === 'bookmarks' && isBookmarkSelectionMode) {
+        handleClearBookmarkSelection();
+        return;
+      }
       
       // If on bookmarks tab, go back to access tab
       if (activeTab === 'bookmarks') {
@@ -391,7 +404,10 @@ const Index = () => {
 
       {/* Bookmarks Tab Content */}
       {activeTab === 'bookmarks' && (
-        <BookmarkLibrary onCreateShortcut={handleCreateShortcutFromBookmark} />
+        <BookmarkLibrary 
+          onCreateShortcut={handleCreateShortcutFromBookmark}
+          onSelectionModeChange={setIsBookmarkSelectionMode}
+        />
       )}
 
       {/* Bottom Navigation */}

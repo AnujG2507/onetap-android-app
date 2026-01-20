@@ -66,9 +66,10 @@ type ViewMode = 'list' | 'folders';
 
 interface BookmarkLibraryProps {
   onCreateShortcut: (url: string) => void;
+  onSelectionModeChange?: (isSelectionMode: boolean) => void;
 }
 
-export function BookmarkLibrary({ onCreateShortcut }: BookmarkLibraryProps) {
+export function BookmarkLibrary({ onCreateShortcut, onSelectionModeChange }: BookmarkLibraryProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [links, setLinks] = useState<SavedLink[]>([]);
   const [activeTagFilter, setActiveTagFilter] = useState<string | null>(null);
@@ -112,6 +113,11 @@ export function BookmarkLibrary({ onCreateShortcut }: BookmarkLibraryProps) {
   
   const shortlistedLinks = useMemo(() => getShortlistedLinks(), [links]);
   const hasShortlist = shortlistedLinks.length > 0;
+
+  // Notify parent of selection mode changes
+  useEffect(() => {
+    onSelectionModeChange?.(hasShortlist);
+  }, [hasShortlist, onSelectionModeChange]);
 
   // Filtered links
   const filteredLinks = useMemo(() => {
@@ -553,18 +559,30 @@ export function BookmarkLibrary({ onCreateShortcut }: BookmarkLibraryProps) {
           <>
             {/* Select All Row - only visible when in selection mode */}
             {hasShortlist && (
-              <div className="flex items-center gap-3 py-2 mb-2 border-b border-border/50">
-                <Checkbox
-                  checked={allFilteredShortlisted}
-                  className="h-5 w-5"
-                  onClick={handleToggleAllShortlist}
-                  data-state={someFilteredShortlisted ? "indeterminate" : allFilteredShortlisted ? "checked" : "unchecked"}
-                />
-                <span className="text-sm text-muted-foreground">
-                  {allFilteredShortlisted 
-                    ? `Deselect all (${filteredLinks.length})` 
-                    : `Select all (${filteredLinks.length})`}
-                </span>
+              <div className="flex items-center justify-between py-2 mb-2 border-b border-border/50">
+                <div className="flex items-center gap-3">
+                  <Checkbox
+                    checked={allFilteredShortlisted}
+                    className="h-5 w-5"
+                    onClick={handleToggleAllShortlist}
+                    data-state={someFilteredShortlisted ? "indeterminate" : allFilteredShortlisted ? "checked" : "unchecked"}
+                  />
+                  <span className="text-sm text-muted-foreground">
+                    {allFilteredShortlisted 
+                      ? `Deselect all (${filteredLinks.length})` 
+                      : `Select all (${filteredLinks.length})`}
+                  </span>
+                </div>
+                <button
+                  onClick={() => {
+                    handleClearShortlist();
+                    triggerHaptic('light');
+                  }}
+                  className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs text-muted-foreground hover:bg-muted transition-colors"
+                >
+                  <X className="h-3.5 w-3.5" />
+                  Clear
+                </button>
               </div>
             )}
           <DndContext
