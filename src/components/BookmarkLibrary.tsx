@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { Search, Plus, X, Bookmark, ListChecks, Trash2, Home, LayoutGrid, List, FolderInput } from 'lucide-react';
+import { Search, Plus, X, Bookmark, Trash2, Home, LayoutGrid, List, FolderInput } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -37,6 +37,7 @@ import { CreateFolderDialog } from './CreateFolderDialog';
 import { BookmarkActionSheet } from './BookmarkActionSheet';
 import { AddBookmarkForm } from './AddBookmarkForm';
 import { BulkMoveDialog } from './BulkMoveDialog';
+import { SettingsSheet } from './SettingsSheet';
 import { useToast } from '@/hooks/use-toast';
 import { triggerHaptic } from '@/lib/haptics';
 import { openInAppBrowser } from '@/lib/inAppBrowser';
@@ -439,7 +440,7 @@ export function BookmarkLibrary({ onCreateShortcut, onSelectionModeChange, clear
             </div>
             <span className="text-sm font-medium text-muted-foreground tracking-wide">Bookmarks</span>
           </div>
-          
+          <SettingsSheet />
         </div>
         <h1 className="text-2xl font-semibold text-foreground leading-tight tracking-tight">
           Your saved links
