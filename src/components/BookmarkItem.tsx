@@ -169,7 +169,7 @@ export function BookmarkItem({
         {/* Content */}
         <div className="flex-1 min-w-0">
           <p className="font-medium text-foreground truncate">{link.title}</p>
-          <p className="text-xs text-muted-foreground truncate mt-0.5">{link.url}</p>
+          <p className="text-xs text-muted-foreground mt-0.5 break-all line-clamp-2">{link.url}</p>
           {link.description && (
             <p className="text-xs text-muted-foreground/80 mt-1.5 line-clamp-2">
               {link.description}
