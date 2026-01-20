@@ -1,7 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Search, Plus, X, Bookmark, Trash2, Home, LayoutGrid, List, FolderInput } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   AlertDialog,
@@ -54,7 +53,6 @@ import {
   DragOverlay,
   DragOverEvent,
   pointerWithin,
-  rectIntersection,
 } from '@dnd-kit/core';
 import {
   arrayMove,
