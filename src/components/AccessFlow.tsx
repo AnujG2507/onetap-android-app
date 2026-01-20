@@ -249,6 +249,37 @@ export function AccessFlow({ onStepChange, onContentSourceTypeChange }: AccessFl
     setContentSource(null);
     setContactData(null);
     setLastCreatedName('');
+    setPrefillUrl(undefined);
+  };
+
+  // Consolidated back navigation handler
+  const handleGoBack = () => {
+    switch (step) {
+      case 'url':
+        setStep('source');
+        setContentSource(null);
+        setPrefillUrl(undefined);
+        break;
+      case 'customize':
+        if (contentSource?.type === 'url') {
+          setStep('url');
+          // Keep contentSource to preserve URL when going back to input
+        } else {
+          setStep('source');
+          setContentSource(null);
+        }
+        break;
+      case 'contact':
+        setStep('source');
+        setContactData(null);
+        setContentSource(null);
+        break;
+      case 'success':
+        handleReset();
+        break;
+      default:
+        break;
+    }
   };
 
 
@@ -300,10 +331,7 @@ export function AccessFlow({ onStepChange, onContentSourceTypeChange }: AccessFl
       {step === 'url' && (
         <UrlInput
           onSubmit={handleUrlSubmit}
-          onBack={() => {
-            setStep('source');
-            setContentSource(null);
-          }}
+          onBack={handleGoBack}
           initialUrl={prefillUrl}
         />
       )}
@@ -312,15 +340,7 @@ export function AccessFlow({ onStepChange, onContentSourceTypeChange }: AccessFl
         <ShortcutCustomizer
           source={contentSource}
           onConfirm={handleConfirm}
-          onBack={() => {
-            if (contentSource.type === 'url') {
-              setStep('url');
-              // Keep contentSource for URL to preserve state when going back to url input
-            } else {
-              setStep('source');
-              setContentSource(null);
-            }
-          }}
+          onBack={handleGoBack}
         />
       )}
 
@@ -329,11 +349,7 @@ export function AccessFlow({ onStepChange, onContentSourceTypeChange }: AccessFl
           mode={contactMode}
           contact={contactData || undefined}
           onConfirm={handleContactConfirm}
-          onBack={() => {
-            setStep('source');
-            setContactData(null);
-            setContentSource(null);
-          }}
+          onBack={handleGoBack}
         />
       )}
 
