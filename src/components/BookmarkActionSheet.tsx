@@ -5,7 +5,7 @@ import {
   Edit2, 
   Trash2, 
   X, 
-  Eye,
+  
   Tag
 } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -31,7 +31,7 @@ interface BookmarkActionSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onOpenExternal: (url: string) => void;
-  onViewInApp: (link: SavedLink) => void;
+  
   onCreateShortcut: (url: string) => void;
   onEdit: (id: string, updates: { title?: string; description?: string; tag?: string | null }) => void;
   onDelete: (id: string) => void;
@@ -42,7 +42,7 @@ export function BookmarkActionSheet({
   open,
   onOpenChange,
   onOpenExternal,
-  onViewInApp,
+  
   onCreateShortcut,
   onEdit,
   onDelete,
@@ -193,20 +193,6 @@ export function BookmarkActionSheet({
                 <ExternalLink className="h-5 w-5 text-muted-foreground" />
                 <span className="font-medium">Open in Browser</span>
               </button>
-
-              {/* View in App (only if shortlisted) */}
-              {link.isShortlisted && (
-                <button
-                  onClick={() => handleAction(() => {
-                    onViewInApp(link);
-                    onOpenChange(false);
-                  })}
-                  className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 transition-colors"
-                >
-                  <Eye className="h-5 w-5 text-muted-foreground" />
-                  <span className="font-medium">View in App</span>
-                </button>
-              )}
 
               {/* Create Shortcut */}
               <button

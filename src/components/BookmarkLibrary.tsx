@@ -672,7 +672,7 @@ export function BookmarkLibrary({ onCreateShortcut }: BookmarkLibraryProps) {
         open={showActionSheet}
         onOpenChange={setShowActionSheet}
         onOpenExternal={handleOpenExternal}
-        onViewInApp={handleViewInApp}
+        
         onCreateShortcut={onCreateShortcut}
         onEdit={handleEdit}
         onDelete={handleDelete}
