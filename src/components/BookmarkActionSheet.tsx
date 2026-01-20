@@ -55,6 +55,40 @@ export function BookmarkActionSheet({
   const [editDescription, setEditDescription] = useState('');
   const [editTag, setEditTag] = useState<string | null>(null);
   const [editUrl, setEditUrl] = useState('');
+  const [urlError, setUrlError] = useState('');
+
+  // URL validation
+  const validateUrl = (url: string): string => {
+    const trimmed = url.trim();
+    if (!trimmed) return 'URL is required';
+    
+    // Add protocol if missing for validation
+    let testUrl = trimmed;
+    if (!/^https?:\/\//i.test(testUrl)) {
+      testUrl = 'https://' + testUrl;
+    }
+    
+    try {
+      const parsed = new URL(testUrl);
+      if (!parsed.hostname.includes('.')) {
+        return 'Please enter a valid URL';
+      }
+      return '';
+    } catch {
+      return 'Please enter a valid URL';
+    }
+  };
+
+  const handleUrlChange = (value: string) => {
+    setEditUrl(value);
+    if (urlError) {
+      setUrlError(validateUrl(value));
+    }
+  };
+
+  const handleUrlBlur = () => {
+    setUrlError(validateUrl(editUrl));
+  };
 
   const handleOpenChange = (isOpen: boolean) => {
     if (!isOpen) {
@@ -69,20 +103,25 @@ export function BookmarkActionSheet({
     setEditDescription(link.description || '');
     setEditTag(link.tag);
     setEditUrl(link.url);
+    setUrlError('');
     setIsEditing(true);
     triggerHaptic('light');
   };
 
   const handleSaveEdit = () => {
     if (!link) return;
-    const trimmedUrl = editUrl.trim();
-    if (!trimmedUrl) return; // URL is required
+    
+    const error = validateUrl(editUrl);
+    if (error) {
+      setUrlError(error);
+      return;
+    }
     
     onEdit(link.id, {
       title: editTitle.trim() || link.title,
       description: editDescription.trim(),
       tag: editTag,
-      url: trimmedUrl,
+      url: editUrl.trim(),
     });
     setIsEditing(false);
     onOpenChange(false);
@@ -121,22 +160,31 @@ export function BookmarkActionSheet({
             /* Edit Form */
             <div className="space-y-4 pb-6">
               {/* URL Field */}
-              <div className="relative">
-                <Input
-                  value={editUrl}
-                  onChange={(e) => setEditUrl(e.target.value)}
-                  placeholder="URL"
-                  className="pr-10"
-                  type="url"
-                />
-                {editUrl && (
-                  <button
-                    type="button"
-                    onClick={() => setEditUrl('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50"
-                  >
-                    <X className="h-4 w-4 text-muted-foreground" />
-                  </button>
+              <div>
+                <div className="relative">
+                  <Input
+                    value={editUrl}
+                    onChange={(e) => handleUrlChange(e.target.value)}
+                    onBlur={handleUrlBlur}
+                    placeholder="URL"
+                    className={cn("pr-10", urlError && "border-destructive focus-visible:ring-destructive")}
+                    type="url"
+                  />
+                  {editUrl && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditUrl('');
+                        setUrlError('URL is required');
+                      }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50"
+                    >
+                      <X className="h-4 w-4 text-muted-foreground" />
+                    </button>
+                  )}
+                </div>
+                {urlError && (
+                  <p className="text-xs text-destructive mt-1.5">{urlError}</p>
                 )}
               </div>
               
