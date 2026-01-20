@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { Search, Plus, X, Bookmark, ListChecks, Trash2, Home, Eye, LayoutGrid, List, FolderInput } from 'lucide-react';
+import { Search, Plus, X, Bookmark, ListChecks, Trash2, Home, LayoutGrid, List, FolderInput } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -35,7 +35,6 @@ import { BookmarkDragOverlay } from './BookmarkDragOverlay';
 import { BookmarkFolderSection } from './BookmarkFolderSection';
 import { CreateFolderDialog } from './CreateFolderDialog';
 import { BookmarkActionSheet } from './BookmarkActionSheet';
-import { ShortlistViewer } from './ShortlistViewer';
 import { AddBookmarkForm } from './AddBookmarkForm';
 import { BulkMoveDialog } from './BulkMoveDialog';
 import { useToast } from '@/hooks/use-toast';
@@ -80,9 +79,6 @@ export function BookmarkLibrary({ onCreateShortcut }: BookmarkLibraryProps) {
   const [selectedLink, setSelectedLink] = useState<SavedLink | null>(null);
   const [showActionSheet, setShowActionSheet] = useState(false);
   
-  // Shortlist viewer state
-  const [showViewer, setShowViewer] = useState(false);
-  const [viewerStartIndex, setViewerStartIndex] = useState(0);
   
   // Drag state for overlay
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -319,13 +315,6 @@ export function BookmarkLibrary({ onCreateShortcut }: BookmarkLibraryProps) {
     triggerHaptic('success');
   };
 
-  const handleViewInApp = (link: SavedLink) => {
-    const shortlisted = getShortlistedLinks();
-    const index = shortlisted.findIndex(l => l.id === link.id);
-    setViewerStartIndex(Math.max(0, index));
-    setShowViewer(true);
-  };
-
   const handleEdit = (id: string, updates: { title?: string; description?: string; tag?: string | null }) => {
     updateSavedLink(id, updates);
     refreshLinks();
@@ -371,13 +360,6 @@ export function BookmarkLibrary({ onCreateShortcut }: BookmarkLibraryProps) {
       duration: 2000,
     });
     triggerHaptic('warning');
-  };
-
-  const handleViewShortlist = () => {
-    if (shortlistedLinks.length === 0) return;
-    setViewerStartIndex(0);
-    setShowViewer(true);
-    triggerHaptic('medium');
   };
 
   // Bulk actions for selected items
@@ -683,15 +665,6 @@ export function BookmarkLibrary({ onCreateShortcut }: BookmarkLibraryProps) {
         onDelete={handleDelete}
       />
 
-      {/* Shortlist Viewer */}
-      <ShortlistViewer
-        isOpen={showViewer}
-        onClose={() => setShowViewer(false)}
-        links={shortlistedLinks}
-        startIndex={viewerStartIndex}
-        onOpenExternal={handleOpenExternal}
-      />
-
       {/* Floating Action Bar */}
       <div
         className={cn(
@@ -709,15 +682,6 @@ export function BookmarkLibrary({ onCreateShortcut }: BookmarkLibraryProps) {
         </span>
         
         <div className="h-5 w-px bg-border" />
-        
-        <button
-          onClick={handleViewShortlist}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-muted transition-colors text-sm font-medium"
-          aria-label="View selected"
-        >
-          <Eye className="h-4 w-4" />
-          <span className="hidden sm:inline">View</span>
-        </button>
         
         <button
           onClick={() => setShowBulkMoveDialog(true)}
