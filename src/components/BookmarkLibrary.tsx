@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { Search, Plus, X, Bookmark, Trash2, Home, LayoutGrid, List, FolderInput, Clock, ArrowDownAZ, Folder, ArrowUpDown } from 'lucide-react';
+import { Search, Plus, X, Bookmark, Trash2, Home, LayoutGrid, List, FolderInput, Clock, SortAsc, SortDesc, ArrowDownAZ, ArrowUpZA, Folder, ArrowDownUp } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -12,6 +12,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { 
   getSavedLinks, 
@@ -474,108 +480,32 @@ export function BookmarkLibrary({ onCreateShortcut, onSelectionModeChange, clear
           Your saved links
         </h1>
         
-        {/* View Mode & Sort Controls */}
+        {/* View Mode Toggle */}
         {links.length > 0 && (
-          <div className="flex items-center gap-3 mt-3 flex-wrap">
-            {/* View Mode Toggle */}
-            <div className="flex items-center gap-1 p-1 bg-muted rounded-lg">
-              <button
-                onClick={() => setViewMode('list')}
-                className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors",
-                  viewMode === 'list'
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <List className="h-3.5 w-3.5" />
-                List
-              </button>
-              <button
-                onClick={() => setViewMode('folders')}
-                className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors",
-                  viewMode === 'folders'
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <LayoutGrid className="h-3.5 w-3.5" />
-                Folders
-              </button>
-            </div>
-            
-            {/* Sort Options */}
-            <div className="flex items-center gap-1 p-1 bg-muted rounded-lg">
-              <button
-                onClick={() => setSortMode('newest')}
-                className={cn(
-                  "flex items-center gap-1 px-2 py-1.5 rounded-md text-xs font-medium transition-colors",
-                  sortMode === 'newest'
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-                title="Newest first"
-              >
-                <Clock className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">New</span>
-              </button>
-              <button
-                onClick={() => setSortMode('oldest')}
-                className={cn(
-                  "flex items-center gap-1 px-2 py-1.5 rounded-md text-xs font-medium transition-colors",
-                  sortMode === 'oldest'
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-                title="Oldest first"
-              >
-                <Clock className="h-3.5 w-3.5 rotate-180" />
-                <span className="hidden sm:inline">Old</span>
-              </button>
-              <button
-                onClick={() => setSortMode('alphabetical')}
-                className={cn(
-                  "flex items-center gap-1 px-2 py-1.5 rounded-md text-xs font-medium transition-colors",
-                  sortMode === 'alphabetical'
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-                title="Alphabetical"
-              >
-                <ArrowDownAZ className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">A-Z</span>
-              </button>
-              <button
-                onClick={() => setSortMode('folder')}
-                className={cn(
-                  "flex items-center gap-1 px-2 py-1.5 rounded-md text-xs font-medium transition-colors",
-                  sortMode === 'folder'
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-                title="Group by folder"
-              >
-                <Folder className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Folder</span>
-              </button>
-            </div>
-            
-            {/* Reverse Toggle */}
+          <div className="flex items-center gap-1 mt-3 p-1 bg-muted rounded-lg w-fit">
             <button
-              onClick={() => setSortReversed(!sortReversed)}
+              onClick={() => setViewMode('list')}
               className={cn(
-                "flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-all",
-                sortReversed
-                  ? "bg-primary/10 text-primary"
-                  : "bg-muted text-muted-foreground hover:text-foreground"
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors",
+                viewMode === 'list'
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
               )}
-              title={sortReversed ? "Reversed order" : "Normal order"}
             >
-              <ArrowUpDown className={cn(
-                "h-3.5 w-3.5 transition-transform",
-                sortReversed && "rotate-180"
-              )} />
+              <List className="h-3.5 w-3.5" />
+              List
+            </button>
+            <button
+              onClick={() => setViewMode('folders')}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors",
+                viewMode === 'folders'
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+              Folders
             </button>
           </div>
         )}
@@ -664,6 +594,126 @@ export function BookmarkLibrary({ onCreateShortcut, onSelectionModeChange, clear
           </button>
         )}
       </div>
+
+      {/* Sort Controls - below Add Bookmark */}
+      {links.length > 0 && (
+        <div className="px-5 mb-4">
+          <TooltipProvider delayDuration={300}>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-muted-foreground mr-1">Sort:</span>
+              
+              {/* Newest First */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => setSortMode('newest')}
+                    className={cn(
+                      "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors",
+                      sortMode === 'newest'
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <SortDesc className="h-3.5 w-3.5" />
+                    Newest
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Sort by newest first</p>
+                </TooltipContent>
+              </Tooltip>
+              
+              {/* Oldest First */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => setSortMode('oldest')}
+                    className={cn(
+                      "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors",
+                      sortMode === 'oldest'
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <SortAsc className="h-3.5 w-3.5" />
+                    Oldest
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Sort by oldest first</p>
+                </TooltipContent>
+              </Tooltip>
+              
+              {/* Alphabetical A-Z */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => setSortMode('alphabetical')}
+                    className={cn(
+                      "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors",
+                      sortMode === 'alphabetical'
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <ArrowDownAZ className="h-3.5 w-3.5" />
+                    A-Z
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Sort alphabetically by title</p>
+                </TooltipContent>
+              </Tooltip>
+              
+              {/* By Folder */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => setSortMode('folder')}
+                    className={cn(
+                      "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors",
+                      sortMode === 'folder'
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <Folder className="h-3.5 w-3.5" />
+                    Folder
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Group by folder, then by date</p>
+                </TooltipContent>
+              </Tooltip>
+              
+              {/* Reverse Toggle */}
+              <div className="h-4 w-px bg-border mx-1" />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => setSortReversed(!sortReversed)}
+                    className={cn(
+                      "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all",
+                      sortReversed
+                        ? "bg-primary/15 text-primary border border-primary/30"
+                        : "bg-muted text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <ArrowDownUp className={cn(
+                      "h-3.5 w-3.5 transition-transform",
+                      sortReversed && "rotate-180"
+                    )} />
+                    {sortReversed ? 'Reversed' : 'Reverse'}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{sortReversed ? 'Click to restore normal order' : 'Click to reverse sort order'}</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          </TooltipProvider>
+        </div>
+      )}
 
       {/* Bookmarks List */}
       <div className="flex-1 overflow-y-auto px-5">
