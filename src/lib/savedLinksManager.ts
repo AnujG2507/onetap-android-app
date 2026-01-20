@@ -133,7 +133,7 @@ export function addSavedLink(
 
 export function updateSavedLink(
   id: string, 
-  updates: Partial<Pick<SavedLink, 'title' | 'description' | 'tag'>>
+  updates: Partial<Pick<SavedLink, 'title' | 'description' | 'tag' | 'url'>>
 ): void {
   const links = getSavedLinks();
   const link = links.find(l => l.id === id);
@@ -141,6 +141,7 @@ export function updateSavedLink(
     if (updates.title !== undefined) link.title = updates.title;
     if (updates.description !== undefined) link.description = updates.description;
     if (updates.tag !== undefined) link.tag = updates.tag;
+    if (updates.url !== undefined) link.url = normalizeUrl(updates.url);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(links));
   }
 }

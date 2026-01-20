@@ -33,7 +33,7 @@ interface BookmarkActionSheetProps {
   onOpenExternal: (url: string) => void;
   
   onCreateShortcut: (url: string) => void;
-  onEdit: (id: string, updates: { title?: string; description?: string; tag?: string | null }) => void;
+  onEdit: (id: string, updates: { title?: string; description?: string; tag?: string | null; url?: string }) => void;
   onDelete: (id: string) => void;
 }
 
@@ -54,6 +54,7 @@ export function BookmarkActionSheet({
   const [editTitle, setEditTitle] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [editTag, setEditTag] = useState<string | null>(null);
+  const [editUrl, setEditUrl] = useState('');
 
   const handleOpenChange = (isOpen: boolean) => {
     if (!isOpen) {
@@ -67,16 +68,21 @@ export function BookmarkActionSheet({
     setEditTitle(link.title);
     setEditDescription(link.description || '');
     setEditTag(link.tag);
+    setEditUrl(link.url);
     setIsEditing(true);
     triggerHaptic('light');
   };
 
   const handleSaveEdit = () => {
     if (!link) return;
+    const trimmedUrl = editUrl.trim();
+    if (!trimmedUrl) return; // URL is required
+    
     onEdit(link.id, {
       title: editTitle.trim() || link.title,
       description: editDescription.trim(),
       tag: editTag,
+      url: trimmedUrl,
     });
     setIsEditing(false);
     onOpenChange(false);
@@ -114,6 +120,27 @@ export function BookmarkActionSheet({
           {isEditing ? (
             /* Edit Form */
             <div className="space-y-4 pb-6">
+              {/* URL Field */}
+              <div className="relative">
+                <Input
+                  value={editUrl}
+                  onChange={(e) => setEditUrl(e.target.value)}
+                  placeholder="URL"
+                  className="pr-10"
+                  type="url"
+                />
+                {editUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setEditUrl('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50"
+                  >
+                    <X className="h-4 w-4 text-muted-foreground" />
+                  </button>
+                )}
+              </div>
+              
+              {/* Title Field */}
               <div className="relative">
                 <Input
                   value={editTitle}
