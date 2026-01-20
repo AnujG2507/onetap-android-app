@@ -595,8 +595,8 @@ export function BookmarkLibrary({ onCreateShortcut, onSelectionModeChange, clear
       {/* Sort Controls - below Add Bookmark */}
       {links.length > 0 && (
         <div className="px-5 mb-4">
-          <TooltipProvider delayDuration={300}>
-            <div className="flex items-center gap-2 flex-wrap">
+          <TooltipProvider delayDuration={0}>
+            <div className="flex items-center gap-2 flex-wrap select-none">
               <span className="text-xs text-muted-foreground mr-1">Sort:</span>
               
               {/* Newest First */}
@@ -604,14 +604,15 @@ export function BookmarkLibrary({ onCreateShortcut, onSelectionModeChange, clear
                 <TooltipTrigger asChild>
                   <button
                     onClick={() => setSortMode('newest')}
+                    onContextMenu={(e) => e.preventDefault()}
                     className={cn(
-                      "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors",
+                      "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors select-none touch-manipulation",
                       sortMode === 'newest'
                         ? "bg-primary text-primary-foreground"
                         : "bg-muted text-muted-foreground hover:text-foreground"
                     )}
                   >
-                    <SortDesc className="h-3.5 w-3.5" />
+                    <SortDesc className="h-3.5 w-3.5 pointer-events-none" />
                     Newest
                   </button>
                 </TooltipTrigger>
@@ -625,14 +626,15 @@ export function BookmarkLibrary({ onCreateShortcut, onSelectionModeChange, clear
                 <TooltipTrigger asChild>
                   <button
                     onClick={() => setSortMode('alphabetical')}
+                    onContextMenu={(e) => e.preventDefault()}
                     className={cn(
-                      "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors",
+                      "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors select-none touch-manipulation",
                       sortMode === 'alphabetical'
                         ? "bg-primary text-primary-foreground"
                         : "bg-muted text-muted-foreground hover:text-foreground"
                     )}
                   >
-                    <ArrowDownAZ className="h-3.5 w-3.5" />
+                    <ArrowDownAZ className="h-3.5 w-3.5 pointer-events-none" />
                     A-Z
                   </button>
                 </TooltipTrigger>
@@ -646,14 +648,15 @@ export function BookmarkLibrary({ onCreateShortcut, onSelectionModeChange, clear
                 <TooltipTrigger asChild>
                   <button
                     onClick={() => setSortMode('folder')}
+                    onContextMenu={(e) => e.preventDefault()}
                     className={cn(
-                      "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors",
+                      "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors select-none touch-manipulation",
                       sortMode === 'folder'
                         ? "bg-primary text-primary-foreground"
                         : "bg-muted text-muted-foreground hover:text-foreground"
                     )}
                   >
-                    <Folder className="h-3.5 w-3.5" />
+                    <Folder className="h-3.5 w-3.5 pointer-events-none" />
                     Folder
                   </button>
                 </TooltipTrigger>
@@ -668,15 +671,16 @@ export function BookmarkLibrary({ onCreateShortcut, onSelectionModeChange, clear
                 <TooltipTrigger asChild>
                   <button
                     onClick={() => setSortReversed(!sortReversed)}
+                    onContextMenu={(e) => e.preventDefault()}
                     className={cn(
-                      "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all",
+                      "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all select-none touch-manipulation",
                       sortReversed
                         ? "bg-primary/15 text-primary border border-primary/30"
                         : "bg-muted text-muted-foreground hover:text-foreground"
                     )}
                   >
                     <ArrowDownUp className={cn(
-                      "h-3.5 w-3.5 transition-transform",
+                      "h-3.5 w-3.5 transition-transform pointer-events-none",
                       sortReversed && "rotate-180"
                     )} />
                     {sortReversed ? 'Reversed' : 'Reverse'}
