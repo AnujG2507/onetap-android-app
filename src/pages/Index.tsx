@@ -41,6 +41,7 @@ const Index = () => {
   const [contactMode, setContactMode] = useState<ContactMode>('dial');
   const lastSharedIdRef = useRef<string | null>(null);
   const [isBookmarkSelectionMode, setIsBookmarkSelectionMode] = useState(false);
+  const [bookmarkClearSignal, setBookmarkClearSignal] = useState(0);
   const navigate = useNavigate();
   const { createShortcut, createContactShortcut } = useShortcuts();
   const { toast } = useToast();
@@ -138,6 +139,7 @@ const Index = () => {
   // Handle clearing bookmark selection
   const handleClearBookmarkSelection = useCallback(() => {
     clearAllShortlist();
+    setBookmarkClearSignal(s => s + 1);
     setIsBookmarkSelectionMode(false);
   }, []);
 
@@ -408,6 +410,7 @@ const Index = () => {
         <BookmarkLibrary 
           onCreateShortcut={handleCreateShortcutFromBookmark}
           onSelectionModeChange={setIsBookmarkSelectionMode}
+          clearSelectionSignal={bookmarkClearSignal}
         />
       )}
 

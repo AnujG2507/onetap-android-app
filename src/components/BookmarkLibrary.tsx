@@ -67,9 +67,11 @@ type ViewMode = 'list' | 'folders';
 interface BookmarkLibraryProps {
   onCreateShortcut: (url: string) => void;
   onSelectionModeChange?: (isSelectionMode: boolean) => void;
+  /** Increment this value to request clearing the current shortlist/selection from a parent (e.g. Android back button). */
+  clearSelectionSignal?: number;
 }
 
-export function BookmarkLibrary({ onCreateShortcut, onSelectionModeChange }: BookmarkLibraryProps) {
+export function BookmarkLibrary({ onCreateShortcut, onSelectionModeChange, clearSelectionSignal }: BookmarkLibraryProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [links, setLinks] = useState<SavedLink[]>([]);
   const [activeTagFilter, setActiveTagFilter] = useState<string | null>(null);
@@ -102,6 +104,23 @@ export function BookmarkLibrary({ onCreateShortcut, onSelectionModeChange }: Boo
   useEffect(() => {
     refreshLinks();
   }, [refreshLinks]);
+
+  // Allow parent to request clearing selection (e.g. Android back button handler in Index)
+  const [lastClearSignal, setLastClearSignal] = useState<number | undefined>(undefined);
+  useEffect(() => {
+    if (clearSelectionSignal == null) return;
+    // Skip the initial render (we only want to react to subsequent increments)
+    if (lastClearSignal === undefined) {
+      setLastClearSignal(clearSelectionSignal);
+      return;
+    }
+    if (clearSelectionSignal === lastClearSignal) return;
+
+    // Clear without toast/haptic; this is a "system" action.
+    clearAllShortlist();
+    refreshLinks();
+    setLastClearSignal(clearSelectionSignal);
+  }, [clearSelectionSignal, lastClearSignal, refreshLinks]);
 
   // Derived data
   const allUsedTags = useMemo(() => getAllTags(), [links, folderRefreshKey]);
