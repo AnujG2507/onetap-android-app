@@ -1,5 +1,5 @@
 import { useRef, useCallback, useState } from 'react';
-import { Globe, GripVertical, Home, ChevronDown } from 'lucide-react';
+import { Globe, GripVertical, ChevronDown } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
@@ -210,19 +210,13 @@ export function BookmarkItem({
               {link.description}
             </p>
           )}
-          <div className="flex items-center gap-2 mt-2">
-            {link.tag && (
+          {link.tag && (
+            <div className="flex items-center gap-2 mt-2">
               <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-normal">
                 {link.tag}
               </Badge>
-            )}
-            {onCreateShortcut && (
-              <span className="text-[10px] text-muted-foreground/60 hidden group-hover:inline-flex items-center gap-1">
-                <Home className="h-3 w-3" />
-                Hold to create shortcut
-              </span>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </button>
 
