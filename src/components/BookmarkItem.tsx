@@ -182,13 +182,13 @@ export function BookmarkItem({
         {/* Content */}
         <div className="flex-1 min-w-0">
           <p className="font-medium text-foreground truncate">{link.title}</p>
-          <button 
-            type="button"
+          <div 
             className={cn(
               "flex items-start gap-1 text-xs text-muted-foreground mt-0.5 text-left",
-              "hover:text-muted-foreground/80"
+              !isSelectionMode && "hover:text-muted-foreground/80 cursor-pointer"
             )}
             onClick={(e) => {
+              if (isSelectionMode) return; // Disable expansion in selection mode
               e.stopPropagation();
               setIsUrlExpanded(!isUrlExpanded);
             }}
@@ -196,13 +196,15 @@ export function BookmarkItem({
             <span className={cn("break-all", !isUrlExpanded && "line-clamp-2")}>
               {link.url}
             </span>
-            <ChevronDown 
-              className={cn(
-                "h-3 w-3 shrink-0 mt-0.5 transition-transform duration-200",
-                isUrlExpanded && "rotate-180"
-              )} 
-            />
-          </button>
+            {!isSelectionMode && (
+              <ChevronDown 
+                className={cn(
+                  "h-3 w-3 shrink-0 mt-0.5 transition-transform duration-200",
+                  isUrlExpanded && "rotate-180"
+                )} 
+              />
+            )}
+          </div>
           {link.description && (
             <p className="text-xs text-muted-foreground/80 mt-1.5 line-clamp-2">
               {link.description}
