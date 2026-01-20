@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { Search, Plus, X, Bookmark, Trash2, Home, LayoutGrid, List, FolderInput, Clock, SortAsc, SortDesc, ArrowDownAZ, ArrowUpZA, Folder, ArrowDownUp } from 'lucide-react';
+import { Search, Plus, X, Bookmark, Trash2, Home, LayoutGrid, List, FolderInput, Clock, SortDesc, ArrowDownAZ, ArrowUpZA, Folder, ArrowDownUp } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -68,7 +68,7 @@ import {
 } from '@dnd-kit/sortable';
 
 type ViewMode = 'list' | 'folders';
-type SortMode = 'newest' | 'oldest' | 'alphabetical' | 'folder';
+type SortMode = 'newest' | 'alphabetical' | 'folder';
 
 interface BookmarkLibraryProps {
   onCreateShortcut: (url: string) => void;
@@ -168,9 +168,6 @@ export function BookmarkLibrary({ onCreateShortcut, onSelectionModeChange, clear
     switch (sortMode) {
       case 'newest':
         result.sort((a, b) => b.createdAt - a.createdAt);
-        break;
-      case 'oldest':
-        result.sort((a, b) => a.createdAt - b.createdAt);
         break;
       case 'alphabetical':
         result.sort((a, b) => a.title.toLowerCase().localeCompare(b.title.toLowerCase()));
@@ -620,27 +617,6 @@ export function BookmarkLibrary({ onCreateShortcut, onSelectionModeChange, clear
                 </TooltipTrigger>
                 <TooltipContent>
                   <p>Sort by newest first</p>
-                </TooltipContent>
-              </Tooltip>
-              
-              {/* Oldest First */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => setSortMode('oldest')}
-                    className={cn(
-                      "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors",
-                      sortMode === 'oldest'
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    <SortAsc className="h-3.5 w-3.5" />
-                    Oldest
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Sort by oldest first</p>
                 </TooltipContent>
               </Tooltip>
               
