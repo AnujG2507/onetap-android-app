@@ -762,11 +762,6 @@ export function BookmarkLibrary({ onCreateShortcut, onSelectionModeChange, clear
                       onTap={() => handleBookmarkTap(link)}
                       onToggleShortlist={handleToggleShortlist}
                       onCreateShortcut={onCreateShortcut}
-                      onOpenMenu={() => {
-                        setSelectedLink(link);
-                        setStartInEditMode(false);
-                        setShowActionSheet(true);
-                      }}
                       isDragDisabled={isDragDisabled}
                       isSelectionMode={hasShortlist}
                     />

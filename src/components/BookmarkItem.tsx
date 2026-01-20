@@ -1,5 +1,5 @@
 import { useRef, useCallback, useState } from 'react';
-import { Globe, GripVertical, ChevronDown, MoreVertical } from 'lucide-react';
+import { Globe, GripVertical, ChevronDown } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
@@ -23,7 +23,6 @@ interface BookmarkItemProps {
   onTap: () => void;
   onToggleShortlist: (id: string) => void;
   onCreateShortcut?: (url: string) => void;
-  onOpenMenu?: () => void;
   isDragDisabled?: boolean;
   isSelectionMode?: boolean;
 }
@@ -44,7 +43,6 @@ export function BookmarkItem({
   onTap, 
   onToggleShortlist, 
   onCreateShortcut,
-  onOpenMenu,
   isDragDisabled,
   isSelectionMode = false,
 }: BookmarkItemProps) {
@@ -195,30 +193,16 @@ export function BookmarkItem({
               setIsUrlExpanded(!isUrlExpanded);
             }}
           >
-            <span className={cn("break-all flex-1", !isUrlExpanded && "line-clamp-2")}>
+            <span className={cn("break-all", !isUrlExpanded && "line-clamp-2")}>
               {link.url}
             </span>
             {!isSelectionMode && (
-              <>
-                <ChevronDown 
-                  className={cn(
-                    "h-3 w-3 shrink-0 mt-0.5 transition-transform duration-200",
-                    isUrlExpanded && "rotate-180"
-                  )} 
-                />
-                {onOpenMenu && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onOpenMenu();
-                    }}
-                    className="p-1 -m-1 rounded-md hover:bg-muted/50 transition-colors"
-                  >
-                    <MoreVertical className="h-3.5 w-3.5 text-muted-foreground" />
-                  </button>
-                )}
-              </>
+              <ChevronDown 
+                className={cn(
+                  "h-3 w-3 shrink-0 mt-0.5 transition-transform duration-200",
+                  isUrlExpanded && "rotate-180"
+                )} 
+              />
             )}
           </div>
           {link.description && (
