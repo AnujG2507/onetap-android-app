@@ -1,8 +1,13 @@
+import { getSettings } from './settingsManager';
+
 const STORAGE_KEY = 'saved_links';
 const CUSTOM_FOLDERS_KEY = 'custom_folders';
 const TRASH_STORAGE_KEY = 'saved_links_trash';
 
-const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+function getRetentionMs(): number {
+  const days = getSettings().trashRetentionDays;
+  return days * 24 * 60 * 60 * 1000;
+}
 
 export const PRESET_TAGS = ['Work', 'Personal', 'Social', 'News', 'Entertainment', 'Shopping'];
 
@@ -487,9 +492,10 @@ function purgeExpiredTrash(): void {
     if (!Array.isArray(links)) return;
     
     const now = Date.now();
+    const retentionMs = getRetentionMs();
     const validLinks = links.filter(link => {
       const age = now - link.deletedAt;
-      return age < THIRTY_DAYS_MS;
+      return age < retentionMs;
     });
     
     if (validLinks.length !== links.length) {
@@ -505,7 +511,8 @@ function purgeExpiredTrash(): void {
  * Get days remaining before a trashed item is auto-deleted
  */
 export function getDaysRemaining(deletedAt: number): number {
-  const expiresAt = deletedAt + THIRTY_DAYS_MS;
+  const retentionMs = getRetentionMs();
+  const expiresAt = deletedAt + retentionMs;
   const remaining = expiresAt - Date.now();
   return Math.max(0, Math.ceil(remaining / (24 * 60 * 60 * 1000)));
 }

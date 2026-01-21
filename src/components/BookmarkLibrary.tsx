@@ -38,6 +38,7 @@ import {
   permanentlyDelete,
   type SavedLink 
 } from '@/lib/savedLinksManager';
+import { getSettings } from '@/lib/settingsManager';
 import { BookmarkItem } from './BookmarkItem';
 import { BookmarkDragOverlay } from './BookmarkDragOverlay';
 import { BookmarkFolderSection } from './BookmarkFolderSection';
@@ -1103,7 +1104,7 @@ export function BookmarkLibrary({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete {shortlistedLinks.length} bookmark{shortlistedLinks.length > 1 ? 's' : ''}?</AlertDialogTitle>
             <AlertDialogDescription>
-              Selected bookmarks will be moved to trash. Items in trash are automatically deleted after 30 days.
+              Selected bookmarks will be moved to trash. Items in trash are automatically deleted after {getSettings().trashRetentionDays} days.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-col sm:flex-row gap-2">

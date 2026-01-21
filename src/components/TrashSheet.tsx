@@ -29,6 +29,7 @@ import {
   getTrashCount,
   type TrashedLink,
 } from '@/lib/savedLinksManager';
+import { getSettings } from '@/lib/settingsManager';
 import { TrashItem } from './TrashItem';
 
 const HINT_DISMISSED_KEY = 'trash_hint_dismissed';
@@ -174,7 +175,7 @@ export function TrashSheet({ open: controlledOpen, onOpenChange, onRestored }: T
               </div>
               <h3 className="text-lg font-medium text-foreground mb-2">Trash is empty</h3>
               <p className="text-sm text-muted-foreground">
-                Deleted bookmarks will appear here for 30 days before being permanently removed.
+                Deleted bookmarks will appear here for {getSettings().trashRetentionDays} days before being permanently removed.
               </p>
             </div>
           ) : (

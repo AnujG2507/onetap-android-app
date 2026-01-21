@@ -1,11 +1,15 @@
 const SETTINGS_KEY = 'onetap_settings';
 
+export type TrashRetentionDays = 7 | 14 | 30 | 60;
+
 export interface AppSettings {
   clipboardDetectionEnabled: boolean;
+  trashRetentionDays: TrashRetentionDays;
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
   clipboardDetectionEnabled: true,
+  trashRetentionDays: 30,
 };
 
 export function getSettings(): AppSettings {

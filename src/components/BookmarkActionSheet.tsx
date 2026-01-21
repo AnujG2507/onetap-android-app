@@ -25,6 +25,7 @@ import {
 import { cn } from '@/lib/utils';
 import { PRESET_TAGS, type SavedLink } from '@/lib/savedLinksManager';
 import { triggerHaptic } from '@/lib/haptics';
+import { getSettings } from '@/lib/settingsManager';
 
 interface BookmarkActionSheetProps {
   link: SavedLink | null;
@@ -331,7 +332,7 @@ export function BookmarkActionSheet({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete bookmark?</AlertDialogTitle>
             <AlertDialogDescription>
-              "{link.title}" will be moved to trash. Items in trash are automatically deleted after 30 days.
+              "{link.title}" will be moved to trash. Items in trash are automatically deleted after {getSettings().trashRetentionDays} days.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-col sm:flex-row gap-2">

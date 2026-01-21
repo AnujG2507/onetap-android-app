@@ -17,6 +17,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import type { SavedLink } from '@/lib/savedLinksManager';
+import { getSettings } from '@/lib/settingsManager';
 
 interface BookmarkItemProps {
   link: SavedLink;
@@ -372,7 +373,7 @@ export function BookmarkItem({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete bookmark?</AlertDialogTitle>
             <AlertDialogDescription>
-              "{link.title}" will be moved to trash. Items in trash are automatically deleted after 30 days.
+              "{link.title}" will be moved to trash. Items in trash are automatically deleted after {getSettings().trashRetentionDays} days.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-col sm:flex-row gap-2">
