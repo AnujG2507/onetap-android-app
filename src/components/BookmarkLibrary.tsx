@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Search, Plus, X, Bookmark, Trash2, Home, LayoutGrid, List, FolderInput, Clock, SortDesc, ArrowDownAZ, ArrowUpZA, Folder, ArrowDownUp, Edit2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
+import { ToastAction } from '@/components/ui/toast';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,6 +23,7 @@ import { cn } from '@/lib/utils';
 import { 
   getSavedLinks, 
   removeSavedLink, 
+  restoreSavedLink,
   addSavedLink,
   updateSavedLink,
   toggleShortlist,
@@ -434,12 +436,33 @@ export function BookmarkLibrary({
   };
 
   const handleDelete = (id: string) => {
-    removeSavedLink(id);
+    const deletedLink = removeSavedLink(id);
     refreshLinks();
-    toast({
-      title: 'Bookmark removed',
-      duration: 2000,
-    });
+    
+    if (deletedLink) {
+      toast({
+        title: 'Bookmark removed',
+        description: deletedLink.title,
+        duration: 5000,
+        action: (
+          <ToastAction 
+            altText="Undo delete"
+            onClick={() => {
+              restoreSavedLink(deletedLink);
+              refreshLinks();
+              triggerHaptic('success');
+            }}
+          >
+            Undo
+          </ToastAction>
+        ),
+      });
+    } else {
+      toast({
+        title: 'Bookmark removed',
+        duration: 2000,
+      });
+    }
   };
 
   const handleAddBookmark = (url: string, title?: string, description?: string, tag?: string | null) => {

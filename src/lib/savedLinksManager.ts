@@ -160,10 +160,24 @@ export function getLinksByTag(tag: string): SavedLink[] {
   return links.filter(link => link.tag === tag);
 }
 
-export function removeSavedLink(id: string): void {
+export function removeSavedLink(id: string): SavedLink | null {
   const links = getSavedLinks();
+  const removedLink = links.find(link => link.id === id) || null;
   const filtered = links.filter(link => link.id !== id);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
+  return removedLink;
+}
+
+export function restoreSavedLink(link: SavedLink): void {
+  const links = getSavedLinks();
+  // Insert at original position based on createdAt, or at start
+  const insertIndex = links.findIndex(l => l.createdAt < link.createdAt);
+  if (insertIndex === -1) {
+    links.push(link);
+  } else {
+    links.splice(insertIndex, 0, link);
+  }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(links));
 }
 
 export function updateSavedLinkTitle(id: string, title: string): void {
