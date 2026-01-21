@@ -34,9 +34,18 @@ interface AccessFlowProps {
   onStepChange?: (step: AccessStep) => void;
   /** Called when content source type changes (for back navigation) */
   onContentSourceTypeChange?: (type: ContentSourceType) => void;
+  /** URL to create shortcut from (e.g., from bookmark library) */
+  initialUrlForShortcut?: string | null;
+  /** Called when the initial URL has been consumed */
+  onInitialUrlConsumed?: () => void;
 }
 
-export function AccessFlow({ onStepChange, onContentSourceTypeChange }: AccessFlowProps) {
+export function AccessFlow({ 
+  onStepChange, 
+  onContentSourceTypeChange,
+  initialUrlForShortcut,
+  onInitialUrlConsumed,
+}: AccessFlowProps) {
   const [step, setStep] = useState<AccessStep>('source');
   const [contentSource, setContentSource] = useState<ContentSource | null>(null);
   const [lastCreatedName, setLastCreatedName] = useState('');
@@ -44,6 +53,7 @@ export function AccessFlow({ onStepChange, onContentSourceTypeChange }: AccessFl
   const [contactMode, setContactMode] = useState<ContactMode>('dial');
   const [prefillUrl, setPrefillUrl] = useState<string | undefined>();
   const lastSharedIdRef = useRef<string | null>(null);
+  const processedInitialUrlRef = useRef<string | null>(null);
 
   const navigate = useNavigate();
   const { createShortcut, createContactShortcut } = useShortcuts();
@@ -66,6 +76,24 @@ export function AccessFlow({ onStepChange, onContentSourceTypeChange }: AccessFl
     const type: ContentSourceType = contentSource?.type === 'url' ? 'url' : contentSource ? 'file' : null;
     onContentSourceTypeChange?.(type);
   }, [contentSource, onContentSourceTypeChange]);
+
+  // Handle initial URL for shortcut creation (from bookmark library)
+  useEffect(() => {
+    if (initialUrlForShortcut && processedInitialUrlRef.current !== initialUrlForShortcut) {
+      console.log('[AccessFlow] Processing initial URL for shortcut:', initialUrlForShortcut);
+      processedInitialUrlRef.current = initialUrlForShortcut;
+      
+      // Set the content source and navigate to customize step
+      setContentSource({
+        type: 'url',
+        uri: initialUrlForShortcut,
+      });
+      setStep('customize');
+      
+      // Notify parent that we've consumed the URL
+      onInitialUrlConsumed?.();
+    }
+  }, [initialUrlForShortcut, onInitialUrlConsumed]);
 
   const handleClipboardUse = (url: string) => {
     dismissDetection();

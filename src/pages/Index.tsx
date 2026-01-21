@@ -11,6 +11,7 @@ const Index = () => {
   const [contentSourceType, setContentSourceType] = useState<ContentSourceType>(null);
   const [isBookmarkSelectionMode, setIsBookmarkSelectionMode] = useState(false);
   const [bookmarkClearSignal, setBookmarkClearSignal] = useState(0);
+  const [shortcutUrlFromBookmark, setShortcutUrlFromBookmark] = useState<string | null>(null);
 
   // Check if shortlist has items
   const hasShortlist = getShortlistedLinks().length > 0;
@@ -58,11 +59,16 @@ const Index = () => {
   });
 
   // Handler for creating shortcut from bookmark library
-  const handleCreateShortcutFromBookmark = (url: string) => {
-    setContentSourceType('url');
+  const handleCreateShortcutFromBookmark = useCallback((url: string) => {
+    console.log('[Index] Creating shortcut from bookmark:', url);
+    setShortcutUrlFromBookmark(url);
     setActiveTab('access');
-    // The AccessFlow will handle the customize step when it receives shared content
-  };
+  }, []);
+
+  // Clear the URL once AccessFlow has consumed it
+  const handleInitialUrlConsumed = useCallback(() => {
+    setShortcutUrlFromBookmark(null);
+  }, []);
 
   // Track step and content type changes from AccessFlow
   const handleAccessStepChange = useCallback((step: AccessStep) => {
@@ -84,6 +90,8 @@ const Index = () => {
           <AccessFlow
             onStepChange={handleAccessStepChange}
             onContentSourceTypeChange={handleContentSourceTypeChange}
+            initialUrlForShortcut={shortcutUrlFromBookmark}
+            onInitialUrlConsumed={handleInitialUrlConsumed}
           />
         </div>
       )}
