@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Trash2, RotateCcw, Clock, AlertTriangle, X } from 'lucide-react';
+import { Trash2, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
@@ -19,8 +19,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { triggerHaptic } from '@/lib/haptics';
 import {
@@ -28,22 +26,13 @@ import {
   restoreFromTrash,
   permanentlyDelete,
   emptyTrash,
-  getDaysRemaining,
   getTrashCount,
   type TrashedLink,
 } from '@/lib/savedLinksManager';
+import { TrashItem } from './TrashItem';
 
 interface TrashSheetProps {
   onRestored?: () => void;
-}
-
-function extractFaviconUrl(url: string): string {
-  try {
-    const urlObj = new URL(url);
-    return `https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=64`;
-  } catch {
-    return '';
-  }
 }
 
 export function TrashSheet({ onRestored }: TrashSheetProps) {
@@ -164,85 +153,17 @@ export function TrashSheet({ onRestored }: TrashSheetProps) {
           ) : (
             <ScrollArea className="h-[calc(85vh-120px)] -mx-6 px-6">
               <div className="space-y-2 pb-6">
-                {trashLinks.map((link) => {
-                  const daysRemaining = getDaysRemaining(link.deletedAt);
-                  const faviconUrl = extractFaviconUrl(link.url);
-                  
-                  return (
-                    <div
-                      key={link.id}
-                      className="flex items-start gap-3 p-3 rounded-xl bg-muted/50 border border-border/50"
-                    >
-                      {/* Favicon */}
-                      <div className="h-10 w-10 rounded-lg bg-background border flex items-center justify-center shrink-0 overflow-hidden">
-                        {faviconUrl ? (
-                          <img
-                            src={faviconUrl}
-                            alt=""
-                            className="h-5 w-5"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).style.display = 'none';
-                            }}
-                          />
-                        ) : (
-                          <div className="h-5 w-5 rounded bg-muted" />
-                        )}
-                      </div>
-
-                      {/* Content */}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate">
-                          {link.title}
-                        </p>
-                        <p className="text-xs text-muted-foreground truncate mt-0.5">
-                          {link.url}
-                        </p>
-                        <div className="flex items-center gap-2 mt-1.5">
-                          {link.tag && (
-                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                              {link.tag}
-                            </Badge>
-                          )}
-                          <span className={cn(
-                            "text-[10px] flex items-center gap-1",
-                            daysRemaining <= 7 ? "text-destructive" : "text-muted-foreground"
-                          )}>
-                            <Clock className="h-3 w-3" />
-                            {daysRemaining === 0 
-                              ? 'Expires today' 
-                              : daysRemaining === 1 
-                                ? 'Expires tomorrow'
-                                : `${daysRemaining} days left`
-                            }
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Actions */}
-                      <div className="flex items-center gap-1 shrink-0">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-primary hover:text-primary hover:bg-primary/10"
-                          onClick={() => handleRestore(link.id)}
-                        >
-                          <RotateCcw className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                          onClick={() => {
-                            setSelectedId(link.id);
-                            setShowDeleteConfirm(true);
-                          }}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })}
+                {trashLinks.map((link) => (
+                  <TrashItem
+                    key={link.id}
+                    link={link}
+                    onRestore={handleRestore}
+                    onDelete={(id) => {
+                      setSelectedId(id);
+                      setShowDeleteConfirm(true);
+                    }}
+                  />
+                ))}
               </div>
             </ScrollArea>
           )}
