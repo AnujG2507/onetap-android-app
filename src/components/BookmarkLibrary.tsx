@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { Search, Plus, X, Bookmark, Trash2, Home, LayoutGrid, List, FolderInput, Clock, SortDesc, ArrowDownAZ, ArrowUpZA, Folder, ArrowDownUp, Edit2, GripVertical } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -103,6 +103,9 @@ export function BookmarkLibrary({
   const [sortReversed, setSortReversed] = useState(() => {
     return localStorage.getItem('bookmark_sort_reversed') === 'true';
   });
+  const [isFabVisible, setIsFabVisible] = useState(true);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const lastScrollTop = useRef(0);
   
   // Persist preferences to localStorage
   useEffect(() => {
@@ -123,6 +126,18 @@ export function BookmarkLibrary({
       setViewMode('folders');
     }
   }, [sortMode]);
+  
+  // Scroll handler for FAB visibility
+  const handleScroll = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    
+    const scrollTop = container.scrollTop;
+    const isScrollingDown = scrollTop > lastScrollTop.current && scrollTop > 50;
+    
+    setIsFabVisible(!isScrollingDown);
+    lastScrollTop.current = scrollTop;
+  }, []);
   
   // Helper to toggle sort mode
   const handleSortToggle = (mode: SortMode) => {
@@ -877,7 +892,11 @@ export function BookmarkLibrary({
       )}
 
       {/* Bookmarks List */}
-      <div className="flex-1 overflow-y-auto px-5">
+      <div 
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto px-5"
+      >
         {filteredLinks.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
             {searchQuery || activeTagFilter ? (
@@ -1194,13 +1213,16 @@ export function BookmarkLibrary({
             triggerHaptic('light');
           }}
           className={cn(
-            "fixed bottom-6 right-6 z-40",
+            "fixed right-6 z-40",
             "h-14 w-14 rounded-full",
             "bg-primary text-primary-foreground",
-            "shadow-lg hover:shadow-xl hover:scale-105",
+            "shadow-lg hover:shadow-xl",
             "flex items-center justify-center",
-            "transition-all duration-200",
-            "active:scale-95"
+            "transition-all duration-300 ease-out",
+            "active:scale-95",
+            isFabVisible 
+              ? "bottom-6 opacity-100 scale-100" 
+              : "bottom-6 translate-y-20 opacity-0 scale-90 pointer-events-none"
           )}
           aria-label="Add bookmark"
         >
