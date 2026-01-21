@@ -4,6 +4,7 @@ import { BottomNav, TabType } from '@/components/BottomNav';
 import { BookmarkLibrary } from '@/components/BookmarkLibrary';
 import { AccessFlow, AccessStep, ContentSourceType } from '@/components/AccessFlow';
 import { ProfilePage } from '@/components/ProfilePage';
+import { AuthDebugPanel } from '@/components/AuthDebugPanel';
 import { useBackButton } from '@/hooks/useBackButton';
 import { useAuth } from '@/hooks/useAuth';
 import { useAutoSync } from '@/hooks/useAutoSync';
@@ -171,6 +172,9 @@ const Index = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Dev-only auth debug panel */}
+      <AuthDebugPanel />
     </div>
   );
 };
