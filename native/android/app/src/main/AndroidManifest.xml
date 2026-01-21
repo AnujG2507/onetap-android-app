@@ -85,6 +85,14 @@
                 <data android:mimeType="video/*" />
             </intent-filter>
 
+            <!-- OAuth deep link callback (onetap://auth-callback) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="onetap" android:host="auth-callback" />
+            </intent-filter>
+
         </activity>
 
         <!-- Video Proxy Activity - transparent activity for launching video shortcuts -->

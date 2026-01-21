@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { getLastDeepLink } from '@/hooks/useDeepLink';
 import { Button } from '@/components/ui/button';
 import { Bug, ChevronDown, ChevronUp, Trash2, RefreshCw, Copy, Check } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { Capacitor } from '@capacitor/core';
 
 const AUTH_STORAGE_KEY = 'sb-qyokhlaexuywzuyasqxo-auth-token';
 
@@ -74,14 +76,24 @@ export function AuthDebugPanel() {
     }
   };
 
+  const isNative = Capacitor.isNativePlatform();
+  const platform = Capacitor.getPlatform();
+  const lastDeepLink = getLastDeepLink();
+
   const copyDebugInfo = () => {
     const info = {
+      platform,
+      isNative,
       authenticated: isAuthenticated,
       loading,
       userId: user?.id,
       email: user?.email,
       sessionExpiry: session?.expires_at ? new Date(session.expires_at * 1000).toISOString() : null,
       provider: user?.app_metadata?.provider,
+      lastDeepLink: lastDeepLink.url ? {
+        url: lastDeepLink.url.slice(0, 50) + (lastDeepLink.url.length > 50 ? '...' : ''),
+        time: lastDeepLink.time?.toISOString(),
+      } : null,
       events: authEvents.slice(0, 5),
     };
     navigator.clipboard.writeText(JSON.stringify(info, null, 2));
@@ -126,6 +138,31 @@ export function AuthDebugPanel() {
               {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
               {copied ? 'Copied' : 'Copy'}
             </Button>
+          </div>
+
+          {/* Platform Info */}
+          <div className="bg-blue-500/10 rounded p-2 space-y-1">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Platform:</span>
+              <span className="text-blue-500 font-medium">{platform} {isNative ? '(native)' : '(web)'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">OAuth redirect:</span>
+              <span className="font-mono text-foreground text-[10px]">
+                {isNative ? 'onetap://auth-callback' : 'web origin'}
+              </span>
+            </div>
+            {lastDeepLink.url && (
+              <div className="flex flex-col gap-0.5">
+                <span className="text-muted-foreground">Last deep link:</span>
+                <span className="font-mono text-green-500 text-[10px] break-all">
+                  {lastDeepLink.url.slice(0, 40)}...
+                </span>
+                <span className="text-muted-foreground text-[10px]">
+                  at {lastDeepLink.time?.toLocaleTimeString()}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* State Overview */}

@@ -1,8 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
+import { Capacitor } from '@capacitor/core';
+import { Browser } from '@capacitor/browser';
 
 const AUTH_STORAGE_KEY = 'sb-qyokhlaexuywzuyasqxo-auth-token';
+
+// Deep link scheme for native OAuth callback
+const NATIVE_REDIRECT_URL = 'onetap://auth-callback';
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
@@ -70,15 +75,38 @@ export function useAuth() {
       if (existingSession?.session) {
         await supabase.auth.signOut();
       }
+
+      const isNative = Capacitor.isNativePlatform();
       
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/auth-callback`,
-        },
-      });
-      
-      if (error) throw error;
+      if (isNative) {
+        // Native flow: use skipBrowserRedirect and open browser manually
+        console.log('[Auth] Starting native OAuth flow with redirect:', NATIVE_REDIRECT_URL);
+        
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: NATIVE_REDIRECT_URL,
+            skipBrowserRedirect: true,
+          },
+        });
+        
+        if (error) throw error;
+        
+        if (data.url) {
+          console.log('[Auth] Opening OAuth URL in browser');
+          await Browser.open({ url: data.url });
+        }
+      } else {
+        // Web flow: standard redirect
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: `${window.location.origin}/auth-callback`,
+          },
+        });
+        
+        if (error) throw error;
+      }
     } catch (error) {
       console.error('[Auth] Google sign-in error:', error);
       throw error;

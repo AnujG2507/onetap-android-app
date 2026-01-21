@@ -8,6 +8,7 @@ import { AuthDebugPanel } from '@/components/AuthDebugPanel';
 import { useBackButton } from '@/hooks/useBackButton';
 import { useAuth } from '@/hooks/useAuth';
 import { useAutoSync } from '@/hooks/useAutoSync';
+import { useDeepLink } from '@/hooks/useDeepLink';
 import { getShortlistedLinks, clearAllShortlist } from '@/lib/savedLinksManager';
 import {
   AlertDialog,
@@ -33,6 +34,10 @@ const Index = () => {
   
   // Enable auto-sync when user is signed in
   useAutoSync();
+  
+  // Handle native OAuth deep links
+  useDeepLink();
+  
   // Check if shortlist has items
   const hasShortlist = getShortlistedLinks().length > 0;
 
