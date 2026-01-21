@@ -37,12 +37,26 @@ This script:
 
 ### 3. Configure OAuth (Required for Google Sign-In)
 
+The app uses **Android App Links** for OAuth callback. This requires HTTPS URLs.
+
 **Backend Setup:**
 1. Open your Lovable project
 2. Go to **Cloud → Users → Auth Settings → URL Configuration**
-3. Add `onetap://auth-callback` to "Redirect URLs"
+3. Add to "URI allow list": `https://id-preview--2fa7e10e-ca71-4319-a546-974fcb8a4a6b.lovable.app/auth-callback`
 
-This enables the native OAuth flow where Google sign-in returns directly to the app instead of the web.
+**Domain Verification (assetlinks.json):**
+
+The file `public/.well-known/assetlinks.json` must contain your app's signing certificate fingerprint:
+
+```bash
+# Get your debug keystore fingerprint:
+keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android | grep SHA256
+
+# Get your release keystore fingerprint:
+keytool -list -v -keystore your-release.keystore -alias your-alias | grep SHA256
+```
+
+Update `public/.well-known/assetlinks.json` with your fingerprint(s).
 
 ### 4. Run on Device
 
@@ -72,21 +86,33 @@ echo $ANDROID_HOME # Should be set
 adb devices        # Should list your device
 ```
 
-## OAuth Deep Link Flow
+## OAuth Deep Link Flow (App Links)
 
-The app uses a custom URL scheme for native OAuth:
+The app uses Android App Links for native OAuth:
 
 1. User taps "Sign in with Google"
 2. App opens Google OAuth in Chrome Custom Tab
-3. After authentication, Google redirects to `onetap://auth-callback?code=...`
-4. Android intercepts this URL (via intent-filter in AndroidManifest.xml)
+3. After authentication, Google redirects to `https://id-preview--2fa7e10e-ca71-4319-a546-974fcb8a4a6b.lovable.app/auth-callback?code=...`
+4. Android intercepts this HTTPS URL (via verified App Link in AndroidManifest.xml)
 5. App exchanges the code for a session token
 6. User is signed in
 
 **Files involved:**
-- `native/android/app/src/main/AndroidManifest.xml` - Deep link intent-filter
+- `public/.well-known/assetlinks.json` - Domain verification for App Links
+- `native/android/app/src/main/AndroidManifest.xml` - App Links intent-filter with `autoVerify="true"`
 - `src/hooks/useDeepLink.ts` - Handles `appUrlOpen` events
 - `src/hooks/useAuth.ts` - Native OAuth flow with `skipBrowserRedirect`
+
+**Testing App Links:**
+
+```bash
+# Check if Android verified the domain
+adb shell pm get-app-links app.onetap.shortcuts
+
+# Test the deep link manually
+adb shell am start -W -a android.intent.action.VIEW \
+  -d "https://id-preview--2fa7e10e-ca71-4319-a546-974fcb8a4a6b.lovable.app/auth-callback?code=test"
+```
 
 ## Troubleshooting
 
@@ -97,8 +123,8 @@ The app uses a custom URL scheme for native OAuth:
 | Build fails | Run `npx cap sync android` |
 | Shortcuts not working | Requires Android 8.0+ |
 | `spawn ./gradlew ENOENT` | See Gradlew fix below |
-| OAuth goes to lovable.dev | Add `onetap://auth-callback` to backend redirect URLs |
-| "ES256 invalid signing" | Backend redirect URL not configured (see above) |
+| OAuth goes to browser | Check assetlinks.json and App Links verification |
+| "ES256 invalid signing" | Backend redirect URL not configured |
 
 ### Gradlew Not Found Fix
 
@@ -137,21 +163,31 @@ npx cap sync android
 npx cap run android
 ```
 
-### OAuth Not Returning to App
+### App Links Not Working
 
-If Google sign-in completes but you end up on lovable.dev instead of the app:
+If Google sign-in completes but opens in the browser instead of the app:
 
-1. **Check backend redirect URLs:** Ensure `onetap://auth-callback` is listed in Cloud → Users → Auth Settings → URL Configuration
-2. **Verify AndroidManifest:** The intent-filter should include:
-   ```xml
-   <intent-filter>
-       <action android:name="android.intent.action.VIEW" />
-       <category android:name="android.intent.category.DEFAULT" />
-       <category android:name="android.intent.category.BROWSABLE" />
-       <data android:scheme="onetap" android:host="auth-callback" />
-   </intent-filter>
+1. **Check assetlinks.json is accessible:**
+   Visit `https://id-preview--2fa7e10e-ca71-4319-a546-974fcb8a4a6b.lovable.app/.well-known/assetlinks.json` in a browser
+
+2. **Verify fingerprint matches:**
+   ```bash
+   keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android | grep SHA256
    ```
-3. **Use Auth Debug panel:** In dev builds, tap the "Auth" button to see platform info and last received deep link
+   Compare with the fingerprint in `assetlinks.json`
+
+3. **Check App Links verification status:**
+   ```bash
+   adb shell pm get-app-links app.onetap.shortcuts
+   ```
+   Look for `verified` status
+
+4. **Force re-verification:**
+   ```bash
+   adb shell pm verify-app-links --re-verify app.onetap.shortcuts
+   ```
+
+5. **Use Auth Debug panel:** In dev builds, tap the "Auth" button to see platform info and last received deep link
 
 ### Clean Rebuild
 
@@ -169,3 +205,5 @@ npx cap run android
 1. `npx cap open android`
 2. Build → Generate Signed Bundle/APK → APK
 3. Find APK in `android/app/release/`
+
+**Important:** Add your release keystore SHA256 fingerprint to `public/.well-known/assetlinks.json` before releasing.

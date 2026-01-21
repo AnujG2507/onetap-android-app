@@ -4,7 +4,8 @@ import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
 import { supabase } from '@/integrations/supabase/client';
 
-const OAUTH_CALLBACK_SCHEME = 'onetap://auth-callback';
+const OAUTH_CALLBACK_HOST = 'id-preview--2fa7e10e-ca71-4319-a546-974fcb8a4a6b.lovable.app';
+const OAUTH_CALLBACK_PATH = '/auth-callback';
 
 // Store the last received deep link for debugging
 let lastDeepLinkUrl: string | null = null;
@@ -33,8 +34,8 @@ export function useDeepLink() {
       lastDeepLinkUrl = url;
       lastDeepLinkTime = new Date();
 
-      // Check if this is an OAuth callback
-      if (!url.startsWith(OAUTH_CALLBACK_SCHEME)) {
+      // Check if this is an OAuth callback (App Links approach)
+      if (!url.includes(OAUTH_CALLBACK_HOST) || !url.includes(OAUTH_CALLBACK_PATH)) {
         console.log('[DeepLink] Not an auth callback, ignoring');
         return;
       }

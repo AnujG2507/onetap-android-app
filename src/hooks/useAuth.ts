@@ -6,8 +6,8 @@ import { Browser } from '@capacitor/browser';
 
 const AUTH_STORAGE_KEY = 'sb-qyokhlaexuywzuyasqxo-auth-token';
 
-// Deep link scheme for native OAuth callback
-const NATIVE_REDIRECT_URL = 'onetap://auth-callback';
+// HTTPS redirect URL for native OAuth callback (Android App Links)
+const NATIVE_REDIRECT_URL = 'https://id-preview--2fa7e10e-ca71-4319-a546-974fcb8a4a6b.lovable.app/auth-callback';
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);

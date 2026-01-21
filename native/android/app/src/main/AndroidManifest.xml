@@ -85,12 +85,15 @@
                 <data android:mimeType="video/*" />
             </intent-filter>
 
-            <!-- OAuth deep link callback (onetap://auth-callback) -->
-            <intent-filter>
+            <!-- OAuth deep link callback (Android App Links approach) -->
+            <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="onetap" android:host="auth-callback" />
+                <data 
+                    android:scheme="https"
+                    android:host="id-preview--2fa7e10e-ca71-4319-a546-974fcb8a4a6b.lovable.app"
+                    android:pathPrefix="/auth-callback" />
             </intent-filter>
 
         </activity>
