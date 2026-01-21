@@ -73,7 +73,7 @@ export function AppMenu({ onOpenTrash }: AppMenuProps) {
   // Check for expiring items on mount and when menu opens
   const checkExpiringItems = () => {
     const trashLinks = getTrashLinks();
-    const expiringSoon = trashLinks.filter(link => getDaysRemaining(link.deletedAt) <= 3);
+    const expiringSoon = trashLinks.filter(link => getDaysRemaining(link.deletedAt, link.retentionDays) <= 3);
     setExpiringCount(expiringSoon.length);
     setTrashCount(trashLinks.length);
   };

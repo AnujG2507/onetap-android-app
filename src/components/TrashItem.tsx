@@ -33,7 +33,7 @@ export function TrashItem({ link, onRestore, onDelete }: TrashItemProps) {
   const isHorizontalSwipe = useRef<boolean | null>(null);
   const hasTriggeredHaptic = useRef(false);
 
-  const daysRemaining = getDaysRemaining(link.deletedAt);
+  const daysRemaining = getDaysRemaining(link.deletedAt, link.retentionDays);
   const faviconUrl = extractFaviconUrl(link.url);
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {

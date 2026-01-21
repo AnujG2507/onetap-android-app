@@ -379,6 +379,8 @@ export function moveToFolder(linkId: string, folderName: string | null): void {
 
 export interface TrashedLink extends SavedLink {
   deletedAt: number;
+  /** Retention period in days that was active when the item was trashed */
+  retentionDays: number;
 }
 
 /**
@@ -414,6 +416,7 @@ function moveToTrash(link: SavedLink): void {
   const trashedLink: TrashedLink = {
     ...link,
     deletedAt: Date.now(),
+    retentionDays: getSettings().trashRetentionDays,
   };
   
   trashLinks.unshift(trashedLink);
@@ -492,8 +495,12 @@ function purgeExpiredTrash(): void {
     if (!Array.isArray(links)) return;
     
     const now = Date.now();
-    const retentionMs = getRetentionMs();
+    const currentRetentionDays = getSettings().trashRetentionDays;
     const validLinks = links.filter(link => {
+      // Use the retention period that was active when item was trashed
+      // Fall back to current setting for legacy items without stored retentionDays
+      const itemRetentionDays = link.retentionDays ?? currentRetentionDays;
+      const retentionMs = itemRetentionDays * 24 * 60 * 60 * 1000;
       const age = now - link.deletedAt;
       return age < retentionMs;
     });
@@ -510,8 +517,10 @@ function purgeExpiredTrash(): void {
 /**
  * Get days remaining before a trashed item is auto-deleted
  */
-export function getDaysRemaining(deletedAt: number): number {
-  const retentionMs = getRetentionMs();
+export function getDaysRemaining(deletedAt: number, retentionDays?: number): number {
+  // Use the stored retention period, or fall back to current setting for legacy items
+  const itemRetentionDays = retentionDays ?? getSettings().trashRetentionDays;
+  const retentionMs = itemRetentionDays * 24 * 60 * 60 * 1000;
   const expiresAt = deletedAt + retentionMs;
   const remaining = expiresAt - Date.now();
   return Math.max(0, Math.ceil(remaining / (24 * 60 * 60 * 1000)));
