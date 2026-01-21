@@ -2,6 +2,7 @@ import { useRef, useCallback, useState } from 'react';
 import { Globe, GripVertical, ChevronDown, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -252,14 +253,21 @@ export function BookmarkItem({
       >
         {/* Drag Handle */}
         {!isDragDisabled && (
-          <button
-            type="button"
-            className="flex items-center justify-center pt-1 cursor-grab active:cursor-grabbing touch-none"
-            {...attributes}
-            {...listeners}
-          >
-            <GripVertical className="h-5 w-5 text-muted-foreground/50" />
-          </button>
+          <Tooltip delayDuration={0}>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                className="flex items-center justify-center pt-1 cursor-grab active:cursor-grabbing touch-none animate-fade-in"
+                {...attributes}
+                {...listeners}
+              >
+                <GripVertical className="h-5 w-5 text-primary/70" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="left" className="text-xs">
+              Drag to reorder
+            </TooltipContent>
+          </Tooltip>
         )}
         
         {/* Checkbox for shortlisting - only visible in selection mode */}
