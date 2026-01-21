@@ -75,9 +75,19 @@ interface BookmarkLibraryProps {
   onSelectionModeChange?: (isSelectionMode: boolean) => void;
   /** Increment this value to request clearing the current shortlist/selection from a parent (e.g. Android back button). */
   clearSelectionSignal?: number;
+  /** Whether settings sheet is open */
+  isSettingsOpen?: boolean;
+  /** Callback when settings open state changes */
+  onSettingsOpenChange?: (open: boolean) => void;
 }
 
-export function BookmarkLibrary({ onCreateShortcut, onSelectionModeChange, clearSelectionSignal }: BookmarkLibraryProps) {
+export function BookmarkLibrary({ 
+  onCreateShortcut, 
+  onSelectionModeChange, 
+  clearSelectionSignal,
+  isSettingsOpen,
+  onSettingsOpenChange,
+}: BookmarkLibraryProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [links, setLinks] = useState<SavedLink[]>([]);
   const [activeTagFilter, setActiveTagFilter] = useState<string | null>(null);
@@ -472,7 +482,7 @@ export function BookmarkLibrary({ onCreateShortcut, onSelectionModeChange, clear
             </div>
             <span className="text-sm font-medium text-muted-foreground tracking-wide">Bookmarks</span>
           </div>
-          <SettingsSheet />
+          <SettingsSheet open={isSettingsOpen} onOpenChange={onSettingsOpenChange} />
         </div>
         <h1 className="text-2xl font-semibold text-foreground leading-tight tracking-tight">
           Your saved links

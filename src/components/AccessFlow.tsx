@@ -38,6 +38,10 @@ interface AccessFlowProps {
   initialUrlForShortcut?: string | null;
   /** Called when the initial URL has been consumed */
   onInitialUrlConsumed?: () => void;
+  /** Whether settings sheet is open */
+  isSettingsOpen?: boolean;
+  /** Callback when settings open state changes */
+  onSettingsOpenChange?: (open: boolean) => void;
 }
 
 export function AccessFlow({ 
@@ -45,6 +49,8 @@ export function AccessFlow({
   onContentSourceTypeChange,
   initialUrlForShortcut,
   onInitialUrlConsumed,
+  isSettingsOpen,
+  onSettingsOpenChange,
 }: AccessFlowProps) {
   const [step, setStep] = useState<AccessStep>('source');
   const [contentSource, setContentSource] = useState<ContentSource | null>(null);
@@ -333,7 +339,7 @@ export function AccessFlow({
                 </div>
                 <span className="text-sm font-medium text-muted-foreground tracking-wide">OneTap</span>
               </div>
-              <SettingsSheet />
+              <SettingsSheet open={isSettingsOpen} onOpenChange={onSettingsOpenChange} />
             </div>
             <h1 className="text-2xl font-semibold text-foreground leading-tight tracking-tight">
               One tap to what matters

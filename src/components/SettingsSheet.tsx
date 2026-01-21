@@ -22,12 +22,17 @@ const themeOptions: { value: ThemeOption; label: string; icon: React.ReactNode }
   { value: 'system', label: 'System', icon: <Monitor className="h-4 w-4" /> },
 ];
 
-export function SettingsSheet() {
+interface SettingsSheetProps {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}
+
+export function SettingsSheet({ open, onOpenChange }: SettingsSheetProps) {
   const { settings, updateSettings } = useSettings();
   const { theme, setTheme } = useTheme();
 
   return (
-    <Sheet>
+    <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetTrigger asChild>
         <Button variant="ghost" size="icon" className="h-9 w-9">
           <Settings className="h-5 w-5" />
