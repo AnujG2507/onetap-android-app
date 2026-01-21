@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - **Node.js** v18+
-- **JDK 17** (recommended for Android/Gradle)
+- **JDK 21** (recommended for Android/Gradle)
 - **Android Studio** with Android SDK
 - **Android phone** (8.0+) with USB debugging enabled
 
@@ -21,28 +21,30 @@ npm run build
 npx cap sync android
 ```
 
-### 2. Activate Native Code
+### 2. Apply Native Patches
 
-After cloning, uncomment these files by removing `/*` and `*/` block comment markers:
+Run the patch script to copy native Java files and configure Gradle:
 
 ```bash
-# Open all files that need uncommenting:
-gedit android/app/src/main/java/app/onetap/shortcuts/plugins/ShortcutPlugin.java
-gedit android/app/src/main/java/app/onetap/shortcuts/MainActivity.java
-gedit android/app/src/main/java/app/onetap/shortcuts/VideoProxyActivity.java
-gedit android/app/src/main/res/xml/file_paths.xml
+node scripts/android/patch-android-project.mjs
 ```
 
-**For each Java file:** Remove `/*` at the top and `*/` at the bottom.
+This script:
+- Copies custom Java files from `native/android/` to `android/`
+- Updates Gradle wrapper to 8.13
+- Sets minSdk=31, compileSdk=36, targetSdk=36
+- Configures JDK 21
 
-**For file_paths.xml:** Uncomment the `<paths>` element (remove `<!--` and `-->`).
+### 3. Configure OAuth (Required for Google Sign-In)
 
-**Also:** Delete `MainActivity.kt` if it exists:
-```bash
-rm -f android/app/src/main/java/app/onetap/shortcuts/MainActivity.kt
-```
+**Backend Setup:**
+1. Open your Lovable project
+2. Go to **Cloud → Users → Auth Settings → URL Configuration**
+3. Add `onetap://auth-callback` to "Redirect URLs"
 
-### 3. Run on Device
+This enables the native OAuth flow where Google sign-in returns directly to the app instead of the web.
+
+### 4. Run on Device
 
 ```bash
 # Enable USB debugging on your phone first
@@ -57,17 +59,34 @@ Or open in Android Studio: `npx cap open android`
 git pull
 npm run build
 npx cap sync android
+node scripts/android/patch-android-project.mjs  # If native files changed
 npx cap run android
 ```
 
 ## Environment Check
 
 ```bash
-java -version      # Should be 17.x
-echo $JAVA_HOME    # Should point to JDK 17
+java -version      # Should be 21.x
+echo $JAVA_HOME    # Should point to JDK 21
 echo $ANDROID_HOME # Should be set
 adb devices        # Should list your device
 ```
+
+## OAuth Deep Link Flow
+
+The app uses a custom URL scheme for native OAuth:
+
+1. User taps "Sign in with Google"
+2. App opens Google OAuth in Chrome Custom Tab
+3. After authentication, Google redirects to `onetap://auth-callback?code=...`
+4. Android intercepts this URL (via intent-filter in AndroidManifest.xml)
+5. App exchanges the code for a session token
+6. User is signed in
+
+**Files involved:**
+- `native/android/app/src/main/AndroidManifest.xml` - Deep link intent-filter
+- `src/hooks/useDeepLink.ts` - Handles `appUrlOpen` events
+- `src/hooks/useAuth.ts` - Native OAuth flow with `skipBrowserRedirect`
 
 ## Troubleshooting
 
@@ -78,8 +97,8 @@ adb devices        # Should list your device
 | Build fails | Run `npx cap sync android` |
 | Shortcuts not working | Requires Android 8.0+ |
 | `spawn ./gradlew ENOENT` | See Gradlew fix below |
-| `Could not determine java version from '21.x'` | Update Gradle wrapper (8.4+) or use JDK 17 |
-
+| OAuth goes to lovable.dev | Add `onetap://auth-callback` to backend redirect URLs |
+| "ES256 invalid signing" | Backend redirect URL not configured (see above) |
 
 ### Gradlew Not Found Fix
 
@@ -104,32 +123,44 @@ If you see an error like:
 
 - `Cannot find a Java installation ... matching: {languageVersion=21 ...}`
 
-It means something in the generated Android project is requesting Java 21.
-
-**Fix (recommended):** use **JDK 17** and re-run our patch script (it forces Java 17 + updates Gradle wrapper):
+**Fix:** Install JDK 21 and re-run the patch script:
 
 ```bash
+# Ubuntu/Debian
+sudo apt install openjdk-21-jdk -y
+export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+
+# Then re-patch
 node scripts/android/patch-android-project.mjs
 npm run build
 npx cap sync android
-```
-
-Then run again:
-
-```bash
 npx cap run android
 ```
 
-### Clean Rebuild
+### OAuth Not Returning to App
 
+If Google sign-in completes but you end up on lovable.dev instead of the app:
+
+1. **Check backend redirect URLs:** Ensure `onetap://auth-callback` is listed in Cloud → Users → Auth Settings → URL Configuration
+2. **Verify AndroidManifest:** The intent-filter should include:
+   ```xml
+   <intent-filter>
+       <action android:name="android.intent.action.VIEW" />
+       <category android:name="android.intent.category.DEFAULT" />
+       <category android:name="android.intent.category.BROWSABLE" />
+       <data android:scheme="onetap" android:host="auth-callback" />
+   </intent-filter>
+   ```
+3. **Use Auth Debug panel:** In dev builds, tap the "Auth" button to see platform info and last received deep link
+
+### Clean Rebuild
 
 ```bash
 rm -rf android
 npx cap add android
+node scripts/android/patch-android-project.mjs
 npm run build
 npx cap sync android
-git checkout -- android/  # Restore native files
-# Uncomment the Java files again
 npx cap run android
 ```
 
