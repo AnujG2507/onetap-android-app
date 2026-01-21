@@ -92,9 +92,30 @@ export function BookmarkLibrary({
   const [links, setLinks] = useState<SavedLink[]>([]);
   const [activeTagFilter, setActiveTagFilter] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
-  const [sortMode, setSortMode] = useState<SortMode>('newest');
-  const [sortReversed, setSortReversed] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    const saved = localStorage.getItem('bookmark_view_mode');
+    return (saved === 'list' || saved === 'folders') ? saved : 'list';
+  });
+  const [sortMode, setSortMode] = useState<SortMode>(() => {
+    const saved = localStorage.getItem('bookmark_sort_mode');
+    return (saved === 'newest' || saved === 'alphabetical' || saved === 'folder') ? saved : 'newest';
+  });
+  const [sortReversed, setSortReversed] = useState(() => {
+    return localStorage.getItem('bookmark_sort_reversed') === 'true';
+  });
+  
+  // Persist preferences to localStorage
+  useEffect(() => {
+    localStorage.setItem('bookmark_view_mode', viewMode);
+  }, [viewMode]);
+  
+  useEffect(() => {
+    localStorage.setItem('bookmark_sort_mode', sortMode);
+  }, [sortMode]);
+  
+  useEffect(() => {
+    localStorage.setItem('bookmark_sort_reversed', String(sortReversed));
+  }, [sortReversed]);
   
   // Action sheet state
   const [selectedLink, setSelectedLink] = useState<SavedLink | null>(null);
