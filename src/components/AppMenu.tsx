@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Menu, Trash2, User, Cloud, Sun, Moon, Monitor, Clipboard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -23,6 +23,8 @@ const themeOptions: { value: ThemeOption; label: string; icon: React.ReactNode }
   { value: 'system', label: 'Auto', icon: <Monitor className="h-4 w-4" /> },
 ];
 
+const SWIPE_THRESHOLD = 50;
+
 interface AppMenuProps {
   onOpenTrash: () => void;
 }
@@ -32,6 +34,10 @@ export function AppMenu({ onOpenTrash }: AppMenuProps) {
   const [trashCount, setTrashCount] = useState(getTrashCount());
   const { theme, setTheme } = useTheme();
   const { settings, updateSettings } = useSettings();
+  
+  // Swipe gesture tracking
+  const touchStartX = useRef<number | null>(null);
+  const touchCurrentX = useRef<number | null>(null);
 
   // Refresh trash count when menu opens
   useEffect(() => {
@@ -46,6 +52,28 @@ export function AppMenu({ onOpenTrash }: AppMenuProps) {
     setTimeout(action, 150);
   };
 
+  // Swipe handlers
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchCurrentX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    touchCurrentX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = () => {
+    if (touchStartX.current !== null && touchCurrentX.current !== null) {
+      const deltaX = touchCurrentX.current - touchStartX.current;
+      // Swipe right to close (since menu is on the right side)
+      if (deltaX > SWIPE_THRESHOLD) {
+        setOpen(false);
+      }
+    }
+    touchStartX.current = null;
+    touchCurrentX.current = null;
+  };
+
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
@@ -53,7 +81,13 @@ export function AppMenu({ onOpenTrash }: AppMenuProps) {
           <Menu className="h-5 w-5" />
         </Button>
       </SheetTrigger>
-      <SheetContent side="right" className="w-72 flex flex-col">
+      <SheetContent 
+        side="right" 
+        className="w-72 flex flex-col"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
         <SheetHeader className="pb-4">
           <SheetTitle className="text-left">Menu</SheetTitle>
         </SheetHeader>
