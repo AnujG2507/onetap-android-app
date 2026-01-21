@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import { 
   Menu, 
   Trash2, 
-  User, 
   Sun, 
   Moon, 
   Monitor, 
@@ -22,6 +21,7 @@ import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { getTrashCount, getTrashLinks, getDaysRemaining } from '@/lib/savedLinksManager';
 import { useTheme } from 'next-themes';
+import { CloudBackupSection } from './CloudBackupSection';
 import { useSettings } from '@/hooks/useSettings';
 
 type ThemeOption = 'light' | 'dark' | 'system';
@@ -147,24 +147,8 @@ export function AppMenu({ onOpenTrash }: AppMenuProps) {
             )}
           </Button>
 
-          <Separator className="my-3" />
-
-          {/* Coming Soon Section */}
-          <p className="text-xs text-muted-foreground px-3 mb-2">Coming Soon</p>
-
-          {/* Account - Disabled */}
-          <Button
-            variant="ghost"
-            className="w-full justify-start h-12 px-3 opacity-50 cursor-not-allowed"
-            disabled
-          >
-            <div className="flex items-center gap-3 flex-1">
-              <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center">
-                <User className="h-4 w-4 text-muted-foreground" />
-              </div>
-              <span className="font-medium">Account</span>
-            </div>
-          </Button>
+          {/* Cloud Backup Section */}
+          <CloudBackupSection />
         </div>
 
         {/* Settings Section - at bottom */}
