@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Menu, Trash2, User, Cloud, Sun, Moon, Monitor, Clipboard } from 'lucide-react';
+import { Menu, Trash2, User, Cloud, Sun, Moon, Monitor, Clipboard, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import {
@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
-import { getTrashCount } from '@/lib/savedLinksManager';
+import { getTrashCount, getTrashLinks, getDaysRemaining } from '@/lib/savedLinksManager';
 import { useTheme } from 'next-themes';
 import { useSettings } from '@/hooks/useSettings';
 
@@ -32,6 +32,7 @@ interface AppMenuProps {
 export function AppMenu({ onOpenTrash }: AppMenuProps) {
   const [open, setOpen] = useState(false);
   const [trashCount, setTrashCount] = useState(getTrashCount());
+  const [expiringCount, setExpiringCount] = useState(0);
   const { theme, setTheme } = useTheme();
   const { settings, updateSettings } = useSettings();
   
@@ -39,10 +40,21 @@ export function AppMenu({ onOpenTrash }: AppMenuProps) {
   const touchStartX = useRef<number | null>(null);
   const touchCurrentX = useRef<number | null>(null);
 
-  // Refresh trash count when menu opens
+  // Check for expiring items on mount and when menu opens
+  const checkExpiringItems = () => {
+    const trashLinks = getTrashLinks();
+    const expiringSoon = trashLinks.filter(link => getDaysRemaining(link.deletedAt) <= 3);
+    setExpiringCount(expiringSoon.length);
+    setTrashCount(trashLinks.length);
+  };
+
+  useEffect(() => {
+    checkExpiringItems();
+  }, []);
+
   useEffect(() => {
     if (open) {
-      setTrashCount(getTrashCount());
+      checkExpiringItems();
     }
   }, [open]);
 
@@ -77,8 +89,13 @@ export function AppMenu({ onOpenTrash }: AppMenuProps) {
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-9 w-9">
+        <Button variant="ghost" size="icon" className="h-9 w-9 relative">
           <Menu className="h-5 w-5" />
+          {expiringCount > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-amber-500 flex items-center justify-center">
+              <AlertTriangle className="h-2.5 w-2.5 text-white" />
+            </span>
+          )}
         </Button>
       </SheetTrigger>
       <SheetContent 
@@ -106,9 +123,17 @@ export function AppMenu({ onOpenTrash }: AppMenuProps) {
               <span className="font-medium">Trash</span>
             </div>
             {trashCount > 0 && (
-              <span className="h-5 min-w-5 px-1.5 rounded-full bg-destructive text-[11px] font-semibold text-destructive-foreground flex items-center justify-center">
-                {trashCount > 99 ? '99+' : trashCount}
-              </span>
+              <div className="flex items-center gap-1.5">
+                {expiringCount > 0 && (
+                  <span className="h-5 min-w-5 px-1.5 rounded-full bg-amber-500 text-[11px] font-semibold text-white flex items-center justify-center gap-0.5">
+                    <AlertTriangle className="h-3 w-3" />
+                    {expiringCount}
+                  </span>
+                )}
+                <span className="h-5 min-w-5 px-1.5 rounded-full bg-destructive text-[11px] font-semibold text-destructive-foreground flex items-center justify-center">
+                  {trashCount > 99 ? '99+' : trashCount}
+                </span>
+              </div>
             )}
           </Button>
 
