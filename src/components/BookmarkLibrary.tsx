@@ -831,6 +831,7 @@ export function BookmarkLibrary({
                       onTap={() => handleBookmarkTap(link)}
                       onToggleShortlist={handleToggleShortlist}
                       onCreateShortcut={onCreateShortcut}
+                      onDelete={handleDelete}
                       isDragDisabled={isDragDisabled}
                       isSelectionMode={hasShortlist}
                     />
@@ -861,6 +862,7 @@ export function BookmarkLibrary({
                     onBookmarkTap={handleBookmarkTap}
                     onToggleShortlist={handleToggleShortlist}
                     onCreateShortcut={onCreateShortcut}
+                    onDeleteBookmark={handleDelete}
                     isDragDisabled={isDragDisabled}
                     isSelectionMode={hasShortlist}
                     defaultOpen
@@ -874,6 +876,7 @@ export function BookmarkLibrary({
                     onBookmarkTap={handleBookmarkTap}
                     onToggleShortlist={handleToggleShortlist}
                     onCreateShortcut={onCreateShortcut}
+                    onDeleteBookmark={handleDelete}
                     onDeleteFolder={handleDeleteFolder}
                     onFolderUpdated={() => {
                       refreshLinks();
@@ -894,6 +897,7 @@ export function BookmarkLibrary({
                         onBookmarkTap={handleBookmarkTap}
                         onToggleShortlist={handleToggleShortlist}
                         onCreateShortcut={onCreateShortcut}
+                        onDeleteBookmark={handleDelete}
                         onDeleteFolder={handleDeleteFolder}
                         onFolderUpdated={() => {
                           refreshLinks();
@@ -911,6 +915,7 @@ export function BookmarkLibrary({
                       onBookmarkTap={handleBookmarkTap}
                       onToggleShortlist={handleToggleShortlist}
                       onCreateShortcut={onCreateShortcut}
+                      onDeleteBookmark={handleDelete}
                       isDragDisabled={isDragDisabled}
                       defaultOpen={groupedLinks.sortedTags.length === 0}
                       isSelectionMode={hasShortlist}

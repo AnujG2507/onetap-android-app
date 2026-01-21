@@ -1,5 +1,5 @@
 import { useRef, useCallback, useState } from 'react';
-import { Globe, GripVertical, ChevronDown } from 'lucide-react';
+import { Globe, GripVertical, ChevronDown, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
@@ -23,6 +23,7 @@ interface BookmarkItemProps {
   onTap: () => void;
   onToggleShortlist: (id: string) => void;
   onCreateShortcut?: (url: string) => void;
+  onDelete?: (id: string) => void;
   isDragDisabled?: boolean;
   isSelectionMode?: boolean;
 }
@@ -37,12 +38,15 @@ function extractFaviconUrl(url: string): string {
 }
 
 const LONG_PRESS_DURATION = 500;
+const SWIPE_THRESHOLD = 80; // Minimum swipe distance to trigger delete
+const SWIPE_DELETE_THRESHOLD = 150; // Auto-delete threshold
 
 export function BookmarkItem({ 
   link, 
   onTap, 
   onToggleShortlist, 
   onCreateShortcut,
+  onDelete,
   isDragDisabled,
   isSelectionMode = false,
 }: BookmarkItemProps) {
@@ -51,6 +55,14 @@ export function BookmarkItem({
   const isLongPress = useRef(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [isUrlExpanded, setIsUrlExpanded] = useState(false);
+  
+  // Swipe state
+  const [swipeX, setSwipeX] = useState(0);
+  const [isSwiping, setIsSwiping] = useState(false);
+  const touchStartX = useRef(0);
+  const touchStartY = useRef(0);
+  const isHorizontalSwipe = useRef<boolean | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   
   const {
     attributes,
@@ -99,7 +111,7 @@ export function BookmarkItem({
   }, [link.url, onCreateShortcut]);
 
   const handleClick = useCallback(() => {
-    if (!isLongPress.current) {
+    if (!isLongPress.current && !isSwiping) {
       // In selection mode, tapping anywhere toggles selection
       if (isSelectionMode) {
         onToggleShortlist(link.id);
@@ -108,124 +120,216 @@ export function BookmarkItem({
       }
     }
     isLongPress.current = false;
-  }, [onTap, isSelectionMode, onToggleShortlist, link.id]);
+  }, [onTap, isSelectionMode, onToggleShortlist, link.id, isSwiping]);
+
+  // Swipe handlers
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (isSelectionMode) return; // Disable swipe in selection mode
+    
+    const touch = e.touches[0];
+    touchStartX.current = touch.clientX;
+    touchStartY.current = touch.clientY;
+    isHorizontalSwipe.current = null;
+    setIsSwiping(false);
+    
+    // Also trigger long press start
+    handleLongPressStart();
+  }, [isSelectionMode, handleLongPressStart]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (isSelectionMode) return;
+    
+    const touch = e.touches[0];
+    const deltaX = touch.clientX - touchStartX.current;
+    const deltaY = touch.clientY - touchStartY.current;
+    
+    // Determine swipe direction on first significant movement
+    if (isHorizontalSwipe.current === null) {
+      if (Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10) {
+        isHorizontalSwipe.current = Math.abs(deltaX) > Math.abs(deltaY);
+        if (isHorizontalSwipe.current) {
+          // Cancel long press when swiping
+          handleLongPressEnd();
+          setIsSwiping(true);
+        }
+      }
+    }
+    
+    // Only handle horizontal swipes (left swipe for delete)
+    if (isHorizontalSwipe.current && deltaX < 0) {
+      e.preventDefault();
+      // Limit the swipe distance with resistance
+      const resistance = 0.5;
+      const limitedDelta = Math.max(deltaX * resistance, -SWIPE_DELETE_THRESHOLD);
+      setSwipeX(limitedDelta);
+      
+      // Haptic feedback when crossing threshold
+      if (Math.abs(deltaX) >= SWIPE_THRESHOLD && Math.abs(swipeX) < SWIPE_THRESHOLD) {
+        triggerHaptic('light');
+      }
+    }
+  }, [isSelectionMode, handleLongPressEnd, swipeX]);
+
+  const handleTouchEnd = useCallback(() => {
+    handleLongPressEnd();
+    
+    if (Math.abs(swipeX) >= SWIPE_THRESHOLD && onDelete) {
+      // Trigger delete
+      triggerHaptic('warning');
+      onDelete(link.id);
+    }
+    
+    // Reset swipe state
+    setSwipeX(0);
+    setTimeout(() => setIsSwiping(false), 100);
+    isHorizontalSwipe.current = null;
+  }, [swipeX, onDelete, link.id, handleLongPressEnd]);
   
   return (
     <div
-      ref={setNodeRef}
+      ref={(node) => {
+        setNodeRef(node);
+        (containerRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+      }}
       style={style}
       className={cn(
-        "w-full flex items-start gap-2 p-4 rounded-xl",
-        "bg-card hover:bg-muted/50",
-        "transition-all duration-200",
-        "text-left group border",
-        isDragging && "opacity-50 shadow-lg scale-[1.02] z-50",
-        // Selection mode visual feedback
-        isSelectionMode && link.isShortlisted
-          ? "border-primary/50 bg-primary/5 ring-1 ring-primary/20"
-          : "border-border/50"
+        "relative overflow-hidden rounded-xl",
+        isDragging && "opacity-50 shadow-lg scale-[1.02] z-50"
       )}
     >
-      {/* Drag Handle */}
-      {!isDragDisabled && (
+      {/* Delete action background */}
+      <div 
+        className={cn(
+          "absolute inset-y-0 right-0 flex items-center justify-end px-4 bg-destructive transition-opacity",
+          Math.abs(swipeX) > 20 ? "opacity-100" : "opacity-0"
+        )}
+        style={{ width: Math.abs(swipeX) + 20 }}
+      >
+        <Trash2 className={cn(
+          "h-5 w-5 text-destructive-foreground transition-transform",
+          Math.abs(swipeX) >= SWIPE_THRESHOLD && "scale-110"
+        )} />
+      </div>
+      
+      {/* Main content */}
+      <div
+        className={cn(
+          "w-full flex items-start gap-2 p-4",
+          "bg-card hover:bg-muted/50",
+          "transition-all duration-200",
+          "text-left group border",
+          // Selection mode visual feedback
+          isSelectionMode && link.isShortlisted
+            ? "border-primary/50 bg-primary/5 ring-1 ring-primary/20"
+            : "border-border/50"
+        )}
+        style={{
+          transform: `translateX(${swipeX}px)`,
+          transition: isSwiping ? 'none' : 'transform 0.2s ease-out',
+        }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
+      >
+        {/* Drag Handle */}
+        {!isDragDisabled && (
+          <button
+            type="button"
+            className="flex items-center justify-center pt-1 cursor-grab active:cursor-grabbing touch-none"
+            {...attributes}
+            {...listeners}
+          >
+            <GripVertical className="h-5 w-5 text-muted-foreground/50" />
+          </button>
+        )}
+        
+        {/* Checkbox for shortlisting - only visible in selection mode */}
+        {isSelectionMode && (
+          <div 
+            className="flex items-center justify-center pt-1"
+            onClick={handleCheckboxClick}
+          >
+            <Checkbox 
+              checked={link.isShortlisted || false}
+              className="h-5 w-5"
+            />
+          </div>
+        )}
+        
+        {/* Clickable content area */}
         <button
           type="button"
-          className="flex items-center justify-center pt-1 cursor-grab active:cursor-grabbing touch-none"
-          {...attributes}
-          {...listeners}
+          onClick={handleClick}
+          onMouseDown={handleLongPressStart}
+          onMouseUp={handleLongPressEnd}
+          onMouseLeave={handleLongPressEnd}
+          className="flex-1 flex items-start gap-3 text-left active:scale-[0.99] transition-transform select-none"
         >
-          <GripVertical className="h-5 w-5 text-muted-foreground/50" />
-        </button>
-      )}
-      
-      {/* Checkbox for shortlisting - only visible in selection mode */}
-      {isSelectionMode && (
-        <div 
-          className="flex items-center justify-center pt-1"
-          onClick={handleCheckboxClick}
-        >
-          <Checkbox 
-            checked={link.isShortlisted || false}
-            className="h-5 w-5"
-          />
-        </div>
-      )}
-      
-      {/* Clickable content area */}
-      <button
-        type="button"
-        onClick={handleClick}
-        onMouseDown={handleLongPressStart}
-        onMouseUp={handleLongPressEnd}
-        onMouseLeave={handleLongPressEnd}
-        onTouchStart={handleLongPressStart}
-        onTouchEnd={handleLongPressEnd}
-        onTouchCancel={handleLongPressEnd}
-        className="flex-1 flex items-start gap-3 text-left active:scale-[0.99] transition-transform select-none"
-      >
-        {/* Favicon or fallback icon */}
-        <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted overflow-hidden">
-          {faviconUrl ? (
-            <img 
-              src={faviconUrl} 
-              alt="" 
-              className="h-6 w-6 object-contain"
-              onError={(e) => {
-                e.currentTarget.style.display = 'none';
-                e.currentTarget.nextElementSibling?.classList.remove('hidden');
-              }}
-            />
-          ) : null}
-          <Globe className={cn("h-5 w-5 text-muted-foreground", faviconUrl && "hidden")} />
-        </div>
-        
-        {/* Content */}
-        <div className="flex-1 min-w-0">
-          <p className="font-medium text-foreground truncate">{link.title}</p>
-          <div 
-            className={cn(
-              "flex items-start gap-1 text-xs text-muted-foreground mt-0.5 text-left",
-              !isSelectionMode && "hover:text-muted-foreground/80 cursor-pointer"
-            )}
-            onClick={(e) => {
-              if (isSelectionMode) return; // Disable expansion in selection mode
-              e.stopPropagation();
-              setIsUrlExpanded(!isUrlExpanded);
-            }}
-          >
-            <span className={cn("break-all", !isUrlExpanded && "line-clamp-2")}>
-              {link.url}
-            </span>
-            {!isSelectionMode && (
-              <ChevronDown 
-                className={cn(
-                  "h-3 w-3 shrink-0 mt-0.5 transition-transform duration-200",
-                  isUrlExpanded && "rotate-180"
-                )} 
+          {/* Favicon or fallback icon */}
+          <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted overflow-hidden">
+            {faviconUrl ? (
+              <img 
+                src={faviconUrl} 
+                alt="" 
+                className="h-6 w-6 object-contain"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                }}
               />
-            )}
+            ) : null}
+            <Globe className={cn("h-5 w-5 text-muted-foreground", faviconUrl && "hidden")} />
           </div>
-          {link.description && (
-            <p className="text-xs text-muted-foreground/80 mt-1.5 line-clamp-2">
-              {link.description}
-            </p>
-          )}
-          <div className="flex items-center gap-2 mt-2 flex-wrap">
-            {link.tag && (
-              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-normal">
-                {link.tag}
-              </Badge>
+          
+          {/* Content */}
+          <div className="flex-1 min-w-0">
+            <p className="font-medium text-foreground truncate">{link.title}</p>
+            <div 
+              className={cn(
+                "flex items-start gap-1 text-xs text-muted-foreground mt-0.5 text-left",
+                !isSelectionMode && "hover:text-muted-foreground/80 cursor-pointer"
+              )}
+              onClick={(e) => {
+                if (isSelectionMode) return; // Disable expansion in selection mode
+                e.stopPropagation();
+                setIsUrlExpanded(!isUrlExpanded);
+              }}
+            >
+              <span className={cn("break-all", !isUrlExpanded && "line-clamp-2")}>
+                {link.url}
+              </span>
+              {!isSelectionMode && (
+                <ChevronDown 
+                  className={cn(
+                    "h-3 w-3 shrink-0 mt-0.5 transition-transform duration-200",
+                    isUrlExpanded && "rotate-180"
+                  )} 
+                />
+              )}
+            </div>
+            {link.description && (
+              <p className="text-xs text-muted-foreground/80 mt-1.5 line-clamp-2">
+                {link.description}
+              </p>
             )}
-            <span className="text-[10px] text-muted-foreground/50">
-              {new Date(link.createdAt).toLocaleDateString(undefined, { 
-                month: 'short', 
-                day: 'numeric',
-                year: link.createdAt < Date.now() - 365 * 24 * 60 * 60 * 1000 ? 'numeric' : undefined
-              })}
-            </span>
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
+              {link.tag && (
+                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-normal">
+                  {link.tag}
+                </Badge>
+              )}
+              <span className="text-[10px] text-muted-foreground/50">
+                {new Date(link.createdAt).toLocaleDateString(undefined, { 
+                  month: 'short', 
+                  day: 'numeric',
+                  year: link.createdAt < Date.now() - 365 * 24 * 60 * 60 * 1000 ? 'numeric' : undefined
+                })}
+              </span>
+            </div>
           </div>
-        </div>
-      </button>
+        </button>
+      </div>
 
       {/* Confirmation Dialog */}
       <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>

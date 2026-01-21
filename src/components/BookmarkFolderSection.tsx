@@ -17,6 +17,7 @@ interface BookmarkFolderSectionProps {
   onBookmarkTap: (link: SavedLink) => void;
   onToggleShortlist: (id: string) => void;
   onCreateShortcut?: (url: string) => void;
+  onDeleteBookmark?: (id: string) => void;
   onDeleteFolder?: (name: string) => void;
   onFolderUpdated?: () => void;
   isDragDisabled?: boolean;
@@ -32,6 +33,7 @@ export function BookmarkFolderSection({
   onBookmarkTap,
   onToggleShortlist,
   onCreateShortcut,
+  onDeleteBookmark,
   onDeleteFolder,
   onFolderUpdated,
   isDragDisabled,
@@ -169,6 +171,7 @@ export function BookmarkFolderSection({
                   onTap={() => onBookmarkTap(link)}
                   onToggleShortlist={onToggleShortlist}
                   onCreateShortcut={onCreateShortcut}
+                  onDelete={onDeleteBookmark}
                   isDragDisabled={isDragDisabled}
                   isSelectionMode={isSelectionMode}
                 />
