@@ -21,8 +21,9 @@ export function AuthDebugPanel() {
   const [authEvents, setAuthEvents] = useState<AuthEvent[]>([]);
   const [copied, setCopied] = useState(false);
 
-  // Only render in development
-  if (import.meta.env.PROD) {
+  // Show in development OR when running in Lovable preview (contains 'lovable.app')
+  const isLovablePreview = typeof window !== 'undefined' && window.location.hostname.includes('lovable.app');
+  if (import.meta.env.PROD && !isLovablePreview) {
     return null;
   }
 
