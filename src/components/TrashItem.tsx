@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
-import { Trash2, RotateCcw, Clock, X } from 'lucide-react';
+import { Trash2, RotateCcw, Clock, X, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -27,6 +27,7 @@ const SWIPE_ACTION_THRESHOLD = 120;
 export function TrashItem({ link, onRestore, onDelete }: TrashItemProps) {
   const [swipeX, setSwipeX] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
+  const [isUrlExpanded, setIsUrlExpanded] = useState(false);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
   const isHorizontalSwipe = useRef<boolean | null>(null);
@@ -164,9 +165,23 @@ export function TrashItem({ link, onRestore, onDelete }: TrashItemProps) {
           <p className="text-sm font-medium text-foreground truncate">
             {link.title}
           </p>
-          <p className="text-xs text-muted-foreground truncate mt-0.5">
-            {link.url}
-          </p>
+          <div 
+            className="flex items-start gap-1 text-xs text-muted-foreground mt-0.5 text-left hover:text-muted-foreground/80 cursor-pointer"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsUrlExpanded(!isUrlExpanded);
+            }}
+          >
+            <span className={cn("break-all", !isUrlExpanded && "line-clamp-2")}>
+              {link.url}
+            </span>
+            <ChevronDown 
+              className={cn(
+                "h-3 w-3 shrink-0 mt-0.5 transition-transform duration-200",
+                isUrlExpanded && "rotate-180"
+              )} 
+            />
+          </div>
           <div className="flex items-center gap-2 mt-1.5">
             {link.tag && (
               <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
