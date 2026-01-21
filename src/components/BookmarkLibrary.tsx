@@ -583,47 +583,51 @@ export function BookmarkLibrary({
               {tagCounts.total}
             </span>
           </button>
-          {availableTags.map(tag => (
+          {availableTags
+            .filter(tag => (tagCounts.counts[tag] || 0) > 0)
+            .map(tag => (
+              <button
+                key={tag}
+                onClick={() => setActiveTagFilter(activeTagFilter === tag ? null : tag)}
+                className={cn(
+                  "shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors flex items-center gap-1.5",
+                  activeTagFilter === tag
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                )}
+              >
+                {tag}
+                <span className={cn(
+                  "px-1.5 py-0.5 rounded-full text-[10px] font-semibold min-w-[20px] text-center",
+                  activeTagFilter === tag
+                    ? "bg-primary-foreground/20 text-primary-foreground"
+                    : "bg-foreground/10 text-muted-foreground"
+                )}>
+                  {tagCounts.counts[tag]}
+                </span>
+              </button>
+            ))}
+          {tagCounts.uncategorizedCount > 0 && (
             <button
-              key={tag}
-              onClick={() => setActiveTagFilter(activeTagFilter === tag ? null : tag)}
+              onClick={() => setActiveTagFilter(activeTagFilter === '__uncategorized__' ? null : '__uncategorized__')}
               className={cn(
                 "shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors flex items-center gap-1.5",
-                activeTagFilter === tag
+                activeTagFilter === '__uncategorized__'
                   ? "bg-primary text-primary-foreground"
                   : "bg-muted text-muted-foreground hover:bg-muted/80"
               )}
             >
-              {tag}
+              Uncategorized
               <span className={cn(
                 "px-1.5 py-0.5 rounded-full text-[10px] font-semibold min-w-[20px] text-center",
-                activeTagFilter === tag
+                activeTagFilter === '__uncategorized__'
                   ? "bg-primary-foreground/20 text-primary-foreground"
                   : "bg-foreground/10 text-muted-foreground"
               )}>
-                {tagCounts.counts[tag] || 0}
+                {tagCounts.uncategorizedCount}
               </span>
             </button>
-          ))}
-          <button
-            onClick={() => setActiveTagFilter(activeTagFilter === '__uncategorized__' ? null : '__uncategorized__')}
-            className={cn(
-              "shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors flex items-center gap-1.5",
-              activeTagFilter === '__uncategorized__'
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground hover:bg-muted/80"
-            )}
-          >
-            Uncategorized
-            <span className={cn(
-              "px-1.5 py-0.5 rounded-full text-[10px] font-semibold min-w-[20px] text-center",
-              activeTagFilter === '__uncategorized__'
-                ? "bg-primary-foreground/20 text-primary-foreground"
-                : "bg-foreground/10 text-muted-foreground"
-            )}>
-              {tagCounts.uncategorizedCount}
-            </span>
-          </button>
+          )}
         </div>
       )}
 
