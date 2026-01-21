@@ -162,7 +162,11 @@ export function BookmarkLibrary({
     let result = [...links];
     
     if (activeTagFilter) {
-      result = result.filter(link => link.tag === activeTagFilter);
+      if (activeTagFilter === '__uncategorized__') {
+        result = result.filter(link => !link.tag);
+      } else {
+        result = result.filter(link => link.tag === activeTagFilter);
+      }
     }
     
     if (searchQuery.trim()) {
@@ -569,6 +573,17 @@ export function BookmarkLibrary({
               {tag}
             </button>
           ))}
+          <button
+            onClick={() => setActiveTagFilter(activeTagFilter === '__uncategorized__' ? null : '__uncategorized__')}
+            className={cn(
+              "shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors",
+              activeTagFilter === '__uncategorized__'
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+            )}
+          >
+            Uncategorized
+          </button>
         </div>
       )}
 
@@ -793,7 +808,20 @@ export function BookmarkLibrary({
                 )}
                 
                 {/* When a tag filter is active, only show that specific folder */}
-                {activeTagFilter ? (
+                {activeTagFilter === '__uncategorized__' ? (
+                  <BookmarkFolderSection
+                    key="uncategorized"
+                    title="Uncategorized"
+                    folderId="uncategorized"
+                    links={groupedLinks.uncategorized}
+                    onBookmarkTap={handleBookmarkTap}
+                    onToggleShortlist={handleToggleShortlist}
+                    onCreateShortcut={onCreateShortcut}
+                    isDragDisabled={isDragDisabled}
+                    isSelectionMode={hasShortlist}
+                    defaultOpen
+                  />
+                ) : activeTagFilter ? (
                   <BookmarkFolderSection
                     key={activeTagFilter}
                     title={activeTagFilter}
