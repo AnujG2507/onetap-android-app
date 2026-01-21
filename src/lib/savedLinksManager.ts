@@ -18,6 +18,15 @@ function notifyChange() {
   }));
 }
 
+/**
+ * Notify auto-sync that trash has changed
+ */
+function notifyTrashChange() {
+  window.dispatchEvent(new CustomEvent('bookmarks-changed', { 
+    detail: { key: TRASH_STORAGE_KEY } 
+  }));
+}
+
 export const PRESET_TAGS = ['Work', 'Personal', 'Social', 'News', 'Entertainment', 'Shopping'];
 
 export interface SavedLink {
@@ -447,6 +456,7 @@ function moveToTrash(link: SavedLink): void {
   
   trashLinks.unshift(trashedLink);
   localStorage.setItem(TRASH_STORAGE_KEY, JSON.stringify(trashLinks));
+  notifyTrashChange();
 }
 
 /**
@@ -456,6 +466,7 @@ function removeFromTrash(id: string): void {
   const trashLinks = getTrashLinks();
   const filtered = trashLinks.filter(link => link.id !== id);
   localStorage.setItem(TRASH_STORAGE_KEY, JSON.stringify(filtered));
+  notifyTrashChange();
 }
 
 /**
@@ -488,6 +499,7 @@ export function permanentlyDelete(id: string): void {
  */
 export function emptyTrash(): void {
   localStorage.setItem(TRASH_STORAGE_KEY, JSON.stringify([]));
+  notifyTrashChange();
 }
 
 export function restoreAllFromTrash(): SavedLink[] {

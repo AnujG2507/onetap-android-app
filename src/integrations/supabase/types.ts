@@ -50,6 +50,48 @@ export type Database = {
         }
         Relationships: []
       }
+      cloud_trash: {
+        Row: {
+          created_at: string
+          deleted_at: string
+          description: string | null
+          folder: string
+          id: string
+          original_created_at: string
+          retention_days: number
+          title: string | null
+          updated_at: string
+          url: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          deleted_at?: string
+          description?: string | null
+          folder?: string
+          id?: string
+          original_created_at?: string
+          retention_days?: number
+          title?: string | null
+          updated_at?: string
+          url: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string
+          description?: string | null
+          folder?: string
+          id?: string
+          original_created_at?: string
+          retention_days?: number
+          title?: string | null
+          updated_at?: string
+          url?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

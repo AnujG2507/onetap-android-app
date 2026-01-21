@@ -58,6 +58,20 @@ serve(async (req) => {
       );
     }
 
+    // Delete user's cloud trash
+    const { error: trashError } = await adminClient
+      .from('cloud_trash')
+      .delete()
+      .eq('user_id', user.id);
+
+    if (trashError) {
+      console.error('Error deleting trash:', trashError);
+      return new Response(
+        JSON.stringify({ error: 'Failed to delete user trash data' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Delete the auth user
     const { error: deleteError } = await adminClient.auth.admin.deleteUser(user.id);
 

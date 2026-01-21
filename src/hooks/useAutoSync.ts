@@ -1,15 +1,16 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { useAuth } from './useAuth';
-import { uploadBookmarksToCloud } from '@/lib/cloudSync';
+import { uploadBookmarksToCloud, uploadTrashToCloud } from '@/lib/cloudSync';
 import { recordSync } from '@/lib/syncStatusManager';
 import { getSettings } from '@/lib/settingsManager';
 
 const STORAGE_KEY = 'saved_links';
+const TRASH_STORAGE_KEY = 'saved_links_trash';
 const DEBOUNCE_MS = 3000; // Wait 3 seconds after last change before syncing
 const MIN_SYNC_INTERVAL_MS = 30000; // Don't sync more than once per 30 seconds
 
 /**
- * Hook that automatically syncs bookmarks to cloud when changes are detected.
+ * Hook that automatically syncs bookmarks and trash to cloud when changes are detected.
  * Only uploads to cloud (one-way sync) to avoid conflicts with user actions.
  * Returns isEnabled state that can be used to show UI indicators.
  */
@@ -50,13 +51,21 @@ export function useAutoSync() {
     console.log('[AutoSync] Starting auto-sync...');
 
     try {
-      const result = await uploadBookmarksToCloud();
-      if (result.success) {
+      // Upload bookmarks
+      const bookmarkResult = await uploadBookmarksToCloud();
+      
+      // Upload trash
+      const trashResult = await uploadTrashToCloud();
+      
+      const totalUploaded = (bookmarkResult.success ? bookmarkResult.uploaded : 0) + 
+                           (trashResult.success ? trashResult.uploaded : 0);
+      
+      if (bookmarkResult.success || trashResult.success) {
         lastSyncTime.current = Date.now();
-        recordSync(result.uploaded, 0);
-        console.log('[AutoSync] Completed, uploaded:', result.uploaded);
+        recordSync(totalUploaded, 0);
+        console.log('[AutoSync] Completed, uploaded bookmarks:', bookmarkResult.uploaded, 'trash:', trashResult.uploaded);
       } else {
-        console.error('[AutoSync] Failed:', result.error);
+        console.error('[AutoSync] Failed:', bookmarkResult.error || trashResult.error);
       }
     } catch (error) {
       console.error('[AutoSync] Error:', error);
@@ -97,8 +106,8 @@ export function useAutoSync() {
         key = event.detail?.key;
       }
       
-      if (key === STORAGE_KEY) {
-        console.log('[AutoSync] Bookmark change detected');
+      if (key === STORAGE_KEY || key === TRASH_STORAGE_KEY) {
+        console.log('[AutoSync] Change detected:', key);
         scheduleSync();
       }
     };
@@ -136,5 +145,15 @@ export function useAutoSync() {
 export function notifyBookmarkChange() {
   window.dispatchEvent(new CustomEvent('bookmarks-changed', { 
     detail: { key: 'saved_links' } 
+  }));
+}
+
+/**
+ * Dispatch a custom event to notify auto-sync of trash changes.
+ * Call this after any trash modification.
+ */
+export function notifyTrashChange() {
+  window.dispatchEvent(new CustomEvent('bookmarks-changed', { 
+    detail: { key: 'saved_links_trash' } 
   }));
 }
