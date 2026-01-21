@@ -581,32 +581,49 @@ export function BookmarkLibrary({
           Your saved links
         </h1>
         
-        {/* View Mode Toggle */}
+        {/* View Mode Toggle + Add Button */}
         {links.length > 0 && (
-          <div className="flex items-center gap-1 mt-3 p-1 bg-muted rounded-lg w-fit">
+          <div className="flex items-center gap-2 mt-3">
+            <div className="flex items-center gap-1 p-1 bg-muted rounded-lg">
+              <button
+                onClick={() => setViewMode('list')}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors",
+                  viewMode === 'list'
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <List className="h-3.5 w-3.5" />
+                List
+              </button>
+              <button
+                onClick={() => setViewMode('folders')}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors",
+                  viewMode === 'folders'
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <LayoutGrid className="h-3.5 w-3.5" />
+                Folders
+              </button>
+            </div>
+            
+            {/* Add Bookmark Button */}
             <button
-              onClick={() => setViewMode('list')}
+              onClick={() => {
+                setShowAddForm(true);
+                triggerHaptic('light');
+              }}
               className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors",
-                viewMode === 'list'
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors",
+                "bg-primary text-primary-foreground hover:bg-primary/90"
               )}
             >
-              <List className="h-3.5 w-3.5" />
-              List
-            </button>
-            <button
-              onClick={() => setViewMode('folders')}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors",
-                viewMode === 'folders'
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <LayoutGrid className="h-3.5 w-3.5" />
-              Folders
+              <Plus className="h-3.5 w-3.5" />
+              Add
             </button>
           </div>
         )}
@@ -704,9 +721,9 @@ export function BookmarkLibrary({
         </div>
       )}
 
-      {/* Add Bookmark Form or Button */}
-      <div className="px-5 mb-4">
-        {showAddForm ? (
+      {/* Add Bookmark Form */}
+      {showAddForm && (
+        <div className="px-5 mb-4">
           <AddBookmarkForm
             onSave={handleAddBookmark}
             onCancel={() => setShowAddForm(false)}
@@ -716,7 +733,12 @@ export function BookmarkLibrary({
               setShowActionSheet(true);
             }}
           />
-        ) : (
+        </div>
+      )}
+      
+      {/* Empty state with add button */}
+      {links.length === 0 && !showAddForm && (
+        <div className="px-5 mb-4">
           <button
             onClick={() => {
               setShowAddForm(true);
@@ -732,8 +754,8 @@ export function BookmarkLibrary({
             <Plus className="h-4 w-4" />
             <span className="text-sm font-medium">Add Bookmark</span>
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Sort Controls - below Add Bookmark */}
       {links.length > 0 && (
