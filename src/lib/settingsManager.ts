@@ -5,11 +5,13 @@ export type TrashRetentionDays = 7 | 14 | 30 | 60;
 export interface AppSettings {
   clipboardDetectionEnabled: boolean;
   trashRetentionDays: TrashRetentionDays;
+  autoSyncEnabled: boolean;
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
   clipboardDetectionEnabled: true,
   trashRetentionDays: 30,
+  autoSyncEnabled: true,
 };
 
 export function getSettings(): AppSettings {

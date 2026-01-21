@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
-import { User, Cloud, Upload, Download, RefreshCw, LogOut, BookmarkCheck, HardDrive, Clock } from 'lucide-react';
+import { User, Cloud, Upload, Download, RefreshCw, LogOut, HardDrive, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { useAuth } from '@/hooks/useAuth';
 import { getSavedLinks } from '@/lib/savedLinksManager';
 import { syncBookmarks, uploadBookmarksToCloud, downloadBookmarksFromCloud, getCloudBookmarkCount } from '@/lib/cloudSync';
 import { getSyncStatus, recordSync, formatRelativeTime } from '@/lib/syncStatusManager';
+import { getSettings, updateSettings } from '@/lib/settingsManager';
 import { useToast } from '@/hooks/use-toast';
 
 export function ProfilePage() {
@@ -18,6 +20,7 @@ export function ProfilePage() {
   const [localCount, setLocalCount] = useState(0);
   const [cloudCount, setCloudCount] = useState<number | null>(null);
   const [syncStatus, setSyncStatus] = useState(getSyncStatus());
+  const [autoSyncEnabled, setAutoSyncEnabled] = useState(() => getSettings().autoSyncEnabled);
 
   const isOperating = isSyncing || isUploading || isDownloading;
 
@@ -28,6 +31,18 @@ export function ProfilePage() {
       const count = await getCloudBookmarkCount();
       setCloudCount(count);
     }
+  };
+
+  const handleAutoSyncToggle = (enabled: boolean) => {
+    setAutoSyncEnabled(enabled);
+    updateSettings({ autoSyncEnabled: enabled });
+    window.dispatchEvent(new CustomEvent('settings-changed'));
+    toast({
+      title: enabled ? 'Auto-sync enabled' : 'Auto-sync disabled',
+      description: enabled 
+        ? 'Bookmarks will sync automatically when changes are made'
+        : 'Use manual sync to backup your bookmarks',
+    });
   };
 
   useEffect(() => {
@@ -211,13 +226,17 @@ export function ProfilePage() {
               <Clock className="w-4 h-4" />
               Sync Status
             </CardTitle>
-            <span className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+            {autoSyncEnabled ? (
+              <span className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                </span>
+                Auto-sync on
               </span>
-              Auto-sync on
-            </span>
+            ) : (
+              <span className="text-xs text-muted-foreground">Auto-sync off</span>
+            )}
           </div>
           <CardDescription>
             {formatRelativeTime(syncStatus.lastSyncAt)}
@@ -283,6 +302,30 @@ export function ProfilePage() {
               <Download className="w-4 h-4" />
               {isDownloading ? 'Downloading...' : 'Download'}
             </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Settings Card */}
+      <Card className="mb-4">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Settings</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="auto-sync" className="text-sm font-medium">
+                Auto-sync
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Automatically backup when bookmarks change
+              </p>
+            </div>
+            <Switch
+              id="auto-sync"
+              checked={autoSyncEnabled}
+              onCheckedChange={handleAutoSyncToggle}
+            />
           </div>
         </CardContent>
       </Card>

@@ -1,7 +1,8 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { useAuth } from './useAuth';
 import { uploadBookmarksToCloud } from '@/lib/cloudSync';
 import { recordSync } from '@/lib/syncStatusManager';
+import { getSettings } from '@/lib/settingsManager';
 
 const STORAGE_KEY = 'saved_links';
 const DEBOUNCE_MS = 3000; // Wait 3 seconds after last change before syncing
@@ -10,17 +11,29 @@ const MIN_SYNC_INTERVAL_MS = 30000; // Don't sync more than once per 30 seconds
 /**
  * Hook that automatically syncs bookmarks to cloud when changes are detected.
  * Only uploads to cloud (one-way sync) to avoid conflicts with user actions.
+ * Returns isEnabled state that can be used to show UI indicators.
  */
 export function useAutoSync() {
   const { user, loading } = useAuth();
+  const [isEnabled, setIsEnabled] = useState(() => getSettings().autoSyncEnabled);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
   const lastSyncTime = useRef<number>(0);
   const isSyncing = useRef(false);
   const pendingSync = useRef(false);
 
+  // Listen for settings changes
+  useEffect(() => {
+    const checkSettings = () => {
+      setIsEnabled(getSettings().autoSyncEnabled);
+    };
+    
+    window.addEventListener('settings-changed', checkSettings);
+    return () => window.removeEventListener('settings-changed', checkSettings);
+  }, []);
+
   const performSync = useCallback(async () => {
-    if (!user || isSyncing.current) {
-      if (!user) return;
+    if (!user || !isEnabled || isSyncing.current) {
+      if (!user || !isEnabled) return;
       // If already syncing, mark as pending
       pendingSync.current = true;
       return;
@@ -56,10 +69,10 @@ export function useAutoSync() {
         debounceTimer.current = setTimeout(performSync, DEBOUNCE_MS);
       }
     }
-  }, [user]);
+  }, [user, isEnabled]);
 
   const scheduleSync = useCallback(() => {
-    if (!user) return;
+    if (!user || !isEnabled) return;
     
     // Clear any existing timer
     if (debounceTimer.current) {
@@ -68,11 +81,11 @@ export function useAutoSync() {
     
     // Schedule new sync
     debounceTimer.current = setTimeout(performSync, DEBOUNCE_MS);
-  }, [user, performSync]);
+  }, [user, isEnabled, performSync]);
 
   useEffect(() => {
-    // Don't set up listener until auth is loaded and user is signed in
-    if (loading || !user) return;
+    // Don't set up listener until auth is loaded, user is signed in, and auto-sync is enabled
+    if (loading || !user || !isEnabled) return;
 
     // Listen for storage changes (works for same-tab changes too via custom event)
     const handleStorageChange = (event: StorageEvent | CustomEvent) => {
@@ -107,13 +120,13 @@ export function useAutoSync() {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('bookmarks-changed', handleStorageChange as EventListener);
       if (debounceTimer.current) {
-        clearTimeout(debounceTimer.current);
+      clearTimeout(debounceTimer.current);
       }
       clearTimeout(initialSyncTimer);
     };
-  }, [loading, user, scheduleSync, performSync]);
+  }, [loading, user, isEnabled, scheduleSync, performSync]);
 
-  return { isAutoSyncEnabled: !!user };
+  return { isAutoSyncEnabled: !!user && isEnabled };
 }
 
 /**
