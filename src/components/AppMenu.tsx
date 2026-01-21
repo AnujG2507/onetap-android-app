@@ -141,9 +141,14 @@ export function AppMenu({ onOpenTrash }: AppMenuProps) {
           
           {/* Clipboard Detection Toggle */}
           <div className="flex items-center justify-between px-3 py-2">
-            <div className="flex items-center gap-2">
-              <Clipboard className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm">Clipboard detection</span>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <Clipboard className="h-4 w-4 text-muted-foreground shrink-0" />
+                <span className="text-sm">Clipboard detection</span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5 pl-6">
+                Auto-detect URLs from clipboard
+              </p>
             </div>
             <Switch
               checked={settings.clipboardDetectionEnabled}
