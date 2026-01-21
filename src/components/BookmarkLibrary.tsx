@@ -619,6 +619,9 @@ export function BookmarkLibrary({
     const selectedCount = shortlistedLinks.length;
     shortlistedLinks.forEach(link => {
       if (permanent) {
+        // First remove from main storage (this moves to trash)
+        removeSavedLink(link.id);
+        // Then permanently delete from trash
         permanentlyDelete(link.id);
       } else {
         removeSavedLink(link.id);
