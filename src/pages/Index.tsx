@@ -6,6 +6,7 @@ import { AccessFlow, AccessStep, ContentSourceType } from '@/components/AccessFl
 import { ProfilePage } from '@/components/ProfilePage';
 import { useBackButton } from '@/hooks/useBackButton';
 import { useAuth } from '@/hooks/useAuth';
+import { useAutoSync } from '@/hooks/useAutoSync';
 import { getShortlistedLinks, clearAllShortlist } from '@/lib/savedLinksManager';
 import {
   AlertDialog,
@@ -28,7 +29,9 @@ const Index = () => {
   const [showExitConfirmation, setShowExitConfirmation] = useState(false);
 
   const { user } = useAuth();
-
+  
+  // Enable auto-sync when user is signed in
+  useAutoSync();
   // Check if shortlist has items
   const hasShortlist = getShortlistedLinks().length > 0;
 

@@ -9,6 +9,15 @@ function getRetentionMs(): number {
   return days * 24 * 60 * 60 * 1000;
 }
 
+/**
+ * Notify auto-sync that bookmarks have changed
+ */
+function notifyChange() {
+  window.dispatchEvent(new CustomEvent('bookmarks-changed', { 
+    detail: { key: STORAGE_KEY } 
+  }));
+}
+
 export const PRESET_TAGS = ['Work', 'Personal', 'Social', 'News', 'Entertainment', 'Shopping'];
 
 export interface SavedLink {
@@ -145,6 +154,7 @@ export function addSavedLink(
     }
     
     console.log('[SavedLinks] Successfully saved:', newLink.url);
+    notifyChange();
     return { link: newLink, status: 'added' };
   } catch (e) {
     console.error('[SavedLinks] Failed to save link:', e);
@@ -164,6 +174,7 @@ export function updateSavedLink(
     if (updates.tag !== undefined) link.tag = updates.tag;
     if (updates.url !== undefined) link.url = normalizeUrl(updates.url);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(links));
+    notifyChange();
   }
 }
 
@@ -190,6 +201,7 @@ export function removeSavedLink(id: string): SavedLink | null {
   // Move to trash
   if (removedLink) {
     moveToTrash(removedLink);
+    notifyChange();
   }
   
   return removedLink;
@@ -208,6 +220,7 @@ export function restoreSavedLink(link: SavedLink): void {
   
   // Also remove from trash if present
   removeFromTrash(link.id);
+  notifyChange();
 }
 
 export function updateSavedLinkTitle(id: string, title: string): void {

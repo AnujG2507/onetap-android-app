@@ -206,10 +206,19 @@ export function ProfilePage() {
       {/* Sync Status Card */}
       <Card className="mb-4">
         <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Clock className="w-4 h-4" />
-            Sync Status
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Clock className="w-4 h-4" />
+              Sync Status
+            </CardTitle>
+            <span className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+              </span>
+              Auto-sync on
+            </span>
+          </div>
           <CardDescription>
             {formatRelativeTime(syncStatus.lastSyncAt)}
           </CardDescription>
