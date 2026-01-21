@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { Search, Plus, X, Bookmark, Trash2, Home, LayoutGrid, List, FolderInput, Clock, SortDesc, ArrowDownAZ, ArrowUpZA, Folder, ArrowDownUp, Edit2 } from 'lucide-react';
+import { Search, Plus, X, Bookmark, Trash2, Home, LayoutGrid, List, FolderInput, Clock, SortDesc, ArrowDownAZ, ArrowUpZA, Folder, ArrowDownUp, Edit2, GripVertical } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ToastAction } from '@/components/ui/toast';
@@ -839,6 +839,18 @@ export function BookmarkLibrary({
               </Tooltip>
             </div>
           </TooltipProvider>
+        </div>
+      )}
+
+      {/* Manual Ordering Mode Banner */}
+      {sortMode === 'manual' && links.length > 1 && !searchQuery.trim() && !activeTagFilter && (
+        <div className="px-5 mb-3 animate-fade-in">
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/10 border border-primary/20">
+            <GripVertical className="h-4 w-4 text-primary/70" />
+            <span className="text-xs text-primary font-medium">
+              Manual ordering mode — drag items to reorder
+            </span>
+          </div>
         </div>
       )}
 
