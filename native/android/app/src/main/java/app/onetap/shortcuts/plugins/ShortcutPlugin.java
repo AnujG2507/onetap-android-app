@@ -1266,17 +1266,29 @@ public class ShortcutPlugin extends Plugin {
                 return null;
             }
             
-            // Scale to 192x192 for shortcut icon
-            int size = 192;
-            Bitmap scaled = Bitmap.createScaledBitmap(bitmap, size, size, true);
+            // Adaptive icon size: 108dp * 2 = 216px for foreground layer
+            int adaptiveSize = 216;
+            int contentSize = 144; // Content area (leaves ~33% padding for safe zone)
+            
+            // Create larger canvas for adaptive icon
+            Bitmap adaptiveBitmap = Bitmap.createBitmap(adaptiveSize, adaptiveSize, Bitmap.Config.ARGB_8888);
+            Canvas canvas = new Canvas(adaptiveBitmap);
+            
+            // Scale original to fit content area
+            Bitmap scaled = Bitmap.createScaledBitmap(bitmap, contentSize, contentSize, true);
+            
+            // Center content in adaptive canvas
+            int offset = (adaptiveSize - contentSize) / 2;
+            canvas.drawBitmap(scaled, offset, offset, null);
             
             // Recycle original if it's different from scaled
             if (scaled != bitmap) {
                 bitmap.recycle();
             }
+            scaled.recycle();
             
-            android.util.Log.d("ShortcutPlugin", "Created bitmap icon: " + scaled.getWidth() + "x" + scaled.getHeight());
-            return Icon.createWithBitmap(scaled);
+            android.util.Log.d("ShortcutPlugin", "Created adaptive bitmap icon: " + adaptiveBitmap.getWidth() + "x" + adaptiveBitmap.getHeight());
+            return Icon.createWithAdaptiveBitmap(adaptiveBitmap);
         } catch (Exception e) {
             android.util.Log.e("ShortcutPlugin", "Error creating bitmap icon: " + e.getMessage());
             return null;
@@ -1299,15 +1311,27 @@ public class ShortcutPlugin extends Plugin {
                 return null;
             }
             
-            // Scale to 192x192
-            int size = 192;
-            Bitmap scaled = Bitmap.createScaledBitmap(bitmap, size, size, true);
+            // Adaptive icon size: 108dp * 2 = 216px for foreground layer
+            int adaptiveSize = 216;
+            int contentSize = 144; // Content area (leaves ~33% padding for safe zone)
+            
+            // Create larger canvas for adaptive icon
+            Bitmap adaptiveBitmap = Bitmap.createBitmap(adaptiveSize, adaptiveSize, Bitmap.Config.ARGB_8888);
+            Canvas canvas = new Canvas(adaptiveBitmap);
+            
+            // Scale original to fit content area
+            Bitmap scaled = Bitmap.createScaledBitmap(bitmap, contentSize, contentSize, true);
+            
+            // Center content in adaptive canvas
+            int offset = (adaptiveSize - contentSize) / 2;
+            canvas.drawBitmap(scaled, offset, offset, null);
             
             if (scaled != bitmap) {
                 bitmap.recycle();
             }
+            scaled.recycle();
             
-            return Icon.createWithBitmap(scaled);
+            return Icon.createWithAdaptiveBitmap(adaptiveBitmap);
         } catch (Exception e) {
             android.util.Log.e("ShortcutPlugin", "Error creating icon from URI: " + e.getMessage());
             return null;
@@ -1330,16 +1354,28 @@ public class ShortcutPlugin extends Plugin {
                 return null;
             }
             
-            // Scale to 192x192
-            int size = 192;
-            Bitmap scaled = Bitmap.createScaledBitmap(frame, size, size, true);
+            // Adaptive icon size: 108dp * 2 = 216px for foreground layer
+            int adaptiveSize = 216;
+            int contentSize = 144; // Content area (leaves ~33% padding for safe zone)
+            
+            // Create larger canvas for adaptive icon
+            Bitmap adaptiveBitmap = Bitmap.createBitmap(adaptiveSize, adaptiveSize, Bitmap.Config.ARGB_8888);
+            Canvas canvas = new Canvas(adaptiveBitmap);
+            
+            // Scale frame to fit content area
+            Bitmap scaled = Bitmap.createScaledBitmap(frame, contentSize, contentSize, true);
+            
+            // Center content in adaptive canvas
+            int offset = (adaptiveSize - contentSize) / 2;
+            canvas.drawBitmap(scaled, offset, offset, null);
             
             if (scaled != frame) {
                 frame.recycle();
             }
+            scaled.recycle();
             
-            android.util.Log.d("ShortcutPlugin", "Created video thumbnail icon");
-            return Icon.createWithBitmap(scaled);
+            android.util.Log.d("ShortcutPlugin", "Created adaptive video thumbnail icon");
+            return Icon.createWithAdaptiveBitmap(adaptiveBitmap);
         } catch (IllegalArgumentException e) {
             android.util.Log.w("ShortcutPlugin", "Video thumbnail failed (invalid data source): " + e.getMessage());
             return null;
@@ -1362,44 +1398,50 @@ public class ShortcutPlugin extends Plugin {
     }
 
     private Icon createEmojiIcon(String emoji) {
-        int size = 192;
-        Bitmap bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
+        // Adaptive icon size: 108dp * 2 = 216px for foreground layer
+        int adaptiveSize = 216;
+        Bitmap bitmap = Bitmap.createBitmap(adaptiveSize, adaptiveSize, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(bitmap);
 
+        // Fill entire canvas with background color (will be masked by launcher)
         Paint bgPaint = new Paint();
         bgPaint.setColor(Color.parseColor("#2563EB"));
         bgPaint.setStyle(Paint.Style.FILL);
-        canvas.drawCircle(size / 2f, size / 2f, size / 2f, bgPaint);
+        canvas.drawRect(0, 0, adaptiveSize, adaptiveSize, bgPaint);
 
+        // Draw emoji centered
         Paint textPaint = new Paint();
-        textPaint.setTextSize(size * 0.5f);
+        textPaint.setTextSize(adaptiveSize * 0.4f);
         textPaint.setTextAlign(Paint.Align.CENTER);
-        float y = (size / 2f) - ((textPaint.descent() + textPaint.ascent()) / 2);
-        canvas.drawText(emoji, size / 2f, y, textPaint);
+        float y = (adaptiveSize / 2f) - ((textPaint.descent() + textPaint.ascent()) / 2);
+        canvas.drawText(emoji, adaptiveSize / 2f, y, textPaint);
 
-        return Icon.createWithBitmap(bitmap);
+        return Icon.createWithAdaptiveBitmap(bitmap);
     }
 
     private Icon createTextIcon(String text) {
-        int size = 192;
-        Bitmap bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
+        // Adaptive icon size: 108dp * 2 = 216px for foreground layer
+        int adaptiveSize = 216;
+        Bitmap bitmap = Bitmap.createBitmap(adaptiveSize, adaptiveSize, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(bitmap);
 
+        // Fill entire canvas with background color (will be masked by launcher)
         Paint bgPaint = new Paint();
         bgPaint.setColor(Color.parseColor("#2563EB"));
         bgPaint.setStyle(Paint.Style.FILL);
-        canvas.drawCircle(size / 2f, size / 2f, size / 2f, bgPaint);
+        canvas.drawRect(0, 0, adaptiveSize, adaptiveSize, bgPaint);
 
+        // Draw text centered
         Paint textPaint = new Paint();
         textPaint.setColor(Color.WHITE);
-        textPaint.setTextSize(size * 0.4f);
+        textPaint.setTextSize(adaptiveSize * 0.35f);
         textPaint.setTextAlign(Paint.Align.CENTER);
         textPaint.setFakeBoldText(true);
         String displayText = text.substring(0, Math.min(2, text.length())).toUpperCase();
-        float y = (size / 2f) - ((textPaint.descent() + textPaint.ascent()) / 2);
-        canvas.drawText(displayText, size / 2f, y, textPaint);
+        float y = (adaptiveSize / 2f) - ((textPaint.descent() + textPaint.ascent()) / 2);
+        canvas.drawText(displayText, adaptiveSize / 2f, y, textPaint);
 
-        return Icon.createWithBitmap(bitmap);
+        return Icon.createWithAdaptiveBitmap(bitmap);
     }
 
     @PluginMethod
