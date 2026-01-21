@@ -73,7 +73,7 @@ import {
 } from '@dnd-kit/sortable';
 
 type ViewMode = 'list' | 'folders';
-type SortMode = 'newest' | 'alphabetical' | 'folder';
+type SortMode = 'manual' | 'newest' | 'alphabetical' | 'folder';
 
 interface BookmarkLibraryProps {
   onCreateShortcut: (url: string) => void;
@@ -98,7 +98,7 @@ export function BookmarkLibrary({
   });
   const [sortMode, setSortMode] = useState<SortMode>(() => {
     const saved = localStorage.getItem('bookmark_sort_mode');
-    return (saved === 'newest' || saved === 'alphabetical' || saved === 'folder') ? saved : 'newest';
+    return (saved === 'manual' || saved === 'newest' || saved === 'alphabetical' || saved === 'folder') ? saved : 'manual';
   });
   const [sortReversed, setSortReversed] = useState(() => {
     return localStorage.getItem('bookmark_sort_reversed') === 'true';
@@ -123,6 +123,11 @@ export function BookmarkLibrary({
       setViewMode('folders');
     }
   }, [sortMode]);
+  
+  // Helper to toggle sort mode
+  const handleSortToggle = (mode: SortMode) => {
+    setSortMode(sortMode === mode ? 'manual' : mode);
+  };
   
   // Action sheet state
   const [selectedLink, setSelectedLink] = useState<SavedLink | null>(null);
@@ -223,8 +228,11 @@ export function BookmarkLibrary({
       );
     }
     
-    // Apply sorting
+    // Apply sorting (manual mode preserves user's drag-drop order)
     switch (sortMode) {
+      case 'manual':
+        // Keep original order from localStorage
+        break;
       case 'newest':
         result.sort((a, b) => b.createdAt - a.createdAt);
         break;
@@ -276,8 +284,8 @@ export function BookmarkLibrary({
     return { groups, sortedTags, uncategorized };
   }, [filteredLinks, allFolders]);
 
-  // Check if filtering/searching is active (disable drag in this case)
-  const isDragDisabled = Boolean(searchQuery.trim() || activeTagFilter);
+  // Check if filtering/searching is active or sorting is applied (disable drag in these cases)
+  const isDragDisabled = Boolean(searchQuery.trim() || activeTagFilter || sortMode !== 'manual');
 
   // DnD sensors
   const sensors = useSensors(
@@ -732,13 +740,15 @@ export function BookmarkLibrary({
         <div className="px-5 mb-4">
           <TooltipProvider delayDuration={0}>
             <div className="flex items-center gap-1.5 select-none">
-              <span className="text-xs text-muted-foreground shrink-0">Sort:</span>
+              <span className="text-xs text-muted-foreground shrink-0">
+                {sortMode === 'manual' ? 'Manual' : 'Sort:'}
+              </span>
               
               {/* Newest First */}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
-                    onClick={() => setSortMode('newest')}
+                    onClick={() => handleSortToggle('newest')}
                     onContextMenu={(e) => e.preventDefault()}
                     className={cn(
                       "flex items-center gap-1 px-2 py-1.5 rounded-md text-xs font-medium transition-colors select-none touch-manipulation",
@@ -752,7 +762,7 @@ export function BookmarkLibrary({
                   </button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Sort by newest first</p>
+                  <p>{sortMode === 'newest' ? 'Click to enable manual ordering' : 'Sort by newest first'}</p>
                 </TooltipContent>
               </Tooltip>
               
@@ -760,7 +770,7 @@ export function BookmarkLibrary({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
-                    onClick={() => setSortMode('alphabetical')}
+                    onClick={() => handleSortToggle('alphabetical')}
                     onContextMenu={(e) => e.preventDefault()}
                     className={cn(
                       "flex items-center gap-1 px-2 py-1.5 rounded-md text-xs font-medium transition-colors select-none touch-manipulation",
@@ -774,7 +784,7 @@ export function BookmarkLibrary({
                   </button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Sort alphabetically by title</p>
+                  <p>{sortMode === 'alphabetical' ? 'Click to enable manual ordering' : 'Sort alphabetically by title'}</p>
                 </TooltipContent>
               </Tooltip>
               
@@ -782,7 +792,7 @@ export function BookmarkLibrary({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
-                    onClick={() => setSortMode('folder')}
+                    onClick={() => handleSortToggle('folder')}
                     onContextMenu={(e) => e.preventDefault()}
                     className={cn(
                       "flex items-center gap-1 px-2 py-1.5 rounded-md text-xs font-medium transition-colors select-none touch-manipulation",
@@ -796,7 +806,7 @@ export function BookmarkLibrary({
                   </button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Group by folder, then by date</p>
+                  <p>{sortMode === 'folder' ? 'Click to enable manual ordering' : 'Group by folder, then by date'}</p>
                 </TooltipContent>
               </Tooltip>
               
