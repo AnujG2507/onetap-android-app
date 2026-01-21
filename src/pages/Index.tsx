@@ -3,7 +3,9 @@ import { App } from '@capacitor/app';
 import { BottomNav, TabType } from '@/components/BottomNav';
 import { BookmarkLibrary } from '@/components/BookmarkLibrary';
 import { AccessFlow, AccessStep, ContentSourceType } from '@/components/AccessFlow';
+import { ProfilePage } from '@/components/ProfilePage';
 import { useBackButton } from '@/hooks/useBackButton';
+import { useAuth } from '@/hooks/useAuth';
 import { getShortlistedLinks, clearAllShortlist } from '@/lib/savedLinksManager';
 import {
   AlertDialog,
@@ -25,6 +27,8 @@ const Index = () => {
   const [shortcutUrlFromBookmark, setShortcutUrlFromBookmark] = useState<string | null>(null);
   const [showExitConfirmation, setShowExitConfirmation] = useState(false);
 
+  const { user } = useAuth();
+
   // Check if shortlist has items
   const hasShortlist = getShortlistedLinks().length > 0;
 
@@ -41,9 +45,10 @@ const Index = () => {
   }, []);
 
   // Handle Android back button
-  // Both access tab (at source step) and bookmarks tab (when not selecting) are "home" screens
+  // Both access tab (at source step), bookmarks tab (when not selecting), and profile tab are "home" screens
   const isOnHomeScreen = (accessStep === 'source' && activeTab === 'access') ||
-    (activeTab === 'bookmarks' && !isBookmarkSelectionMode);
+    (activeTab === 'bookmarks' && !isBookmarkSelectionMode) ||
+    activeTab === 'profile';
 
   useBackButton({
     isHomeScreen: false, // We handle exit ourselves with confirmation
@@ -102,7 +107,7 @@ const Index = () => {
   }, []);
 
   // Show bottom nav only on main screens (not during sub-flows)
-  const showBottomNav = accessStep === 'source';
+  const showBottomNav = accessStep === 'source' || activeTab === 'profile';
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -129,12 +134,20 @@ const Index = () => {
         </div>
       )}
 
+      {/* Profile Tab Content */}
+      {activeTab === 'profile' && (
+        <div className="flex-1 flex flex-col animate-fade-in">
+          <ProfilePage />
+        </div>
+      )}
+
       {/* Bottom Navigation */}
       {showBottomNav && (
         <BottomNav
           activeTab={activeTab}
           onTabChange={setActiveTab}
           hasShortlist={hasShortlist}
+          isSignedIn={!!user}
         />
       )}
 

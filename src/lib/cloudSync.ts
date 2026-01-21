@@ -158,3 +158,29 @@ export async function clearCloudBookmarks(): Promise<{ success: boolean; error?:
     return { success: false, error: error instanceof Error ? error.message : 'Clear failed' };
   }
 }
+
+/**
+ * Get the count of cloud bookmarks for the current user
+ */
+export async function getCloudBookmarkCount(): Promise<number | null> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return null;
+    }
+
+    const { count, error } = await supabase
+      .from('cloud_bookmarks')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id);
+
+    if (error) {
+      throw error;
+    }
+
+    return count ?? 0;
+  } catch (error) {
+    console.error('[CloudSync] Count failed:', error);
+    return null;
+  }
+}

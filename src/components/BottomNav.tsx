@@ -1,15 +1,16 @@
-import { Zap, Bookmark } from 'lucide-react';
+import { Zap, Bookmark, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export type TabType = 'access' | 'bookmarks';
+export type TabType = 'access' | 'bookmarks' | 'profile';
 
 interface BottomNavProps {
   activeTab: TabType;
   onTabChange: (tab: TabType) => void;
   hasShortlist?: boolean;
+  isSignedIn?: boolean;
 }
 
-export function BottomNav({ activeTab, onTabChange, hasShortlist }: BottomNavProps) {
+export function BottomNav({ activeTab, onTabChange, hasShortlist, isSignedIn }: BottomNavProps) {
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-background border-t border-border safe-bottom">
       <div className="flex items-center justify-around h-14">
@@ -43,12 +44,32 @@ export function BottomNav({ activeTab, onTabChange, hasShortlist }: BottomNavPro
               "h-5 w-5 transition-all",
               activeTab === 'bookmarks' && "fill-current"
             )} />
-            {/* Subtle shortlist indicator dot */}
             {hasShortlist && (
               <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-primary" />
             )}
           </div>
           <span className="text-[10px] font-medium">Bookmarks</span>
+        </button>
+
+        <button
+          onClick={() => onTabChange('profile')}
+          className={cn(
+            "flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-colors relative",
+            activeTab === 'profile'
+              ? "text-primary"
+              : "text-muted-foreground"
+          )}
+        >
+          <div className="relative">
+            <User className={cn(
+              "h-5 w-5 transition-all",
+              activeTab === 'profile' && "fill-current"
+            )} />
+            {isSignedIn && (
+              <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-green-500" />
+            )}
+          </div>
+          <span className="text-[10px] font-medium">Profile</span>
         </button>
       </div>
     </nav>
