@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Trash2, AlertTriangle, ArrowLeftRight, X, RotateCcw } from 'lucide-react';
+import { Trash2, AlertTriangle, ArrowLeftRight, X, RotateCcw, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
@@ -29,10 +29,19 @@ import {
   getTrashCount,
   type TrashedLink,
 } from '@/lib/savedLinksManager';
-import { getSettings } from '@/lib/settingsManager';
+import { getSettings, type TrashRetentionDays } from '@/lib/settingsManager';
+import { useSettings } from '@/hooks/useSettings';
 import { TrashItem } from './TrashItem';
+import { cn } from '@/lib/utils';
 
 const HINT_DISMISSED_KEY = 'trash_hint_dismissed';
+
+const retentionOptions: { value: TrashRetentionDays; label: string }[] = [
+  { value: 7, label: '7d' },
+  { value: 14, label: '14d' },
+  { value: 30, label: '30d' },
+  { value: 60, label: '60d' },
+];
 
 interface TrashSheetProps {
   open?: boolean;
@@ -54,6 +63,7 @@ export function TrashSheet({ open: controlledOpen, onOpenChange, onRestored }: T
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showHint, setShowHint] = useState(false);
   const { toast } = useToast();
+  const { settings, updateSettings } = useSettings();
 
   const refreshTrash = () => {
     setTrashLinks(getTrashLinks());
@@ -144,28 +154,48 @@ export function TrashSheet({ open: controlledOpen, onOpenChange, onRestored }: T
                   </p>
                 </div>
               </div>
-              {trashLinks.length > 0 && (
-                <div className="flex items-center gap-2">
+              {/* Auto-delete setting */}
+              <div className="flex items-center gap-1">
+                <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                {retentionOptions.map((option) => (
                   <Button
-                    variant="outline"
+                    key={option.value}
+                    variant="ghost"
                     size="sm"
-                    onClick={() => setShowRestoreAllConfirm(true)}
-                    className="h-8"
+                    className={cn(
+                      "h-7 px-2 text-xs",
+                      settings.trashRetentionDays === option.value 
+                        ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground" 
+                        : "text-muted-foreground"
+                    )}
+                    onClick={() => updateSettings({ trashRetentionDays: option.value })}
                   >
-                    <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
-                    Restore All
+                    {option.label}
                   </Button>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => setShowEmptyConfirm(true)}
-                    className="h-8"
-                  >
-                    Empty Trash
-                  </Button>
-                </div>
-              )}
+                ))}
+              </div>
             </div>
+            {trashLinks.length > 0 && (
+              <div className="flex items-center gap-2 mt-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowRestoreAllConfirm(true)}
+                  className="h-8 flex-1"
+                >
+                  <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+                  Restore All
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setShowEmptyConfirm(true)}
+                  className="h-8 flex-1"
+                >
+                  Empty Trash
+                </Button>
+              </div>
+            )}
           </SheetHeader>
 
           {trashLinks.length === 0 ? (

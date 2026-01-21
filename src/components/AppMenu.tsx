@@ -7,8 +7,7 @@ import {
   Moon, 
   Monitor, 
   Clipboard, 
-  AlertTriangle, 
-  Clock,
+  AlertTriangle,
   Download,
   Upload,
   Loader2,
@@ -27,7 +26,6 @@ import { cn } from '@/lib/utils';
 import { getTrashCount, getTrashLinks, getDaysRemaining } from '@/lib/savedLinksManager';
 import { useTheme } from 'next-themes';
 import { useSettings } from '@/hooks/useSettings';
-import { type TrashRetentionDays } from '@/lib/settingsManager';
 import { 
   exportBookmarks, 
   parseBackupFile, 
@@ -47,12 +45,6 @@ const themeOptions: { value: ThemeOption; label: string; icon: React.ReactNode }
   { value: 'system', label: 'Auto', icon: <Monitor className="h-4 w-4" /> },
 ];
 
-const retentionOptions: { value: TrashRetentionDays; label: string }[] = [
-  { value: 7, label: '7 days' },
-  { value: 14, label: '14 days' },
-  { value: 30, label: '30 days' },
-  { value: 60, label: '60 days' },
-];
 
 const SWIPE_THRESHOLD = 50;
 
@@ -373,29 +365,6 @@ export function AppMenu({ onOpenTrash }: AppMenuProps) {
             />
           </div>
           
-          {/* Trash Retention Period */}
-          <div className="px-3 py-2 mt-2">
-            <div className="flex items-center gap-2 mb-2">
-              <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
-              <span className="text-sm">Trash auto-delete</span>
-            </div>
-            <div className="flex gap-1 pl-6">
-              {retentionOptions.map((option) => (
-                <Button
-                  key={option.value}
-                  variant="outline"
-                  size="sm"
-                  className={cn(
-                    "flex-1 text-xs px-2",
-                    settings.trashRetentionDays === option.value && "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
-                  )}
-                  onClick={() => updateSettings({ trashRetentionDays: option.value })}
-                >
-                  {option.label}
-                </Button>
-              ))}
-            </div>
-          </div>
         </div>
       </SheetContent>
 
