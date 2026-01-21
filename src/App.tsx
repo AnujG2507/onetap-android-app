@@ -11,6 +11,7 @@ import NotFound from "./pages/NotFound";
 // Lazy load heavy components to reduce initial bundle size
 const VideoPlayer = lazy(() => import("./pages/VideoPlayer"));
 const PDFViewer = lazy(() => import("./pages/PDFViewer"));
+const AuthCallback = lazy(() => import("./pages/AuthCallback"));
 
 const queryClient = new QueryClient();
 
@@ -41,6 +42,11 @@ const App = () => (
             <Route path="/pdf" element={
               <Suspense fallback={<PageLoader />}>
                 <PDFViewer />
+              </Suspense>
+            } />
+            <Route path="/auth-callback" element={
+              <Suspense fallback={<PageLoader />}>
+                <AuthCallback />
               </Suspense>
             } />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
