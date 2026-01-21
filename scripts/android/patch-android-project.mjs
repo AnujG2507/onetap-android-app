@@ -127,6 +127,42 @@ function patchSdkVersions() {
   }
 }
 
+/**
+ * Add required AndroidX dependencies to app/build.gradle
+ */
+function patchAppDependencies() {
+  const appBuildGradle = path.join(ANDROID_DIR, "app", "build.gradle");
+  
+  if (!fileExists(appBuildGradle)) {
+    console.log(`[patch-android] Skipping dependencies patch: app/build.gradle not found.`);
+    return;
+  }
+
+  const before = readFile(appBuildGradle);
+  let after = before;
+
+  // Add SwipeRefreshLayout dependency for DesktopWebViewActivity
+  const swipeRefreshDep = 'implementation "androidx.swiperefreshlayout:swiperefreshlayout:1.2.0"';
+  
+  if (!after.includes("swiperefreshlayout")) {
+    // Find the dependencies block and add the dependency
+    const dependenciesMatch = after.match(/dependencies\s*\{/);
+    if (dependenciesMatch) {
+      const insertPos = dependenciesMatch.index + dependenciesMatch[0].length;
+      after = after.slice(0, insertPos) + 
+              `\n    ${swipeRefreshDep}` + 
+              after.slice(insertPos);
+    }
+  }
+
+  if (after !== before) {
+    writeFile(appBuildGradle, after);
+    console.log(`[patch-android] Added SwipeRefreshLayout dependency to app/build.gradle.`);
+  } else {
+    console.log(`[patch-android] SwipeRefreshLayout dependency already present.`);
+  }
+}
+
 function patchJavaVersionsInText(content) {
   let out = content;
 
@@ -331,6 +367,7 @@ function main() {
   patchAgpVersion();
   patchJavaVersions();
   patchSdkVersions();
+  patchAppDependencies();
 
   console.log("[patch-android] Done.");
   console.log(`[patch-android] Configuration: Gradle ${GRADLE_VERSION}, JDK ${JAVA_TOOLCHAIN}, compileSdk ${COMPILE_SDK}, minSdk ${MIN_SDK}`);
