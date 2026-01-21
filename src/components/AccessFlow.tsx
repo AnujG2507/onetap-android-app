@@ -330,12 +330,12 @@ export function AccessFlow({
           <header className="px-5 pt-8 pb-6">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-              <AppMenu onOpenTrash={() => setIsTrashOpen(true)} />
                 <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
                   <Plus className="h-4 w-4 text-primary-foreground" />
                 </div>
                 <span className="text-sm font-medium text-muted-foreground tracking-wide">OneTap</span>
               </div>
+              <AppMenu onOpenTrash={() => setIsTrashOpen(true)} />
             </div>
             <h1 className="text-2xl font-semibold text-foreground leading-tight tracking-tight">
               One tap to what matters
