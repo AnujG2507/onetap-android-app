@@ -15,10 +15,15 @@ export function CloudBackupSection() {
   const handleSignIn = async () => {
     try {
       await signInWithGoogle();
-    } catch (error) {
+    } catch (error: any) {
+      const isTokenError = error?.message?.includes('ES256') || 
+                           error?.message?.includes('invalid') ||
+                           error?.message?.includes('signing method');
       toast({
         title: 'Sign in failed',
-        description: 'Could not sign in with Google. Please try again.',
+        description: isTokenError 
+          ? 'Session expired. Please try signing in again.'
+          : 'Could not sign in with Google. Please try again.',
         variant: 'destructive',
       });
     }

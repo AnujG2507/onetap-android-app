@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
 
+const AUTH_STORAGE_KEY = 'sb-qyokhlaexuywzuyasqxo-auth-token';
+
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -10,19 +12,49 @@ export function useAuth() {
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      async (event, session) => {
+        console.log('[Auth] State change:', event);
+        
+        if (event === 'TOKEN_REFRESHED' && !session) {
+          // Token refresh failed, clear and re-authenticate
+          console.warn('[Auth] Token refresh failed, clearing session');
+          await supabase.auth.signOut();
+        }
+        
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
       }
     );
 
-    // Then get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    // Then get initial session with error handling
+    const initializeAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          // If token is invalid (ES256 or other signing errors), clear it
+          console.warn('[Auth] Invalid session, clearing...', error.message);
+          await supabase.auth.signOut();
+          localStorage.removeItem(AUTH_STORAGE_KEY);
+          setSession(null);
+          setUser(null);
+        } else {
+          setSession(session);
+          setUser(session?.user ?? null);
+        }
+      } catch (err: any) {
+        console.error('[Auth] Session initialization failed:', err);
+        // Clear potentially corrupted auth state
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+        setSession(null);
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initializeAuth();
 
     return () => {
       subscription.unsubscribe();
@@ -30,24 +62,48 @@ export function useAuth() {
   }, []);
 
   const signInWithGoogle = useCallback(async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: window.location.origin,
-      },
-    });
-    if (error) {
+    try {
+      // Clear any stale auth state before attempting sign-in
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+      
+      const { data: existingSession } = await supabase.auth.getSession();
+      if (existingSession?.session) {
+        await supabase.auth.signOut();
+      }
+      
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin,
+        },
+      });
+      
+      if (error) throw error;
+    } catch (error) {
       console.error('[Auth] Google sign-in error:', error);
       throw error;
     }
   }, []);
 
   const signOut = useCallback(async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      console.error('[Auth] Sign-out error:', error);
+    try {
+      const { error } = await supabase.auth.signOut();
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+      if (error) {
+        console.error('[Auth] Sign-out error:', error);
+        throw error;
+      }
+    } catch (error) {
+      // Even if signOut fails, clear local state
+      localStorage.removeItem(AUTH_STORAGE_KEY);
       throw error;
     }
+  }, []);
+
+  const clearAuthState = useCallback(() => {
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+    setSession(null);
+    setUser(null);
   }, []);
 
   return {
@@ -57,5 +113,6 @@ export function useAuth() {
     isAuthenticated: !!user,
     signInWithGoogle,
     signOut,
+    clearAuthState,
   };
 }
