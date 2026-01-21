@@ -573,6 +573,9 @@ export function BookmarkLibrary({
   };
 
   const handlePermanentDelete = (id: string) => {
+    // First remove from main storage (this moves to trash)
+    removeSavedLink(id);
+    // Then permanently delete from trash
     permanentlyDelete(id);
     refreshLinks();
     toast({
