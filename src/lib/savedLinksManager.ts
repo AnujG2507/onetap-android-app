@@ -456,6 +456,18 @@ export function emptyTrash(): void {
   localStorage.setItem(TRASH_STORAGE_KEY, JSON.stringify([]));
 }
 
+export function restoreAllFromTrash(): SavedLink[] {
+  const trashLinks = getTrashLinks();
+  const restored: SavedLink[] = [];
+  
+  trashLinks.forEach(link => {
+    const result = restoreFromTrash(link.id);
+    if (result) restored.push(result);
+  });
+  
+  return restored;
+}
+
 /**
  * Get the count of items in trash
  */
