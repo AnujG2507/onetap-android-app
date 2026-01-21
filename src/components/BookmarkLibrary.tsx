@@ -119,6 +119,13 @@ export function BookmarkLibrary({
     localStorage.setItem('bookmark_sort_reversed', String(sortReversed));
   }, [sortReversed]);
   
+  // Auto-switch to folder view when sort by folder is selected
+  useEffect(() => {
+    if (sortMode === 'folder') {
+      setViewMode('folders');
+    }
+  }, [sortMode]);
+  
   // Action sheet state
   const [selectedLink, setSelectedLink] = useState<SavedLink | null>(null);
   const [showActionSheet, setShowActionSheet] = useState(false);
