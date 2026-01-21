@@ -35,6 +35,7 @@ import {
   reorderLinks,
   moveToFolder,
   removeCustomFolder,
+  permanentlyDelete,
   type SavedLink 
 } from '@/lib/savedLinksManager';
 import { BookmarkItem } from './BookmarkItem';
@@ -444,7 +445,7 @@ export function BookmarkLibrary({
     
     if (deletedLink) {
       toast({
-        title: 'Bookmark removed',
+        title: 'Moved to trash',
         description: deletedLink.title,
         duration: 5000,
         action: (
@@ -462,10 +463,20 @@ export function BookmarkLibrary({
       });
     } else {
       toast({
-        title: 'Bookmark removed',
+        title: 'Moved to trash',
         duration: 2000,
       });
     }
+  };
+
+  const handlePermanentDelete = (id: string) => {
+    permanentlyDelete(id);
+    refreshLinks();
+    toast({
+      title: 'Bookmark permanently deleted',
+      duration: 2000,
+    });
+    triggerHaptic('warning');
   };
 
   const handleAddBookmark = (url: string, title?: string, description?: string, tag?: string | null) => {
@@ -498,15 +509,21 @@ export function BookmarkLibrary({
   };
 
   // Bulk actions for selected items
-  const handleBulkDelete = () => {
+  const handleBulkDelete = (permanent: boolean = false) => {
     const selectedCount = shortlistedLinks.length;
     shortlistedLinks.forEach(link => {
-      removeSavedLink(link.id);
+      if (permanent) {
+        permanentlyDelete(link.id);
+      } else {
+        removeSavedLink(link.id);
+      }
     });
     refreshLinks();
     setShowBulkDeleteConfirm(false);
     toast({
-      title: `${selectedCount} bookmark${selectedCount > 1 ? 's' : ''} deleted`,
+      title: permanent 
+        ? `${selectedCount} bookmark${selectedCount > 1 ? 's' : ''} permanently deleted`
+        : `${selectedCount} bookmark${selectedCount > 1 ? 's' : ''} moved to trash`,
       duration: 2000,
     });
     triggerHaptic('warning');
@@ -999,6 +1016,7 @@ export function BookmarkLibrary({
         onCreateShortcut={onCreateShortcut}
         onEdit={handleEdit}
         onDelete={handleDelete}
+        onPermanentDelete={handlePermanentDelete}
         startInEditMode={startInEditMode}
       />
 
@@ -1080,16 +1098,22 @@ export function BookmarkLibrary({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete {shortlistedLinks.length} bookmark{shortlistedLinks.length > 1 ? 's' : ''}?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently remove the selected bookmarks. This action cannot be undone.
+              Selected bookmarks will be moved to trash. Items in trash are automatically deleted after 30 days.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction 
-              onClick={handleBulkDelete}
+              onClick={() => handleBulkDelete(false)}
+              className="border border-input bg-background hover:bg-accent hover:text-accent-foreground"
+            >
+              Move to Trash
+            </AlertDialogAction>
+            <AlertDialogAction 
+              onClick={() => handleBulkDelete(true)}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Delete
+              Delete Permanently
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
