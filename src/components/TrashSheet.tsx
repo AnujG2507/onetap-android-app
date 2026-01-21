@@ -7,7 +7,6 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
-  SheetTrigger,
 } from '@/components/ui/sheet';
 import {
   AlertDialog,
@@ -35,11 +34,18 @@ import { TrashItem } from './TrashItem';
 const HINT_DISMISSED_KEY = 'trash_hint_dismissed';
 
 interface TrashSheetProps {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   onRestored?: () => void;
 }
 
-export function TrashSheet({ onRestored }: TrashSheetProps) {
-  const [open, setOpen] = useState(false);
+export function TrashSheet({ open: controlledOpen, onOpenChange, onRestored }: TrashSheetProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  
+  // Support both controlled and uncontrolled modes
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+  const setOpen = isControlled ? (onOpenChange ?? (() => {})) : setInternalOpen;
   const [trashLinks, setTrashLinks] = useState<TrashedLink[]>([]);
   const [showEmptyConfirm, setShowEmptyConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -117,25 +123,9 @@ export function TrashSheet({ onRestored }: TrashSheetProps) {
     triggerHaptic('success');
   };
 
-  const trashCount = getTrashCount();
-
   return (
     <>
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="relative h-9 w-9"
-          >
-            <Trash2 className="h-4 w-4" />
-            {trashCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-destructive text-[10px] font-semibold text-destructive-foreground flex items-center justify-center">
-                {trashCount > 99 ? '99+' : trashCount}
-              </span>
-            )}
-          </Button>
-        </SheetTrigger>
         <SheetContent side="bottom" className="h-[85vh] rounded-t-2xl">
           <SheetHeader className="pb-4">
             <div className="flex items-center justify-between">

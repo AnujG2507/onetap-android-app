@@ -44,6 +44,7 @@ import { CreateFolderDialog } from './CreateFolderDialog';
 import { BookmarkActionSheet } from './BookmarkActionSheet';
 import { AddBookmarkForm } from './AddBookmarkForm';
 import { BulkMoveDialog } from './BulkMoveDialog';
+import { AppMenu } from './AppMenu';
 import { SettingsSheet } from './SettingsSheet';
 import { TrashSheet } from './TrashSheet';
 import { useToast } from '@/hooks/use-toast';
@@ -95,6 +96,7 @@ export function BookmarkLibrary({
   const [links, setLinks] = useState<SavedLink[]>([]);
   const [activeTagFilter, setActiveTagFilter] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [isTrashOpen, setIsTrashOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     const saved = localStorage.getItem('bookmark_view_mode');
     return (saved === 'list' || saved === 'folders') ? saved : 'list';
@@ -549,14 +551,14 @@ export function BookmarkLibrary({
       <header className="px-5 pt-8 pb-4">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
+            <AppMenu 
+              onOpenTrash={() => setIsTrashOpen(true)}
+              onOpenSettings={() => onSettingsOpenChange?.(true)}
+            />
             <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
               <Bookmark className="h-4 w-4 text-primary-foreground" />
             </div>
             <span className="text-sm font-medium text-muted-foreground tracking-wide">Bookmarks</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <TrashSheet onRestored={refreshLinks} />
-            <SettingsSheet open={isSettingsOpen} onOpenChange={onSettingsOpenChange} />
           </div>
         </div>
         <h1 className="text-2xl font-semibold text-foreground leading-tight tracking-tight">
@@ -1110,6 +1112,16 @@ export function BookmarkLibrary({
         selectedCount={shortlistedLinks.length}
         onMove={handleBulkMove}
       />
+
+      {/* Trash Sheet (controlled from menu) */}
+      <TrashSheet 
+        open={isTrashOpen} 
+        onOpenChange={setIsTrashOpen} 
+        onRestored={refreshLinks} 
+      />
+
+      {/* Settings Sheet (controlled from menu) */}
+      <SettingsSheet open={isSettingsOpen} onOpenChange={onSettingsOpenChange} />
     </div>
   );
 }
