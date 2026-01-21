@@ -33,11 +33,24 @@ export function normalizeUrl(url: string): string {
     }
     
     const urlObj = new URL(normalized);
-    urlObj.hostname = urlObj.hostname.toLowerCase();
+    
+    // Normalize hostname: lowercase and remove www prefix
+    urlObj.hostname = urlObj.hostname.toLowerCase().replace(/^www\./, '');
+    
+    // Remove hash fragments
     urlObj.hash = '';
     
+    // Sort query parameters for consistent comparison
+    if (urlObj.search) {
+      const params = new URLSearchParams(urlObj.search);
+      const sortedParams = new URLSearchParams([...params.entries()].sort());
+      urlObj.search = sortedParams.toString();
+    }
+    
     let result = urlObj.href;
-    if (result.endsWith('/') && urlObj.pathname === '/') {
+    
+    // Remove trailing slash consistently (both root and paths)
+    if (result.endsWith('/')) {
       result = result.slice(0, -1);
     }
     
