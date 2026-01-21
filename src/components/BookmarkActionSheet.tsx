@@ -34,6 +34,7 @@ interface BookmarkActionSheetProps {
   onCreateShortcut: (url: string) => void;
   onEdit: (id: string, updates: { title?: string; description?: string; tag?: string | null; url?: string }) => void;
   onDelete: (id: string) => void;
+  onPermanentDelete: (id: string) => void;
   startInEditMode?: boolean;
 }
 
@@ -45,6 +46,7 @@ export function BookmarkActionSheet({
   onCreateShortcut,
   onEdit,
   onDelete,
+  onPermanentDelete,
   startInEditMode = false,
 }: BookmarkActionSheetProps) {
   const [isEditing, setIsEditing] = useState(false);
@@ -140,9 +142,17 @@ export function BookmarkActionSheet({
     triggerHaptic('success');
   };
 
-  const handleDelete = () => {
+  const handleMoveToTrash = () => {
     if (!link) return;
     onDelete(link.id);
+    setShowDeleteConfirm(false);
+    onOpenChange(false);
+    triggerHaptic('warning');
+  };
+
+  const handlePermanentDelete = () => {
+    if (!link) return;
+    onPermanentDelete(link.id);
     setShowDeleteConfirm(false);
     onOpenChange(false);
     triggerHaptic('warning');
@@ -321,16 +331,22 @@ export function BookmarkActionSheet({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete bookmark?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently remove "{link.title}" from your bookmarks.
+              "{link.title}" will be moved to trash. Items in trash are automatically deleted after 30 days.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction 
-              onClick={handleDelete}
+              onClick={handleMoveToTrash}
+              className="border border-input bg-background hover:bg-accent hover:text-accent-foreground"
+            >
+              Move to Trash
+            </AlertDialogAction>
+            <AlertDialogAction 
+              onClick={handlePermanentDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Delete
+              Delete Permanently
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
