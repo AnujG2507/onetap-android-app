@@ -24,6 +24,7 @@ interface BookmarkItemProps {
   onToggleShortlist: (id: string) => void;
   onCreateShortcut?: (url: string) => void;
   onDelete?: (id: string) => void;
+  onPermanentDelete?: (id: string) => void;
   isDragDisabled?: boolean;
   isSelectionMode?: boolean;
 }
@@ -47,6 +48,7 @@ export function BookmarkItem({
   onToggleShortlist, 
   onCreateShortcut,
   onDelete,
+  onPermanentDelete,
   isDragDisabled,
   isSelectionMode = false,
 }: BookmarkItemProps) {
@@ -54,6 +56,7 @@ export function BookmarkItem({
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
   const isLongPress = useRef(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false);
   const [isUrlExpanded, setIsUrlExpanded] = useState(false);
   
   // Swipe state
@@ -174,16 +177,30 @@ export function BookmarkItem({
     handleLongPressEnd();
     
     if (Math.abs(swipeX) >= SWIPE_THRESHOLD && onDelete) {
-      // Trigger delete
+      // Show confirmation dialog instead of immediate delete
       triggerHaptic('warning');
-      onDelete(link.id);
+      setShowDeleteConfirmDialog(true);
     }
     
     // Reset swipe state
     setSwipeX(0);
     setTimeout(() => setIsSwiping(false), 100);
     isHorizontalSwipe.current = null;
-  }, [swipeX, onDelete, link.id, handleLongPressEnd]);
+  }, [swipeX, onDelete, handleLongPressEnd]);
+
+  const handleMoveToTrash = useCallback(() => {
+    if (onDelete) {
+      onDelete(link.id);
+    }
+    setShowDeleteConfirmDialog(false);
+  }, [onDelete, link.id]);
+
+  const handlePermanentDeleteAction = useCallback(() => {
+    if (onPermanentDelete) {
+      onPermanentDelete(link.id);
+    }
+    setShowDeleteConfirmDialog(false);
+  }, [onPermanentDelete, link.id]);
   
   return (
     <div
@@ -331,7 +348,7 @@ export function BookmarkItem({
         </button>
       </div>
 
-      {/* Confirmation Dialog */}
+      {/* Create Shortcut Confirmation Dialog */}
       <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -344,6 +361,33 @@ export function BookmarkItem({
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmCreateShortcut}>
               Create
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteConfirmDialog} onOpenChange={setShowDeleteConfirmDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete bookmark?</AlertDialogTitle>
+            <AlertDialogDescription>
+              "{link.title}" will be moved to trash. Items in trash are automatically deleted after 30 days.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleMoveToTrash}
+              className="border border-input bg-background hover:bg-accent hover:text-accent-foreground"
+            >
+              Move to Trash
+            </AlertDialogAction>
+            <AlertDialogAction 
+              onClick={handlePermanentDeleteAction}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete Permanently
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

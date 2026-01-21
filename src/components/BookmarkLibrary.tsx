@@ -898,6 +898,7 @@ export function BookmarkLibrary({
                       onToggleShortlist={handleToggleShortlist}
                       onCreateShortcut={onCreateShortcut}
                       onDelete={handleDelete}
+                      onPermanentDelete={handlePermanentDelete}
                       isDragDisabled={isDragDisabled}
                       isSelectionMode={hasShortlist}
                     />
@@ -929,6 +930,7 @@ export function BookmarkLibrary({
                     onToggleShortlist={handleToggleShortlist}
                     onCreateShortcut={onCreateShortcut}
                     onDeleteBookmark={handleDelete}
+                    onPermanentDeleteBookmark={handlePermanentDelete}
                     isDragDisabled={isDragDisabled}
                     isSelectionMode={hasShortlist}
                     defaultOpen
@@ -943,6 +945,7 @@ export function BookmarkLibrary({
                     onToggleShortlist={handleToggleShortlist}
                     onCreateShortcut={onCreateShortcut}
                     onDeleteBookmark={handleDelete}
+                    onPermanentDeleteBookmark={handlePermanentDelete}
                     onDeleteFolder={handleDeleteFolder}
                     onFolderUpdated={() => {
                       refreshLinks();
@@ -964,6 +967,7 @@ export function BookmarkLibrary({
                         onToggleShortlist={handleToggleShortlist}
                         onCreateShortcut={onCreateShortcut}
                         onDeleteBookmark={handleDelete}
+                        onPermanentDeleteBookmark={handlePermanentDelete}
                         onDeleteFolder={handleDeleteFolder}
                         onFolderUpdated={() => {
                           refreshLinks();
@@ -982,6 +986,7 @@ export function BookmarkLibrary({
                       onToggleShortlist={handleToggleShortlist}
                       onCreateShortcut={onCreateShortcut}
                       onDeleteBookmark={handleDelete}
+                      onPermanentDeleteBookmark={handlePermanentDelete}
                       isDragDisabled={isDragDisabled}
                       defaultOpen={groupedLinks.sortedTags.length === 0}
                       isSelectionMode={hasShortlist}
