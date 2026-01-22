@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Trash2, AlertTriangle, ArrowLeftRight, X, RotateCcw, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -64,6 +64,38 @@ export function TrashSheet({ open: controlledOpen, onOpenChange, onRestored }: T
   const [showHint, setShowHint] = useState(false);
   const { toast } = useToast();
   const { settings, updateSettings } = useSettings();
+
+  // Swipe-to-close gesture tracking
+  const touchStartY = useRef<number | null>(null);
+  const touchCurrentY = useRef<number | null>(null);
+  const isAtTop = useRef(true);
+  const SWIPE_CLOSE_THRESHOLD = 80;
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartY.current = e.touches[0].clientY;
+    touchCurrentY.current = e.touches[0].clientY;
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    touchCurrentY.current = e.touches[0].clientY;
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    if (touchStartY.current !== null && touchCurrentY.current !== null && isAtTop.current) {
+      const deltaY = touchCurrentY.current - touchStartY.current;
+      // Swipe down to close
+      if (deltaY > SWIPE_CLOSE_THRESHOLD) {
+        triggerHaptic('light');
+        setOpen(false);
+      }
+    }
+    touchStartY.current = null;
+    touchCurrentY.current = null;
+  }, [setOpen]);
+
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    isAtTop.current = e.currentTarget.scrollTop <= 0;
+  }, []);
 
   const refreshTrash = () => {
     setTrashLinks(getTrashLinks());
@@ -137,7 +169,17 @@ export function TrashSheet({ open: controlledOpen, onOpenChange, onRestored }: T
   return (
     <>
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="bottom" className="h-[85vh] rounded-t-2xl">
+        <SheetContent 
+          side="bottom" 
+          className="h-[85vh] rounded-t-2xl"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
+          {/* Swipe indicator */}
+          <div className="flex justify-center pt-2 pb-1">
+            <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
+          </div>
           <SheetHeader className="pb-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -226,7 +268,7 @@ export function TrashSheet({ open: controlledOpen, onOpenChange, onRestored }: T
                   </Button>
                 </div>
               )}
-              <ScrollArea className="h-[calc(85vh-140px)] -mx-6 px-6">
+              <ScrollArea className="h-[calc(85vh-180px)] -mx-6 px-6" onScrollCapture={handleScroll}>
                 <div className="space-y-2 pb-6">
                   {trashLinks.map((link) => (
                     <TrashItem
