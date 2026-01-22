@@ -1,4 +1,4 @@
-import { useRef, useCallback, useState } from 'react';
+import { useRef, useCallback, useState, useMemo } from 'react';
 import { Globe, GripVertical, ChevronDown, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -19,6 +19,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import type { SavedLink } from '@/lib/savedLinksManager';
 import { getSettings } from '@/lib/settingsManager';
+import { detectPlatform } from '@/lib/platformIcons';
+import { PlatformIcon } from '@/components/PlatformIcon';
 
 interface BookmarkItemProps {
   link: SavedLink;
@@ -55,6 +57,7 @@ export function BookmarkItem({
   isSelectionMode = false,
 }: BookmarkItemProps) {
   const faviconUrl = extractFaviconUrl(link.url);
+  const platform = useMemo(() => detectPlatform(link.url), [link.url]);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
   const isLongPress = useRef(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
@@ -292,21 +295,25 @@ export function BookmarkItem({
           onMouseLeave={handleLongPressEnd}
           className="flex-1 flex items-start gap-3 text-left active:scale-[0.99] transition-transform select-none"
         >
-          {/* Favicon or fallback icon */}
-          <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted overflow-hidden">
-            {faviconUrl ? (
-              <img 
-                src={faviconUrl} 
-                alt="" 
-                className="h-6 w-6 object-contain"
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none';
-                  e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                }}
-              />
-            ) : null}
-            <Globe className={cn("h-5 w-5 text-muted-foreground", faviconUrl && "hidden")} />
-          </div>
+          {/* Platform icon or Favicon */}
+          {platform ? (
+            <PlatformIcon platform={platform} size="md" />
+          ) : (
+            <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted overflow-hidden">
+              {faviconUrl ? (
+                <img 
+                  src={faviconUrl} 
+                  alt="" 
+                  className="h-6 w-6 object-contain"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                    e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                  }}
+                />
+              ) : null}
+              <Globe className={cn("h-5 w-5 text-muted-foreground", faviconUrl && "hidden")} />
+            </div>
+          )}
           
           {/* Content */}
           <div className="flex-1 min-w-0">
