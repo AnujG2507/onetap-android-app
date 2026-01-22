@@ -620,19 +620,28 @@ export function BookmarkLibrary({
             </div>
             
             {/* Add Bookmark Button */}
-            <button
-              onClick={() => {
-                setShowAddForm(true);
-                triggerHaptic('light');
-              }}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors",
-                "bg-primary text-primary-foreground hover:bg-primary/90"
-              )}
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Add
-            </button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => {
+                      setShowAddForm(true);
+                      triggerHaptic('light');
+                    }}
+                    className={cn(
+                      "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
+                      "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
+                    )}
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add New Bookmark
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[200px] text-center">
+                  <p>You can also add bookmarks by sharing any URL to this app</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         )}
       </header>
