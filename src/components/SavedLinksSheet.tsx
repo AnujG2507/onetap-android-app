@@ -1,11 +1,13 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Search, Star, Trash2, Plus, X, Edit2, Tag, Bookmark, ArrowRight } from 'lucide-react';
+import { Search, Star, Trash2, Plus, X, Edit2, Tag, Bookmark, ArrowRight, Globe } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { detectPlatform } from '@/lib/platformIcons';
+import { PlatformIcon } from '@/components/PlatformIcon';
 import { 
   getSavedLinks, 
   removeSavedLink, 
@@ -376,9 +378,21 @@ export function SavedLinksSheet({ open, onOpenChange, onSelectLink, onGoToBookma
                     "text-left group"
                   )}
                 >
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 mt-0.5">
-                    <Star className="h-5 w-5 text-primary" />
-                  </div>
+                  {(() => {
+                    const platform = detectPlatform(link.url);
+                    if (platform) {
+                      return (
+                        <div className="shrink-0 mt-0.5">
+                          <PlatformIcon platform={platform} size="md" />
+                        </div>
+                      );
+                    }
+                    return (
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted mt-0.5">
+                        <Globe className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                    );
+                  })()}
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-foreground truncate">{link.title}</p>
                     <p className="text-xs text-muted-foreground truncate">{link.url}</p>
