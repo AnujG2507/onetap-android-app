@@ -13,8 +13,43 @@ interface UseUrlMetadataResult {
   error: string | null;
 }
 
-// Simple in-memory cache for this session
-const metadataCache = new Map<string, UrlMetadata>();
+const FAVICON_CACHE_KEY = 'onetap_favicon_cache';
+const MAX_CACHE_SIZE = 500;
+
+// Load cache from localStorage on module init
+function loadFaviconCache(): Map<string, UrlMetadata> {
+  try {
+    const stored = localStorage.getItem(FAVICON_CACHE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      return new Map(Object.entries(parsed));
+    }
+  } catch (e) {
+    console.warn('[FaviconCache] Failed to load:', e);
+  }
+  return new Map();
+}
+
+// Save cache to localStorage with size limit
+function saveFaviconCache(cache: Map<string, UrlMetadata>): void {
+  try {
+    // Trim oldest entries if cache is too large
+    if (cache.size > MAX_CACHE_SIZE) {
+      const entries = Array.from(cache.entries());
+      const trimmed = entries.slice(-MAX_CACHE_SIZE);
+      cache.clear();
+      trimmed.forEach(([k, v]) => cache.set(k, v));
+    }
+    
+    const obj = Object.fromEntries(cache);
+    localStorage.setItem(FAVICON_CACHE_KEY, JSON.stringify(obj));
+  } catch (e) {
+    console.warn('[FaviconCache] Failed to save:', e);
+  }
+}
+
+// Initialize cache from localStorage
+const metadataCache = loadFaviconCache();
 
 function extractDomain(url: string): string {
   try {
@@ -87,8 +122,9 @@ export function useUrlMetadata(url: string | null): UseUrlMetadataResult {
           domain: data?.domain || domain,
         };
 
-        // Cache the result
+        // Cache the result in memory and localStorage
         metadataCache.set(url, result);
+        saveFaviconCache(metadataCache);
         setMetadata(result);
       } catch (err) {
         if (controller.signal.aborted) return;
