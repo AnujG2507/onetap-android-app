@@ -132,7 +132,13 @@ export function SavedLinksSheet({ open, onOpenChange, onSelectLink, onGoToBookma
       addSavedLink(url, newTitle.trim() || undefined, newDescription.trim() || undefined, selectedTag);
     }
     
+    // Refresh the links list
     setLinks(getSavedLinks());
+    
+    // Clear filters so the user can see the newly added/edited link
+    setSearchQuery('');
+    setActiveTagFilter(null);
+    
     resetForm();
   };
 
