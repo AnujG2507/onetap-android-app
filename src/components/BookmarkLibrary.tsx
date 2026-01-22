@@ -521,7 +521,7 @@ export function BookmarkLibrary({
     clearAllShortlist();
     refreshLinks();
     toast({
-      title: 'Shortlist cleared',
+      title: 'Selection cleared',
       duration: 2000,
     });
     triggerHaptic('warning');
