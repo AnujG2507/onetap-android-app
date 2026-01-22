@@ -1,4 +1,4 @@
-import { Image, Video, FileText, Link, Music, FolderOpen, Phone } from 'lucide-react';
+import { Image, Video, FileText, Bookmark, Music, FolderOpen, Phone } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { FileTypeFilter } from '@/lib/contentResolver';
 
@@ -6,11 +6,11 @@ export type ContactMode = 'dial' | 'message';
 
 interface ContentSourcePickerProps {
   onSelectFile: (filter: FileTypeFilter) => void;
-  onSelectUrl: (prefillUrl?: string) => void;
   onSelectContact?: (mode: ContactMode) => void;
+  onSelectFromLibrary?: () => void;
 }
 
-export function ContentSourcePicker({ onSelectFile, onSelectUrl, onSelectContact }: ContentSourcePickerProps) {
+export function ContentSourcePicker({ onSelectFile, onSelectContact, onSelectFromLibrary }: ContentSourcePickerProps) {
   return (
     <div className="flex flex-col gap-4 p-5 animate-fade-in">
       {/* Section 1: What Matters (Primary) */}
@@ -80,28 +80,28 @@ export function ContentSourcePicker({ onSelectFile, onSelectUrl, onSelectContact
         </div>
       )}
 
-      {/* Section 3: Links (Secondary) */}
-      <div className="rounded-2xl bg-card elevation-1 p-4">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-          Distraction-free links
-        </h2>
-        
-        {/* Access a link button */}
-        <button
-          onClick={() => onSelectUrl()}
-          className={cn(
-            "w-full flex items-center gap-4 rounded-xl bg-muted/40 p-4 text-left",
-            "shadow-sm active:scale-[0.98] transition-all duration-150",
-            "focus:outline-none focus:ring-2 focus:ring-ring"
-          )}
-        >
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <Link className="h-5 w-5" />
-          </div>
-          <span className="font-medium text-foreground">Link</span>
-        </button>
-
-      </div>
+      {/* Section 3: From Library */}
+      {onSelectFromLibrary && (
+        <div className="rounded-2xl bg-card elevation-1 p-4">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+            From Library
+          </h2>
+          
+          <button
+            onClick={onSelectFromLibrary}
+            className={cn(
+              "w-full flex items-center gap-4 rounded-xl bg-muted/40 p-4 text-left",
+              "shadow-sm active:scale-[0.98] transition-all duration-150",
+              "focus:outline-none focus:ring-2 focus:ring-ring"
+            )}
+          >
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <Bookmark className="h-5 w-5" />
+            </div>
+            <span className="font-medium text-foreground">Saved Bookmark</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }

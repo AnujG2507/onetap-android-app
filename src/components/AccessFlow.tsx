@@ -1,13 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { Plus, WifiOff } from 'lucide-react';
 import { ContentSourcePicker, ContactMode } from '@/components/ContentSourcePicker';
-import { UrlInput } from '@/components/UrlInput';
 import { ShortcutCustomizer } from '@/components/ShortcutCustomizer';
 import { ContactShortcutCustomizer } from '@/components/ContactShortcutCustomizer';
 import { SuccessScreen } from '@/components/SuccessScreen';
 import { ClipboardSuggestion } from '@/components/ClipboardSuggestion';
 import { AppMenu } from '@/components/AppMenu';
 import { TrashSheet } from '@/components/TrashSheet';
+import { SavedLinksSheet } from '@/components/SavedLinksSheet';
 import { useShortcuts } from '@/hooks/useShortcuts';
 import { useClipboardDetection } from '@/hooks/useClipboardDetection';
 import { useSettings } from '@/hooks/useSettings';
@@ -17,7 +17,7 @@ import { pickFile, FileTypeFilter } from '@/lib/contentResolver';
 import { createHomeScreenShortcut } from '@/lib/shortcutManager';
 import type { ContentSource, ShortcutIcon, MessageApp } from '@/types/shortcut';
 
-export type AccessStep = 'source' | 'url' | 'customize' | 'contact' | 'success';
+export type AccessStep = 'source' | 'customize' | 'contact' | 'success';
 export type ContentSourceType = 'url' | 'file' | null;
 
 interface ContactData {
@@ -48,8 +48,8 @@ export function AccessFlow({
   const [lastCreatedName, setLastCreatedName] = useState('');
   const [contactData, setContactData] = useState<ContactData | null>(null);
   const [contactMode, setContactMode] = useState<ContactMode>('dial');
-  const [prefillUrl, setPrefillUrl] = useState<string | undefined>();
   const [isTrashOpen, setIsTrashOpen] = useState(false);
+  const [showBookmarkPicker, setShowBookmarkPicker] = useState(false);
   const processedInitialUrlRef = useRef<string | null>(null);
 
   const { createShortcut, createContactShortcut } = useShortcuts();
@@ -92,8 +92,24 @@ export function AccessFlow({
 
   const handleClipboardUse = (url: string) => {
     dismissDetection();
-    setPrefillUrl(url);
-    setStep('url');
+    setContentSource({
+      type: 'url',
+      uri: url,
+    });
+    setStep('customize');
+  };
+
+  const handleSelectFromLibrary = () => {
+    setShowBookmarkPicker(true);
+  };
+
+  const handleBookmarkSelected = (url: string) => {
+    setShowBookmarkPicker(false);
+    setContentSource({
+      type: 'url',
+      uri: url,
+    });
+    setStep('customize');
   };
 
 
@@ -109,19 +125,6 @@ export function AccessFlow({
       setContentSource(file);
       setStep('customize');
     }
-  };
-
-  const handleSelectUrl = (url?: string) => {
-    setPrefillUrl(url);
-    setStep('url');
-  };
-
-  const handleUrlSubmit = (url: string) => {
-    setContentSource({
-      type: 'url',
-      uri: url,
-    });
-    setStep('customize');
   };
 
   const handleSelectContact = (mode: ContactMode) => {
@@ -213,25 +216,14 @@ export function AccessFlow({
     setContentSource(null);
     setContactData(null);
     setLastCreatedName('');
-    setPrefillUrl(undefined);
   };
 
   // Consolidated back navigation handler
   const handleGoBack = () => {
     switch (step) {
-      case 'url':
+      case 'customize':
         setStep('source');
         setContentSource(null);
-        setPrefillUrl(undefined);
-        break;
-      case 'customize':
-        if (contentSource?.type === 'url') {
-          setStep('url');
-          // Keep contentSource to preserve URL when going back to input
-        } else {
-          setStep('source');
-          setContentSource(null);
-        }
         break;
       case 'contact':
         setStep('source');
@@ -277,8 +269,8 @@ export function AccessFlow({
           </header>
           <ContentSourcePicker
             onSelectFile={handleSelectFile}
-            onSelectUrl={handleSelectUrl}
             onSelectContact={handleSelectContact}
+            onSelectFromLibrary={handleSelectFromLibrary}
           />
 
           {/* Clipboard URL auto-detection */}
@@ -290,14 +282,6 @@ export function AccessFlow({
             />
           )}
         </>
-      )}
-
-      {step === 'url' && (
-        <UrlInput
-          onSubmit={handleUrlSubmit}
-          onBack={handleGoBack}
-          initialUrl={prefillUrl}
-        />
       )}
 
       {step === 'customize' && contentSource && (
@@ -330,6 +314,12 @@ export function AccessFlow({
         onOpenChange={setIsTrashOpen} 
       />
 
+      {/* Bookmark Picker Sheet */}
+      <SavedLinksSheet
+        open={showBookmarkPicker}
+        onOpenChange={setShowBookmarkPicker}
+        onSelectLink={handleBookmarkSelected}
+      />
     </>
   );
 }
