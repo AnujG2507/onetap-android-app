@@ -147,6 +147,11 @@ export function BookmarkLibrary({
   // Bulk move dialog
   const [showBulkMoveDialog, setShowBulkMoveDialog] = useState(false);
   
+  // Scroll-aware bottom button
+  const [isBottomButtonVisible, setIsBottomButtonVisible] = useState(true);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const lastScrollTop = useRef(0);
+  
   const { toast } = useToast();
 
   // Load links
@@ -619,7 +624,7 @@ export function BookmarkLibrary({
               </button>
             </div>
             
-            {/* Add Bookmark Button */}
+            {/* Add Bookmark Button - subtle version */}
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -629,12 +634,12 @@ export function BookmarkLibrary({
                       triggerHaptic('light');
                     }}
                     className={cn(
-                      "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
-                      "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
+                      "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors",
+                      "bg-primary text-primary-foreground hover:bg-primary/90"
                     )}
                   >
-                    <Plus className="h-4 w-4" />
-                    Add New Bookmark
+                    <Plus className="h-3.5 w-3.5" />
+                    Add
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="max-w-[200px] text-center">
@@ -895,7 +900,24 @@ export function BookmarkLibrary({
 
       {/* Bookmarks List */}
       <div 
-        className="flex-1 overflow-y-auto px-5"
+        ref={scrollContainerRef}
+        onScroll={(e) => {
+          const container = e.currentTarget;
+          const scrollTop = container.scrollTop;
+          const scrollDelta = scrollTop - lastScrollTop.current;
+          
+          // Show button when at top or scrolling up
+          if (scrollTop <= 10 || scrollDelta < -5) {
+            setIsBottomButtonVisible(true);
+          }
+          // Hide button when scrolling down
+          else if (scrollDelta > 5) {
+            setIsBottomButtonVisible(false);
+          }
+          
+          lastScrollTop.current = scrollTop;
+        }}
+        className="flex-1 overflow-y-auto px-5 pb-16"
       >
         {filteredLinks.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
@@ -1204,6 +1226,39 @@ export function BookmarkLibrary({
         onOpenChange={setIsTrashOpen} 
         onRestored={refreshLinks} 
       />
+      
+      {/* Bottom Full-Width Add Button */}
+      <div 
+        className={cn(
+          "fixed bottom-14 left-0 right-0 px-5 pb-2 safe-bottom transition-all duration-300 ease-out",
+          isBottomButtonVisible && !hasShortlist
+            ? "translate-y-0 opacity-100"
+            : "translate-y-full opacity-0 pointer-events-none"
+        )}
+      >
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => {
+                  setShowAddForm(true);
+                  triggerHaptic('light');
+                }}
+                className={cn(
+                  "w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-medium transition-colors",
+                  "bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg"
+                )}
+              >
+                <Plus className="h-5 w-5" />
+                Add New Bookmark
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-[220px] text-center">
+              <p>You can also add bookmarks by sharing any URL to this app</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
       
     </div>
   );
