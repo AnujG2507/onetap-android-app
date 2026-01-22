@@ -249,6 +249,7 @@ const Index = () => {
             onContentSourceTypeChange={handleContentSourceTypeChange}
             initialUrlForShortcut={shortcutUrlFromBookmark}
             onInitialUrlConsumed={handleInitialUrlConsumed}
+            onGoToBookmarks={() => setActiveTab('bookmarks')}
           />
         </div>
       )}

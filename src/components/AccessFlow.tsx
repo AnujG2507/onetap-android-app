@@ -35,6 +35,8 @@ interface AccessFlowProps {
   initialUrlForShortcut?: string | null;
   /** Called when the initial URL has been consumed */
   onInitialUrlConsumed?: () => void;
+  /** Called when user wants to navigate to bookmarks tab */
+  onGoToBookmarks?: () => void;
 }
 
 export function AccessFlow({ 
@@ -42,6 +44,7 @@ export function AccessFlow({
   onContentSourceTypeChange,
   initialUrlForShortcut,
   onInitialUrlConsumed,
+  onGoToBookmarks,
 }: AccessFlowProps) {
   const [step, setStep] = useState<AccessStep>('source');
   const [contentSource, setContentSource] = useState<ContentSource | null>(null);
@@ -319,6 +322,7 @@ export function AccessFlow({
         open={showBookmarkPicker}
         onOpenChange={setShowBookmarkPicker}
         onSelectLink={handleBookmarkSelected}
+        onGoToBookmarks={onGoToBookmarks}
       />
     </>
   );

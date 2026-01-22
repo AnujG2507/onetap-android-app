@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Search, Star, Trash2, Plus, X, Edit2, Tag } from 'lucide-react';
+import { Search, Star, Trash2, Plus, X, Edit2, Tag, Bookmark, ArrowRight } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -20,9 +20,10 @@ interface SavedLinksSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSelectLink: (url: string) => void;
+  onGoToBookmarks?: () => void;
 }
 
-export function SavedLinksSheet({ open, onOpenChange, onSelectLink }: SavedLinksSheetProps) {
+export function SavedLinksSheet({ open, onOpenChange, onSelectLink, onGoToBookmarks }: SavedLinksSheetProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [links, setLinks] = useState<SavedLink[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -322,17 +323,45 @@ export function SavedLinksSheet({ open, onOpenChange, onSelectLink }: SavedLinks
 
         {/* Links List */}
         <div className="flex-1 overflow-y-auto -mx-6 px-6">
-          {filteredLinks.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              {searchQuery || activeTagFilter ? (
-                <p>No links match your filter</p>
-              ) : (
-                <div>
-                  <Star className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                  <p>No saved links yet</p>
-                  <p className="text-sm mt-1">Add your favorite URLs for quick access</p>
+          {links.length === 0 && !showAddForm ? (
+            // Empty library state - guide to Bookmarks tab
+            <div className="flex flex-col items-center justify-center py-12 animate-fade-in">
+              {/* Animated illustration */}
+              <div className="relative mb-6">
+                <div className="absolute -top-2 -left-3 w-2 h-2 rounded-full bg-primary/30 animate-float-delayed" />
+                <div className="absolute -top-1 right-1 w-1.5 h-1.5 rounded-full bg-primary/20 animate-float" />
+                <div className="absolute bottom-1 -right-2 w-2 h-2 rounded-full bg-primary/25 animate-float-delayed" />
+                
+                <div className="relative animate-float">
+                  <div className="absolute inset-0 bg-primary/10 rounded-2xl blur-xl scale-150" />
+                  <div className="relative bg-muted/50 rounded-2xl p-4 border border-border/50">
+                    <Bookmark className="h-8 w-8 text-primary/60" strokeWidth={1.5} />
+                  </div>
                 </div>
+              </div>
+              
+              <h3 className="text-foreground font-medium mb-1">No bookmarks yet</h3>
+              <p className="text-muted-foreground/70 text-sm text-center max-w-[220px] mb-5">
+                Save links in your Bookmarks library first, then create shortcuts from them here.
+              </p>
+              
+              {onGoToBookmarks && (
+                <button
+                  onClick={() => {
+                    onOpenChange(false);
+                    onGoToBookmarks();
+                  }}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 active:scale-[0.98] transition-all"
+                >
+                  Go to Bookmarks
+                  <ArrowRight className="h-4 w-4" />
+                </button>
               )}
+            </div>
+          ) : filteredLinks.length === 0 ? (
+            // No results for current filter/search
+            <div className="text-center py-12 text-muted-foreground">
+              <p>No links match your filter</p>
             </div>
           ) : (
             <div className="space-y-2 pb-6">
