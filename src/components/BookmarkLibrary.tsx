@@ -1227,10 +1227,11 @@ export function BookmarkLibrary({
         onRestored={refreshLinks} 
       />
       
-      {/* Bottom Full-Width Add Button */}
+      {/* Bottom Full-Width Add Button - positioned above nav bar with safe area */}
       <div 
         className={cn(
-          "fixed bottom-14 left-0 right-0 px-5 pb-2 safe-bottom transition-all duration-300 ease-out",
+          "fixed left-0 right-0 px-5 pb-3 transition-all duration-300 ease-out z-40",
+          "bottom-[calc(3.5rem+env(safe-area-inset-bottom))]",
           isBottomButtonVisible && !hasShortlist
             ? "translate-y-0 opacity-100"
             : "translate-y-full opacity-0 pointer-events-none"
