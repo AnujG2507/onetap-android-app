@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { X, Bookmark, Smartphone, Share2, ChevronLeft, Play, Zap, Pencil, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -49,6 +49,34 @@ export function SharedUrlActionSheet({
   const { thumbnailUrl, platform: videoPlatform, isLoading: thumbnailLoading } = useVideoThumbnail(url);
   const detectedPlatform = useMemo(() => detectPlatform(url), [url]);
   const folders = getAllFolders();
+
+  // Swipe-to-close gesture tracking
+  const touchStartY = useRef<number | null>(null);
+  const touchCurrentY = useRef<number | null>(null);
+  const SWIPE_CLOSE_THRESHOLD = 80;
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartY.current = e.touches[0].clientY;
+    touchCurrentY.current = e.touches[0].clientY;
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    touchCurrentY.current = e.touches[0].clientY;
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    if (touchStartY.current !== null && touchCurrentY.current !== null) {
+      const deltaY = touchCurrentY.current - touchStartY.current;
+      // Swipe down to close
+      if (deltaY > SWIPE_CLOSE_THRESHOLD) {
+        triggerHaptic('light');
+        handleDismiss();
+      }
+    }
+    touchStartY.current = null;
+    touchCurrentY.current = null;
+  }, []);
+
   // Pre-fill title when metadata loads
   useEffect(() => {
     if (metadata?.title && !editTitle) {
@@ -113,7 +141,14 @@ export function SharedUrlActionSheet({
           "animate-in slide-in-from-bottom-4 duration-300",
           isExiting && "animate-out fade-out slide-out-to-bottom-4 duration-200"
         )}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       >
+        {/* Swipe indicator */}
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
+        </div>
         {/* Success State */}
         {showSuccess ? (
           <div className="px-4 py-12 flex flex-col items-center justify-center gap-3">

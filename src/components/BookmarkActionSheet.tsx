@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   ExternalLink, 
   Plus, 
@@ -59,6 +59,33 @@ export function BookmarkActionSheet({
   const [editTag, setEditTag] = useState<string | null>(null);
   const [editUrl, setEditUrl] = useState('');
   const [urlError, setUrlError] = useState('');
+
+  // Swipe-to-close gesture tracking
+  const touchStartY = useRef<number | null>(null);
+  const touchCurrentY = useRef<number | null>(null);
+  const SWIPE_CLOSE_THRESHOLD = 80;
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartY.current = e.touches[0].clientY;
+    touchCurrentY.current = e.touches[0].clientY;
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    touchCurrentY.current = e.touches[0].clientY;
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    if (touchStartY.current !== null && touchCurrentY.current !== null) {
+      const deltaY = touchCurrentY.current - touchStartY.current;
+      // Swipe down to close
+      if (deltaY > SWIPE_CLOSE_THRESHOLD) {
+        triggerHaptic('light');
+        handleOpenChange(false);
+      }
+    }
+    touchStartY.current = null;
+    touchCurrentY.current = null;
+  }, []);
 
   // URL validation
   const validateUrl = (url: string): string => {
@@ -169,7 +196,17 @@ export function BookmarkActionSheet({
   return (
     <>
       <Sheet open={open} onOpenChange={handleOpenChange}>
-        <SheetContent side="bottom" className="rounded-t-3xl">
+        <SheetContent 
+          side="bottom" 
+          className="rounded-t-3xl"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
+          {/* Swipe indicator */}
+          <div className="flex justify-center pt-2 pb-1">
+            <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
+          </div>
           <SheetHeader className="pb-4">
             <SheetTitle className="text-left truncate pr-8">
               {link.title}
