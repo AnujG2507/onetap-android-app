@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Bookmark, Smartphone, Share2, ChevronLeft } from 'lucide-react';
+import { X, Bookmark, Smartphone, Share2, ChevronLeft, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -7,8 +7,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { useUrlMetadata } from '@/hooks/useUrlMetadata';
+import { useVideoThumbnail } from '@/hooks/useVideoThumbnail';
 import { getAllFolders } from '@/lib/savedLinksManager';
-
 interface SharedUrlActionSheetProps {
   url: string;
   onSaveToLibrary: (data?: { title?: string; description?: string; tag?: string | null }) => void;
@@ -41,8 +41,8 @@ export function SharedUrlActionSheet({
   
   const domain = extractDomain(url);
   const { metadata, isLoading } = useUrlMetadata(url);
+  const { thumbnailUrl, platform, isLoading: thumbnailLoading } = useVideoThumbnail(url);
   const folders = getAllFolders();
-
   // Pre-fill title when metadata loads
   useEffect(() => {
     if (metadata?.title && !editTitle) {
@@ -121,6 +121,46 @@ export function SharedUrlActionSheet({
 
         {/* URL Preview Card */}
         <div className="px-4 py-4 border-b border-border">
+          {/* Video Thumbnail Preview */}
+          {platform && (thumbnailUrl || thumbnailLoading) && (
+            <div className="mb-3">
+              <div className="relative aspect-video rounded-lg overflow-hidden bg-muted">
+                {thumbnailLoading ? (
+                  <Skeleton className="absolute inset-0" />
+                ) : thumbnailUrl ? (
+                  <>
+                    <img
+                      src={thumbnailUrl}
+                      alt="Video thumbnail"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                    {/* Play button overlay */}
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className={cn(
+                        "w-12 h-12 rounded-full flex items-center justify-center",
+                        "bg-black/60 backdrop-blur-sm"
+                      )}>
+                        <Play className="h-6 w-6 text-white fill-white ml-0.5" />
+                      </div>
+                    </div>
+                    {/* Platform badge */}
+                    <div className={cn(
+                      "absolute top-2 left-2 px-2 py-0.5 rounded text-xs font-medium",
+                      platform === 'youtube' 
+                        ? "bg-red-600 text-white" 
+                        : "bg-[#1ab7ea] text-white"
+                    )}>
+                      {platform === 'youtube' ? 'YouTube' : 'Vimeo'}
+                    </div>
+                  </>
+                ) : null}
+              </div>
+            </div>
+          )}
+
           <div className="flex items-center gap-3">
             {/* Favicon */}
             <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-muted flex items-center justify-center overflow-hidden">
