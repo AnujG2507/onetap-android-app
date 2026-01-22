@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { X, Bookmark, Smartphone, Share2, ChevronLeft, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,6 +9,8 @@ import { cn } from '@/lib/utils';
 import { useUrlMetadata } from '@/hooks/useUrlMetadata';
 import { useVideoThumbnail } from '@/hooks/useVideoThumbnail';
 import { getAllFolders } from '@/lib/savedLinksManager';
+import { detectPlatform } from '@/lib/platformIcons';
+import { PlatformIcon } from '@/components/PlatformIcon';
 interface SharedUrlActionSheetProps {
   url: string;
   onSaveToLibrary: (data?: { title?: string; description?: string; tag?: string | null }) => void;
@@ -41,7 +43,8 @@ export function SharedUrlActionSheet({
   
   const domain = extractDomain(url);
   const { metadata, isLoading } = useUrlMetadata(url);
-  const { thumbnailUrl, platform, isLoading: thumbnailLoading } = useVideoThumbnail(url);
+  const { thumbnailUrl, platform: videoPlatform, isLoading: thumbnailLoading } = useVideoThumbnail(url);
+  const detectedPlatform = useMemo(() => detectPlatform(url), [url]);
   const folders = getAllFolders();
   // Pre-fill title when metadata loads
   useEffect(() => {
@@ -122,7 +125,7 @@ export function SharedUrlActionSheet({
         {/* URL Preview Card */}
         <div className="px-4 py-4 border-b border-border">
           {/* Video Thumbnail Preview */}
-          {platform && (thumbnailUrl || thumbnailLoading) && (
+          {videoPlatform && (thumbnailUrl || thumbnailLoading) && (
             <div className="mb-3">
               <div className="relative aspect-video rounded-lg overflow-hidden bg-muted">
                 {thumbnailLoading ? (
@@ -149,11 +152,11 @@ export function SharedUrlActionSheet({
                     {/* Platform badge */}
                     <div className={cn(
                       "absolute top-2 left-2 px-2 py-0.5 rounded text-xs font-medium",
-                      platform === 'youtube' 
+                      videoPlatform === 'youtube' 
                         ? "bg-red-600 text-white" 
                         : "bg-[#1ab7ea] text-white"
                     )}>
-                      {platform === 'youtube' ? 'YouTube' : 'Vimeo'}
+                      {videoPlatform === 'youtube' ? 'YouTube' : 'Vimeo'}
                     </div>
                   </>
                 ) : null}
@@ -162,23 +165,27 @@ export function SharedUrlActionSheet({
           )}
 
           <div className="flex items-center gap-3">
-            {/* Favicon */}
-            <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-muted flex items-center justify-center overflow-hidden">
-              {isLoading ? (
-                <Skeleton className="w-6 h-6 rounded" />
-              ) : metadata?.favicon ? (
-                <img 
-                  src={metadata.favicon} 
-                  alt="" 
-                  className="w-6 h-6 object-contain"
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                  }}
-                />
-              ) : (
-                <Share2 className="h-5 w-5 text-muted-foreground" />
-              )}
-            </div>
+            {/* Platform icon or Favicon */}
+            {detectedPlatform ? (
+              <PlatformIcon platform={detectedPlatform} size="md" />
+            ) : (
+              <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-muted flex items-center justify-center overflow-hidden">
+                {isLoading ? (
+                  <Skeleton className="w-6 h-6 rounded" />
+                ) : metadata?.favicon ? (
+                  <img 
+                    src={metadata.favicon} 
+                    alt="" 
+                    className="w-6 h-6 object-contain"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  <Share2 className="h-5 w-5 text-muted-foreground" />
+                )}
+              </div>
+            )}
             
             {/* Title and Domain */}
             <div className="flex-1 min-w-0">
