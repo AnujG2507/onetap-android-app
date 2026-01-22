@@ -588,15 +588,39 @@ export function BookmarkLibrary({
             </div>
             <span className="text-sm font-medium text-muted-foreground tracking-wide">Bookmarks</span>
           </div>
-          <AppMenu onOpenTrash={() => setIsTrashOpen(true)} />
+          <div className="flex items-center gap-2">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => {
+                      setShowAddForm(true);
+                      triggerHaptic('light');
+                    }}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors",
+                      "bg-primary text-primary-foreground hover:bg-primary/90"
+                    )}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Add
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[200px] text-center">
+                  <p>You can also add bookmarks by sharing any URL to this app</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <AppMenu onOpenTrash={() => setIsTrashOpen(true)} />
+          </div>
         </div>
         <h1 className="text-2xl font-semibold text-foreground leading-tight tracking-tight">
           Your saved links
         </h1>
         
-        {/* View Mode Toggle + Add Button */}
+        {/* View Mode Toggle */}
         {links.length > 0 && (
-          <div className="flex items-center justify-between gap-2 mt-3">
+          <div className="flex items-center gap-2 mt-3">
             <div className="flex items-center gap-1 p-1 bg-muted rounded-lg">
               <button
                 onClick={() => setViewMode('list')}
@@ -623,30 +647,6 @@ export function BookmarkLibrary({
                 Folders
               </button>
             </div>
-            
-            {/* Add Bookmark Button - subtle version, pushed to right */}
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => {
-                      setShowAddForm(true);
-                      triggerHaptic('light');
-                    }}
-                    className={cn(
-                      "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors",
-                      "bg-primary text-primary-foreground hover:bg-primary/90"
-                    )}
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    Add
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-[200px] text-center">
-                  <p>You can also add bookmarks by sharing any URL to this app</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
           </div>
         )}
       </header>
@@ -774,7 +774,7 @@ export function BookmarkLibrary({
             )}
           >
             <Plus className="h-4 w-4" />
-            <span className="text-sm font-medium">Add Bookmark</span>
+            <span className="text-sm font-medium">Add your first bookmark</span>
           </button>
         </div>
       )}
@@ -1232,7 +1232,7 @@ export function BookmarkLibrary({
         className={cn(
           "fixed left-0 right-0 px-5 pb-3 transition-all duration-300 ease-out z-40",
           "bottom-[calc(3.5rem+env(safe-area-inset-bottom))]",
-          isBottomButtonVisible && !hasShortlist
+          isBottomButtonVisible && !hasShortlist && !showAddForm
             ? "translate-y-0 opacity-100"
             : "translate-y-full opacity-0 pointer-events-none"
         )}
