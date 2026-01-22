@@ -942,19 +942,11 @@ export function BookmarkLibrary({
         }}
         className="flex-1 overflow-y-auto px-5 pb-16"
       >
-        {filteredLinks.length === 0 ? (
+        {filteredLinks.length === 0 && (searchQuery || activeTagFilter) ? (
           <div className="text-center py-12 text-muted-foreground">
-            {searchQuery || activeTagFilter ? (
-              <p>No bookmarks match your filter</p>
-            ) : (
-              <div>
-                <Bookmark className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                <p>No bookmarks yet</p>
-                <p className="text-sm mt-1">Save important links for quick access</p>
-              </div>
-            )}
+            <p>No bookmarks match your filter</p>
           </div>
-        ) : (
+        ) : filteredLinks.length > 0 ? (
           <>
             {/* Select All Row - only visible when in selection mode */}
             {hasShortlist && (
@@ -1117,7 +1109,7 @@ export function BookmarkLibrary({
             </DragOverlay>
           </DndContext>
           </>
-        )}
+        ) : null}
       </div>
 
       {/* Action Sheet */}
