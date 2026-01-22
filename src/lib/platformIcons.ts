@@ -5,7 +5,7 @@ export interface PlatformInfo {
   name: string;
   bgColor: string;
   textColor: string;
-  icon: 'youtube' | 'instagram' | 'twitter' | 'facebook' | 'linkedin' | 'github' | 'reddit' | 'tiktok' | 'pinterest' | 'spotify' | 'twitch' | 'discord' | 'whatsapp' | 'telegram' | 'medium' | 'vimeo' | 'dribbble' | 'behance' | 'figma' | 'notion' | 'slack' | null;
+  icon: 'youtube' | 'instagram' | 'twitter' | 'facebook' | 'linkedin' | 'github' | 'reddit' | 'tiktok' | 'pinterest' | 'spotify' | 'twitch' | 'discord' | 'whatsapp' | 'telegram' | 'medium' | 'vimeo' | 'dribbble' | 'behance' | 'figma' | 'notion' | 'slack' | 'amazon' | 'netflix' | 'google-drive' | 'google' | 'apple' | 'microsoft' | 'dropbox' | 'trello' | 'asana' | 'zoom' | 'snapchat' | null;
 }
 
 interface PlatformPattern {
@@ -97,6 +97,54 @@ const PLATFORM_PATTERNS: PlatformPattern[] = [
   {
     pattern: /slack\.com/i,
     info: { name: 'Slack', bgColor: 'bg-purple-700', textColor: 'text-white', icon: 'slack' }
+  },
+  {
+    pattern: /amazon\.com|amazon\.\w{2,3}|amzn\.to/i,
+    info: { name: 'Amazon', bgColor: 'bg-amber-500', textColor: 'text-black', icon: 'amazon' }
+  },
+  {
+    pattern: /netflix\.com/i,
+    info: { name: 'Netflix', bgColor: 'bg-red-600', textColor: 'text-white', icon: 'netflix' }
+  },
+  {
+    pattern: /drive\.google\.com/i,
+    info: { name: 'Google Drive', bgColor: 'bg-yellow-500', textColor: 'text-black', icon: 'google-drive' }
+  },
+  {
+    pattern: /docs\.google\.com|sheets\.google\.com|slides\.google\.com/i,
+    info: { name: 'Google Docs', bgColor: 'bg-blue-500', textColor: 'text-white', icon: 'google' }
+  },
+  {
+    pattern: /google\.com/i,
+    info: { name: 'Google', bgColor: 'bg-white', textColor: 'text-gray-700', icon: 'google' }
+  },
+  {
+    pattern: /apple\.com/i,
+    info: { name: 'Apple', bgColor: 'bg-gray-900', textColor: 'text-white', icon: 'apple' }
+  },
+  {
+    pattern: /microsoft\.com|office\.com|live\.com|outlook\.com/i,
+    info: { name: 'Microsoft', bgColor: 'bg-blue-600', textColor: 'text-white', icon: 'microsoft' }
+  },
+  {
+    pattern: /dropbox\.com/i,
+    info: { name: 'Dropbox', bgColor: 'bg-blue-500', textColor: 'text-white', icon: 'dropbox' }
+  },
+  {
+    pattern: /trello\.com/i,
+    info: { name: 'Trello', bgColor: 'bg-blue-600', textColor: 'text-white', icon: 'trello' }
+  },
+  {
+    pattern: /asana\.com/i,
+    info: { name: 'Asana', bgColor: 'bg-rose-500', textColor: 'text-white', icon: 'asana' }
+  },
+  {
+    pattern: /zoom\.us/i,
+    info: { name: 'Zoom', bgColor: 'bg-blue-500', textColor: 'text-white', icon: 'zoom' }
+  },
+  {
+    pattern: /snapchat\.com/i,
+    info: { name: 'Snapchat', bgColor: 'bg-yellow-400', textColor: 'text-black', icon: 'snapchat' }
   },
 ];
 
