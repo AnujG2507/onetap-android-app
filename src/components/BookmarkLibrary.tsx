@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { Search, Plus, X, Bookmark, Trash2, Home, LayoutGrid, List, FolderInput, Clock, SortDesc, ArrowDownAZ, ArrowUpZA, Folder, ArrowDownUp, Edit2, GripVertical } from 'lucide-react';
+import { Search, Plus, X, Bookmark, Trash2, Home, LayoutGrid, List, FolderInput, Clock, SortDesc, ArrowDownAZ, ArrowUpZA, Folder, ArrowDownUp, Edit2, GripVertical, Link2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ToastAction } from '@/components/ui/toast';
@@ -758,22 +758,45 @@ export function BookmarkLibrary({
         </div>
       )}
       
-      {/* Empty state with add button */}
+      {/* Empty state with animated illustration */}
       {links.length === 0 && !showAddForm && (
-        <div className="px-5 mb-4">
+        <div className="flex flex-col items-center justify-center py-16 px-4 animate-fade-in">
+          {/* Animated illustration */}
+          <div className="relative mb-6">
+            {/* Floating decorative elements */}
+            <div className="absolute -top-2 -left-4 w-2 h-2 rounded-full bg-primary/30 animate-float-delayed" />
+            <div className="absolute -top-1 right-0 w-1.5 h-1.5 rounded-full bg-primary/20 animate-float" />
+            <div className="absolute bottom-0 -right-3 w-2.5 h-2.5 rounded-full bg-primary/25 animate-float-delayed" />
+            
+            {/* Main bookmark icon with glow */}
+            <div className="relative animate-float">
+              <div className="absolute inset-0 bg-primary/10 rounded-2xl blur-xl scale-150" />
+              <div className="relative bg-muted/50 rounded-2xl p-5 border border-border/50">
+                <Bookmark className="h-10 w-10 text-primary/60" strokeWidth={1.5} />
+              </div>
+            </div>
+            
+            {/* Small accent icon */}
+            <div className="absolute -bottom-1 -left-2 animate-float-delayed">
+              <Link2 className="h-4 w-4 text-muted-foreground/40" />
+            </div>
+          </div>
+          
+          {/* Text content */}
+          <h3 className="text-foreground font-medium mb-1">No bookmarks yet</h3>
+          <p className="text-muted-foreground/70 text-sm text-center max-w-[240px] mb-6">
+            Save links by sharing them to this app or tap the button below
+          </p>
+          
+          {/* Add button */}
           <button
             onClick={() => {
               setShowAddForm(true);
               triggerHaptic('light');
             }}
-            className={cn(
-              "w-full flex items-center justify-center gap-2 p-3",
-              "rounded-xl border-2 border-dashed border-muted-foreground/30",
-              "text-muted-foreground hover:border-primary hover:text-primary",
-              "transition-colors"
-            )}
+            className="flex items-center justify-center gap-2 w-full max-w-xs py-4 border-2 border-dashed border-muted-foreground/30 rounded-xl text-muted-foreground hover:border-primary/50 hover:text-primary hover:scale-[1.02] transition-all duration-200"
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="h-5 w-5" />
             <span className="text-sm font-medium">Add your first bookmark</span>
           </button>
         </div>
