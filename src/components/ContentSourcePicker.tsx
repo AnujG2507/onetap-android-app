@@ -1,4 +1,4 @@
-import { Image, Video, FileText, Bookmark, Music, FolderOpen, Phone } from 'lucide-react';
+import { Image, Video, FileText, Bookmark, Music, FolderOpen, Phone, Link } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { FileTypeFilter } from '@/lib/contentResolver';
 
@@ -8,9 +8,10 @@ interface ContentSourcePickerProps {
   onSelectFile: (filter: FileTypeFilter) => void;
   onSelectContact?: (mode: ContactMode) => void;
   onSelectFromLibrary?: () => void;
+  onEnterUrl?: () => void;
 }
 
-export function ContentSourcePicker({ onSelectFile, onSelectContact, onSelectFromLibrary }: ContentSourcePickerProps) {
+export function ContentSourcePicker({ onSelectFile, onSelectContact, onSelectFromLibrary, onEnterUrl }: ContentSourcePickerProps) {
   return (
     <div className="flex flex-col gap-4 p-5 animate-fade-in">
       {/* Section 1: What Matters (Primary) */}
@@ -80,26 +81,29 @@ export function ContentSourcePicker({ onSelectFile, onSelectContact, onSelectFro
         </div>
       )}
 
-      {/* Section 3: From Library */}
-      {onSelectFromLibrary && (
+      {/* Section 3: Links */}
+      {(onSelectFromLibrary || onEnterUrl) && (
         <div className="rounded-2xl bg-card elevation-1 p-4">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-            From Library
+            Links
           </h2>
           
-          <button
-            onClick={onSelectFromLibrary}
-            className={cn(
-              "w-full flex items-center gap-4 rounded-xl bg-muted/40 p-4 text-left",
-              "shadow-sm active:scale-[0.98] transition-all duration-150",
-              "focus:outline-none focus:ring-2 focus:ring-ring"
+          <div className="grid grid-cols-2 gap-3">
+            {onSelectFromLibrary && (
+              <FileTypeButton
+                icon={<Bookmark className="h-5 w-5" />}
+                label="Saved Bookmark"
+                onClick={onSelectFromLibrary}
+              />
             )}
-          >
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <Bookmark className="h-5 w-5" />
-            </div>
-            <span className="font-medium text-foreground">Saved Bookmark</span>
-          </button>
+            {onEnterUrl && (
+              <FileTypeButton
+                icon={<Link className="h-5 w-5" />}
+                label="Enter URL"
+                onClick={onEnterUrl}
+              />
+            )}
+          </div>
         </div>
       )}
     </div>

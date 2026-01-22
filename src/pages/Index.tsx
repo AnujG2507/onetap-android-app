@@ -204,8 +204,14 @@ const Index = () => {
 
       // Handle access flow back navigation
       if (activeTab === 'access') {
-        if (accessStep === 'customize') {
+        if (accessStep === 'url') {
           setAccessStep('source');
+        } else if (accessStep === 'customize') {
+          if (contentSourceType === 'url') {
+            setAccessStep('url');
+          } else {
+            setAccessStep('source');
+          }
         } else if (accessStep === 'contact') {
           setAccessStep('source');
         } else if (accessStep === 'success') {

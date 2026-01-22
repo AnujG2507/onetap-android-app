@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Plus, WifiOff } from 'lucide-react';
 import { ContentSourcePicker, ContactMode } from '@/components/ContentSourcePicker';
+import { UrlInput } from '@/components/UrlInput';
 import { ShortcutCustomizer } from '@/components/ShortcutCustomizer';
 import { ContactShortcutCustomizer } from '@/components/ContactShortcutCustomizer';
 import { SuccessScreen } from '@/components/SuccessScreen';
@@ -17,7 +18,7 @@ import { pickFile, FileTypeFilter } from '@/lib/contentResolver';
 import { createHomeScreenShortcut } from '@/lib/shortcutManager';
 import type { ContentSource, ShortcutIcon, MessageApp } from '@/types/shortcut';
 
-export type AccessStep = 'source' | 'customize' | 'contact' | 'success';
+export type AccessStep = 'source' | 'url' | 'customize' | 'contact' | 'success';
 export type ContentSourceType = 'url' | 'file' | null;
 
 interface ContactData {
@@ -115,6 +116,17 @@ export function AccessFlow({
     setStep('customize');
   };
 
+  const handleEnterUrl = () => {
+    setStep('url');
+  };
+
+  const handleUrlSubmit = (url: string) => {
+    setContentSource({
+      type: 'url',
+      uri: url,
+    });
+    setStep('customize');
+  };
 
   const handleSelectFile = async (filter: FileTypeFilter) => {
     const file = await pickFile(filter);
@@ -224,9 +236,17 @@ export function AccessFlow({
   // Consolidated back navigation handler
   const handleGoBack = () => {
     switch (step) {
-      case 'customize':
+      case 'url':
         setStep('source');
         setContentSource(null);
+        break;
+      case 'customize':
+        if (contentSource?.type === 'url') {
+          setStep('url');
+        } else {
+          setStep('source');
+          setContentSource(null);
+        }
         break;
       case 'contact':
         setStep('source');
@@ -274,6 +294,7 @@ export function AccessFlow({
             onSelectFile={handleSelectFile}
             onSelectContact={handleSelectContact}
             onSelectFromLibrary={handleSelectFromLibrary}
+            onEnterUrl={handleEnterUrl}
           />
 
           {/* Clipboard URL auto-detection */}
@@ -285,6 +306,13 @@ export function AccessFlow({
             />
           )}
         </>
+      )}
+
+      {step === 'url' && (
+        <UrlInput
+          onSubmit={handleUrlSubmit}
+          onBack={handleGoBack}
+        />
       )}
 
       {step === 'customize' && contentSource && (
