@@ -596,7 +596,7 @@ export function BookmarkLibrary({
         
         {/* View Mode Toggle + Add Button */}
         {links.length > 0 && (
-          <div className="flex items-center gap-2 mt-3">
+          <div className="flex items-center justify-between gap-2 mt-3">
             <div className="flex items-center gap-1 p-1 bg-muted rounded-lg">
               <button
                 onClick={() => setViewMode('list')}
@@ -624,7 +624,7 @@ export function BookmarkLibrary({
               </button>
             </div>
             
-            {/* Add Bookmark Button - subtle version */}
+            {/* Add Bookmark Button - subtle version, pushed to right */}
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
