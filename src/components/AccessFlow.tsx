@@ -9,6 +9,7 @@ import { ShortcutCustomizer } from '@/components/ShortcutCustomizer';
 import { ContactShortcutCustomizer } from '@/components/ContactShortcutCustomizer';
 import { SuccessScreen } from '@/components/SuccessScreen';
 import { ClipboardSuggestion } from '@/components/ClipboardSuggestion';
+import { SharedUrlActionSheet } from '@/components/SharedUrlActionSheet';
 import { AppMenu } from '@/components/AppMenu';
 import { TrashSheet } from '@/components/TrashSheet';
 import { useShortcuts } from '@/hooks/useShortcuts';
@@ -19,6 +20,7 @@ import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useToast } from '@/hooks/use-toast';
 import { pickFile, FileTypeFilter } from '@/lib/contentResolver';
 import { createHomeScreenShortcut } from '@/lib/shortcutManager';
+import { addSavedLink } from '@/lib/savedLinksManager';
 import type { ContentSource, ShortcutIcon, MessageApp } from '@/types/shortcut';
 
 export type AccessStep = 'source' | 'url' | 'customize' | 'contact' | 'success';
@@ -54,6 +56,7 @@ export function AccessFlow({
   const [contactMode, setContactMode] = useState<ContactMode>('dial');
   const [prefillUrl, setPrefillUrl] = useState<string | undefined>();
   const [isTrashOpen, setIsTrashOpen] = useState(false);
+  const [pendingSharedUrl, setPendingSharedUrl] = useState<string | null>(null);
   const lastSharedIdRef = useRef<string | null>(null);
   const processedInitialUrlRef = useRef<string | null>(null);
 
@@ -101,6 +104,44 @@ export function AccessFlow({
     dismissDetection();
     setPrefillUrl(url);
     setStep('url');
+  };
+
+  // Handle shared URL action: Save to Library
+  const handleSaveSharedToLibrary = () => {
+    if (!pendingSharedUrl) return;
+    
+    const result = addSavedLink(pendingSharedUrl);
+    
+    if (result.status === 'added') {
+      toast({
+        title: 'Saved to Library',
+        description: 'Link has been added to your bookmarks.',
+      });
+    } else if (result.status === 'duplicate') {
+      toast({
+        title: 'Already saved',
+        description: 'This link is already in your library.',
+      });
+    }
+    
+    setPendingSharedUrl(null);
+  };
+
+  // Handle shared URL action: Create Shortcut
+  const handleCreateSharedShortcut = () => {
+    if (!pendingSharedUrl) return;
+    
+    setContentSource({
+      type: 'url',
+      uri: pendingSharedUrl,
+    });
+    setStep('customize');
+    setPendingSharedUrl(null);
+  };
+
+  // Handle dismissing the shared URL action sheet
+  const handleDismissSharedUrl = () => {
+    setPendingSharedUrl(null);
   };
 
   // Handle shared content from Android Share Sheet AND internal video fallback
@@ -154,9 +195,18 @@ export function AccessFlow({
         return;
       }
 
-      console.log('[AccessFlow] Processing shared content (override mode):', sharedContent);
+      console.log('[AccessFlow] Processing shared content:', sharedContent);
       lastSharedIdRef.current = shareId;
 
+      // For URLs shared via share sheet, show action picker instead of auto-navigating
+      if (sharedContent.type === 'share' || sharedContent.type === 'url') {
+        console.log('[AccessFlow] URL shared, showing action picker');
+        setPendingSharedUrl(sharedContent.uri);
+        clearSharedContent();
+        return;
+      }
+
+      // For files, proceed directly to customize (files can't be bookmarked)
       setContentSource(sharedContent);
       setStep('customize');
       clearSharedContent();
@@ -395,6 +445,16 @@ export function AccessFlow({
         open={isTrashOpen} 
         onOpenChange={setIsTrashOpen} 
       />
+
+      {/* Shared URL Action Picker */}
+      {pendingSharedUrl && (
+        <SharedUrlActionSheet
+          url={pendingSharedUrl}
+          onSaveToLibrary={handleSaveSharedToLibrary}
+          onCreateShortcut={handleCreateSharedShortcut}
+          onDismiss={handleDismissSharedUrl}
+        />
+      )}
     </>
   );
 }
