@@ -50,10 +50,11 @@ export function ScheduledActionsList({
   });
   const { toast } = useToast();
   
-  // Swipe-to-close gesture
+  // Swipe-to-close gesture - only from grab handle area
   const startY = useRef(0);
   const currentY = useRef(0);
   const isAtTop = useRef(true);
+  const isSwipingFromGrabHandle = useRef(false);
 
   // Check permissions when sheet opens
   useEffect(() => {
@@ -68,22 +69,27 @@ export function ScheduledActionsList({
     }
   }, [isOpen, permissionStatus.checked, checkPermissions]);
 
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+  // Only handle swipe-to-close from grab handle area
+  const handleGrabHandleTouchStart = useCallback((e: React.TouchEvent) => {
     startY.current = e.touches[0].clientY;
     currentY.current = e.touches[0].clientY;
+    isSwipingFromGrabHandle.current = true;
   }, []);
 
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+  const handleGrabHandleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!isSwipingFromGrabHandle.current) return;
     currentY.current = e.touches[0].clientY;
   }, []);
 
-  const handleTouchEnd = useCallback(() => {
-    const deltaY = currentY.current - startY.current;
+  const handleGrabHandleTouchEnd = useCallback(() => {
+    if (!isSwipingFromGrabHandle.current) return;
     
-    if (isAtTop.current && deltaY > 80) {
+    const deltaY = currentY.current - startY.current;
+    if (deltaY > 80) {
       triggerHaptic('light');
       onClose();
     }
+    isSwipingFromGrabHandle.current = false;
   }, [onClose]);
 
   const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
@@ -252,12 +258,14 @@ export function ScheduledActionsList({
       <SheetContent 
         side="bottom" 
         className="h-[85vh] rounded-t-3xl px-0 pb-0 flex flex-col"
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
       >
-        {/* Grab handle */}
-        <div className="flex justify-center pt-2 pb-4 shrink-0">
+        {/* Grab handle - swipe to close only from here */}
+        <div 
+          className="flex justify-center pt-2 pb-4 shrink-0 cursor-grab active:cursor-grabbing"
+          onTouchStart={handleGrabHandleTouchStart}
+          onTouchMove={handleGrabHandleTouchMove}
+          onTouchEnd={handleGrabHandleTouchEnd}
+        >
           <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
         </div>
 
