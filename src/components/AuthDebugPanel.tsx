@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, forwardRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { getLastDeepLink } from '@/hooks/useDeepLink';
@@ -15,15 +15,18 @@ interface AuthEvent {
   userId?: string;
 }
 
-export function AuthDebugPanel() {
+// Check visibility outside component to avoid conditional hook issues
+const isLovablePreview = typeof window !== 'undefined' && window.location.hostname.includes('lovable.app');
+const shouldShow = !import.meta.env.PROD || isLovablePreview;
+
+export const AuthDebugPanel = forwardRef<HTMLDivElement>(function AuthDebugPanel(_props, ref) {
   const { user, session, loading, isAuthenticated, clearAuthState } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [authEvents, setAuthEvents] = useState<AuthEvent[]>([]);
   const [copied, setCopied] = useState(false);
 
-  // Show in development OR when running in Lovable preview (contains 'lovable.app')
-  const isLovablePreview = typeof window !== 'undefined' && window.location.hostname.includes('lovable.app');
-  if (import.meta.env.PROD && !isLovablePreview) {
+  // Early return after hooks
+  if (!shouldShow) {
     return null;
   }
 
@@ -119,7 +122,7 @@ export function AuthDebugPanel() {
   const storageInfo = getStorageInfo();
 
   return (
-    <div className="fixed bottom-20 right-4 z-50">
+    <div ref={ref} className="fixed bottom-20 right-4 z-50">
       <Button
         variant="outline"
         size="sm"
@@ -258,4 +261,6 @@ export function AuthDebugPanel() {
       )}
     </div>
   );
-}
+});
+
+AuthDebugPanel.displayName = 'AuthDebugPanel';
