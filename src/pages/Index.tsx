@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { App } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { useNavigate } from 'react-router-dom';
@@ -13,6 +13,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAutoSync } from '@/hooks/useAutoSync';
 import { useDeepLink } from '@/hooks/useDeepLink';
 import { useSharedContent } from '@/hooks/useSharedContent';
+import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
 import { useToast } from '@/hooks/use-toast';
 import { getShortlistedLinks, clearAllShortlist, addSavedLink } from '@/lib/savedLinksManager';
 import ShortcutPlugin from '@/plugins/ShortcutPlugin';
@@ -245,11 +246,41 @@ const Index = () => {
   // Show bottom nav only on main screens (not during sub-flows)
   const showBottomNav = accessStep === 'source' || activeTab === 'profile';
 
+  // Tab order for swipe navigation
+  const tabOrder: TabType[] = useMemo(() => ['access', 'bookmarks', 'profile'], []);
+  
+  // Swipe is only enabled on home screens (source step for access, or bookmarks/profile tabs without selection mode)
+  const swipeEnabled = showBottomNav && !isBookmarkSelectionMode;
+  
+  const handleSwipeLeft = useCallback(() => {
+    const currentIndex = tabOrder.indexOf(activeTab);
+    if (currentIndex < tabOrder.length - 1) {
+      setActiveTab(tabOrder[currentIndex + 1]);
+    }
+  }, [activeTab, tabOrder]);
+  
+  const handleSwipeRight = useCallback(() => {
+    const currentIndex = tabOrder.indexOf(activeTab);
+    if (currentIndex > 0) {
+      setActiveTab(tabOrder[currentIndex - 1]);
+    }
+  }, [activeTab, tabOrder]);
+  
+  const swipeHandlers = useSwipeNavigation({
+    onSwipeLeft: handleSwipeLeft,
+    onSwipeRight: handleSwipeRight,
+    enabled: swipeEnabled,
+    threshold: 60,
+  });
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Access Tab Content */}
       {activeTab === 'access' && (
-        <div className="flex-1 flex flex-col animate-fade-in">
+        <div 
+          className="flex-1 flex flex-col animate-fade-in"
+          {...(accessStep === 'source' ? swipeHandlers : {})}
+        >
           <AccessFlow
             onStepChange={handleAccessStepChange}
             onContentSourceTypeChange={handleContentSourceTypeChange}
@@ -262,7 +293,10 @@ const Index = () => {
 
       {/* Bookmarks Tab Content */}
       {activeTab === 'bookmarks' && (
-        <div className="flex-1 flex flex-col animate-fade-in">
+        <div 
+          className="flex-1 flex flex-col animate-fade-in"
+          {...swipeHandlers}
+        >
           <BookmarkLibrary
             onCreateShortcut={handleCreateShortcutFromBookmark}
             onSelectionModeChange={setIsBookmarkSelectionMode}
@@ -273,7 +307,10 @@ const Index = () => {
 
       {/* Profile Tab Content */}
       {activeTab === 'profile' && (
-        <div className="flex-1 flex flex-col animate-fade-in">
+        <div 
+          className="flex-1 flex flex-col animate-fade-in"
+          {...swipeHandlers}
+        >
           <ProfilePage />
         </div>
       )}
