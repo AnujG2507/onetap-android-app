@@ -1,16 +1,17 @@
-import { Zap, Bookmark, User } from 'lucide-react';
+import { Zap, Bell, Bookmark, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export type TabType = 'access' | 'bookmarks' | 'profile';
+export type TabType = 'access' | 'notifications' | 'bookmarks' | 'profile';
 
 interface BottomNavProps {
   activeTab: TabType;
   onTabChange: (tab: TabType) => void;
   hasShortlist?: boolean;
   isSignedIn?: boolean;
+  hasActiveActions?: boolean;
 }
 
-export function BottomNav({ activeTab, onTabChange, hasShortlist, isSignedIn }: BottomNavProps) {
+export function BottomNav({ activeTab, onTabChange, hasShortlist, isSignedIn, hasActiveActions }: BottomNavProps) {
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-background border-t border-border safe-bottom z-50">
       <div className="flex items-center justify-around h-14">
@@ -28,6 +29,27 @@ export function BottomNav({ activeTab, onTabChange, hasShortlist, isSignedIn }: 
             activeTab === 'access' && "fill-current"
           )} />
           <span className="text-[10px] font-medium">Access</span>
+        </button>
+        
+        <button
+          onClick={() => onTabChange('notifications')}
+          className={cn(
+            "flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-colors relative",
+            activeTab === 'notifications'
+              ? "text-primary"
+              : "text-muted-foreground"
+          )}
+        >
+          <div className="relative">
+            <Bell className={cn(
+              "h-5 w-5 transition-all",
+              activeTab === 'notifications' && "fill-current"
+            )} />
+            {hasActiveActions && (
+              <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-primary" />
+            )}
+          </div>
+          <span className="text-[10px] font-medium">Notifications</span>
         </button>
         
         <button

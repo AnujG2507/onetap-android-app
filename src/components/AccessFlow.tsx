@@ -41,6 +41,8 @@ interface AccessFlowProps {
   onInitialUrlConsumed?: () => void;
   /** Called when user wants to navigate to bookmarks tab */
   onGoToBookmarks?: () => void;
+  /** Called when user wants to navigate to notifications tab */
+  onGoToNotifications?: () => void;
 }
 
 export function AccessFlow({ 
@@ -49,6 +51,7 @@ export function AccessFlow({
   initialUrlForShortcut,
   onInitialUrlConsumed,
   onGoToBookmarks,
+  onGoToNotifications,
 }: AccessFlowProps) {
   const [step, setStep] = useState<AccessStep>('source');
   const [contentSource, setContentSource] = useState<ContentSource | null>(null);
@@ -388,6 +391,7 @@ export function AccessFlow({
         isOpen={showScheduledList}
         onClose={() => setShowScheduledList(false)}
         onCreateNew={handleCreateScheduled}
+        onGoToNotifications={onGoToNotifications}
       />
     </>
   );

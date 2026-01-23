@@ -1,7 +1,6 @@
-// Scheduled Actions List - displays all scheduled actions in a sheet
+// Notifications Page - Full-page view for managing scheduled actions
 // With search, filter, sort, selection mode, and bulk actions
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,15 +24,14 @@ import {
   ToggleLeft,
   ToggleRight,
   Trash2,
-  Sparkles,
   Link,
   Phone,
-  ArrowRight,
 } from 'lucide-react';
 import { useScheduledActions } from '@/hooks/useScheduledActions';
 import { ScheduledActionEditor } from './ScheduledActionEditor';
 import { ScheduledActionItem } from './ScheduledActionItem';
 import { ScheduledActionActionSheet } from './ScheduledActionActionSheet';
+import { ScheduledActionCreator } from './ScheduledActionCreator';
 import type { ScheduledAction, RecurrenceType } from '@/types/scheduledAction';
 import { 
   getSelectedIds, 
@@ -58,11 +56,9 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-interface ScheduledActionsListProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onCreateNew: () => void;
-  onGoToNotifications?: () => void;
+interface NotificationsPageProps {
+  onSelectionModeChange?: (isSelectionMode: boolean) => void;
+  clearSelectionSignal?: number;
 }
 
 interface PermissionStatus {
@@ -79,12 +75,10 @@ const RECURRENCE_FILTERS: { value: RecurrenceType | 'all'; label: string; icon: 
   { value: 'yearly', label: 'Yearly', icon: <Calendar className="h-3 w-3" /> },
 ];
 
-export function ScheduledActionsList({ 
-  isOpen, 
-  onClose, 
-  onCreateNew,
-  onGoToNotifications,
-}: ScheduledActionsListProps) {
+export function NotificationsPage({ 
+  onSelectionModeChange,
+  clearSelectionSignal,
+}: NotificationsPageProps) {
   const { 
     actions, 
     toggleAction, 
@@ -117,16 +111,14 @@ export function ScheduledActionsList({
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
   
+  // Creator mode
+  const [showCreator, setShowCreator] = useState(false);
+  
   // Scroll state for hiding bottom button
   const [isScrolledDown, setIsScrolledDown] = useState(false);
   const lastScrollTop = useRef(0);
   
   const { toast } = useToast();
-  
-  // Swipe-to-close gesture - only from grab handle area
-  const startY = useRef(0);
-  const currentY = useRef(0);
-  const isSwipingFromGrabHandle = useRef(false);
 
   // Load selection state and subscribe to changes
   useEffect(() => {
@@ -138,6 +130,11 @@ export function ScheduledActionsList({
     return unsubscribe;
   }, []);
 
+  // Notify parent of selection mode changes
+  useEffect(() => {
+    onSelectionModeChange?.(isSelectionMode);
+  }, [isSelectionMode, onSelectionModeChange]);
+
   // Exit selection mode when all items are deselected
   useEffect(() => {
     if (isSelectionMode && selectedIds.size === 0) {
@@ -145,19 +142,17 @@ export function ScheduledActionsList({
     }
   }, [selectedIds.size, isSelectionMode]);
 
-  // Clear search/filter/selection when sheet closes
+  // Clear selection when clearSelectionSignal changes
   useEffect(() => {
-    if (!isOpen) {
-      setSearchQuery('');
-      setRecurrenceFilter('all');
-      setIsSelectionMode(false);
+    if (clearSelectionSignal && clearSelectionSignal > 0) {
       clearSelection();
+      setIsSelectionMode(false);
     }
-  }, [isOpen]);
+  }, [clearSelectionSignal]);
 
-  // Check permissions when sheet opens
+  // Check permissions on mount
   useEffect(() => {
-    if (isOpen && !permissionStatus.checked) {
+    if (!permissionStatus.checked) {
       checkPermissions().then(status => {
         setPermissionStatus({
           notifications: status.notifications,
@@ -166,7 +161,7 @@ export function ScheduledActionsList({
         });
       });
     }
-  }, [isOpen, permissionStatus.checked, checkPermissions]);
+  }, [permissionStatus.checked, checkPermissions]);
 
   // Computed: filter counts
   const filterCounts = useMemo(() => {
@@ -237,28 +232,6 @@ export function ScheduledActionsList({
   }, [actions, searchQuery, recurrenceFilter, sortMode, sortReversed]);
 
   // Handlers
-  const handleGrabHandleTouchStart = useCallback((e: React.TouchEvent) => {
-    startY.current = e.touches[0].clientY;
-    currentY.current = e.touches[0].clientY;
-    isSwipingFromGrabHandle.current = true;
-  }, []);
-
-  const handleGrabHandleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!isSwipingFromGrabHandle.current) return;
-    currentY.current = e.touches[0].clientY;
-  }, []);
-
-  const handleGrabHandleTouchEnd = useCallback(() => {
-    if (!isSwipingFromGrabHandle.current) return;
-    
-    const deltaY = currentY.current - startY.current;
-    if (deltaY > 80) {
-      triggerHaptic('light');
-      onClose();
-    }
-    isSwipingFromGrabHandle.current = false;
-  }, [onClose]);
-
   const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     const scrollTop = e.currentTarget.scrollTop;
     const isScrollingDown = scrollTop > lastScrollTop.current && scrollTop > 50;
@@ -420,308 +393,321 @@ export function ScheduledActionsList({
     }
   };
 
+  const handleCreateNew = () => {
+    setShowCreator(true);
+  };
+
+  const handleCreatorComplete = () => {
+    setShowCreator(false);
+  };
+
+  const handleCreatorBack = () => {
+    setShowCreator(false);
+  };
+
   const allPermissionsGranted = permissionStatus.notifications && permissionStatus.alarms;
   const allSelected = filteredActions.length > 0 && filteredActions.every(a => selectedIds.has(a.id));
 
+  // Show creator view
+  if (showCreator) {
+    return (
+      <ScheduledActionCreator
+        onComplete={handleCreatorComplete}
+        onBack={handleCreatorBack}
+      />
+    );
+  }
+
   return (
-    <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent 
-        side="bottom" 
-        className="h-[85vh] rounded-t-3xl px-0 pb-0 flex flex-col"
-      >
-        {/* Grab handle - swipe to close only from here */}
-        <div 
-          className="flex justify-center pt-2 pb-4 shrink-0 cursor-grab active:cursor-grabbing"
-          onTouchStart={handleGrabHandleTouchStart}
-          onTouchMove={handleGrabHandleTouchMove}
-          onTouchEnd={handleGrabHandleTouchEnd}
-        >
-          <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
-        </div>
-
-        <SheetHeader className="px-5 pb-3 shrink-0">
-          <div className="flex items-center justify-between">
-            <SheetTitle className="text-lg font-semibold">Scheduled Actions</SheetTitle>
-            <div className="flex gap-2">
-              <Button
-                variant={allPermissionsGranted ? "outline" : "default"}
-                size="sm"
-                onClick={handleRequestAllPermissions}
-                disabled={isRequestingPermissions}
-                className="text-xs gap-1.5 h-8"
-              >
-                <Shield className="h-3.5 w-3.5" />
-                {isRequestingPermissions ? 'Requesting...' : allPermissionsGranted ? 'OK' : 'Permissions'}
-              </Button>
+    <div className="flex-1 flex flex-col pb-20">
+      {/* Header */}
+      <header className="px-5 pt-8 pb-4 shrink-0">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-3">
+            <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
+              <Bell className="h-4 w-4 text-primary-foreground" />
             </div>
+            <h1 className="text-xl font-semibold text-foreground">Notifications</h1>
           </div>
-          
-          {/* Permission Status Indicator */}
-          {permissionStatus.checked && !allPermissionsGranted && (
-            <div className="flex gap-3 mt-2 text-xs">
-              <div className={`flex items-center gap-1 ${permissionStatus.notifications ? 'text-green-600' : 'text-destructive'}`}>
-                <Bell className="h-3 w-3" />
-                <span>Notifications</span>
-                {permissionStatus.notifications ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
-              </div>
-              <div className={`flex items-center gap-1 ${permissionStatus.alarms ? 'text-green-600' : 'text-destructive'}`}>
-                <Clock className="h-3 w-3" />
-                <span>Alarms</span>
-                {permissionStatus.alarms ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
-              </div>
-            </div>
-          )}
-        </SheetHeader>
-
-        {/* Search input */}
-        {actions.length > 0 && (
-          <div className="px-5 pb-3 shrink-0">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="text"
-                placeholder="Search actions..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 pr-9 h-10"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Filter bar */}
-        {actions.length > 0 && (
-          <div className="px-5 pb-3 shrink-0">
-            <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-              {RECURRENCE_FILTERS.map(filter => {
-                const count = filterCounts[filter.value];
-                if (filter.value !== 'all' && count === 0) return null;
-                
-                const isActive = recurrenceFilter === filter.value;
-                return (
-                  <button
-                    key={filter.value}
-                    onClick={() => {
-                      triggerHaptic('light');
-                      setRecurrenceFilter(filter.value);
-                    }}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
-                      isActive 
-                        ? 'bg-primary text-primary-foreground' 
-                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                    }`}
-                  >
-                    {filter.icon}
-                    {filter.label}
-                    {count > 0 && (
-                      <Badge variant={isActive ? "secondary" : "outline"} className="h-4 px-1 text-[10px]">
-                        {count}
-                      </Badge>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Sort controls */}
-        {actions.length > 0 && (
-          <div className="px-5 pb-3 shrink-0">
-            <div className="flex items-center gap-2">
-              <TooltipProvider delayDuration={0}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant={sortMode === 'next' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => handleSortModeChange('next')}
-                      className="h-7 px-2 text-xs"
-                    >
-                      <CalendarClock className="h-3.5 w-3.5" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Sort by next trigger</TooltipContent>
-                </Tooltip>
-
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant={sortMode === 'alphabetical' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => handleSortModeChange('alphabetical')}
-                      className="h-7 px-2 text-xs"
-                    >
-                      <ArrowDownAZ className="h-3.5 w-3.5" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Sort alphabetically</TooltipContent>
-                </Tooltip>
-
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant={sortMode === 'recurrence' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => handleSortModeChange('recurrence')}
-                      className="h-7 px-2 text-xs"
-                    >
-                      <RefreshCw className="h-3.5 w-3.5" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Group by recurrence</TooltipContent>
-                </Tooltip>
-
-                <div className="flex-1" />
-
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleSortReversedToggle}
-                      className="h-7 px-2 text-xs"
-                    >
-                      {sortReversed ? <ArrowUpAZ className="h-3.5 w-3.5" /> : <ArrowDownAZ className="h-3.5 w-3.5" />}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>{sortReversed ? 'Reversed order' : 'Normal order'}</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-          </div>
-        )}
-
-        {/* Select all row */}
-        {isSelectionMode && filteredActions.length > 0 && (
-          <div className="px-5 pb-3 shrink-0">
-            <div className="flex items-center justify-between bg-muted/50 rounded-xl p-3">
-              <div className="flex items-center gap-3">
-                <Checkbox
-                  checked={allSelected}
-                  onCheckedChange={() => {
-                    if (allSelected) {
-                      handleClearSelection();
-                    } else {
-                      handleSelectAll();
-                    }
-                  }}
-                />
-                <span className="text-sm font-medium">
-                  {selectedIds.size} selected
-                </span>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleClearSelection}
-                className="text-xs"
-              >
-                Clear
-              </Button>
-            </div>
-          </div>
-        )}
-
-        <ScrollArea 
-          className="flex-1 px-5"
-          onScrollCapture={handleScroll}
-        >
-          <div className="pb-28">
-            {filteredActions.length === 0 ? (
-              searchQuery || recurrenceFilter !== 'all' ? (
-                <NoResultsState onClearFilters={() => {
-                  setSearchQuery('');
-                  setRecurrenceFilter('all');
-                }} />
-              ) : (
-                <EmptyState onCreateNew={onCreateNew} onGoToNotifications={onGoToNotifications} onClose={onClose} />
-              )
-            ) : (
-              <div className="space-y-3">
-                {filteredActions.map((action) => (
-                  <ScheduledActionItem
-                    key={action.id}
-                    action={action}
-                    isDeleting={deletingId === action.id}
-                    isSelected={selectedIds.has(action.id)}
-                    isSelectionMode={isSelectionMode}
-                    onTap={() => handleItemTap(action)}
-                    onToggle={() => handleToggle(action.id)}
-                    onDelete={() => handleDelete(action.id)}
-                    onToggleSelection={() => handleToggleSelection(action.id)}
-                    onEnterSelectionMode={handleEnterSelectionMode}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        </ScrollArea>
-
-        {/* Floating bulk action bar (when selection mode active) */}
-        {isSelectionMode && selectedIds.size > 0 && (
-          <div className="absolute bottom-6 left-0 right-0 px-5 shrink-0 z-10">
-            <div className="bg-card border rounded-2xl shadow-lg p-3 flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleBulkEnable}
-                className="flex-1 gap-1.5"
-              >
-                <ToggleRight className="h-4 w-4" />
-                Enable
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleBulkDisable}
-                className="flex-1 gap-1.5"
-              >
-                <ToggleLeft className="h-4 w-4" />
-                Disable
-              </Button>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => setShowBulkDeleteConfirm(true)}
-                className="gap-1.5"
-              >
-                <Trash2 className="h-4 w-4" />
-                {selectedIds.size}
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleClearSelection}
-                className="h-8 w-8"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* Floating add button (when not in selection mode) */}
-        {!isSelectionMode && actions.length > 0 && !isScrolledDown && (
-          <div className="absolute bottom-6 left-0 right-0 px-5 shrink-0">
+          <div className="flex gap-2">
             <Button
-              onClick={onCreateNew}
-              className="w-full h-12 rounded-2xl gap-2 shadow-lg"
+              variant={allPermissionsGranted ? "outline" : "default"}
+              size="sm"
+              onClick={handleRequestAllPermissions}
+              disabled={isRequestingPermissions}
+              className="text-xs gap-1.5 h-8"
             >
-              <Plus className="h-5 w-5" />
-              Schedule new action
+              <Shield className="h-3.5 w-3.5" />
+              {isRequestingPermissions ? 'Requesting...' : allPermissionsGranted ? 'OK' : 'Permissions'}
             </Button>
           </div>
+        </div>
+        
+        {/* Permission Status Indicator */}
+        {permissionStatus.checked && !allPermissionsGranted && (
+          <div className="flex gap-3 mt-2 text-xs">
+            <div className={`flex items-center gap-1 ${permissionStatus.notifications ? 'text-green-600' : 'text-destructive'}`}>
+              <Bell className="h-3 w-3" />
+              <span>Notifications</span>
+              {permissionStatus.notifications ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+            </div>
+            <div className={`flex items-center gap-1 ${permissionStatus.alarms ? 'text-green-600' : 'text-destructive'}`}>
+              <Clock className="h-3 w-3" />
+              <span>Alarms</span>
+              {permissionStatus.alarms ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+            </div>
+          </div>
         )}
-      </SheetContent>
+      </header>
+
+      {/* Search input */}
+      {actions.length > 0 && (
+        <div className="px-5 pb-3 shrink-0">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="Search actions..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 pr-9 h-10"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Filter bar */}
+      {actions.length > 0 && (
+        <div className="px-5 pb-3 shrink-0">
+          <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+            {RECURRENCE_FILTERS.map(filter => {
+              const count = filterCounts[filter.value];
+              if (filter.value !== 'all' && count === 0) return null;
+              
+              const isActive = recurrenceFilter === filter.value;
+              return (
+                <button
+                  key={filter.value}
+                  onClick={() => {
+                    triggerHaptic('light');
+                    setRecurrenceFilter(filter.value);
+                  }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
+                    isActive 
+                      ? 'bg-primary text-primary-foreground' 
+                      : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                  }`}
+                >
+                  {filter.icon}
+                  {filter.label}
+                  {count > 0 && (
+                    <Badge variant={isActive ? "secondary" : "outline"} className="h-4 px-1 text-[10px]">
+                      {count}
+                    </Badge>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Sort controls */}
+      {actions.length > 0 && (
+        <div className="px-5 pb-3 shrink-0">
+          <div className="flex items-center gap-2">
+            <TooltipProvider delayDuration={0}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant={sortMode === 'next' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => handleSortModeChange('next')}
+                    className="h-7 px-2 text-xs"
+                  >
+                    <CalendarClock className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Sort by next trigger</TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant={sortMode === 'alphabetical' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => handleSortModeChange('alphabetical')}
+                    className="h-7 px-2 text-xs"
+                  >
+                    <ArrowDownAZ className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Sort alphabetically</TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant={sortMode === 'recurrence' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => handleSortModeChange('recurrence')}
+                    className="h-7 px-2 text-xs"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Group by recurrence</TooltipContent>
+              </Tooltip>
+
+              <div className="flex-1" />
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleSortReversedToggle}
+                    className="h-7 px-2 text-xs"
+                  >
+                    {sortReversed ? <ArrowUpAZ className="h-3.5 w-3.5" /> : <ArrowDownAZ className="h-3.5 w-3.5" />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{sortReversed ? 'Reversed order' : 'Normal order'}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+        </div>
+      )}
+
+      {/* Select all row */}
+      {isSelectionMode && filteredActions.length > 0 && (
+        <div className="px-5 pb-3 shrink-0">
+          <div className="flex items-center justify-between bg-muted/50 rounded-xl p-3">
+            <div className="flex items-center gap-3">
+              <Checkbox
+                checked={allSelected}
+                onCheckedChange={() => {
+                  if (allSelected) {
+                    handleClearSelection();
+                  } else {
+                    handleSelectAll();
+                  }
+                }}
+              />
+              <span className="text-sm font-medium">
+                {selectedIds.size} selected
+              </span>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleClearSelection}
+              className="text-xs"
+            >
+              Clear
+            </Button>
+          </div>
+        </div>
+      )}
+
+      <ScrollArea 
+        className="flex-1 px-5"
+        onScrollCapture={handleScroll}
+      >
+        <div className="pb-28">
+          {filteredActions.length === 0 ? (
+            searchQuery || recurrenceFilter !== 'all' ? (
+              <NoResultsState onClearFilters={() => {
+                setSearchQuery('');
+                setRecurrenceFilter('all');
+              }} />
+            ) : (
+              <EmptyState onCreateNew={handleCreateNew} />
+            )
+          ) : (
+            <div className="space-y-3">
+              {filteredActions.map((action) => (
+                <ScheduledActionItem
+                  key={action.id}
+                  action={action}
+                  isDeleting={deletingId === action.id}
+                  isSelected={selectedIds.has(action.id)}
+                  isSelectionMode={isSelectionMode}
+                  onTap={() => handleItemTap(action)}
+                  onToggle={() => handleToggle(action.id)}
+                  onDelete={() => handleDelete(action.id)}
+                  onToggleSelection={() => handleToggleSelection(action.id)}
+                  onEnterSelectionMode={handleEnterSelectionMode}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </ScrollArea>
+
+      {/* Floating bulk action bar (when selection mode active) */}
+      {isSelectionMode && selectedIds.size > 0 && (
+        <div className="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom)+1rem)] left-0 right-0 px-5 z-10">
+          <div className="bg-card border rounded-2xl shadow-lg p-3 flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleBulkEnable}
+              className="flex-1 gap-1.5"
+            >
+              <ToggleRight className="h-4 w-4" />
+              Enable
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleBulkDisable}
+              className="flex-1 gap-1.5"
+            >
+              <ToggleLeft className="h-4 w-4" />
+              Disable
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => setShowBulkDeleteConfirm(true)}
+              className="gap-1.5"
+            >
+              <Trash2 className="h-4 w-4" />
+              {selectedIds.size}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleClearSelection}
+              className="h-8 w-8"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Floating add button (when not in selection mode) */}
+      {!isSelectionMode && actions.length > 0 && !isScrolledDown && (
+        <div className="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom)+1rem)] left-0 right-0 px-5 z-10">
+          <Button
+            onClick={handleCreateNew}
+            className="w-full h-12 rounded-2xl gap-2 shadow-lg"
+          >
+            <Plus className="h-5 w-5" />
+            Schedule new action
+          </Button>
+        </div>
+      )}
 
       {/* Action sheet for individual item */}
       <ScheduledActionActionSheet
@@ -766,16 +752,12 @@ export function ScheduledActionsList({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </Sheet>
+    </div>
   );
 }
 
 // Empty state component with animation
-function EmptyState({ onCreateNew, onGoToNotifications, onClose }: { 
-  onCreateNew: () => void; 
-  onGoToNotifications?: () => void;
-  onClose: () => void;
-}) {
+function EmptyState({ onCreateNew }: { onCreateNew: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 px-4 text-center relative">
       {/* Animated floating icons */}
@@ -799,25 +781,10 @@ function EmptyState({ onCreateNew, onGoToNotifications, onClose }: {
       <p className="text-sm text-muted-foreground mb-6 max-w-[240px]">
         Schedule a file, link, or contact to open at a specific time.
       </p>
-      <div className="flex flex-col gap-3">
-        <Button onClick={onCreateNew} className="gap-2">
-          <Plus className="h-4 w-4" />
-          Schedule your first action
-        </Button>
-        {onGoToNotifications && (
-          <Button 
-            variant="outline" 
-            onClick={() => {
-              onClose();
-              onGoToNotifications();
-            }}
-            className="gap-2"
-          >
-            View all notifications
-            <ArrowRight className="h-4 w-4" />
-          </Button>
-        )}
-      </div>
+      <Button onClick={onCreateNew} className="gap-2">
+        <Plus className="h-4 w-4" />
+        Schedule your first action
+      </Button>
     </div>
   );
 }
