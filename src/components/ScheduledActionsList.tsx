@@ -76,7 +76,7 @@ export function ScheduledActionsList({
     setEditingAction(null);
   };
 
-  // Test alarm: creates a scheduled action that fires in 60 seconds
+  // Test alarm: creates a scheduled action that fires in 10 seconds
   const handleTestAlarm = async () => {
     setIsTestingAlarm(true);
     triggerHaptic('medium');
@@ -87,9 +87,28 @@ export function ScheduledActionsList({
       const permissions = await requestPermissions();
       console.log('[TestAlarm] Permissions result:', permissions);
       
-      // Create a test action that fires in 60 seconds
-      const triggerTime = Date.now() + 60 * 1000; // 60 seconds from now
-      console.log('[TestAlarm] Creating test action with triggerTime:', triggerTime);
+      // Show permission status to user
+      if (!permissions.notifications) {
+        toast({
+          title: 'Notification permission required',
+          description: 'Please grant notification permission for alarms to work.',
+          variant: 'destructive',
+        });
+        setIsTestingAlarm(false);
+        return;
+      }
+      
+      if (!permissions.alarms) {
+        toast({
+          title: 'Alarm permission may be required',
+          description: 'On Android 12+, exact alarms may require additional permission.',
+        });
+        // Continue anyway - the alarm might still work with inexact scheduling
+      }
+      
+      // Create a test action that fires in 10 seconds (shorter for faster testing)
+      const triggerTime = Date.now() + 10 * 1000; // 10 seconds from now
+      console.log('[TestAlarm] Creating test action with triggerTime:', triggerTime, 'which is', new Date(triggerTime).toISOString());
       
       const action = await createScheduledAction({
         name: `Test Alarm (${new Date(triggerTime).toLocaleTimeString()})`,
@@ -107,7 +126,7 @@ export function ScheduledActionsList({
         console.log('[TestAlarm] Test action created successfully:', action.id);
         toast({
           title: 'Test alarm scheduled',
-          description: 'You should receive a notification in 60 seconds.',
+          description: 'You should receive a notification in ~10 seconds. Keep the app open or minimized.',
         });
       } else {
         console.error('[TestAlarm] Failed to create test action');

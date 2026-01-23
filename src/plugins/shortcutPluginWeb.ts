@@ -172,12 +172,103 @@ export class ShortcutPluginWeb implements ShortcutPluginInterface {
     recurrence: 'once' | 'daily' | 'weekly' | 'yearly';
   }): Promise<{ success: boolean; error?: string }> {
     console.log('[ShortcutPluginWeb] scheduleAction called (web fallback)', options);
-    // On web, we can use setTimeout for demo purposes (won't persist)
+    
+    // On web, use setTimeout + browser Notification API for demo/testing
     const delay = options.triggerTime - Date.now();
     if (delay > 0) {
-      console.log(`[ShortcutPluginWeb] Would trigger "${options.name}" in ${Math.round(delay / 1000)}s`);
+      console.log(`[ShortcutPluginWeb] Scheduling "${options.name}" to trigger in ${Math.round(delay / 1000)}s`);
+      
+      // Schedule the notification
+      setTimeout(() => {
+        console.log(`[ShortcutPluginWeb] Triggering scheduled action: ${options.name}`);
+        this.showWebNotification(options.id, options.name, options.destinationType, options.destinationData);
+      }, delay);
+    } else {
+      console.log(`[ShortcutPluginWeb] Trigger time is in the past, showing notification immediately`);
+      this.showWebNotification(options.id, options.name, options.destinationType, options.destinationData);
     }
+    
     return { success: true };
+  }
+
+  private async showWebNotification(
+    actionId: string,
+    actionName: string,
+    destinationType: string,
+    destinationData: string
+  ): Promise<void> {
+    console.log('[ShortcutPluginWeb] showWebNotification called', { actionId, actionName, destinationType });
+    
+    // Check if browser notifications are supported and granted
+    if (!('Notification' in window)) {
+      console.log('[ShortcutPluginWeb] Browser notifications not supported');
+      alert(`⏰ Scheduled Action: ${actionName}\n\nTap OK to execute.`);
+      this.executeWebAction(destinationType, destinationData);
+      return;
+    }
+    
+    if (Notification.permission !== 'granted') {
+      console.log('[ShortcutPluginWeb] Notification permission not granted, using alert');
+      alert(`⏰ Scheduled Action: ${actionName}\n\nTap OK to execute.`);
+      this.executeWebAction(destinationType, destinationData);
+      return;
+    }
+    
+    // Show browser notification
+    try {
+      const notification = new Notification(actionName, {
+        body: this.getNotificationBody(destinationType),
+        icon: '/favicon.ico',
+        tag: actionId,
+        requireInteraction: true,
+      });
+      
+      notification.onclick = () => {
+        console.log('[ShortcutPluginWeb] Notification clicked, executing action');
+        notification.close();
+        this.executeWebAction(destinationType, destinationData);
+      };
+      
+      console.log('[ShortcutPluginWeb] Browser notification shown');
+    } catch (error) {
+      console.error('[ShortcutPluginWeb] Error showing notification:', error);
+      alert(`⏰ Scheduled Action: ${actionName}`);
+    }
+  }
+
+  private getNotificationBody(destinationType: string): string {
+    switch (destinationType) {
+      case 'url': return 'Tap to open link';
+      case 'contact': return 'Tap to call';
+      case 'file': return 'Tap to open file';
+      default: return 'Tap to execute';
+    }
+  }
+
+  private executeWebAction(destinationType: string, destinationData: string): void {
+    try {
+      const data = JSON.parse(destinationData);
+      
+      switch (destinationType) {
+        case 'url':
+          if (data.uri) {
+            window.open(data.uri, '_blank');
+          }
+          break;
+        case 'contact':
+          if (data.phoneNumber) {
+            window.open(`tel:${data.phoneNumber}`, '_self');
+          }
+          break;
+        case 'file':
+          if (data.uri) {
+            window.open(data.uri, '_blank');
+          }
+          break;
+      }
+    } catch (error) {
+      console.error('[ShortcutPluginWeb] Error executing action:', error);
+    }
   }
 
   async cancelScheduledAction(options: { 
