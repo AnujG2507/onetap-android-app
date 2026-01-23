@@ -273,7 +273,10 @@ export function AccessFlow({
 
   // Scheduled action handlers
   const handleOpenScheduledList = () => setShowScheduledList(true);
-  const handleCreateScheduled = () => setStep('scheduled-create');
+  const handleCreateScheduled = () => {
+    setShowScheduledList(false);
+    setStep('scheduled-create');
+  };
   const handleScheduledComplete = () => {
     setStep('source');
     setShowScheduledList(true); // Show the list after creation
@@ -314,7 +317,6 @@ export function AccessFlow({
             onSelectFromLibrary={handleSelectFromLibrary}
             onEnterUrl={handleEnterUrl}
             onOpenScheduled={handleOpenScheduledList}
-            onCreateScheduled={handleCreateScheduled}
             scheduledCount={scheduledCount}
           />
 
@@ -385,10 +387,7 @@ export function AccessFlow({
       <ScheduledActionsList
         isOpen={showScheduledList}
         onClose={() => setShowScheduledList(false)}
-        onCreateNew={() => {
-          setShowScheduledList(false);
-          handleCreateScheduled();
-        }}
+        onCreateNew={handleCreateScheduled}
       />
     </>
   );

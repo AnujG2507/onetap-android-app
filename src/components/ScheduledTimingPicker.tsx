@@ -20,32 +20,42 @@ export function ScheduledTimingPicker({
 }: ScheduledTimingPickerProps) {
   const now = new Date();
   
-  // Initialize with next hour
-  const defaultHour = now.getHours() + 1;
-  const [hour, setHour] = useState(defaultHour > 23 ? 9 : defaultHour);
+  // Initialize with next hour, handle midnight rollover
+  const nextHour = now.getHours() + 1;
+  const shouldRollToNextDay = nextHour > 23;
+  const defaultHour24 = shouldRollToNextDay ? 9 : nextHour; // 9 AM next day if past 11 PM
+  
+  // Convert to 12-hour format for display
+  const to12Hour = (h24: number) => {
+    if (h24 === 0) return 12;
+    if (h24 > 12) return h24 - 12;
+    return h24;
+  };
+  
+  const [hour, setHour] = useState(() => to12Hour(defaultHour24));
   const [minute, setMinute] = useState(0);
-  const [period, setPeriod] = useState<'AM' | 'PM'>(defaultHour >= 12 ? 'PM' : 'AM');
+  const [period, setPeriod] = useState<'AM' | 'PM'>(() => defaultHour24 >= 12 ? 'PM' : 'AM');
   
   const [selectedDate, setSelectedDate] = useState<Date>(() => {
     const d = new Date();
-    if (defaultHour > 23) d.setDate(d.getDate() + 1);
+    if (shouldRollToNextDay) d.setDate(d.getDate() + 1);
     return d;
   });
   
   const [recurrence, setRecurrence] = useState<RecurrenceType>(suggestedRecurrence);
 
   // Convert 12-hour to 24-hour
-  const get24Hour = () => {
-    let h = hour;
-    if (period === 'AM' && h === 12) h = 0;
-    if (period === 'PM' && h !== 12) h += 12;
+  const get24Hour = (h: number, p: 'AM' | 'PM') => {
+    if (p === 'AM' && h === 12) return 0;
+    if (p === 'PM' && h !== 12) return h + 12;
     return h;
   };
 
   // Calculate trigger time
   const triggerTime = useMemo(() => {
+    const hour24 = get24Hour(hour, period);
     const anchor: RecurrenceAnchor = {
-      hour: get24Hour(),
+      hour: hour24,
       minute,
       dayOfWeek: selectedDate.getDay(),
       month: selectedDate.getMonth(),
@@ -55,8 +65,9 @@ export function ScheduledTimingPicker({
   }, [hour, minute, period, selectedDate, recurrence]);
 
   const handleConfirm = () => {
+    const hour24 = get24Hour(hour, period);
     const anchor: RecurrenceAnchor = {
-      hour: get24Hour(),
+      hour: hour24,
       minute,
       dayOfWeek: selectedDate.getDay(),
       month: selectedDate.getMonth(),

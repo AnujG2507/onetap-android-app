@@ -10,7 +10,6 @@ interface ContentSourcePickerProps {
   onSelectFromLibrary?: () => void;
   onEnterUrl?: () => void;
   onOpenScheduled?: () => void;
-  onCreateScheduled?: () => void;
   scheduledCount?: number;
 }
 
@@ -20,7 +19,6 @@ export function ContentSourcePicker({
   onSelectFromLibrary, 
   onEnterUrl,
   onOpenScheduled,
-  onCreateScheduled,
   scheduledCount = 0,
 }: ContentSourcePickerProps) {
   return (
@@ -118,43 +116,35 @@ export function ContentSourcePicker({
         </div>
       )}
 
-      {/* Section 4: Scheduled Actions */}
-      {(onOpenScheduled || onCreateScheduled) && (
+      {/* Section 4: Scheduled Actions - single entry point */}
+      {onOpenScheduled && (
         <div className="rounded-2xl bg-card elevation-1 p-4">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
             Scheduled
           </h2>
           
-          <div className="space-y-3">
-            {onOpenScheduled && (
-              <button
-                onClick={onOpenScheduled}
-                className={cn(
-                  "w-full flex items-center gap-3 rounded-xl bg-muted/20 p-3.5",
-                  "active:scale-[0.98] transition-all duration-150",
-                  "focus:outline-none focus:ring-2 focus:ring-ring"
-                )}
-              >
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary shrink-0">
-                  <Clock className="h-5 w-5" />
-                </div>
-                <span className="text-sm font-medium text-foreground">
-                  View scheduled actions
-                  {scheduledCount > 0 && (
-                    <span className="text-muted-foreground ml-1">({scheduledCount} active)</span>
-                  )}
+          <button
+            onClick={onOpenScheduled}
+            className={cn(
+              "w-full flex items-center gap-3 rounded-xl bg-muted/20 p-3.5",
+              "active:scale-[0.98] transition-all duration-150",
+              "focus:outline-none focus:ring-2 focus:ring-ring"
+            )}
+          >
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary shrink-0">
+              <Clock className="h-5 w-5" />
+            </div>
+            <div className="flex-1 text-left">
+              <span className="text-sm font-medium text-foreground block">
+                Scheduled actions
+              </span>
+              {scheduledCount > 0 && (
+                <span className="text-xs text-muted-foreground">
+                  {scheduledCount} active
                 </span>
-              </button>
-            )}
-            
-            {onCreateScheduled && (
-              <FileTypeButton
-                icon={<Clock className="h-5 w-5" />}
-                label="Schedule new action"
-                onClick={onCreateScheduled}
-              />
-            )}
-          </div>
+              )}
+            </div>
+          </button>
         </div>
       )}
     </div>

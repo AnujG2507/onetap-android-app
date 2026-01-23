@@ -12,6 +12,7 @@ import { pickFile, isValidUrl } from '@/lib/contentResolver';
 import ShortcutPlugin from '@/plugins/ShortcutPlugin';
 import { SavedLinksSheet } from './SavedLinksSheet';
 import { Clipboard as CapClipboard } from '@capacitor/clipboard';
+import { useToast } from '@/hooks/use-toast';
 import type { 
   ScheduledActionDestination, 
   RecurrenceType, 
@@ -35,7 +36,7 @@ export function ScheduledActionCreator({
   initialDestination 
 }: ScheduledActionCreatorProps) {
   const { createScheduledAction, requestPermissions } = useScheduledActions();
-  
+  const { toast } = useToast();
   const [step, setStep] = useState<CreatorStep>(initialDestination ? 'timing' : 'destination');
   const [destination, setDestination] = useState<ScheduledActionDestination | null>(
     initialDestination || null
@@ -206,14 +207,41 @@ export function ScheduledActionCreator({
       
       if (action) {
         triggerHaptic('success');
+        
+        // Show success toast with scheduled time
+        const scheduledDate = new Date(timing.triggerTime);
+        const timeStr = scheduledDate.toLocaleString(undefined, {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true,
+        });
+        
+        toast({
+          title: '✓ Action scheduled',
+          description: `${name.trim() || getSuggestedName(destination)} — ${timeStr}${timing.recurrence !== 'once' ? ` (repeats ${timing.recurrence})` : ''}`,
+        });
+        
         onComplete();
       } else {
         triggerHaptic('warning');
+        toast({
+          title: 'Could not schedule',
+          description: 'Please try again.',
+          variant: 'destructive',
+        });
         setIsCreating(false);
       }
     } catch (error) {
       console.error('Error creating scheduled action:', error);
       triggerHaptic('warning');
+      toast({
+        title: 'Something went wrong',
+        description: 'Could not schedule this action.',
+        variant: 'destructive',
+      });
       setIsCreating(false);
     }
   };

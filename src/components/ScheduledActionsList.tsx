@@ -190,13 +190,15 @@ function ScheduledActionItem({
   };
 
   const isPast = action.triggerTime < Date.now() && action.recurrence === 'once';
+  const isExpired = isPast && action.enabled;
 
   return (
     <div 
       className={cn(
         "relative rounded-2xl bg-card border border-border p-4 transition-all",
         !action.enabled && "opacity-50",
-        isDeleting && "opacity-30 pointer-events-none"
+        isDeleting && "opacity-30 pointer-events-none",
+        isExpired && "border-destructive/30"
       )}
       onContextMenu={(e) => {
         e.preventDefault();
@@ -207,7 +209,7 @@ function ScheduledActionItem({
         {/* Destination icon */}
         <div className={cn(
           "flex h-10 w-10 items-center justify-center rounded-xl shrink-0",
-          action.enabled ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+          action.enabled && !isExpired ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
         )}>
           {getDestinationIcon()}
         </div>
@@ -217,9 +219,9 @@ function ScheduledActionItem({
           <h4 className="font-medium text-sm truncate">{action.name}</h4>
           <p className={cn(
             "text-xs mt-0.5",
-            isPast ? "text-destructive" : "text-muted-foreground"
+            isExpired ? "text-destructive" : "text-muted-foreground"
           )}>
-            {formatTriggerTime(action.triggerTime)}
+            {isExpired ? 'Expired — ' : ''}{formatTriggerTime(action.triggerTime)}
           </p>
           <div className="flex items-center gap-1.5 mt-1.5 text-xs text-muted-foreground">
             {getRecurrenceIcon(action.recurrence)}
