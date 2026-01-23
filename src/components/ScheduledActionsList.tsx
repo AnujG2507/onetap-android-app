@@ -13,7 +13,8 @@ import {
   Calendar,
   CalendarDays,
   CalendarClock,
-  Pencil
+  Pencil,
+  Bug
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useScheduledActions } from '@/hooks/useScheduledActions';
@@ -21,6 +22,7 @@ import { formatTriggerTime, formatRecurrence } from '@/lib/scheduledActionsManag
 import { ScheduledActionEditor } from './ScheduledActionEditor';
 import type { ScheduledAction, RecurrenceType } from '@/types/scheduledAction';
 import { triggerHaptic } from '@/lib/haptics';
+import { useToast } from '@/hooks/use-toast';
 
 interface ScheduledActionsListProps {
   isOpen: boolean;
@@ -33,9 +35,11 @@ export function ScheduledActionsList({
   onClose, 
   onCreateNew 
 }: ScheduledActionsListProps) {
-  const { actions, toggleAction, deleteScheduledAction } = useScheduledActions();
+  const { actions, toggleAction, deleteScheduledAction, createScheduledAction, requestPermissions } = useScheduledActions();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [editingAction, setEditingAction] = useState<ScheduledAction | null>(null);
+  const [isTestingAlarm, setIsTestingAlarm] = useState(false);
+  const { toast } = useToast();
   
   // Swipe-to-close gesture
   const startY = useRef(0);
@@ -82,6 +86,59 @@ export function ScheduledActionsList({
     setEditingAction(null);
   };
 
+  // Test alarm: creates a scheduled action that fires in 60 seconds
+  const handleTestAlarm = async () => {
+    setIsTestingAlarm(true);
+    triggerHaptic('medium');
+    
+    try {
+      // Request permissions first
+      console.log('[TestAlarm] Requesting permissions...');
+      const permissions = await requestPermissions();
+      console.log('[TestAlarm] Permissions result:', permissions);
+      
+      // Create a test action that fires in 60 seconds
+      const triggerTime = Date.now() + 60 * 1000; // 60 seconds from now
+      console.log('[TestAlarm] Creating test action with triggerTime:', triggerTime);
+      
+      const action = await createScheduledAction({
+        name: `Test Alarm (${new Date(triggerTime).toLocaleTimeString()})`,
+        destination: {
+          type: 'url',
+          uri: 'https://example.com/test-alarm',
+          name: 'Test Alarm URL',
+        },
+        triggerTime,
+        recurrence: 'once',
+        recurrenceAnchor: { hour: new Date(triggerTime).getHours(), minute: new Date(triggerTime).getMinutes() },
+      });
+      
+      if (action) {
+        console.log('[TestAlarm] Test action created successfully:', action.id);
+        toast({
+          title: 'Test alarm scheduled',
+          description: 'You should receive a notification in 60 seconds.',
+        });
+      } else {
+        console.error('[TestAlarm] Failed to create test action');
+        toast({
+          title: 'Test failed',
+          description: 'Could not create test alarm. Check console logs.',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      console.error('[TestAlarm] Error creating test alarm:', error);
+      toast({
+        title: 'Test failed',
+        description: String(error),
+        variant: 'destructive',
+      });
+    } finally {
+      setIsTestingAlarm(false);
+    }
+  };
+
   const sortedActions = [...actions].sort((a, b) => {
     // Enabled first, then by trigger time
     if (a.enabled !== b.enabled) return a.enabled ? -1 : 1;
@@ -103,7 +160,19 @@ export function ScheduledActionsList({
         </div>
 
         <SheetHeader className="px-5 pb-4">
-          <SheetTitle className="text-lg font-semibold">Scheduled Actions</SheetTitle>
+          <div className="flex items-center justify-between">
+            <SheetTitle className="text-lg font-semibold">Scheduled Actions</SheetTitle>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleTestAlarm}
+              disabled={isTestingAlarm}
+              className="text-xs gap-1.5 h-8 text-muted-foreground hover:text-foreground"
+            >
+              <Bug className="h-3.5 w-3.5" />
+              {isTestingAlarm ? 'Testing...' : 'Test Alarm'}
+            </Button>
+          </div>
         </SheetHeader>
 
         <div 
