@@ -25,12 +25,9 @@ export const AuthDebugPanel = forwardRef<HTMLDivElement>(function AuthDebugPanel
   const [authEvents, setAuthEvents] = useState<AuthEvent[]>([]);
   const [copied, setCopied] = useState(false);
 
-  // Early return after hooks
-  if (!shouldShow) {
-    return null;
-  }
-
   useEffect(() => {
+    if (!shouldShow) return;
+    
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setAuthEvents(prev => [
         {
@@ -44,6 +41,11 @@ export const AuthDebugPanel = forwardRef<HTMLDivElement>(function AuthDebugPanel
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // Early return after all hooks
+  if (!shouldShow) {
+    return null;
+  }
 
   const handleResetAuth = async () => {
     try {
