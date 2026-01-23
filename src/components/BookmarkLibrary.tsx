@@ -49,6 +49,7 @@ import { BulkMoveDialog } from './BulkMoveDialog';
 import { AppMenu } from './AppMenu';
 import { TrashSheet } from './TrashSheet';
 import { useToast } from '@/hooks/use-toast';
+import { useSheetBackHandler } from '@/hooks/useSheetBackHandler';
 import { triggerHaptic } from '@/lib/haptics';
 import { openInAppBrowser } from '@/lib/inAppBrowser';
 import {
@@ -153,6 +154,17 @@ export function BookmarkLibrary({
   const lastScrollTop = useRef(0);
   
   const { toast } = useToast();
+
+  // Register sheets with back button handler
+  const handleCloseActionSheet = useCallback(() => setShowActionSheet(false), []);
+  const handleCloseBulkMoveDialog = useCallback(() => setShowBulkMoveDialog(false), []);
+  const handleCloseBulkDeleteConfirm = useCallback(() => setShowBulkDeleteConfirm(false), []);
+  const handleCloseTrash = useCallback(() => setIsTrashOpen(false), []);
+  
+  useSheetBackHandler('bookmark-action-sheet', showActionSheet, handleCloseActionSheet);
+  useSheetBackHandler('bookmark-bulk-move-dialog', showBulkMoveDialog, handleCloseBulkMoveDialog, 10);
+  useSheetBackHandler('bookmark-bulk-delete-confirm', showBulkDeleteConfirm, handleCloseBulkDeleteConfirm, 10);
+  useSheetBackHandler('bookmark-trash-sheet', isTrashOpen, handleCloseTrash);
 
   // Load links
   const refreshLinks = useCallback(() => {

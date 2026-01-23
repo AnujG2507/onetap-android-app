@@ -8,6 +8,7 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { useUrlMetadata } from '@/hooks/useUrlMetadata';
 import { useVideoThumbnail } from '@/hooks/useVideoThumbnail';
+import { useSheetBackHandler } from '@/hooks/useSheetBackHandler';
 import { getAllFolders } from '@/lib/savedLinksManager';
 import { detectPlatform } from '@/lib/platformIcons';
 import { PlatformIcon } from '@/components/PlatformIcon';
@@ -49,6 +50,9 @@ export function SharedUrlActionSheet({
   const { thumbnailUrl, platform: videoPlatform, isLoading: thumbnailLoading } = useVideoThumbnail(url);
   const detectedPlatform = useMemo(() => detectPlatform(url), [url]);
   const folders = getAllFolders();
+
+  // Register sheet with back button handler (always open when mounted)
+  useSheetBackHandler('shared-url-action-sheet', true, onDismiss);
 
   // Swipe-to-close gesture tracking
   const touchStartY = useRef<number | null>(null);

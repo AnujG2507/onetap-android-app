@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   Menu, 
   Trash2, 
@@ -21,6 +21,7 @@ import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { getTrashCount, getTrashLinks, getDaysRemaining } from '@/lib/savedLinksManager';
 import { useTheme } from 'next-themes';
+import { useSheetBackHandler } from '@/hooks/useSheetBackHandler';
 import { CloudBackupSection } from './CloudBackupSection';
 import { useSettings } from '@/hooks/useSettings';
 
@@ -49,6 +50,10 @@ export function AppMenu({ onOpenTrash }: AppMenuProps) {
   // Swipe gesture tracking
   const touchStartX = useRef<number | null>(null);
   const touchCurrentX = useRef<number | null>(null);
+
+  // Register menu sheet with back button handler
+  const handleCloseMenu = useCallback(() => setOpen(false), []);
+  useSheetBackHandler('app-menu-sheet', open, handleCloseMenu);
 
   // Check for expiring items on mount and when menu opens
   const checkExpiringItems = () => {

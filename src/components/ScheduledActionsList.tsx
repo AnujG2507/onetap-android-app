@@ -31,6 +31,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { useScheduledActions } from '@/hooks/useScheduledActions';
+import { useSheetBackHandler } from '@/hooks/useSheetBackHandler';
 import { ScheduledActionEditor } from './ScheduledActionEditor';
 import { ScheduledActionItem } from './ScheduledActionItem';
 import { ScheduledActionActionSheet } from './ScheduledActionActionSheet';
@@ -122,6 +123,15 @@ export function ScheduledActionsList({
   const lastScrollTop = useRef(0);
   
   const { toast } = useToast();
+
+  // Register internal sheets with back button handler
+  const handleCloseActionSheet = useCallback(() => setActionSheetAction(null), []);
+  const handleCloseEditor = useCallback(() => setEditingAction(null), []);
+  const handleCloseBulkDeleteConfirm = useCallback(() => setShowBulkDeleteConfirm(false), []);
+  
+  useSheetBackHandler('scheduled-list-action-sheet', !!actionSheetAction, handleCloseActionSheet, 5);
+  useSheetBackHandler('scheduled-list-editor', !!editingAction, handleCloseEditor, 5);
+  useSheetBackHandler('scheduled-list-bulk-delete', showBulkDeleteConfirm, handleCloseBulkDeleteConfirm, 10);
   
   // Swipe-to-close gesture - only from grab handle area
   const startY = useRef(0);

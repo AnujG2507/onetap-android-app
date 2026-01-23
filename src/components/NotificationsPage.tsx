@@ -28,6 +28,7 @@ import {
   Phone,
 } from 'lucide-react';
 import { useScheduledActions } from '@/hooks/useScheduledActions';
+import { useSheetBackHandler } from '@/hooks/useSheetBackHandler';
 import { ScheduledActionEditor } from './ScheduledActionEditor';
 import { ScheduledActionItem } from './ScheduledActionItem';
 import { ScheduledActionActionSheet } from './ScheduledActionActionSheet';
@@ -119,6 +120,17 @@ export function NotificationsPage({
   const lastScrollTop = useRef(0);
   
   const { toast } = useToast();
+
+  // Register sheets with back button handler
+  const handleCloseActionSheet = useCallback(() => setActionSheetAction(null), []);
+  const handleCloseEditor = useCallback(() => setEditingAction(null), []);
+  const handleCloseBulkDeleteConfirm = useCallback(() => setShowBulkDeleteConfirm(false), []);
+  const handleCloseCreator = useCallback(() => setShowCreator(false), []);
+  
+  useSheetBackHandler('notifications-action-sheet', !!actionSheetAction, handleCloseActionSheet);
+  useSheetBackHandler('notifications-editor', !!editingAction, handleCloseEditor);
+  useSheetBackHandler('notifications-bulk-delete-confirm', showBulkDeleteConfirm, handleCloseBulkDeleteConfirm, 10);
+  useSheetBackHandler('notifications-creator', showCreator, handleCloseCreator);
 
   // Load selection state and subscribe to changes
   useEffect(() => {

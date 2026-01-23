@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { User, Cloud, Upload, Download, RefreshCw, LogOut, HardDrive, Clock, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,6 +16,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { useAuth } from '@/hooks/useAuth';
+import { useSheetBackHandler } from '@/hooks/useSheetBackHandler';
 import { getSavedLinks } from '@/lib/savedLinksManager';
 import { syncBookmarks, uploadBookmarksToCloud, downloadBookmarksFromCloud, getCloudBookmarkCount } from '@/lib/cloudSync';
 import { getSyncStatus, recordSync, formatRelativeTime, clearSyncStatus } from '@/lib/syncStatusManager';
@@ -35,6 +36,10 @@ export function ProfilePage() {
   const [autoSyncEnabled, setAutoSyncEnabled] = useState(() => getSettings().autoSyncEnabled);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+
+  // Register dialog with back button handler
+  const handleCloseDeleteDialog = useCallback(() => setShowDeleteDialog(false), []);
+  useSheetBackHandler('profile-delete-dialog', showDeleteDialog, handleCloseDeleteDialog, 10);
 
   const isOperating = isSyncing || isUploading || isDownloading || isDeleting;
 

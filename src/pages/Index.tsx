@@ -15,6 +15,7 @@ import { useDeepLink } from '@/hooks/useDeepLink';
 import { useSharedContent } from '@/hooks/useSharedContent';
 import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
 import { useToast } from '@/hooks/use-toast';
+import { useSheetRegistry } from '@/contexts/SheetRegistryContext';
 import { getShortlistedLinks, clearAllShortlist, addSavedLink } from '@/lib/savedLinksManager';
 import { getActiveCount, onScheduledActionsChange } from '@/lib/scheduledActionsManager';
 import ShortcutPlugin from '@/plugins/ShortcutPlugin';
@@ -48,6 +49,7 @@ const Index = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { closeTopSheet } = useSheetRegistry();
   
   // Enable auto-sync when user is signed in
   useAutoSync();
@@ -212,23 +214,31 @@ const Index = () => {
     onBack: () => {
       console.log('[Index] Back button triggered, step:', accessStep, 'tab:', activeTab);
 
-      // If on home screen, show exit confirmation
+      // Priority 1: Close any open sheet/dialog first
+      if (closeTopSheet()) {
+        console.log('[Index] Closed a registered sheet');
+        return;
+      }
+
+      // Priority 2: If on home screen, show exit confirmation
       if (isOnHomeScreen) {
         setShowExitConfirmation(true);
         return;
       }
-      // If in notifications selection mode, clear selection instead of navigating
+      
+      // Priority 3: If in notifications selection mode, clear selection
       if (activeTab === 'notifications' && isNotificationsSelectionMode) {
         handleClearNotificationsSelection();
         return;
       }
-      // If in bookmark selection mode, clear selection instead of navigating
+      
+      // Priority 4: If in bookmark selection mode, clear selection
       if (activeTab === 'bookmarks' && isBookmarkSelectionMode) {
         handleClearBookmarkSelection();
         return;
       }
 
-      // Handle access flow back navigation
+      // Priority 5: Handle access flow back navigation
       if (activeTab === 'access') {
         if (accessStep === 'url') {
           setAccessStep('source');

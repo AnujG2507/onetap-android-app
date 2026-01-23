@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Plus, WifiOff } from 'lucide-react';
 import { ContentSourcePicker, ContactMode } from '@/components/ContentSourcePicker';
 import { UrlInput } from '@/components/UrlInput';
@@ -16,6 +16,7 @@ import { useClipboardDetection } from '@/hooks/useClipboardDetection';
 import { useSettings } from '@/hooks/useSettings';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useScheduledActions } from '@/hooks/useScheduledActions';
+import { useSheetBackHandler } from '@/hooks/useSheetBackHandler';
 import { useToast } from '@/hooks/use-toast';
 import { pickFile, FileTypeFilter } from '@/lib/contentResolver';
 import { createHomeScreenShortcut } from '@/lib/shortcutManager';
@@ -74,6 +75,15 @@ export function AccessFlow({
 
   // Scheduled actions state
   const [showScheduledList, setShowScheduledList] = useState(false);
+
+  // Register sheets with back button handler
+  const handleCloseTrash = useCallback(() => setIsTrashOpen(false), []);
+  const handleCloseBookmarkPicker = useCallback(() => setShowBookmarkPicker(false), []);
+  const handleCloseScheduledList = useCallback(() => setShowScheduledList(false), []);
+  
+  useSheetBackHandler('access-trash-sheet', isTrashOpen, handleCloseTrash);
+  useSheetBackHandler('access-bookmark-picker', showBookmarkPicker, handleCloseBookmarkPicker);
+  useSheetBackHandler('access-scheduled-list', showScheduledList, handleCloseScheduledList);
 
   // Notify parent of step changes
   useEffect(() => {
