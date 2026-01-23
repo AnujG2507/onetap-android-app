@@ -295,11 +295,12 @@ function ScheduledActionItem({
   return (
     <div 
       className={cn(
-        "relative rounded-2xl bg-card border border-border p-4 transition-all",
+        "relative rounded-2xl bg-card border border-border p-4 transition-all cursor-pointer",
         !action.enabled && "opacity-50",
         isDeleting && "opacity-30 pointer-events-none",
         isExpired && "border-destructive/30"
       )}
+      onClick={() => setShowDelete(!showDelete)}
       onContextMenu={(e) => {
         e.preventDefault();
         setShowDelete(!showDelete);
@@ -330,18 +331,14 @@ function ScheduledActionItem({
         </div>
 
         {/* Actions: edit, toggle, delete */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 relative z-10" onClick={(e) => e.stopPropagation()}>
           {showDelete ? (
             <>
               <Button
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onEdit();
-                  setShowDelete(false);
-                }}
+                onClick={onEdit}
               >
                 <Pencil className="h-4 w-4" />
               </Button>
@@ -349,10 +346,7 @@ function ScheduledActionItem({
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete();
-                }}
+                onClick={onDelete}
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
@@ -366,14 +360,6 @@ function ScheduledActionItem({
           )}
         </div>
       </div>
-
-      {/* Tap to show edit/delete, tap again to hide - uses touch-action to allow scrolling */}
-      <button
-        className="absolute inset-0 z-10 touch-action-pan-y"
-        style={{ touchAction: 'pan-y' }}
-        onClick={() => setShowDelete(!showDelete)}
-        aria-label={showDelete ? 'Hide options' : 'Show options'}
-      />
     </div>
   );
 }
