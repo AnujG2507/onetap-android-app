@@ -37,7 +37,9 @@ const Index = () => {
   const [shortcutUrlFromBookmark, setShortcutUrlFromBookmark] = useState<string | null>(null);
   const [showExitConfirmation, setShowExitConfirmation] = useState(false);
   const [pendingSharedUrl, setPendingSharedUrl] = useState<string | null>(null);
+  const [slideDirection, setSlideDirection] = useState<'left' | 'right' | null>(null);
   const lastSharedIdRef = useRef<string | null>(null);
+  const previousTabRef = useRef<TabType>('access');
 
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -252,19 +254,34 @@ const Index = () => {
   // Swipe is only enabled on home screens (source step for access, or bookmarks/profile tabs without selection mode)
   const swipeEnabled = showBottomNav && !isBookmarkSelectionMode;
   
+  // Track tab changes to determine slide direction
+  const handleTabChange = useCallback((newTab: TabType) => {
+    const currentIndex = tabOrder.indexOf(activeTab);
+    const newIndex = tabOrder.indexOf(newTab);
+    
+    if (newIndex > currentIndex) {
+      setSlideDirection('left'); // Moving forward (content slides in from right)
+    } else if (newIndex < currentIndex) {
+      setSlideDirection('right'); // Moving backward (content slides in from left)
+    }
+    
+    previousTabRef.current = activeTab;
+    setActiveTab(newTab);
+  }, [activeTab, tabOrder]);
+  
   const handleSwipeLeft = useCallback(() => {
     const currentIndex = tabOrder.indexOf(activeTab);
     if (currentIndex < tabOrder.length - 1) {
-      setActiveTab(tabOrder[currentIndex + 1]);
+      handleTabChange(tabOrder[currentIndex + 1]);
     }
-  }, [activeTab, tabOrder]);
+  }, [activeTab, tabOrder, handleTabChange]);
   
   const handleSwipeRight = useCallback(() => {
     const currentIndex = tabOrder.indexOf(activeTab);
     if (currentIndex > 0) {
-      setActiveTab(tabOrder[currentIndex - 1]);
+      handleTabChange(tabOrder[currentIndex - 1]);
     }
-  }, [activeTab, tabOrder]);
+  }, [activeTab, tabOrder, handleTabChange]);
   
   const swipeHandlers = useSwipeNavigation({
     onSwipeLeft: handleSwipeLeft,
@@ -273,12 +290,20 @@ const Index = () => {
     threshold: 60,
   });
 
+  // Get animation class based on slide direction
+  const getSlideAnimation = () => {
+    if (slideDirection === 'left') return 'animate-slide-in-from-right';
+    if (slideDirection === 'right') return 'animate-slide-in-from-left';
+    return 'animate-fade-in';
+  };
+
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col overflow-hidden">
       {/* Access Tab Content */}
       {activeTab === 'access' && (
         <div 
-          className="flex-1 flex flex-col animate-fade-in"
+          key={`access-${slideDirection}`}
+          className={`flex-1 flex flex-col ${getSlideAnimation()}`}
           {...(accessStep === 'source' ? swipeHandlers : {})}
         >
           <AccessFlow
@@ -286,7 +311,7 @@ const Index = () => {
             onContentSourceTypeChange={handleContentSourceTypeChange}
             initialUrlForShortcut={shortcutUrlFromBookmark}
             onInitialUrlConsumed={handleInitialUrlConsumed}
-            onGoToBookmarks={() => setActiveTab('bookmarks')}
+            onGoToBookmarks={() => handleTabChange('bookmarks')}
           />
         </div>
       )}
@@ -294,7 +319,8 @@ const Index = () => {
       {/* Bookmarks Tab Content */}
       {activeTab === 'bookmarks' && (
         <div 
-          className="flex-1 flex flex-col animate-fade-in"
+          key={`bookmarks-${slideDirection}`}
+          className={`flex-1 flex flex-col ${getSlideAnimation()}`}
           {...swipeHandlers}
         >
           <BookmarkLibrary
@@ -308,7 +334,8 @@ const Index = () => {
       {/* Profile Tab Content */}
       {activeTab === 'profile' && (
         <div 
-          className="flex-1 flex flex-col animate-fade-in"
+          key={`profile-${slideDirection}`}
+          className={`flex-1 flex flex-col ${getSlideAnimation()}`}
           {...swipeHandlers}
         >
           <ProfilePage />
@@ -319,7 +346,7 @@ const Index = () => {
       {showBottomNav && (
         <BottomNav
           activeTab={activeTab}
-          onTabChange={setActiveTab}
+          onTabChange={handleTabChange}
           hasShortlist={hasShortlist}
           isSignedIn={!!user}
         />
