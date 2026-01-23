@@ -6,6 +6,7 @@ import { BottomNav, TabType } from '@/components/BottomNav';
 import { BookmarkLibrary } from '@/components/BookmarkLibrary';
 import { AccessFlow, AccessStep, ContentSourceType } from '@/components/AccessFlow';
 import { ProfilePage } from '@/components/ProfilePage';
+import { NotificationsPage } from '@/components/NotificationsPage';
 import { SharedUrlActionSheet } from '@/components/SharedUrlActionSheet';
 import { useBackButton } from '@/hooks/useBackButton';
 import { useAuth } from '@/hooks/useAuth';
@@ -15,6 +16,7 @@ import { useSharedContent } from '@/hooks/useSharedContent';
 import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
 import { useToast } from '@/hooks/use-toast';
 import { getShortlistedLinks, clearAllShortlist, addSavedLink } from '@/lib/savedLinksManager';
+import { getActiveCount, onScheduledActionsChange } from '@/lib/scheduledActionsManager';
 import ShortcutPlugin from '@/plugins/ShortcutPlugin';
 import {
   AlertDialog,
@@ -32,11 +34,14 @@ const Index = () => {
   const [accessStep, setAccessStep] = useState<AccessStep>('source');
   const [contentSourceType, setContentSourceType] = useState<ContentSourceType>(null);
   const [isBookmarkSelectionMode, setIsBookmarkSelectionMode] = useState(false);
+  const [isNotificationsSelectionMode, setIsNotificationsSelectionMode] = useState(false);
   const [bookmarkClearSignal, setBookmarkClearSignal] = useState(0);
+  const [notificationsClearSignal, setNotificationsClearSignal] = useState(0);
   const [shortcutUrlFromBookmark, setShortcutUrlFromBookmark] = useState<string | null>(null);
   const [showExitConfirmation, setShowExitConfirmation] = useState(false);
   const [pendingSharedUrl, setPendingSharedUrl] = useState<string | null>(null);
   const [slideDirection, setSlideDirection] = useState<'left' | 'right' | null>(null);
+  const [activeActionsCount, setActiveActionsCount] = useState(() => getActiveCount());
   const lastSharedIdRef = useRef<string | null>(null);
   const previousTabRef = useRef<TabType>('access');
 
@@ -55,6 +60,13 @@ const Index = () => {
   
   // Check if shortlist has items
   const hasShortlist = getShortlistedLinks().length > 0;
+
+  // Subscribe to scheduled actions changes for badge
+  useEffect(() => {
+    const updateCount = () => setActiveActionsCount(getActiveCount());
+    const unsubscribe = onScheduledActionsChange(updateCount);
+    return unsubscribe;
+  }, []);
 
   // Handle shared content from Android Share Sheet
   useEffect(() => {
@@ -177,14 +189,21 @@ const Index = () => {
     setIsBookmarkSelectionMode(false);
   }, []);
 
+  // Handle clearing notifications selection
+  const handleClearNotificationsSelection = useCallback(() => {
+    setNotificationsClearSignal(s => s + 1);
+    setIsNotificationsSelectionMode(false);
+  }, []);
+
   // Handle exit confirmation
   const handleExitApp = useCallback(() => {
     App.exitApp();
   }, []);
 
   // Handle Android back button
-  // Both access tab (at source step), bookmarks tab (when not selecting), and profile tab are "home" screens
+  // All home screens: access tab (at source step), notifications tab (not selecting), bookmarks tab (not selecting), profile tab
   const isOnHomeScreen = (accessStep === 'source' && activeTab === 'access') ||
+    (activeTab === 'notifications' && !isNotificationsSelectionMode) ||
     (activeTab === 'bookmarks' && !isBookmarkSelectionMode) ||
     activeTab === 'profile';
 
@@ -196,6 +215,11 @@ const Index = () => {
       // If on home screen, show exit confirmation
       if (isOnHomeScreen) {
         setShowExitConfirmation(true);
+        return;
+      }
+      // If in notifications selection mode, clear selection instead of navigating
+      if (activeTab === 'notifications' && isNotificationsSelectionMode) {
+        handleClearNotificationsSelection();
         return;
       }
       // If in bookmark selection mode, clear selection instead of navigating
@@ -245,13 +269,13 @@ const Index = () => {
   }, []);
 
   // Show bottom nav only on main screens (not during sub-flows)
-  const showBottomNav = accessStep === 'source' || activeTab === 'profile';
+  const showBottomNav = accessStep === 'source' || activeTab === 'notifications' || activeTab === 'bookmarks' || activeTab === 'profile';
 
   // Tab order for swipe navigation
-  const tabOrder: TabType[] = useMemo(() => ['access', 'bookmarks', 'profile'], []);
+  const tabOrder: TabType[] = useMemo(() => ['access', 'notifications', 'bookmarks', 'profile'], []);
   
   // Swipe is only enabled on home screens (source step for access, or bookmarks/profile tabs without selection mode)
-  const swipeEnabled = showBottomNav && !isBookmarkSelectionMode;
+  const swipeEnabled = showBottomNav && !isBookmarkSelectionMode && !isNotificationsSelectionMode;
   
   // Track tab changes to determine slide direction
   const handleTabChange = useCallback((newTab: TabType) => {
@@ -311,6 +335,21 @@ const Index = () => {
             initialUrlForShortcut={shortcutUrlFromBookmark}
             onInitialUrlConsumed={handleInitialUrlConsumed}
             onGoToBookmarks={() => handleTabChange('bookmarks')}
+            onGoToNotifications={() => handleTabChange('notifications')}
+          />
+        </div>
+      )}
+
+      {/* Notifications Tab Content */}
+      {activeTab === 'notifications' && (
+        <div 
+          key={`notifications-${slideDirection}`}
+          className={`flex-1 flex flex-col ${getSlideAnimation()}`}
+          {...swipeHandlers}
+        >
+          <NotificationsPage
+            onSelectionModeChange={setIsNotificationsSelectionMode}
+            clearSelectionSignal={notificationsClearSignal}
           />
         </div>
       )}
@@ -348,6 +387,7 @@ const Index = () => {
           onTabChange={handleTabChange}
           hasShortlist={hasShortlist}
           isSignedIn={!!user}
+          hasActiveActions={activeActionsCount > 0}
         />
       )}
 
