@@ -56,6 +56,8 @@ import app.onetap.shortcuts.DesktopWebViewActivity;
 import app.onetap.shortcuts.NativeVideoPlayerActivity;
 import app.onetap.shortcuts.PDFProxyActivity;
 import app.onetap.shortcuts.VideoProxyActivity;
+import app.onetap.shortcuts.ScheduledActionReceiver;
+import app.onetap.shortcuts.NotificationHelper;
 
 @CapacitorPlugin(
     name = "ShortcutPlugin",
@@ -1974,5 +1976,205 @@ public class ShortcutPlugin extends Plugin {
             result.put("error", e.getMessage());
             call.resolve(result);
         }
+    }
+
+    // ========== Scheduled Actions Methods ==========
+
+    @PluginMethod
+    public void scheduleAction(PluginCall call) {
+        String actionId = call.getString("id");
+        String actionName = call.getString("name");
+        String destinationType = call.getString("destinationType");
+        String destinationData = call.getString("destinationData");
+        Long triggerTime = call.getLong("triggerTime");
+        String recurrence = call.getString("recurrence", "once");
+
+        android.util.Log.d("ShortcutPlugin", "scheduleAction called: " + actionName);
+
+        if (actionId == null || actionName == null || destinationType == null || 
+            destinationData == null || triggerTime == null) {
+            JSObject result = new JSObject();
+            result.put("success", false);
+            result.put("error", "Missing required parameters");
+            call.resolve(result);
+            return;
+        }
+
+        Context context = getContext();
+        if (context == null) {
+            JSObject result = new JSObject();
+            result.put("success", false);
+            result.put("error", "Context is null");
+            call.resolve(result);
+            return;
+        }
+
+        try {
+            // Create notification channel
+            NotificationHelper.createNotificationChannel(context);
+
+            // Store action for restoration after reboot
+            ScheduledActionReceiver.storeAction(
+                context,
+                actionId,
+                actionName,
+                destinationType,
+                destinationData,
+                triggerTime,
+                recurrence
+            );
+
+            // Create and schedule the alarm
+            Intent alarmIntent = ScheduledActionReceiver.createActionIntent(
+                context,
+                actionId,
+                actionName,
+                destinationType,
+                destinationData,
+                triggerTime,
+                recurrence
+            );
+
+            ScheduledActionReceiver.scheduleAlarm(context, actionId, triggerTime, alarmIntent);
+
+            android.util.Log.d("ShortcutPlugin", "Scheduled action: " + actionName + " at " + triggerTime);
+
+            JSObject result = new JSObject();
+            result.put("success", true);
+            call.resolve(result);
+        } catch (Exception e) {
+            android.util.Log.e("ShortcutPlugin", "Error scheduling action: " + e.getMessage());
+            JSObject result = new JSObject();
+            result.put("success", false);
+            result.put("error", e.getMessage());
+            call.resolve(result);
+        }
+    }
+
+    @PluginMethod
+    public void cancelScheduledAction(PluginCall call) {
+        String actionId = call.getString("id");
+
+        if (actionId == null) {
+            JSObject result = new JSObject();
+            result.put("success", false);
+            result.put("error", "Action ID is required");
+            call.resolve(result);
+            return;
+        }
+
+        Context context = getContext();
+        if (context == null) {
+            JSObject result = new JSObject();
+            result.put("success", false);
+            result.put("error", "Context is null");
+            call.resolve(result);
+            return;
+        }
+
+        try {
+            // Cancel the alarm
+            ScheduledActionReceiver.cancelAlarm(context, actionId);
+
+            // Remove from storage
+            ScheduledActionReceiver.removeStoredAction(context, actionId);
+
+            android.util.Log.d("ShortcutPlugin", "Cancelled scheduled action: " + actionId);
+
+            JSObject result = new JSObject();
+            result.put("success", true);
+            call.resolve(result);
+        } catch (Exception e) {
+            android.util.Log.e("ShortcutPlugin", "Error cancelling action: " + e.getMessage());
+            JSObject result = new JSObject();
+            result.put("success", false);
+            result.put("error", e.getMessage());
+            call.resolve(result);
+        }
+    }
+
+    @PluginMethod
+    public void checkAlarmPermission(PluginCall call) {
+        JSObject result = new JSObject();
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            android.app.AlarmManager alarmManager = (android.app.AlarmManager) 
+                getContext().getSystemService(Context.ALARM_SERVICE);
+            
+            boolean granted = alarmManager != null && alarmManager.canScheduleExactAlarms();
+            result.put("granted", granted);
+            result.put("canRequest", !granted);
+        } else {
+            // Pre-Android 12, exact alarms don't require permission
+            result.put("granted", true);
+            result.put("canRequest", false);
+        }
+
+        call.resolve(result);
+    }
+
+    @PluginMethod
+    public void requestNotificationPermission(PluginCall call) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            // Android 13+ requires runtime permission for notifications
+            Activity activity = getActivity();
+            if (activity != null) {
+                int permission = ContextCompat.checkSelfPermission(
+                    activity, 
+                    Manifest.permission.POST_NOTIFICATIONS
+                );
+                
+                if (permission == PackageManager.PERMISSION_GRANTED) {
+                    JSObject result = new JSObject();
+                    result.put("granted", true);
+                    call.resolve(result);
+                } else {
+                    // Request permission
+                    ActivityCompat.requestPermissions(
+                        activity,
+                        new String[]{ Manifest.permission.POST_NOTIFICATIONS },
+                        1001
+                    );
+                    
+                    // For simplicity, return optimistic result
+                    // In production, use permission callback
+                    JSObject result = new JSObject();
+                    result.put("granted", false);
+                    call.resolve(result);
+                }
+            } else {
+                JSObject result = new JSObject();
+                result.put("granted", false);
+                call.resolve(result);
+            }
+        } else {
+            // Pre-Android 13, notification permission is granted at install
+            JSObject result = new JSObject();
+            result.put("granted", true);
+            call.resolve(result);
+        }
+    }
+
+    @PluginMethod
+    public void checkNotificationPermission(PluginCall call) {
+        JSObject result = new JSObject();
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            Activity activity = getActivity();
+            if (activity != null) {
+                int permission = ContextCompat.checkSelfPermission(
+                    activity, 
+                    Manifest.permission.POST_NOTIFICATIONS
+                );
+                result.put("granted", permission == PackageManager.PERMISSION_GRANTED);
+            } else {
+                result.put("granted", false);
+            }
+        } else {
+            // Pre-Android 13, notification permission is granted at install
+            result.put("granted", true);
+        }
+
+        call.resolve(result);
     }
 }

@@ -313,6 +313,9 @@ export function AccessFlow({
             onSelectContact={handleSelectContact}
             onSelectFromLibrary={handleSelectFromLibrary}
             onEnterUrl={handleEnterUrl}
+            onOpenScheduled={handleOpenScheduledList}
+            onCreateScheduled={handleCreateScheduled}
+            scheduledCount={scheduledCount}
           />
 
           {/* Clipboard URL auto-detection */}
@@ -357,6 +360,13 @@ export function AccessFlow({
         />
       )}
 
+      {step === 'scheduled-create' && (
+        <ScheduledActionCreator
+          onComplete={handleScheduledComplete}
+          onBack={handleGoBack}
+        />
+      )}
+
       {/* Trash Sheet (controlled from menu) */}
       <TrashSheet 
         open={isTrashOpen} 
@@ -369,6 +379,16 @@ export function AccessFlow({
         onOpenChange={setShowBookmarkPicker}
         onSelectLink={handleBookmarkSelected}
         onGoToBookmarks={onGoToBookmarks}
+      />
+
+      {/* Scheduled Actions List Sheet */}
+      <ScheduledActionsList
+        isOpen={showScheduledList}
+        onClose={() => setShowScheduledList(false)}
+        onCreateNew={() => {
+          setShowScheduledList(false);
+          handleCreateScheduled();
+        }}
       />
     </>
   );
