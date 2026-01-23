@@ -2,26 +2,12 @@
 import { useState, useRef, useCallback } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
-import { 
-  FileText, 
-  Link, 
-  Phone, 
-  Plus, 
-  Trash2,
-  Clock,
-  Calendar,
-  CalendarDays,
-  CalendarClock,
-  Pencil,
-  Bug
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Plus, Clock, Bug } from 'lucide-react';
 import { useScheduledActions } from '@/hooks/useScheduledActions';
-import { formatTriggerTime, formatRecurrence } from '@/lib/scheduledActionsManager';
 import { ScheduledActionEditor } from './ScheduledActionEditor';
-import type { ScheduledAction, RecurrenceType } from '@/types/scheduledAction';
+import { ScheduledActionItem } from './ScheduledActionItem';
+import type { ScheduledAction } from '@/types/scheduledAction';
 import { triggerHaptic } from '@/lib/haptics';
 import { useToast } from '@/hooks/use-toast';
 
@@ -245,121 +231,6 @@ function EmptyState({ onCreateNew }: { onCreateNew: () => void }) {
         <Plus className="h-4 w-4" />
         Schedule your first action
       </Button>
-    </div>
-  );
-}
-
-// Individual action item
-function ScheduledActionItem({ 
-  action, 
-  isDeleting,
-  onToggle, 
-  onDelete,
-  onEdit 
-}: { 
-  action: ScheduledAction;
-  isDeleting: boolean;
-  onToggle: () => void;
-  onDelete: () => void;
-  onEdit: () => void;
-}) {
-  const [showDelete, setShowDelete] = useState(false);
-
-  const getDestinationIcon = () => {
-    switch (action.destination.type) {
-      case 'file':
-        return <FileText className="h-5 w-5" />;
-      case 'url':
-        return <Link className="h-5 w-5" />;
-      case 'contact':
-        return <Phone className="h-5 w-5" />;
-    }
-  };
-
-  const getRecurrenceIcon = (recurrence: RecurrenceType) => {
-    switch (recurrence) {
-      case 'once':
-        return <Clock className="h-3.5 w-3.5" />;
-      case 'daily':
-        return <Calendar className="h-3.5 w-3.5" />;
-      case 'weekly':
-        return <CalendarDays className="h-3.5 w-3.5" />;
-      case 'yearly':
-        return <CalendarClock className="h-3.5 w-3.5" />;
-    }
-  };
-
-  const isPast = action.triggerTime < Date.now() && action.recurrence === 'once';
-  const isExpired = isPast && action.enabled;
-
-  return (
-    <div 
-      className={cn(
-        "relative rounded-2xl bg-card border border-border p-4 transition-all cursor-pointer",
-        !action.enabled && "opacity-50",
-        isDeleting && "opacity-30 pointer-events-none",
-        isExpired && "border-destructive/30"
-      )}
-      onClick={() => setShowDelete(!showDelete)}
-      onContextMenu={(e) => {
-        e.preventDefault();
-        setShowDelete(!showDelete);
-      }}
-    >
-      <div className="flex items-start gap-3">
-        {/* Destination icon */}
-        <div className={cn(
-          "flex h-10 w-10 items-center justify-center rounded-xl shrink-0",
-          action.enabled && !isExpired ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
-        )}>
-          {getDestinationIcon()}
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 min-w-0">
-          <h4 className="font-medium text-sm truncate">{action.name}</h4>
-          <p className={cn(
-            "text-xs mt-0.5",
-            isExpired ? "text-destructive" : "text-muted-foreground"
-          )}>
-            {isExpired ? 'Expired — ' : ''}{formatTriggerTime(action.triggerTime)}
-          </p>
-          <div className="flex items-center gap-1.5 mt-1.5 text-xs text-muted-foreground">
-            {getRecurrenceIcon(action.recurrence)}
-            <span>{formatRecurrence(action.recurrence)}</span>
-          </div>
-        </div>
-
-        {/* Actions: edit, toggle, delete */}
-        <div className="flex items-center gap-1 relative z-10" onClick={(e) => e.stopPropagation()}>
-          {showDelete ? (
-            <>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                onClick={onEdit}
-              >
-                <Pencil className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                onClick={onDelete}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </>
-          ) : (
-            <Switch
-              checked={action.enabled}
-              onCheckedChange={onToggle}
-              className="data-[state=checked]:bg-primary"
-            />
-          )}
-        </div>
-      </div>
     </div>
   );
 }
