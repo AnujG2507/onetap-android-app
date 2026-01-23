@@ -55,12 +55,33 @@ export function useScheduledActions(): UseScheduledActionsReturn {
   const createScheduledAction = useCallback(async (
     input: CreateScheduledActionInput
   ): Promise<ScheduledAction | null> => {
+    // Step 1: Save to local storage first - this MUST succeed
+    let action: ScheduledAction;
     try {
-      // Create in local storage first
-      const action = createAction(input);
+      console.log('[ScheduledActions] Creating action with input:', {
+        name: input.name,
+        destinationType: input.destination.type,
+        triggerTime: input.triggerTime,
+        recurrence: input.recurrence,
+      });
+      action = createAction(input);
+      console.log('[ScheduledActions] Action saved to localStorage:', action.id);
+    } catch (localError) {
+      console.error('[ScheduledActions] Failed to save action to localStorage:', localError);
+      return null; // Only return null if local save fails
+    }
 
-      // Schedule with native plugin
+    // Step 2: Try to schedule with native plugin (best-effort, non-blocking)
+    try {
       const destinationData = JSON.stringify(input.destination);
+      console.log('[ScheduledActions] Calling native scheduleAction with:', {
+        id: action.id,
+        name: action.name,
+        destinationType: input.destination.type,
+        triggerTime: input.triggerTime,
+        recurrence: input.recurrence,
+      });
+      
       const result = await ShortcutPlugin.scheduleAction({
         id: action.id,
         name: action.name,
@@ -70,17 +91,18 @@ export function useScheduledActions(): UseScheduledActionsReturn {
         recurrence: input.recurrence,
       });
 
-      if (!result.success) {
-        console.error('Failed to schedule action natively:', result.error);
-        // Still return the action - it's saved locally
-        // Native scheduling failure shouldn't block the feature
+      if (result.success) {
+        console.log('[ScheduledActions] Native scheduling succeeded');
+      } else {
+        console.warn('[ScheduledActions] Native scheduling failed (non-fatal):', result.error);
       }
-
-      return action;
-    } catch (error) {
-      console.error('Error creating scheduled action:', error);
-      return null;
+    } catch (nativeError) {
+      // Plugin threw an exception - log it but don't fail the creation
+      console.warn('[ScheduledActions] Native plugin exception (non-fatal):', nativeError);
     }
+
+    // Always return the action if local save succeeded
+    return action;
   }, []);
 
   // Update an existing action
