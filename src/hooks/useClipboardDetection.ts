@@ -120,46 +120,75 @@ export interface ClipboardDetection {
 export function useClipboardDetection(enabled: boolean = true): ClipboardDetection {
   const [detectedUrl, setDetectedUrl] = useState<string | null>(null);
   const hasCheckedRef = useRef(false);
+  const enabledRef = useRef(enabled);
+  
+  // Keep ref in sync with prop
+  useEffect(() => {
+    enabledRef.current = enabled;
+  }, [enabled]);
 
   const checkClipboard = useCallback(async () => {
-    if (!enabled) return;
+    if (!enabledRef.current) return;
     
-    const url = await readClipboardUrl();
-    if (url && !wasUrlRecentlyShown(url)) {
-      setDetectedUrl(url);
-      markUrlAsShown(url);
+    try {
+      const url = await readClipboardUrl();
+      if (url && !wasUrlRecentlyShown(url)) {
+        setDetectedUrl(url);
+        markUrlAsShown(url);
+      }
+    } catch (error) {
+      console.warn('[useClipboardDetection] Error reading clipboard:', error);
     }
-  }, [enabled]);
+  }, []);
 
   const dismissDetection = useCallback(() => {
     setDetectedUrl(null);
   }, []);
 
-  // Check on initial mount
+  // Check on initial mount - only once
   useEffect(() => {
-    if (!enabled || hasCheckedRef.current) return;
+    if (hasCheckedRef.current) return;
     hasCheckedRef.current = true;
-    checkClipboard();
-  }, [enabled, checkClipboard]);
+    
+    if (enabledRef.current) {
+      checkClipboard();
+    }
+  }, [checkClipboard]);
 
   // Check on app resume
   useEffect(() => {
-    if (!enabled) return;
+    let listenerHandle: { remove: () => void } | null = null;
+    let isSubscribed = true;
 
-    const listener = App.addListener('appStateChange', (state) => {
-      if (state.isActive) {
-        // Reset the check flag when app resumes so we detect new URLs
+    App.addListener('appStateChange', (state) => {
+      if (state.isActive && enabledRef.current && isSubscribed) {
         checkClipboard();
       }
+    }).then(handle => {
+      if (isSubscribed) {
+        listenerHandle = handle;
+      } else {
+        handle.remove();
+      }
+    }).catch(err => {
+      console.warn('[useClipboardDetection] Failed to add app state listener:', err);
     });
 
     return () => {
-      listener.then(l => l.remove());
+      isSubscribed = false;
+      listenerHandle?.remove();
     };
-  }, [enabled, checkClipboard]);
+  }, [checkClipboard]);
+
+  // Clear detection when disabled
+  useEffect(() => {
+    if (!enabled && detectedUrl) {
+      setDetectedUrl(null);
+    }
+  }, [enabled, detectedUrl]);
 
   return {
-    detectedUrl,
+    detectedUrl: enabled ? detectedUrl : null,
     dismissDetection,
   };
 }
