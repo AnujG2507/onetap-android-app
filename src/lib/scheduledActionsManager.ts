@@ -9,17 +9,29 @@ import type {
 } from '@/types/scheduledAction';
 
 const STORAGE_KEY = 'scheduled_actions';
+const SELECTION_KEY = 'scheduled_actions_selection';
+const SORT_PREFERENCES_KEY = 'scheduled_actions_sort_prefs';
 
 // Event for reactivity
 const CHANGE_EVENT = 'scheduled-actions-changed';
+const SELECTION_CHANGE_EVENT = 'scheduled-actions-selection-changed';
 
 function notifyChange(): void {
   window.dispatchEvent(new CustomEvent(CHANGE_EVENT));
 }
 
+function notifySelectionChange(): void {
+  window.dispatchEvent(new CustomEvent(SELECTION_CHANGE_EVENT));
+}
+
 export function onScheduledActionsChange(callback: () => void): () => void {
   window.addEventListener(CHANGE_EVENT, callback);
   return () => window.removeEventListener(CHANGE_EVENT, callback);
+}
+
+export function onSelectionChange(callback: () => void): () => void {
+  window.addEventListener(SELECTION_CHANGE_EVENT, callback);
+  return () => window.removeEventListener(SELECTION_CHANGE_EVENT, callback);
 }
 
 // Generate unique ID
@@ -99,6 +111,8 @@ export function deleteScheduledAction(id: string): boolean {
   if (filtered.length === actions.length) return false;
 
   saveScheduledActions(filtered);
+  // Also remove from selection
+  removeFromSelection(id);
   return true;
 }
 
@@ -121,6 +135,138 @@ export function getActiveScheduledActions(): ScheduledAction[] {
 export function getActiveCount(): number {
   return getScheduledActions().filter(a => a.enabled).length;
 }
+
+// ============= Selection Management =============
+
+export function getSelectedIds(): Set<string> {
+  try {
+    const stored = localStorage.getItem(SELECTION_KEY);
+    if (!stored) return new Set();
+    return new Set(JSON.parse(stored) as string[]);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveSelectedIds(ids: Set<string>): void {
+  try {
+    localStorage.setItem(SELECTION_KEY, JSON.stringify([...ids]));
+    notifySelectionChange();
+  } catch (error) {
+    console.error('Failed to save selection:', error);
+  }
+}
+
+export function toggleSelection(id: string): void {
+  const selected = getSelectedIds();
+  if (selected.has(id)) {
+    selected.delete(id);
+  } else {
+    selected.add(id);
+  }
+  saveSelectedIds(selected);
+}
+
+export function addToSelection(id: string): void {
+  const selected = getSelectedIds();
+  selected.add(id);
+  saveSelectedIds(selected);
+}
+
+export function removeFromSelection(id: string): void {
+  const selected = getSelectedIds();
+  selected.delete(id);
+  saveSelectedIds(selected);
+}
+
+export function clearSelection(): void {
+  saveSelectedIds(new Set());
+}
+
+export function selectAll(): void {
+  const actions = getScheduledActions();
+  const allIds = new Set(actions.map(a => a.id));
+  saveSelectedIds(allIds);
+}
+
+export function isSelected(id: string): boolean {
+  return getSelectedIds().has(id);
+}
+
+export function getSelectedCount(): number {
+  return getSelectedIds().size;
+}
+
+export function getSelectedActions(): ScheduledAction[] {
+  const selected = getSelectedIds();
+  return getScheduledActions().filter(a => selected.has(a.id));
+}
+
+// ============= Bulk Operations =============
+
+export function bulkDelete(ids: string[]): number {
+  const actions = getScheduledActions();
+  const toDelete = new Set(ids);
+  const filtered = actions.filter(a => !toDelete.has(a.id));
+  const deletedCount = actions.length - filtered.length;
+  
+  if (deletedCount > 0) {
+    saveScheduledActions(filtered);
+    // Clear selection for deleted items
+    ids.forEach(id => removeFromSelection(id));
+  }
+  
+  return deletedCount;
+}
+
+export function bulkToggleEnabled(ids: string[], enabled: boolean): number {
+  const actions = getScheduledActions();
+  const toToggle = new Set(ids);
+  let toggledCount = 0;
+  
+  const updated = actions.map(a => {
+    if (toToggle.has(a.id) && a.enabled !== enabled) {
+      toggledCount++;
+      return { ...a, enabled };
+    }
+    return a;
+  });
+  
+  if (toggledCount > 0) {
+    saveScheduledActions(updated);
+  }
+  
+  return toggledCount;
+}
+
+// ============= Sort Preferences =============
+
+export type SortMode = 'next' | 'alphabetical' | 'recurrence';
+
+export interface SortPreferences {
+  mode: SortMode;
+  reversed: boolean;
+}
+
+export function getSortPreferences(): SortPreferences {
+  try {
+    const stored = localStorage.getItem(SORT_PREFERENCES_KEY);
+    if (!stored) return { mode: 'next', reversed: false };
+    return JSON.parse(stored) as SortPreferences;
+  } catch {
+    return { mode: 'next', reversed: false };
+  }
+}
+
+export function saveSortPreferences(prefs: SortPreferences): void {
+  try {
+    localStorage.setItem(SORT_PREFERENCES_KEY, JSON.stringify(prefs));
+  } catch (error) {
+    console.error('Failed to save sort preferences:', error);
+  }
+}
+
+// ============= Time Computation =============
 
 // Compute next trigger time for recurring actions
 export function computeNextTrigger(
@@ -192,6 +338,8 @@ export function advanceToNextTrigger(id: string): ScheduledAction | null {
 
   return updateScheduledAction(id, { triggerTime: nextTrigger });
 }
+
+// ============= Formatting =============
 
 // Format trigger time for display
 export function formatTriggerTime(timestamp: number): string {

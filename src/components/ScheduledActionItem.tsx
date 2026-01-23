@@ -1,4 +1,4 @@
-// Individual scheduled action item with swipe-to-delete
+// Individual scheduled action item with selection mode and swipe-to-delete
 import { useState, useRef, useCallback } from 'react';
 import { 
   FileText, 
@@ -8,11 +8,10 @@ import {
   Clock,
   Calendar,
   CalendarDays,
-  CalendarClock,
-  Pencil
+  RefreshCw,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
-import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,22 +30,30 @@ import { triggerHaptic } from '@/lib/haptics';
 interface ScheduledActionItemProps {
   action: ScheduledAction;
   isDeleting: boolean;
+  isSelected: boolean;
+  isSelectionMode: boolean;
+  onTap: () => void;
   onToggle: () => void;
   onDelete: () => void;
-  onEdit: () => void;
+  onToggleSelection: () => void;
+  onEnterSelectionMode: () => void;
 }
 
 const SWIPE_THRESHOLD = 80;
 const SWIPE_DELETE_THRESHOLD = 120;
+const LONG_PRESS_DURATION = 500;
 
 export function ScheduledActionItem({ 
   action, 
   isDeleting,
+  isSelected,
+  isSelectionMode,
+  onTap,
   onToggle, 
   onDelete,
-  onEdit 
+  onToggleSelection,
+  onEnterSelectionMode,
 }: ScheduledActionItemProps) {
-  const [showActions, setShowActions] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   
   // Swipe state
@@ -56,6 +63,11 @@ export function ScheduledActionItem({
   const touchStartY = useRef(0);
   const isHorizontalSwipe = useRef<boolean | null>(null);
   const hasTriggeredHaptic = useRef(false);
+  
+  // Long press state
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isLongPressRef = useRef(false);
+  const hasMovedRef = useRef(false);
 
   const getDestinationIcon = () => {
     switch (action.destination.type) {
@@ -73,33 +85,59 @@ export function ScheduledActionItem({
       case 'once':
         return <Clock className="h-3.5 w-3.5" />;
       case 'daily':
-        return <Calendar className="h-3.5 w-3.5" />;
+        return <RefreshCw className="h-3.5 w-3.5" />;
       case 'weekly':
         return <CalendarDays className="h-3.5 w-3.5" />;
       case 'yearly':
-        return <CalendarClock className="h-3.5 w-3.5" />;
+        return <Calendar className="h-3.5 w-3.5" />;
     }
   };
 
   const isPast = action.triggerTime < Date.now() && action.recurrence === 'once';
   const isExpired = isPast && action.enabled;
 
-  // Swipe handlers
+  const clearLongPressTimer = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
+
+  // Touch handlers
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     const touch = e.touches[0];
     touchStartX.current = touch.clientX;
     touchStartY.current = touch.clientY;
     isHorizontalSwipe.current = null;
     hasTriggeredHaptic.current = false;
+    hasMovedRef.current = false;
+    isLongPressRef.current = false;
     setIsSwiping(false);
-    // Stop propagation to prevent tab navigation from capturing this touch
     e.stopPropagation();
-  }, []);
+    
+    // Start long press timer
+    longPressTimerRef.current = setTimeout(() => {
+      if (!hasMovedRef.current) {
+        isLongPressRef.current = true;
+        triggerHaptic('medium');
+        if (!isSelectionMode) {
+          onEnterSelectionMode();
+        }
+        onToggleSelection();
+      }
+    }, LONG_PRESS_DURATION);
+  }, [isSelectionMode, onEnterSelectionMode, onToggleSelection]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     const touch = e.touches[0];
     const deltaX = touch.clientX - touchStartX.current;
     const deltaY = touch.clientY - touchStartY.current;
+
+    // Cancel long press if moved
+    if (Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10) {
+      hasMovedRef.current = true;
+      clearLongPressTimer();
+    }
 
     // Determine swipe direction on first significant movement
     if (isHorizontalSwipe.current === null) {
@@ -111,11 +149,10 @@ export function ScheduledActionItem({
       }
     }
 
-    // Only handle left swipes for delete
-    if (isHorizontalSwipe.current && deltaX < 0) {
+    // Only handle left swipes for delete (not in selection mode)
+    if (!isSelectionMode && isHorizontalSwipe.current && deltaX < 0) {
       e.preventDefault();
-      e.stopPropagation(); // Prevent tab navigation from capturing horizontal swipe
-      // Apply resistance
+      e.stopPropagation();
       const resistance = 0.6;
       const limitedDelta = Math.max(deltaX * resistance, -SWIPE_DELETE_THRESHOLD);
       setSwipeX(limitedDelta);
@@ -128,11 +165,13 @@ export function ScheduledActionItem({
         hasTriggeredHaptic.current = false;
       }
     }
-  }, []);
+  }, [isSelectionMode, clearLongPressTimer]);
 
   const handleTouchEnd = useCallback(() => {
-    if (swipeX <= -SWIPE_THRESHOLD) {
-      // Swipe left = show delete confirmation
+    clearLongPressTimer();
+    
+    // Handle swipe completion
+    if (isSwiping && swipeX <= -SWIPE_THRESHOLD) {
       triggerHaptic('warning');
       setShowDeleteConfirm(true);
     }
@@ -141,25 +180,34 @@ export function ScheduledActionItem({
     setSwipeX(0);
     setTimeout(() => setIsSwiping(false), 100);
     isHorizontalSwipe.current = null;
-  }, [swipeX]);
-
-  const handleCardClick = useCallback(() => {
-    if (!isSwiping) {
-      setShowActions(!showActions);
+    
+    // Handle tap (if not long press and not moved and not swiping)
+    if (!isLongPressRef.current && !hasMovedRef.current && !isSwiping) {
+      if (isSelectionMode) {
+        onToggleSelection();
+      } else {
+        triggerHaptic('light');
+        onTap();
+      }
     }
-  }, [isSwiping, showActions]);
-
-  const handleDeleteClick = useCallback(() => {
-    triggerHaptic('warning');
-    setShowDeleteConfirm(true);
-  }, []);
+  }, [isSwiping, swipeX, isSelectionMode, onToggleSelection, onTap, clearLongPressTimer]);
 
   const handleConfirmDelete = useCallback(() => {
     triggerHaptic('medium');
     onDelete();
     setShowDeleteConfirm(false);
-    setShowActions(false);
   }, [onDelete]);
+
+  const handleCheckboxChange = useCallback(() => {
+    triggerHaptic('light');
+    onToggleSelection();
+  }, [onToggleSelection]);
+
+  const handleToggleSwitch = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    triggerHaptic('light');
+    onToggle();
+  }, [onToggle]);
 
   return (
     <>
@@ -170,41 +218,57 @@ export function ScheduledActionItem({
         )}
       >
         {/* Delete action background */}
-        <div 
-          className={cn(
-            "absolute inset-y-0 right-0 flex items-center justify-end px-4 bg-destructive transition-opacity rounded-r-2xl",
-            Math.abs(swipeX) > 20 ? "opacity-100" : "opacity-0"
-          )}
-          style={{ width: Math.abs(swipeX) + 20 }}
-        >
-          <Trash2 className={cn(
-            "h-5 w-5 text-destructive-foreground transition-transform",
-            Math.abs(swipeX) >= SWIPE_THRESHOLD && "scale-110"
-          )} />
-        </div>
+        {!isSelectionMode && (
+          <div 
+            className={cn(
+              "absolute inset-y-0 right-0 flex items-center justify-end px-4 bg-destructive transition-opacity rounded-r-2xl",
+              Math.abs(swipeX) > 20 ? "opacity-100" : "opacity-0"
+            )}
+            style={{ width: Math.abs(swipeX) + 20 }}
+          >
+            <Trash2 className={cn(
+              "h-5 w-5 text-destructive-foreground transition-transform",
+              Math.abs(swipeX) >= SWIPE_THRESHOLD && "scale-110"
+            )} />
+          </div>
+        )}
 
         {/* Main content */}
         <div
           className={cn(
-            "bg-card border border-border p-4 transition-all cursor-pointer",
-            !action.enabled && "opacity-50",
-            isExpired && "border-destructive/30"
+            "bg-card border border-border p-4 transition-all cursor-pointer rounded-2xl",
+            !action.enabled && !isSelected && "opacity-50",
+            isExpired && !isSelected && "border-destructive/30",
+            isSelected && "ring-2 ring-primary bg-primary/5 border-primary"
           )}
           style={{
             transform: `translateX(${swipeX}px)`,
             transition: isSwiping ? 'none' : 'transform 0.2s ease-out',
           }}
-          onClick={handleCardClick}
-          onContextMenu={(e) => {
-            e.preventDefault();
-            setShowActions(!showActions);
-          }}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
-          onTouchCancel={handleTouchEnd}
+          onTouchCancel={() => {
+            clearLongPressTimer();
+            setSwipeX(0);
+            setIsSwiping(false);
+          }}
         >
           <div className="flex items-start gap-3">
+            {/* Selection checkbox */}
+            {isSelectionMode && (
+              <div 
+                className="flex items-center justify-center pt-2"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Checkbox
+                  checked={isSelected}
+                  onCheckedChange={handleCheckboxChange}
+                  className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                />
+              </div>
+            )}
+
             {/* Destination icon */}
             <div className={cn(
               "flex h-10 w-10 items-center justify-center rounded-xl shrink-0",
@@ -228,41 +292,19 @@ export function ScheduledActionItem({
               </div>
             </div>
 
-            {/* Actions: edit, toggle, delete */}
-            <div 
-              className="flex items-center gap-1 relative z-10" 
-              onClick={(e) => e.stopPropagation()}
-            >
-              {showActions ? (
-                <>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                    onClick={() => {
-                      onEdit();
-                      setShowActions(false);
-                    }}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                    onClick={handleDeleteClick}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </>
-              ) : (
+            {/* Toggle switch (only when not in selection mode) */}
+            {!isSelectionMode && (
+              <div 
+                className="flex items-center relative z-10 pt-2" 
+                onClick={handleToggleSwitch}
+              >
                 <Switch
                   checked={action.enabled}
-                  onCheckedChange={onToggle}
-                  className="data-[state=checked]:bg-primary"
+                  onCheckedChange={() => {}}
+                  className="data-[state=checked]:bg-primary pointer-events-none"
                 />
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
