@@ -643,7 +643,7 @@ export function ScheduledActionsList({
                   setRecurrenceFilter('all');
                 }} />
               ) : (
-                <EmptyState onCreateNew={onCreateNew} onGoToNotifications={onGoToNotifications} onClose={onClose} />
+                <EmptyState onCreateNew={onCreateNew} />
               )
             ) : (
               <div className="space-y-3">
@@ -771,10 +771,8 @@ export function ScheduledActionsList({
 }
 
 // Empty state component with animation
-function EmptyState({ onCreateNew, onGoToNotifications, onClose }: { 
+function EmptyState({ onCreateNew }: { 
   onCreateNew: () => void; 
-  onGoToNotifications?: () => void;
-  onClose: () => void;
 }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 px-4 text-center relative">
@@ -799,25 +797,10 @@ function EmptyState({ onCreateNew, onGoToNotifications, onClose }: {
       <p className="text-sm text-muted-foreground mb-6 max-w-[240px]">
         Schedule a file, link, or contact to open at a specific time.
       </p>
-      <div className="flex flex-col gap-3">
-        <Button onClick={onCreateNew} className="gap-2">
-          <Plus className="h-4 w-4" />
-          Schedule your first action
-        </Button>
-        {onGoToNotifications && (
-          <Button 
-            variant="outline" 
-            onClick={() => {
-              onClose();
-              onGoToNotifications();
-            }}
-            className="gap-2"
-          >
-            View all notifications
-            <ArrowRight className="h-4 w-4" />
-          </Button>
-        )}
-      </div>
+      <Button onClick={onCreateNew} className="gap-2">
+        <Plus className="h-4 w-4" />
+        Schedule your first action
+      </Button>
     </div>
   );
 }
