@@ -146,6 +146,9 @@ export interface ShortcutPluginInterface {
   checkNotificationPermission(): Promise<{ 
     granted: boolean; 
   }>;
+
+  // Open system settings for exact alarm permission (Android 12+)
+  openAlarmSettings(): Promise<{ success: boolean }>;
 }
 
 // This plugin bridges to native Android code

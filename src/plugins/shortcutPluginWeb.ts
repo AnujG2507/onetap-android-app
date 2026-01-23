@@ -301,4 +301,9 @@ export class ShortcutPluginWeb implements ShortcutPluginInterface {
     }
     return { granted: false };
   }
+
+  async openAlarmSettings(): Promise<{ success: boolean }> {
+    console.log('[ShortcutPluginWeb] openAlarmSettings - not applicable on web');
+    return { success: true };
+  }
 }

@@ -1,9 +1,9 @@
 // Scheduled Actions List - displays all scheduled actions in a sheet
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
-import { Plus, Clock, Bug } from 'lucide-react';
+import { Plus, Clock, Bug, Shield, Bell, Check, X } from 'lucide-react';
 import { useScheduledActions } from '@/hooks/useScheduledActions';
 import { ScheduledActionEditor } from './ScheduledActionEditor';
 import { ScheduledActionItem } from './ScheduledActionItem';
@@ -17,21 +17,54 @@ interface ScheduledActionsListProps {
   onCreateNew: () => void;
 }
 
+interface PermissionStatus {
+  notifications: boolean;
+  alarms: boolean;
+  checked: boolean;
+}
+
 export function ScheduledActionsList({ 
   isOpen, 
   onClose, 
   onCreateNew 
 }: ScheduledActionsListProps) {
-  const { actions, toggleAction, deleteScheduledAction, createScheduledAction, requestPermissions } = useScheduledActions();
+  const { 
+    actions, 
+    toggleAction, 
+    deleteScheduledAction, 
+    createScheduledAction, 
+    checkPermissions,
+    requestPermissions,
+    openAlarmSettings,
+  } = useScheduledActions();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [editingAction, setEditingAction] = useState<ScheduledAction | null>(null);
   const [isTestingAlarm, setIsTestingAlarm] = useState(false);
+  const [isRequestingPermissions, setIsRequestingPermissions] = useState(false);
+  const [permissionStatus, setPermissionStatus] = useState<PermissionStatus>({
+    notifications: false,
+    alarms: false,
+    checked: false,
+  });
   const { toast } = useToast();
   
   // Swipe-to-close gesture
   const startY = useRef(0);
   const currentY = useRef(0);
   const isAtTop = useRef(true);
+
+  // Check permissions when sheet opens
+  useEffect(() => {
+    if (isOpen && !permissionStatus.checked) {
+      checkPermissions().then(status => {
+        setPermissionStatus({
+          notifications: status.notifications,
+          alarms: status.alarms,
+          checked: true,
+        });
+      });
+    }
+  }, [isOpen, permissionStatus.checked, checkPermissions]);
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     startY.current = e.touches[0].clientY;
@@ -76,38 +109,59 @@ export function ScheduledActionsList({
     setEditingAction(null);
   };
 
+  // Request all permissions at once
+  const handleRequestAllPermissions = async () => {
+    triggerHaptic('medium');
+    setIsRequestingPermissions(true);
+    
+    try {
+      const result = await requestPermissions();
+      
+      setPermissionStatus({
+        notifications: result.notifications,
+        alarms: result.alarms,
+        checked: true,
+      });
+
+      if (result.notifications && result.alarms) {
+        toast({
+          title: 'All permissions granted!',
+          description: 'Scheduled actions will work correctly.',
+        });
+      } else if (!result.alarms) {
+        toast({
+          title: 'Please enable exact alarms',
+          description: 'Tap to open settings and enable "Alarms & reminders".',
+          action: <Button size="sm" variant="outline" onClick={() => openAlarmSettings()}>Open Settings</Button>,
+          duration: 8000,
+        });
+      } else if (!result.notifications) {
+        toast({
+          title: 'Notification permission denied',
+          description: "You won't receive reminders without notification permission.",
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      console.error('Permission request error:', error);
+      toast({
+        title: 'Failed to request permissions',
+        description: String(error),
+        variant: 'destructive',
+      });
+    } finally {
+      setIsRequestingPermissions(false);
+    }
+  };
+
   // Test alarm: creates a scheduled action that fires in 10 seconds
   const handleTestAlarm = async () => {
     setIsTestingAlarm(true);
     triggerHaptic('medium');
     
     try {
-      // Request permissions first
-      console.log('[TestAlarm] Requesting permissions...');
-      const permissions = await requestPermissions();
-      console.log('[TestAlarm] Permissions result:', permissions);
-      
-      // Show permission status to user
-      if (!permissions.notifications) {
-        toast({
-          title: 'Notification permission required',
-          description: 'Please grant notification permission for alarms to work.',
-          variant: 'destructive',
-        });
-        setIsTestingAlarm(false);
-        return;
-      }
-      
-      if (!permissions.alarms) {
-        toast({
-          title: 'Alarm permission may be required',
-          description: 'On Android 12+, exact alarms may require additional permission.',
-        });
-        // Continue anyway - the alarm might still work with inexact scheduling
-      }
-      
-      // Create a test action that fires in 10 seconds (shorter for faster testing)
-      const triggerTime = Date.now() + 10 * 1000; // 10 seconds from now
+      // Create a test action that fires in 10 seconds
+      const triggerTime = Date.now() + 10 * 1000;
       console.log('[TestAlarm] Creating test action with triggerTime:', triggerTime, 'which is', new Date(triggerTime).toISOString());
       
       const action = await createScheduledAction({
@@ -126,7 +180,7 @@ export function ScheduledActionsList({
         console.log('[TestAlarm] Test action created successfully:', action.id);
         toast({
           title: 'Test alarm scheduled',
-          description: 'You should receive a notification in ~10 seconds. Keep the app open or minimized.',
+          description: 'You should receive a notification in ~10 seconds.',
         });
       } else {
         console.error('[TestAlarm] Failed to create test action');
@@ -147,6 +201,8 @@ export function ScheduledActionsList({
       setIsTestingAlarm(false);
     }
   };
+
+  const allPermissionsGranted = permissionStatus.notifications && permissionStatus.alarms;
 
   const sortedActions = [...actions].sort((a, b) => {
     // Enabled first, then by trigger time
@@ -171,17 +227,45 @@ export function ScheduledActionsList({
         <SheetHeader className="px-5 pb-4 shrink-0">
           <div className="flex items-center justify-between">
             <SheetTitle className="text-lg font-semibold">Scheduled Actions</SheetTitle>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleTestAlarm}
-              disabled={isTestingAlarm}
-              className="text-xs gap-1.5 h-8 text-muted-foreground hover:text-foreground"
-            >
-              <Bug className="h-3.5 w-3.5" />
-              {isTestingAlarm ? 'Testing...' : 'Test Alarm'}
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant={allPermissionsGranted ? "outline" : "default"}
+                size="sm"
+                onClick={handleRequestAllPermissions}
+                disabled={isRequestingPermissions}
+                className="text-xs gap-1.5 h-8"
+              >
+                <Shield className="h-3.5 w-3.5" />
+                {isRequestingPermissions ? 'Requesting...' : allPermissionsGranted ? 'Permissions OK' : 'Grant Permissions'}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleTestAlarm}
+                disabled={isTestingAlarm}
+                className="text-xs gap-1.5 h-8 text-muted-foreground hover:text-foreground"
+              >
+                <Bug className="h-3.5 w-3.5" />
+                {isTestingAlarm ? 'Testing...' : 'Test Alarm'}
+              </Button>
+            </div>
           </div>
+          
+          {/* Permission Status Indicator */}
+          {permissionStatus.checked && (
+            <div className="flex gap-3 mt-2 text-xs">
+              <div className={`flex items-center gap-1 ${permissionStatus.notifications ? 'text-green-600' : 'text-destructive'}`}>
+                <Bell className="h-3 w-3" />
+                <span>Notifications</span>
+                {permissionStatus.notifications ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+              </div>
+              <div className={`flex items-center gap-1 ${permissionStatus.alarms ? 'text-green-600' : 'text-destructive'}`}>
+                <Clock className="h-3 w-3" />
+                <span>Alarms</span>
+                {permissionStatus.alarms ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+              </div>
+            </div>
+          )}
         </SheetHeader>
 
         <ScrollArea 

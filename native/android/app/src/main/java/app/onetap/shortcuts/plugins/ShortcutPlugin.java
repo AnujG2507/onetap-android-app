@@ -2177,4 +2177,29 @@ public class ShortcutPlugin extends Plugin {
 
         call.resolve(result);
     }
+
+    @PluginMethod
+    public void openAlarmSettings(PluginCall call) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            try {
+                Intent intent = new Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM);
+                intent.setData(android.net.Uri.parse("package:" + getContext().getPackageName()));
+                getActivity().startActivity(intent);
+                
+                JSObject result = new JSObject();
+                result.put("success", true);
+                call.resolve(result);
+            } catch (Exception e) {
+                JSObject result = new JSObject();
+                result.put("success", false);
+                result.put("error", e.getMessage());
+                call.resolve(result);
+            }
+        } else {
+            // Pre-Android 12, exact alarms don't require permission
+            JSObject result = new JSObject();
+            result.put("success", true);
+            call.resolve(result);
+        }
+    }
 }

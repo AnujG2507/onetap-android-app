@@ -30,6 +30,7 @@ interface UseScheduledActionsReturn {
   // Permission checks
   checkPermissions: () => Promise<{ notifications: boolean; alarms: boolean }>;
   requestPermissions: () => Promise<{ notifications: boolean; alarms: boolean }>;
+  openAlarmSettings: () => Promise<void>;
 }
 
 export function useScheduledActions(): UseScheduledActionsReturn {
@@ -224,6 +225,15 @@ export function useScheduledActions(): UseScheduledActionsReturn {
     }
   }, []);
 
+  // Open system settings for exact alarm permission (Android 12+)
+  const openAlarmSettings = useCallback(async (): Promise<void> => {
+    try {
+      await ShortcutPlugin.openAlarmSettings();
+    } catch (error) {
+      console.error('Error opening alarm settings:', error);
+    }
+  }, []);
+
   return {
     actions,
     activeCount,
@@ -234,5 +244,6 @@ export function useScheduledActions(): UseScheduledActionsReturn {
     toggleAction,
     checkPermissions,
     requestPermissions,
+    openAlarmSettings,
   };
 }
