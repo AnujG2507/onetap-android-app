@@ -92,6 +92,8 @@ export function ScheduledActionItem({
     isHorizontalSwipe.current = null;
     hasTriggeredHaptic.current = false;
     setIsSwiping(false);
+    // Stop propagation to prevent tab navigation from capturing this touch
+    e.stopPropagation();
   }, []);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
@@ -112,6 +114,7 @@ export function ScheduledActionItem({
     // Only handle left swipes for delete
     if (isHorizontalSwipe.current && deltaX < 0) {
       e.preventDefault();
+      e.stopPropagation(); // Prevent tab navigation from capturing horizontal swipe
       // Apply resistance
       const resistance = 0.6;
       const limitedDelta = Math.max(deltaX * resistance, -SWIPE_DELETE_THRESHOLD);
