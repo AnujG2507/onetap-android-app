@@ -1,6 +1,7 @@
 // Scheduled Actions List - displays all scheduled actions in a sheet
 import { useState, useRef, useCallback } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { 
@@ -44,7 +45,7 @@ export function ScheduledActionsList({
   // Swipe-to-close gesture
   const startY = useRef(0);
   const currentY = useRef(0);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const isAtTop = useRef(true);
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     startY.current = e.touches[0].clientY;
@@ -56,14 +57,17 @@ export function ScheduledActionsList({
   }, []);
 
   const handleTouchEnd = useCallback(() => {
-    const scrollTop = scrollRef.current?.scrollTop ?? 0;
     const deltaY = currentY.current - startY.current;
     
-    if (scrollTop <= 0 && deltaY > 80) {
+    if (isAtTop.current && deltaY > 80) {
       triggerHaptic('light');
       onClose();
     }
   }, [onClose]);
+
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    isAtTop.current = e.currentTarget.scrollTop <= 0;
+  }, []);
 
   const handleToggle = async (id: string) => {
     triggerHaptic('light');
@@ -149,17 +153,17 @@ export function ScheduledActionsList({
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <SheetContent 
         side="bottom" 
-        className="h-[85vh] rounded-t-3xl px-0 pb-0"
+        className="h-[85vh] rounded-t-3xl px-0 pb-0 flex flex-col"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
         {/* Grab handle */}
-        <div className="flex justify-center pt-2 pb-4">
+        <div className="flex justify-center pt-2 pb-4 shrink-0">
           <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
         </div>
 
-        <SheetHeader className="px-5 pb-4">
+        <SheetHeader className="px-5 pb-4 shrink-0">
           <div className="flex items-center justify-between">
             <SheetTitle className="text-lg font-semibold">Scheduled Actions</SheetTitle>
             <Button
@@ -175,31 +179,33 @@ export function ScheduledActionsList({
           </div>
         </SheetHeader>
 
-        <div 
-          ref={scrollRef}
-          className="flex-1 overflow-y-auto px-5 pb-24"
+        <ScrollArea 
+          className="flex-1 px-5"
+          onScrollCapture={handleScroll}
         >
-          {sortedActions.length === 0 ? (
-            <EmptyState onCreateNew={onCreateNew} />
-          ) : (
-            <div className="space-y-3">
-              {sortedActions.map((action) => (
-                <ScheduledActionItem
-                  key={action.id}
-                  action={action}
-                  isDeleting={deletingId === action.id}
-                  onToggle={() => handleToggle(action.id)}
-                  onDelete={() => handleDelete(action.id)}
-                  onEdit={() => handleEdit(action)}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+          <div className="pb-24">
+            {sortedActions.length === 0 ? (
+              <EmptyState onCreateNew={onCreateNew} />
+            ) : (
+              <div className="space-y-3">
+                {sortedActions.map((action) => (
+                  <ScheduledActionItem
+                    key={action.id}
+                    action={action}
+                    isDeleting={deletingId === action.id}
+                    onToggle={() => handleToggle(action.id)}
+                    onDelete={() => handleDelete(action.id)}
+                    onEdit={() => handleEdit(action)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </ScrollArea>
 
         {/* Floating add button */}
         {sortedActions.length > 0 && (
-          <div className="absolute bottom-6 left-0 right-0 px-5">
+          <div className="absolute bottom-6 left-0 right-0 px-5 shrink-0">
             <Button
               onClick={onCreateNew}
               className="w-full h-12 rounded-2xl gap-2 shadow-lg"
@@ -361,9 +367,10 @@ function ScheduledActionItem({
         </div>
       </div>
 
-      {/* Tap to show edit/delete, tap again to hide */}
+      {/* Tap to show edit/delete, tap again to hide - uses touch-action to allow scrolling */}
       <button
-        className="absolute inset-0 z-10"
+        className="absolute inset-0 z-10 touch-action-pan-y"
+        style={{ touchAction: 'pan-y' }}
         onClick={() => setShowDelete(!showDelete)}
         aria-label={showDelete ? 'Hide options' : 'Show options'}
       />
