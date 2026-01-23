@@ -12,11 +12,13 @@ import {
   Clock,
   Calendar,
   CalendarDays,
-  CalendarClock
+  CalendarClock,
+  Pencil
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useScheduledActions } from '@/hooks/useScheduledActions';
 import { formatTriggerTime, formatRecurrence } from '@/lib/scheduledActionsManager';
+import { ScheduledActionEditor } from './ScheduledActionEditor';
 import type { ScheduledAction, RecurrenceType } from '@/types/scheduledAction';
 import { triggerHaptic } from '@/lib/haptics';
 
@@ -33,6 +35,7 @@ export function ScheduledActionsList({
 }: ScheduledActionsListProps) {
   const { actions, toggleAction, deleteScheduledAction } = useScheduledActions();
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editingAction, setEditingAction] = useState<ScheduledAction | null>(null);
   
   // Swipe-to-close gesture
   const startY = useRef(0);
@@ -68,6 +71,15 @@ export function ScheduledActionsList({
     setDeletingId(id);
     await deleteScheduledAction(id);
     setDeletingId(null);
+  };
+
+  const handleEdit = (action: ScheduledAction) => {
+    triggerHaptic('light');
+    setEditingAction(action);
+  };
+
+  const handleEditSaved = () => {
+    setEditingAction(null);
   };
 
   const sortedActions = [...actions].sort((a, b) => {
@@ -109,6 +121,7 @@ export function ScheduledActionsList({
                   isDeleting={deletingId === action.id}
                   onToggle={() => handleToggle(action.id)}
                   onDelete={() => handleDelete(action.id)}
+                  onEdit={() => handleEdit(action)}
                 />
               ))}
             </div>
@@ -128,6 +141,16 @@ export function ScheduledActionsList({
           </div>
         )}
       </SheetContent>
+
+      {/* Edit dialog */}
+      {editingAction && (
+        <ScheduledActionEditor
+          action={editingAction}
+          isOpen={!!editingAction}
+          onClose={() => setEditingAction(null)}
+          onSaved={handleEditSaved}
+        />
+      )}
     </Sheet>
   );
 }
@@ -156,12 +179,14 @@ function ScheduledActionItem({
   action, 
   isDeleting,
   onToggle, 
-  onDelete 
+  onDelete,
+  onEdit 
 }: { 
   action: ScheduledAction;
   isDeleting: boolean;
   onToggle: () => void;
   onDelete: () => void;
+  onEdit: () => void;
 }) {
   const [showDelete, setShowDelete] = useState(false);
 
@@ -229,17 +254,34 @@ function ScheduledActionItem({
           </div>
         </div>
 
-        {/* Toggle or delete */}
-        <div className="flex items-center gap-2">
+        {/* Actions: edit, toggle, delete */}
+        <div className="flex items-center gap-1">
           {showDelete ? (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-              onClick={onDelete}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            <>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit();
+                  setShowDelete(false);
+                }}
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete();
+                }}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </>
           ) : (
             <Switch
               checked={action.enabled}
@@ -250,14 +292,12 @@ function ScheduledActionItem({
         </div>
       </div>
 
-      {/* Long-press hint (shows delete on context menu) */}
-      {showDelete && (
-        <button
-          className="absolute inset-0 z-10"
-          onClick={() => setShowDelete(false)}
-          aria-label="Cancel delete"
-        />
-      )}
+      {/* Tap to show edit/delete, tap again to hide */}
+      <button
+        className="absolute inset-0 z-10"
+        onClick={() => setShowDelete(!showDelete)}
+        aria-label={showDelete ? 'Hide options' : 'Show options'}
+      />
     </div>
   );
 }

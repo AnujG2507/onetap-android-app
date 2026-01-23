@@ -11,19 +11,21 @@ interface ScheduledTimingPickerProps {
   onConfirm: (triggerTime: number, recurrence: RecurrenceType, anchor: RecurrenceAnchor) => void;
   onBack: () => void;
   suggestedRecurrence?: RecurrenceType; // e.g., 'yearly' for birthday contacts
+  // Initial values for editing
+  initialTime?: number;
+  initialRecurrence?: RecurrenceType;
+  initialAnchor?: RecurrenceAnchor;
 }
 
 export function ScheduledTimingPicker({ 
   onConfirm, 
   onBack,
-  suggestedRecurrence = 'once' 
+  suggestedRecurrence = 'once',
+  initialTime,
+  initialRecurrence,
+  initialAnchor,
 }: ScheduledTimingPickerProps) {
   const now = new Date();
-  
-  // Initialize with next hour, handle midnight rollover
-  const nextHour = now.getHours() + 1;
-  const shouldRollToNextDay = nextHour > 23;
-  const defaultHour24 = shouldRollToNextDay ? 9 : nextHour; // 9 AM next day if past 11 PM
   
   // Convert to 12-hour format for display
   const to12Hour = (h24: number) => {
@@ -32,17 +34,42 @@ export function ScheduledTimingPicker({
     return h24;
   };
   
-  const [hour, setHour] = useState(() => to12Hour(defaultHour24));
-  const [minute, setMinute] = useState(0);
-  const [period, setPeriod] = useState<'AM' | 'PM'>(() => defaultHour24 >= 12 ? 'PM' : 'AM');
+  // Initialize from initial values if provided, otherwise use defaults
+  const getDefaultValues = () => {
+    if (initialTime && initialAnchor) {
+      const initDate = new Date(initialTime);
+      return {
+        hour: to12Hour(initialAnchor.hour),
+        minute: initialAnchor.minute,
+        period: (initialAnchor.hour >= 12 ? 'PM' : 'AM') as 'AM' | 'PM',
+        date: initDate,
+        recurrence: initialRecurrence || suggestedRecurrence,
+      };
+    }
+    
+    // Default: next hour, handle midnight rollover
+    const nextHour = now.getHours() + 1;
+    const shouldRollToNextDay = nextHour > 23;
+    const defaultHour24 = shouldRollToNextDay ? 9 : nextHour;
+    const defaultDate = new Date();
+    if (shouldRollToNextDay) defaultDate.setDate(defaultDate.getDate() + 1);
+    
+    return {
+      hour: to12Hour(defaultHour24),
+      minute: 0,
+      period: (defaultHour24 >= 12 ? 'PM' : 'AM') as 'AM' | 'PM',
+      date: defaultDate,
+      recurrence: suggestedRecurrence,
+    };
+  };
   
-  const [selectedDate, setSelectedDate] = useState<Date>(() => {
-    const d = new Date();
-    if (shouldRollToNextDay) d.setDate(d.getDate() + 1);
-    return d;
-  });
+  const defaults = getDefaultValues();
   
-  const [recurrence, setRecurrence] = useState<RecurrenceType>(suggestedRecurrence);
+  const [hour, setHour] = useState(defaults.hour);
+  const [minute, setMinute] = useState(defaults.minute);
+  const [period, setPeriod] = useState<'AM' | 'PM'>(defaults.period);
+  const [selectedDate, setSelectedDate] = useState<Date>(defaults.date);
+  const [recurrence, setRecurrence] = useState<RecurrenceType>(defaults.recurrence);
 
   // Convert 12-hour to 24-hour
   const get24Hour = (h: number, p: 'AM' | 'PM') => {
