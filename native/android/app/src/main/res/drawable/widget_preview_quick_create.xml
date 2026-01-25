@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Preview image for Quick Create widget (1x1) shown in widget picker -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    
+    <!-- Background -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#1a1a2e" />
+            <corners android:radius="24dp" />
+        </shape>
+    </item>
+    
+    <!-- Inner glow/gradient effect -->
+    <item
+        android:left="2dp"
+        android:top="2dp"
+        android:right="2dp"
+        android:bottom="2dp">
+        <shape android:shape="rectangle">
+            <gradient
+                android:type="radial"
+                android:gradientRadius="60dp"
+                android:startColor="#2a2a4e"
+                android:endColor="#1a1a2e"
+                android:centerX="0.5"
+                android:centerY="0.3" />
+            <corners android:radius="22dp" />
+        </shape>
+    </item>
+    
+    <!-- Zap icon representation (simplified lightning bolt) -->
+    <item
+        android:width="32dp"
+        android:height="32dp"
+        android:gravity="center">
+        <shape android:shape="oval">
+            <solid android:color="#8b5cf6" />
+            <size android:width="32dp" android:height="32dp" />
+        </shape>
+    </item>
+    
+    <!-- Plus badge -->
+    <item
+        android:width="16dp"
+        android:height="16dp"
+        android:gravity="bottom|end"
+        android:right="8dp"
+        android:bottom="8dp">
+        <shape android:shape="oval">
+            <solid android:color="#8b5cf6" />
+            <size android:width="16dp" android:height="16dp" />
+        </shape>
+    </item>
+    
+</layer-list>
