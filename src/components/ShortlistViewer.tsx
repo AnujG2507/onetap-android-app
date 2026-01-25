@@ -147,7 +147,7 @@ export function ShortlistViewer({
         {/* Close button */}
         <button
           onClick={handleClose}
-          className="p-2 -ml-2 rounded-full hover:bg-muted transition-colors"
+          className="p-2 -ms-2 rounded-full hover:bg-muted transition-colors"
           aria-label="Close viewer"
         >
           <X className="h-5 w-5" />
@@ -281,7 +281,7 @@ export function ShortlistViewer({
               "bg-muted hover:bg-muted/80"
             )}
           >
-            <ChevronLeft className="h-5 w-5" />
+            <ChevronLeft className="h-5 w-5 rtl:rotate-180" />
             <span className="text-sm font-medium">{t('common.previous')}</span>
           </button>
 
@@ -293,7 +293,7 @@ export function ShortlistViewer({
             )}
           >
             <span className="text-sm font-medium">{t('common.next')}</span>
-            <ChevronRight className="h-5 w-5" />
+            <ChevronRight className="h-5 w-5 rtl:rotate-180" />
           </button>
         </footer>
       )}

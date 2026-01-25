@@ -121,7 +121,7 @@ export function UsageInsights() {
                       {shortcut.name}
                     </span>
                   </div>
-                  <span className="text-xs text-muted-foreground whitespace-nowrap ml-2">
+                  <span className="text-xs text-muted-foreground whitespace-nowrap ms-2">
                     {shortcut.usageCount} {t('usage.taps', 'taps')}
                   </span>
                 </div>

@@ -120,7 +120,7 @@ export function OnboardingFlow({ currentStep, onNext, onSkip, onComplete }: Onbo
           aria-label={isLastStep ? t('onboarding.getStarted') : t('onboarding.next')}
         >
           {isLastStep ? t('onboarding.getStarted') : t('onboarding.next')}
-          <ChevronRight className="h-5 w-5 ml-1" />
+          <ChevronRight className="h-5 w-5 ms-1 rtl:rotate-180" />
         </Button>
       </div>
     </div>

@@ -110,9 +110,9 @@ export function ContactShortcutCustomizer({
       <header className="px-5 pt-6 pb-4 flex items-center gap-4">
         <button
           onClick={onBack}
-          className="p-2 -ml-2 rounded-full hover:bg-muted/50 transition-colors"
+          className="p-2 -ms-2 rounded-full hover:bg-muted/50 transition-colors"
         >
-          <ArrowLeft className="h-5 w-5 text-muted-foreground" />
+          <ArrowLeft className="h-5 w-5 text-muted-foreground rtl:rotate-180" />
         </button>
         <h1 className="text-lg font-semibold text-foreground">
           {mode === 'dial' ? t('contact.callShortcut') : t('contact.whatsappShortcut')}
@@ -148,7 +148,7 @@ export function ContactShortcutCustomizer({
                 placeholder={t('contact.phonePlaceholder')}
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value)}
-                className="text-lg pr-10"
+                className="text-lg pe-10"
               />
               {phoneNumber && (
                 <button
@@ -157,7 +157,7 @@ export function ContactShortcutCustomizer({
                     setPhoneNumber('');
                     setPickedContact(null);
                   }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
+                  className="absolute end-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
                   aria-label={t('common.clearText')}
                 >
                   <X className="h-4 w-4" />
@@ -187,13 +187,13 @@ export function ContactShortcutCustomizer({
               placeholder={mode === 'dial' ? t('contact.callPlaceholder') : t('contact.whatsappPlaceholder')}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="pr-10"
+              className="pe-10"
             />
             {name && (
               <button
                 type="button"
                 onClick={() => setName('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
+                className="absolute end-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
                 aria-label={t('common.clearText')}
               >
                 <X className="h-4 w-4" />

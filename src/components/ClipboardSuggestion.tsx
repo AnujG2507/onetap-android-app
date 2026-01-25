@@ -55,7 +55,7 @@ export function ClipboardSuggestion({ url, onUse, onDismiss }: ClipboardSuggesti
   return (
     <div
       className={cn(
-        "fixed bottom-6 left-4 right-4 z-50",
+        "fixed bottom-6 inset-x-4 z-50",
         "transition-all duration-300 ease-out",
         isVisible && !isExiting 
           ? "translate-y-0 opacity-100" 

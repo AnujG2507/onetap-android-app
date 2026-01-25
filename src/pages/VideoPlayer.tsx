@@ -359,11 +359,11 @@ const VideoPlayer = () => {
           )}
           <div className="flex gap-3 justify-center">
             <Button onClick={handleRetry} variant="outline">
-              <RefreshCw className="h-4 w-4 mr-2" />
+              <RefreshCw className="h-4 w-4 me-2" />
               Retry
             </Button>
             <Button onClick={handleBack} variant="ghost">
-              <ArrowLeft className="h-4 w-4 mr-2" />
+              <ArrowLeft className="h-4 w-4 me-2 rtl:rotate-180" />
               Go Back
             </Button>
           </div>
@@ -375,10 +375,10 @@ const VideoPlayer = () => {
   // Ready/Playing state - show video
   return (
     <div className="min-h-screen bg-black flex flex-col">
-      <header className="absolute top-0 left-0 right-0 z-10 p-4 bg-gradient-to-b from-black/80 to-transparent">
+      <header className="absolute top-0 inset-x-0 z-10 p-4 bg-gradient-to-b from-black/80 to-transparent">
         <div className="flex items-center justify-between">
           <Button onClick={handleBack} variant="ghost" size="icon" className="text-white hover:bg-white/20">
-            <ArrowLeft className="h-6 w-6" />
+            <ArrowLeft className="h-6 w-6 rtl:rotate-180" />
           </Button>
           <div className="flex items-center gap-2">
             <Button onClick={handleOpenExternal} variant="ghost" size="icon" className="text-white hover:bg-white/20">
