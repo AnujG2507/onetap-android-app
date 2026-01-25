@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { 
   ExternalLink, 
   Plus, 
   Edit2, 
   Trash2, 
   X, 
-  
   Tag
 } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -50,6 +50,7 @@ export function BookmarkActionSheet({
   onPermanentDelete,
   startInEditMode = false,
 }: BookmarkActionSheetProps) {
+  const { t } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   
@@ -90,7 +91,7 @@ export function BookmarkActionSheet({
   // URL validation
   const validateUrl = (url: string): string => {
     const trimmed = url.trim();
-    if (!trimmed) return 'URL is required';
+    if (!trimmed) return t('bookmarkAction.urlRequired');
     
     // Add protocol if missing for validation
     let testUrl = trimmed;
@@ -101,11 +102,11 @@ export function BookmarkActionSheet({
     try {
       const parsed = new URL(testUrl);
       if (!parsed.hostname.includes('.')) {
-        return 'Please enter a valid URL';
+        return t('bookmarkAction.invalidUrl');
       }
       return '';
     } catch {
-      return 'Please enter a valid URL';
+      return t('bookmarkAction.invalidUrl');
     }
   };
 
@@ -226,7 +227,7 @@ export function BookmarkActionSheet({
                     value={editUrl}
                     onChange={(e) => handleUrlChange(e.target.value)}
                     onBlur={handleUrlBlur}
-                    placeholder="URL"
+                    placeholder={t('bookmarkAction.urlPlaceholder')}
                     className={cn("pr-10", urlError && "border-destructive focus-visible:ring-destructive")}
                     type="url"
                   />
@@ -235,7 +236,7 @@ export function BookmarkActionSheet({
                       type="button"
                       onClick={() => {
                         setEditUrl('');
-                        setUrlError('URL is required');
+                        setUrlError(t('bookmarkAction.urlRequired'));
                       }}
                       className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50"
                     >
@@ -253,7 +254,7 @@ export function BookmarkActionSheet({
                 <Input
                   value={editTitle}
                   onChange={(e) => setEditTitle(e.target.value)}
-                  placeholder="Title"
+                  placeholder={t('bookmarkAction.titlePlaceholder')}
                   className="pr-10"
                   autoFocus
                 />
@@ -271,7 +272,7 @@ export function BookmarkActionSheet({
               <Textarea
                 value={editDescription}
                 onChange={(e) => setEditDescription(e.target.value)}
-                placeholder="Description (optional)"
+                placeholder={t('bookmarkAction.descriptionPlaceholder')}
                 className="resize-none"
                 rows={2}
                 maxLength={200}
@@ -281,7 +282,7 @@ export function BookmarkActionSheet({
               <div>
                 <div className="flex items-center gap-2 mb-2">
                   <Tag className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">Tag</span>
+                  <span className="text-xs text-muted-foreground">{t('bookmarkAction.tagLabel')}</span>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {PRESET_TAGS.map(tag => (
@@ -307,10 +308,10 @@ export function BookmarkActionSheet({
                   onClick={() => setIsEditing(false)}
                   className="flex-1"
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </Button>
                 <Button onClick={handleSaveEdit} className="flex-1">
-                  Save
+                  {t('common.save')}
                 </Button>
               </div>
             </div>
@@ -326,7 +327,7 @@ export function BookmarkActionSheet({
                 className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 transition-colors"
               >
                 <ExternalLink className="h-5 w-5 text-muted-foreground" />
-                <span className="font-medium">Open in Browser</span>
+                <span className="font-medium">{t('bookmarkAction.openInBrowser')}</span>
               </button>
 
               {/* Create Shortcut */}
@@ -338,7 +339,7 @@ export function BookmarkActionSheet({
                 className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 transition-colors"
               >
                 <Plus className="h-5 w-5 text-muted-foreground" />
-                <span className="font-medium">Create Home Screen Shortcut</span>
+                <span className="font-medium">{t('bookmarkAction.createShortcut')}</span>
               </button>
 
               {/* Edit */}
@@ -347,7 +348,7 @@ export function BookmarkActionSheet({
                 className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 transition-colors"
               >
                 <Edit2 className="h-5 w-5 text-muted-foreground" />
-                <span className="font-medium">Edit</span>
+                <span className="font-medium">{t('bookmarkAction.edit')}</span>
               </button>
 
               {/* Delete */}
@@ -356,7 +357,7 @@ export function BookmarkActionSheet({
                 className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-destructive/10 transition-colors text-destructive"
               >
                 <Trash2 className="h-5 w-5" />
-                <span className="font-medium">Delete</span>
+                <span className="font-medium">{t('bookmarkAction.delete')}</span>
               </button>
             </div>
           )}
@@ -367,24 +368,24 @@ export function BookmarkActionSheet({
       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete bookmark?</AlertDialogTitle>
+            <AlertDialogTitle>{t('bookmarkAction.deleteConfirm')}</AlertDialogTitle>
             <AlertDialogDescription>
-              "{link.title}" will be moved to trash. Items in trash are automatically deleted after {getSettings().trashRetentionDays} days.
+              {t('bookmarkAction.deleteConfirmDesc', { title: link.title, days: getSettings().trashRetentionDays })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-col sm:flex-row gap-2">
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction 
               onClick={handleMoveToTrash}
               className="border border-input bg-background hover:bg-accent hover:text-accent-foreground"
             >
-              Move to Trash
+              {t('bookmarkAction.moveToTrash')}
             </AlertDialogAction>
             <AlertDialogAction 
               onClick={handlePermanentDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Delete Permanently
+              {t('bookmarkAction.deletePermanently')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

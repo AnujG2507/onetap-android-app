@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Trash2, AlertTriangle, ArrowLeftRight, X, RotateCcw, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -50,6 +51,7 @@ interface TrashSheetProps {
 }
 
 export function TrashSheet({ open: controlledOpen, onOpenChange, onRestored }: TrashSheetProps) {
+  const { t } = useTranslation();
   const [internalOpen, setInternalOpen] = useState(false);
   
   // Support both controlled and uncontrolled modes
@@ -121,7 +123,7 @@ export function TrashSheet({ open: controlledOpen, onOpenChange, onRestored }: T
       refreshTrash();
       onRestored?.();
       toast({
-        title: 'Bookmark restored',
+        title: t('trash.restored'),
         description: restored.title,
         duration: 2000,
       });
@@ -135,7 +137,7 @@ export function TrashSheet({ open: controlledOpen, onOpenChange, onRestored }: T
     setShowDeleteConfirm(false);
     setSelectedId(null);
     toast({
-      title: 'Permanently deleted',
+      title: t('trash.permanentlyDeleted'),
       duration: 2000,
     });
     triggerHaptic('warning');
@@ -146,8 +148,8 @@ export function TrashSheet({ open: controlledOpen, onOpenChange, onRestored }: T
     refreshTrash();
     setShowEmptyConfirm(false);
     toast({
-      title: 'Trash emptied',
-      description: 'All items have been permanently deleted',
+      title: t('trash.trashEmptied'),
+      description: t('trash.trashEmptiedDesc'),
       duration: 2000,
     });
     triggerHaptic('warning');
@@ -159,8 +161,8 @@ export function TrashSheet({ open: controlledOpen, onOpenChange, onRestored }: T
     setShowRestoreAllConfirm(false);
     onRestored?.();
     toast({
-      title: 'All items restored',
-      description: `${restored.length} bookmark${restored.length !== 1 ? 's' : ''} restored`,
+      title: t('trash.allRestored'),
+      description: t('trash.allRestoredDesc', { count: restored.length }),
       duration: 2000,
     });
     triggerHaptic('success');
@@ -187,11 +189,11 @@ export function TrashSheet({ open: controlledOpen, onOpenChange, onRestored }: T
                   <Trash2 className="h-5 w-5 text-destructive" />
                 </div>
                 <div>
-                  <SheetTitle className="text-left">Trash</SheetTitle>
+                  <SheetTitle className="text-left">{t('trash.title')}</SheetTitle>
                   <p className="text-xs text-muted-foreground">
                     {trashLinks.length === 0 
-                      ? 'No items in trash' 
-                      : `${trashLinks.length} item${trashLinks.length !== 1 ? 's' : ''}`
+                      ? t('trash.noItems')
+                      : t('trash.itemCount', { count: trashLinks.length })
                     }
                   </p>
                 </div>
@@ -226,7 +228,7 @@ export function TrashSheet({ open: controlledOpen, onOpenChange, onRestored }: T
                   className="h-8 flex-1"
                 >
                   <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
-                  Restore All
+                  {t('trash.restoreAll')}
                 </Button>
                 <Button
                   variant="destructive"
@@ -234,7 +236,7 @@ export function TrashSheet({ open: controlledOpen, onOpenChange, onRestored }: T
                   onClick={() => setShowEmptyConfirm(true)}
                   className="h-8 flex-1"
                 >
-                  Empty Trash
+                  {t('trash.emptyTrash')}
                 </Button>
               </div>
             )}
@@ -245,9 +247,9 @@ export function TrashSheet({ open: controlledOpen, onOpenChange, onRestored }: T
               <div className="h-16 w-16 rounded-2xl bg-muted flex items-center justify-center mb-4">
                 <Trash2 className="h-8 w-8 text-muted-foreground" />
               </div>
-              <h3 className="text-lg font-medium text-foreground mb-2">Trash is empty</h3>
+              <h3 className="text-lg font-medium text-foreground mb-2">{t('trash.empty')}</h3>
               <p className="text-sm text-muted-foreground">
-                Deleted bookmarks will appear here for {getSettings().trashRetentionDays} days before being permanently removed.
+                {t('trash.emptyDesc', { days: getSettings().trashRetentionDays })}
               </p>
             </div>
           ) : (
@@ -256,7 +258,7 @@ export function TrashSheet({ open: controlledOpen, onOpenChange, onRestored }: T
                 <div className="flex items-center justify-between gap-2 p-3 mb-3 bg-muted/50 rounded-lg border border-border/50">
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <ArrowLeftRight className="h-4 w-4 shrink-0" />
-                    <span>Swipe right to restore, left to delete</span>
+                    <span>{t('trash.swipeHint')}</span>
                   </div>
                   <Button
                     variant="ghost"
@@ -294,19 +296,19 @@ export function TrashSheet({ open: controlledOpen, onOpenChange, onRestored }: T
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-destructive" />
-              Empty Trash?
+              {t('trash.emptyTrashConfirm')}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete all {trashLinks.length} item{trashLinks.length !== 1 ? 's' : ''} in trash. This action cannot be undone.
+              {t('trash.emptyTrashDesc', { count: trashLinks.length })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleEmptyTrash}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Empty Trash
+              {t('trash.emptyTrash')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -316,18 +318,18 @@ export function TrashSheet({ open: controlledOpen, onOpenChange, onRestored }: T
       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete permanently?</AlertDialogTitle>
+            <AlertDialogTitle>{t('trash.deleteConfirm')}</AlertDialogTitle>
             <AlertDialogDescription>
-              This bookmark will be permanently deleted. This action cannot be undone.
+              {t('trash.deleteConfirmDesc')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setSelectedId(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setSelectedId(null)}>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => selectedId && handlePermanentDelete(selectedId)}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Delete
+              {t('common.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -339,16 +341,16 @@ export function TrashSheet({ open: controlledOpen, onOpenChange, onRestored }: T
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <RotateCcw className="h-5 w-5 text-primary" />
-              Restore All Items?
+              {t('trash.restoreAllConfirm')}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              This will restore all {trashLinks.length} item{trashLinks.length !== 1 ? 's' : ''} from trash back to your bookmarks.
+              {t('trash.restoreAllDesc', { count: trashLinks.length })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={handleRestoreAll}>
-              Restore All
+              {t('trash.restoreAll')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
