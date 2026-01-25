@@ -291,9 +291,9 @@ export function ScheduledActionCreator({
           <div className="flex items-center gap-3 px-5 py-4 border-b border-border">
             <button
               onClick={handleBack}
-              className="p-2 -ml-2 rounded-full hover:bg-muted active:scale-95 transition-transform"
+              className="p-2 -ms-2 rounded-full hover:bg-muted active:scale-95 transition-transform"
             >
-              <ChevronLeft className="h-5 w-5" />
+              <ChevronLeft className="h-5 w-5 rtl:rotate-180" />
             </button>
             <h2 className="text-lg font-semibold">Enter URL</h2>
           </div>
@@ -301,7 +301,7 @@ export function ScheduledActionCreator({
           <div className="flex-1 px-5 py-6 space-y-4">
             <div className="flex gap-2">
               <div className="relative flex-1">
-                <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Globe className="absolute start-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                 <Input
                   value={urlInput}
                   onChange={(e) => {
@@ -309,7 +309,7 @@ export function ScheduledActionCreator({
                     setUrlError('');
                   }}
                   placeholder="example.com"
-                  className="h-12 pl-10 rounded-xl text-base"
+                  className="h-12 ps-10 rounded-xl text-base"
                   autoFocus
                   onKeyDown={(e) => e.key === 'Enter' && handleUrlSubmit()}
                 />
@@ -349,9 +349,9 @@ export function ScheduledActionCreator({
           <div className="flex items-center gap-3 px-5 py-4 border-b border-border">
             <button
               onClick={handleBack}
-              className="p-2 -ml-2 rounded-full hover:bg-muted active:scale-95 transition-transform"
+              className="p-2 -ms-2 rounded-full hover:bg-muted active:scale-95 transition-transform"
             >
-              <ChevronLeft className="h-5 w-5" />
+              <ChevronLeft className="h-5 w-5 rtl:rotate-180" />
             </button>
             <h2 className="text-lg font-semibold">Add a link</h2>
           </div>
@@ -388,9 +388,9 @@ export function ScheduledActionCreator({
         <div className="flex items-center gap-3 px-5 py-4 border-b border-border">
           <button
             onClick={handleBack}
-            className="p-2 -ml-2 rounded-full hover:bg-muted active:scale-95 transition-transform"
+            className="p-2 -ms-2 rounded-full hover:bg-muted active:scale-95 transition-transform"
           >
-            <ChevronLeft className="h-5 w-5" />
+            <ChevronLeft className="h-5 w-5 rtl:rotate-180" />
           </button>
           <h2 className="text-lg font-semibold">What to open</h2>
         </div>
@@ -444,9 +444,9 @@ export function ScheduledActionCreator({
       <div className="flex items-center gap-3 px-5 py-4 border-b border-border">
         <button
           onClick={handleBack}
-          className="p-2 -ml-2 rounded-full hover:bg-muted active:scale-95 transition-transform"
+          className="p-2 -ms-2 rounded-full hover:bg-muted active:scale-95 transition-transform"
         >
-          <ChevronLeft className="h-5 w-5" />
+          <ChevronLeft className="h-5 w-5 rtl:rotate-180" />
         </button>
         <h2 className="text-lg font-semibold">Name this action</h2>
       </div>
@@ -548,7 +548,7 @@ function DestinationOption({
       <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary shrink-0">
         {icon}
       </div>
-      <div className="text-left">
+      <div className="text-start">
         <h3 className="font-medium text-sm">{label}</h3>
         <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
       </div>

@@ -75,7 +75,7 @@ export function AddBookmarkForm({ onSave, onCancel, onEditExisting }: AddBookmar
           onChange={(e) => setUrl(e.target.value)}
           placeholder={t('addBookmark.urlPlaceholder')}
           className={cn(
-            "pr-10",
+            "pe-10",
             existingLink && "border-amber-500 focus-visible:ring-amber-500"
           )}
           autoFocus
@@ -84,7 +84,7 @@ export function AddBookmarkForm({ onSave, onCancel, onEditExisting }: AddBookmar
           <button
             type="button"
             onClick={() => setUrl('')}
-            className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50"
+            className="absolute end-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50"
           >
             <X className="h-4 w-4 text-muted-foreground" />
           </button>
@@ -144,13 +144,13 @@ export function AddBookmarkForm({ onSave, onCancel, onEditExisting }: AddBookmar
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder={t('addBookmark.titlePlaceholder')}
-              className="pr-10"
+              className="pe-10"
             />
             {title && (
               <button
                 type="button"
                 onClick={() => setTitle('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50"
+                className="absolute end-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50"
               >
                 <X className="h-4 w-4 text-muted-foreground" />
               </button>
@@ -163,7 +163,7 @@ export function AddBookmarkForm({ onSave, onCancel, onEditExisting }: AddBookmar
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder={t('addBookmark.descriptionPlaceholder')}
-              className="resize-none pr-10"
+              className="resize-none pe-10"
               rows={2}
               maxLength={200}
             />
@@ -171,7 +171,7 @@ export function AddBookmarkForm({ onSave, onCancel, onEditExisting }: AddBookmar
               <button
                 type="button"
                 onClick={() => setDescription('')}
-                className="absolute right-3 top-3 p-1 rounded-full hover:bg-muted/50"
+                className="absolute end-3 top-3 p-1 rounded-full hover:bg-muted/50"
               >
                 <X className="h-4 w-4 text-muted-foreground" />
               </button>

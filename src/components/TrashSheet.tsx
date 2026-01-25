@@ -189,7 +189,7 @@ export function TrashSheet({ open: controlledOpen, onOpenChange, onRestored }: T
                   <Trash2 className="h-5 w-5 text-destructive" />
                 </div>
                 <div>
-                  <SheetTitle className="text-left">{t('trash.title')}</SheetTitle>
+                  <SheetTitle className="text-start">{t('trash.title')}</SheetTitle>
                   <p className="text-xs text-muted-foreground">
                     {trashLinks.length === 0 
                       ? t('trash.noItems')
@@ -227,7 +227,7 @@ export function TrashSheet({ open: controlledOpen, onOpenChange, onRestored }: T
                   onClick={() => setShowRestoreAllConfirm(true)}
                   className="h-8 flex-1"
                 >
-                  <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+                  <RotateCcw className="h-3.5 w-3.5 me-1.5" />
                   {t('trash.restoreAll')}
                 </Button>
                 <Button

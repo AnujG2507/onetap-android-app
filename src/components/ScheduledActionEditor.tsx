@@ -317,9 +317,9 @@ export function ScheduledActionEditor({
               <div className="flex items-center gap-3 px-5 py-4 border-b border-border">
                 <button
                   onClick={() => setUrlSubStep(null)}
-                  className="p-2 -ml-2 rounded-full hover:bg-muted active:scale-95 transition-transform"
+                  className="p-2 -ms-2 rounded-full hover:bg-muted active:scale-95 transition-transform"
                 >
-                  <ChevronLeft className="h-5 w-5" />
+                  <ChevronLeft className="h-5 w-5 rtl:rotate-180" />
                 </button>
                 <h2 className="text-lg font-semibold">{t('scheduledEditor.enterUrl')}</h2>
               </div>
@@ -327,7 +327,7 @@ export function ScheduledActionEditor({
               <div className="flex-1 px-5 py-6 space-y-4">
                 <div className="flex gap-2">
                   <div className="relative flex-1">
-                    <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <Globe className="absolute start-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                     <Input
                       value={urlInput}
                       onChange={(e) => {
@@ -335,7 +335,7 @@ export function ScheduledActionEditor({
                         setUrlError('');
                       }}
                       placeholder="example.com"
-                      className="h-12 pl-10 rounded-xl text-base"
+                      className="h-12 ps-10 rounded-xl text-base"
                       autoFocus
                       onKeyDown={(e) => e.key === 'Enter' && handleUrlSubmit()}
                     />
@@ -379,9 +379,9 @@ export function ScheduledActionEditor({
               <div className="flex items-center gap-3 px-5 py-4 border-b border-border">
                 <button
                   onClick={() => setUrlSubStep(null)}
-                  className="p-2 -ml-2 rounded-full hover:bg-muted active:scale-95 transition-transform"
+                  className="p-2 -ms-2 rounded-full hover:bg-muted active:scale-95 transition-transform"
                 >
-                  <ChevronLeft className="h-5 w-5" />
+                  <ChevronLeft className="h-5 w-5 rtl:rotate-180" />
                 </button>
                 <h2 className="text-lg font-semibold">{t('scheduledEditor.changeLink')}</h2>
               </div>
@@ -418,16 +418,16 @@ export function ScheduledActionEditor({
     return (
       <Sheet open={isOpen} onOpenChange={(open) => !open && handleClose()}>
         <SheetContent side="bottom" className="h-[85vh] rounded-t-3xl px-0 pb-0">
-          <div className="flex flex-col h-full animate-fade-in">
-            <div className="flex items-center gap-3 px-5 py-4 border-b border-border">
-              <button
-                onClick={() => setStep('main')}
-                className="p-2 -ml-2 rounded-full hover:bg-muted active:scale-95 transition-transform"
-              >
-                <ChevronLeft className="h-5 w-5" />
-              </button>
-                <h2 className="text-lg font-semibold">{t('scheduledEditor.changeDestination')}</h2>
-              </div>
+            <div className="flex flex-col h-full animate-fade-in">
+              <div className="flex items-center gap-3 px-5 py-4 border-b border-border">
+                <button
+                  onClick={() => setStep('main')}
+                  className="p-2 -ms-2 rounded-full hover:bg-muted active:scale-95 transition-transform"
+                >
+                  <ChevronLeft className="h-5 w-5 rtl:rotate-180" />
+                </button>
+                  <h2 className="text-lg font-semibold">{t('scheduledEditor.changeDestination')}</h2>
+                </div>
 
               <div className="flex-1 px-5 py-6">
                 <p className="text-sm text-muted-foreground mb-6">
@@ -523,7 +523,7 @@ export function ScheduledActionEditor({
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary shrink-0">
                   {getDestinationIcon(destination.type)}
                 </div>
-                <div className="flex-1 min-w-0 text-left">
+                <div className="flex-1 min-w-0 text-start">
                   <p className="text-sm font-medium truncate">
                     {getDestinationTypeLabel(destination.type)}
                   </p>
@@ -531,7 +531,7 @@ export function ScheduledActionEditor({
                     {getDestinationLabel(destination)}
                   </p>
                 </div>
-                <ChevronLeft className="h-5 w-5 text-muted-foreground rotate-180" />
+                <ChevronLeft className="h-5 w-5 text-muted-foreground rotate-180 rtl:rotate-0" />
               </button>
             </div>
 
@@ -548,7 +548,7 @@ export function ScheduledActionEditor({
                   "focus:outline-none focus:ring-2 focus:ring-ring"
                 )}
               >
-                <div className="flex-1 min-w-0 text-left">
+                <div className="flex-1 min-w-0 text-start">
                   <p className="text-sm font-medium">
                     {formatTime(triggerTime)}
                   </p>
@@ -556,7 +556,7 @@ export function ScheduledActionEditor({
                     {formatRecurrenceLabel(recurrence)}
                   </p>
                 </div>
-                <ChevronLeft className="h-5 w-5 text-muted-foreground rotate-180" />
+                <ChevronLeft className="h-5 w-5 text-muted-foreground rotate-180 rtl:rotate-0" />
               </button>
             </div>
           </div>
@@ -608,7 +608,7 @@ function DestinationOption({
       <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary shrink-0">
         {icon}
       </div>
-      <div className="text-left">
+      <div className="text-start">
         <h3 className="font-medium text-sm">{label}</h3>
         <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
       </div>

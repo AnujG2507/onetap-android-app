@@ -51,7 +51,7 @@ export function SettingsSheet({ open, onOpenChange }: SettingsSheetProps) {
           </Button>
         </SheetTrigger>
         <SheetContent side="bottom" className="rounded-t-2xl">
-          <SheetHeader className="text-left">
+          <SheetHeader className="text-start">
             <SheetTitle>{t('settings.title')}</SheetTitle>
             <SheetDescription>
               {t('settings.description')}
@@ -119,7 +119,7 @@ export function SettingsSheet({ open, onOpenChange }: SettingsSheetProps) {
                 rel="noopener noreferrer"
                 className={cn(
                   "flex items-center justify-between w-full py-3 px-1",
-                  "text-left hover:bg-muted/50 rounded-lg transition-colors"
+                  "text-start hover:bg-muted/50 rounded-lg transition-colors"
                 )}
                 aria-label={t('settings.privacy')}
               >
