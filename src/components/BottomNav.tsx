@@ -16,7 +16,7 @@ export function BottomNav({ activeTab, onTabChange, hasShortlist, isSignedIn, ha
   const { t } = useTranslation();
   
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-background border-t border-border safe-bottom z-50">
+    <nav className="fixed bottom-0 inset-x-0 bg-background border-t border-border safe-bottom z-50">
       <div className="flex items-center justify-around h-14">
         <button
           onClick={() => onTabChange('access')}
@@ -49,7 +49,7 @@ export function BottomNav({ activeTab, onTabChange, hasShortlist, isSignedIn, ha
               activeTab === 'notifications' && "fill-current"
             )} />
             {hasActiveActions && (
-              <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-primary" />
+              <span className="absolute -top-0.5 -end-0.5 h-2 w-2 rounded-full bg-primary" />
             )}
           </div>
           <span className="text-[10px] font-medium">{t('tabs.notifications')}</span>
@@ -70,7 +70,7 @@ export function BottomNav({ activeTab, onTabChange, hasShortlist, isSignedIn, ha
               activeTab === 'bookmarks' && "fill-current"
             )} />
             {hasShortlist && (
-              <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-primary" />
+              <span className="absolute -top-0.5 -end-0.5 h-2 w-2 rounded-full bg-primary" />
             )}
           </div>
           <span className="text-[10px] font-medium">{t('tabs.bookmarks')}</span>
@@ -91,7 +91,7 @@ export function BottomNav({ activeTab, onTabChange, hasShortlist, isSignedIn, ha
               activeTab === 'profile' && "fill-current"
             )} />
             {isSignedIn && (
-              <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-green-500" />
+              <span className="absolute -top-0.5 -end-0.5 h-2 w-2 rounded-full bg-green-500" />
             )}
           </div>
           <span className="text-[10px] font-medium">{t('tabs.profile')}</span>

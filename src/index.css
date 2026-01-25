@@ -141,6 +141,54 @@ All colors MUST be HSL.
     }
   }
 
+  /* RTL-aware utilities */
+  /* Use inset-inline for RTL-aware horizontal positioning */
+  .inset-x-0-rtl {
+    inset-inline-start: 0;
+    inset-inline-end: 0;
+  }
+
+  /* RTL-aware badge positioning */
+  [dir="rtl"] .-right-0\.5 {
+    right: auto;
+    left: -0.125rem;
+  }
+  
+  [dir="rtl"] .-top-0\.5.-right-0\.5 {
+    right: auto;
+    left: -0.125rem;
+  }
+
+  /* RTL-aware swipe delete background */
+  .swipe-delete-bg {
+    position: absolute;
+    inset-block: 0;
+    inset-inline-end: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+  }
+  
+  [dir="rtl"] .swipe-delete-bg {
+    inset-inline-end: auto;
+    inset-inline-start: 0;
+    justify-content: flex-start;
+  }
+
+  /* RTL-aware text alignment */
+  .text-start {
+    text-align: start;
+  }
+  
+  .text-end {
+    text-align: end;
+  }
+
+  /* RTL icon flip for directional icons */
+  [dir="rtl"] .rtl-flip {
+    transform: scaleX(-1);
+  }
+
   /* PDF Reading Mode Filters */
   .pdf-reading-sepia canvas {
     filter: sepia(20%) brightness(95%);
