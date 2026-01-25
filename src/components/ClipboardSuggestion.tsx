@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Clipboard, X, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -18,6 +19,7 @@ function extractDomain(url: string): string {
 }
 
 export function ClipboardSuggestion({ url, onUse, onDismiss }: ClipboardSuggestionProps) {
+  const { t } = useTranslation();
   const [isVisible, setIsVisible] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
   const domain = extractDomain(url);
@@ -74,12 +76,12 @@ export function ClipboardSuggestion({ url, onUse, onDismiss }: ClipboardSuggesti
           <div className="flex items-start justify-between gap-3 mb-3">
             <div className="flex items-center gap-2 text-muted-foreground">
               <Clipboard className="h-4 w-4" />
-              <span className="text-xs font-medium uppercase tracking-wide">URL Detected</span>
+              <span className="text-xs font-medium uppercase tracking-wide">{t('clipboard.detected')}</span>
             </div>
             <button
               onClick={handleDismiss}
               className="p-1 -m-1 rounded-full hover:bg-muted/50 transition-colors"
-              aria-label="Dismiss"
+              aria-label={t('clipboard.dismiss')}
             >
               <X className="h-4 w-4 text-muted-foreground" />
             </button>
@@ -100,7 +102,7 @@ export function ClipboardSuggestion({ url, onUse, onDismiss }: ClipboardSuggesti
                 "active:scale-[0.98] transition-all"
               )}
             >
-              Dismiss
+              {t('clipboard.dismiss')}
             </button>
             <button
               onClick={handleUse}
@@ -111,7 +113,7 @@ export function ClipboardSuggestion({ url, onUse, onDismiss }: ClipboardSuggesti
                 "active:scale-[0.98] transition-all"
               )}
             >
-              Use this link
+              {t('clipboard.useLink')}
               <ArrowRight className="h-4 w-4" />
             </button>
           </div>

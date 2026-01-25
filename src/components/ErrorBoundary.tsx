@@ -1,9 +1,10 @@
 import { Component, ReactNode } from 'react';
+import { withTranslation, WithTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
 import { crashReporting, BreadcrumbCategory } from '@/lib/crashReporting';
 
-interface ErrorBoundaryProps {
+interface ErrorBoundaryProps extends WithTranslation {
   children: ReactNode;
 }
 
@@ -12,7 +13,7 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+class ErrorBoundaryComponent extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null };
@@ -37,6 +38,8 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   };
 
   render() {
+    const { t } = this.props;
+    
     if (this.state.hasError) {
       return (
         <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-background">
@@ -45,14 +48,14 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
               <RefreshCw className="h-8 w-8 text-muted-foreground" />
             </div>
             <h1 className="text-xl font-semibold text-foreground">
-              Something went wrong
+              {t('errors.somethingWentWrong')}
             </h1>
             <p className="text-sm text-muted-foreground">
-              The app encountered an unexpected error. Please refresh to continue.
+              {t('errors.unexpectedError')}
             </p>
             <Button onClick={this.handleReload} className="mt-4">
               <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh App
+              {t('errors.refreshApp')}
             </Button>
           </div>
         </div>
@@ -62,3 +65,5 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     return this.props.children;
   }
 }
+
+export const ErrorBoundary = withTranslation()(ErrorBoundaryComponent);
