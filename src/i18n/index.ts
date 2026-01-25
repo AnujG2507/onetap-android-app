@@ -1,38 +1,39 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
+import HttpBackend from 'i18next-http-backend';
 
+// English fallback translations (bundled for instant load)
 import en from './locales/en.json';
-import es from './locales/es.json';
-import pt from './locales/pt.json';
-import hi from './locales/hi.json';
-import de from './locales/de.json';
-import ja from './locales/ja.json';
-import ar from './locales/ar.json';
-
-const resources = {
-  en: { translation: en },
-  es: { translation: es },
-  pt: { translation: pt },
-  hi: { translation: hi },
-  de: { translation: de },
-  ja: { translation: ja },
-  ar: { translation: ar },
-};
 
 i18n
+  .use(HttpBackend)
   .use(LanguageDetector)
   .use(initReactI18next)
   .init({
-    resources,
+    // English bundled as fallback, other languages loaded on demand
+    resources: {
+      en: { translation: en },
+    },
     fallbackLng: 'en',
     interpolation: {
       escapeValue: false,
     },
     detection: {
-      order: ['localStorage', 'navigator'],
+      // Prioritize device/browser language, then localStorage for manual override
+      order: ['navigator', 'localStorage'],
       caches: ['localStorage'],
     },
+    backend: {
+      // Load translations from public folder
+      loadPath: '/locales/{{lng}}.json',
+    },
+    // Only load the detected language (not all languages)
+    load: 'languageOnly',
+    // Supported languages - others will fall back to English
+    supportedLngs: ['en', 'es', 'pt', 'hi', 'de', 'ja', 'ar'],
+    // Don't load translations for languages not in supportedLngs
+    nonExplicitSupportedLngs: false,
   });
 
 export default i18n;
