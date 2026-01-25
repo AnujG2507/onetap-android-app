@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { triggerHaptic } from '@/lib/haptics';
 import { getDaysRemaining, type TrashedLink } from '@/lib/savedLinksManager';
+import { useRTL } from '@/hooks/useRTL';
 
 interface TrashItemProps {
   link: TrashedLink;
@@ -27,6 +28,7 @@ const SWIPE_ACTION_THRESHOLD = 120;
 
 export function TrashItem({ link, onRestore, onDelete }: TrashItemProps) {
   const { t } = useTranslation();
+  const { isRTL } = useRTL();
   const [swipeX, setSwipeX] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
   const [isUrlExpanded, setIsUrlExpanded] = useState(false);
@@ -84,52 +86,72 @@ export function TrashItem({ link, onRestore, onDelete }: TrashItemProps) {
   }, []);
 
   const handleTouchEnd = useCallback(() => {
-    if (swipeX >= SWIPE_THRESHOLD) {
-      // Swipe right = restore
-      triggerHaptic('success');
-      onRestore(link.id);
-    } else if (swipeX <= -SWIPE_THRESHOLD) {
-      // Swipe left = delete
-      triggerHaptic('warning');
-      onDelete(link.id);
+    // RTL-aware: In LTR, swipe right=restore, left=delete
+    // In RTL, swipe left=restore, right=delete
+    if (isRTL) {
+      if (swipeX <= -SWIPE_THRESHOLD) {
+        triggerHaptic('success');
+        onRestore(link.id);
+      } else if (swipeX >= SWIPE_THRESHOLD) {
+        triggerHaptic('warning');
+        onDelete(link.id);
+      }
+    } else {
+      if (swipeX >= SWIPE_THRESHOLD) {
+        triggerHaptic('success');
+        onRestore(link.id);
+      } else if (swipeX <= -SWIPE_THRESHOLD) {
+        triggerHaptic('warning');
+        onDelete(link.id);
+      }
     }
 
     // Reset swipe state
     setSwipeX(0);
     setTimeout(() => setIsSwiping(false), 100);
     isHorizontalSwipe.current = null;
-  }, [swipeX, onRestore, onDelete, link.id]);
+  }, [swipeX, onRestore, onDelete, link.id, isRTL]);
+
+  // RTL-aware: determine which side shows which action
+  const restoreVisible = isRTL ? swipeX < -20 : swipeX > 20;
+  const deleteVisible = isRTL ? swipeX > 20 : swipeX < -20;
+  const restoreWidth = isRTL ? Math.abs(Math.min(swipeX, 0)) + 20 : Math.max(swipeX, 0) + 20;
+  const deleteWidth = isRTL ? Math.max(swipeX, 0) + 20 : Math.abs(Math.min(swipeX, 0)) + 20;
+  const restoreTriggered = isRTL ? swipeX <= -SWIPE_THRESHOLD : swipeX >= SWIPE_THRESHOLD;
+  const deleteTriggered = isRTL ? swipeX >= SWIPE_THRESHOLD : swipeX <= -SWIPE_THRESHOLD;
 
   return (
     <div className="relative overflow-hidden rounded-xl">
-      {/* Restore action background (right swipe) */}
+      {/* Restore action background - RTL-aware positioning */}
       <div
         className={cn(
-          "absolute inset-y-0 left-0 flex items-center justify-start px-4 bg-primary transition-opacity",
-          swipeX > 20 ? "opacity-100" : "opacity-0"
+          "absolute inset-y-0 flex items-center px-4 bg-primary transition-opacity",
+          isRTL ? "end-0 justify-end" : "start-0 justify-start",
+          restoreVisible ? "opacity-100" : "opacity-0"
         )}
-        style={{ width: Math.max(swipeX, 0) + 20 }}
+        style={{ width: restoreWidth }}
       >
         <RotateCcw
           className={cn(
             "h-5 w-5 text-primary-foreground transition-transform",
-            swipeX >= SWIPE_THRESHOLD && "scale-110"
+            restoreTriggered && "scale-110"
           )}
         />
       </div>
 
-      {/* Delete action background (left swipe) */}
+      {/* Delete action background - RTL-aware positioning */}
       <div
         className={cn(
-          "absolute inset-y-0 right-0 flex items-center justify-end px-4 bg-destructive transition-opacity",
-          swipeX < -20 ? "opacity-100" : "opacity-0"
+          "absolute inset-y-0 flex items-center px-4 bg-destructive transition-opacity",
+          isRTL ? "start-0 justify-start" : "end-0 justify-end",
+          deleteVisible ? "opacity-100" : "opacity-0"
         )}
-        style={{ width: Math.abs(Math.min(swipeX, 0)) + 20 }}
+        style={{ width: deleteWidth }}
       >
         <Trash2
           className={cn(
             "h-5 w-5 text-destructive-foreground transition-transform",
-            swipeX <= -SWIPE_THRESHOLD && "scale-110"
+            deleteTriggered && "scale-110"
           )}
         />
       </div>
