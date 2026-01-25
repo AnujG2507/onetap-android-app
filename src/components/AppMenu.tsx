@@ -219,7 +219,11 @@ export function AppMenu({ onOpenTrash }: AppMenuProps) {
           <Button
             variant="ghost"
             className="w-full justify-start h-auto px-3 py-2 whitespace-normal"
-            onClick={() => handleMenuItem(resetOnboarding)}
+            onClick={() => handleMenuItem(() => {
+              resetOnboarding();
+              // Reload to trigger the onboarding flow with fresh state
+              window.location.reload();
+            })}
           >
             <div className="flex-1 min-w-0 text-left overflow-hidden">
               <div className="flex items-center gap-2">
