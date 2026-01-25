@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X, Bookmark, Smartphone, Share2, ChevronLeft, Play, Zap, Pencil, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,6 +37,7 @@ export function SharedUrlActionSheet({
   onCreateShortcut,
   onDismiss,
 }: SharedUrlActionSheetProps) {
+  const { t } = useTranslation();
   const [isExiting, setIsExiting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [viewMode, setViewMode] = useState<'choose' | 'edit'>('choose');
@@ -161,7 +163,7 @@ export function SharedUrlActionSheet({
                 <Check className="h-6 w-6 text-white animate-fade-in" strokeWidth={3} />
               </div>
             </div>
-            <p className="text-sm font-medium text-foreground animate-fade-in">Saved to Library</p>
+            <p className="text-sm font-medium text-foreground animate-fade-in">{t('sharedUrl.savedToLibrary')}</p>
           </div>
         ) : (
           <>
@@ -173,23 +175,23 @@ export function SharedUrlActionSheet({
                     <button
                       onClick={handleCancelEdit}
                       className="p-1 -ml-1 rounded-full hover:bg-muted transition-colors"
-                      aria-label="Back"
+                      aria-label={t('common.back')}
                     >
                       <ChevronLeft className="h-4 w-4 text-muted-foreground" />
                     </button>
-                    <span className="text-sm font-medium text-foreground">Save to Library</span>
+                    <span className="text-sm font-medium text-foreground">{t('sharedUrl.saveToLibrary')}</span>
                   </>
                 ) : (
                   <>
                     <Share2 className="h-4 w-4 text-primary" />
-                    <span className="text-sm font-medium text-foreground">Link Received</span>
+                    <span className="text-sm font-medium text-foreground">{t('sharedUrl.linkReceived')}</span>
                   </>
                 )}
               </div>
               <button
                 onClick={handleDismiss}
                 className="p-1.5 -mr-1 rounded-full hover:bg-muted transition-colors"
-                aria-label="Dismiss"
+                aria-label={t('common.close')}
               >
                 <X className="h-4 w-4 text-muted-foreground" />
               </button>
@@ -291,7 +293,7 @@ export function SharedUrlActionSheet({
               disabled={isLoading}
             >
               <Zap className="h-4 w-4" />
-              {isLoading ? 'Loading...' : 'Quick Save'}
+              {isLoading ? t('common.loading') : t('sharedUrl.quickSave')}
             </Button>
             
             {/* Secondary actions row */}
@@ -302,7 +304,7 @@ export function SharedUrlActionSheet({
                 onClick={handleSaveWithEdit}
               >
                 <Pencil className="h-4 w-4" />
-                Edit & Save
+                {t('sharedUrl.editAndSave')}
               </Button>
               <Button
                 variant="outline"
@@ -310,7 +312,7 @@ export function SharedUrlActionSheet({
                 onClick={handleCreateShortcut}
               >
                 <Smartphone className="h-4 w-4" />
-                Shortcut
+                {t('sharedUrl.shortcut')}
               </Button>
             </div>
           </div>
@@ -319,7 +321,7 @@ export function SharedUrlActionSheet({
           <div className="px-4 py-4 space-y-4">
             {/* Title */}
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Title</label>
+              <label className="text-xs font-medium text-muted-foreground">{t('sharedUrl.title')}</label>
               <div className="relative">
                 <Input
                   value={editTitle}
@@ -340,12 +342,12 @@ export function SharedUrlActionSheet({
 
             {/* Description */}
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Description (optional)</label>
+              <label className="text-xs font-medium text-muted-foreground">{t('sharedUrl.descriptionOptional')}</label>
               <div className="relative">
                 <Textarea
                   value={editDescription}
                   onChange={(e) => setEditDescription(e.target.value)}
-                  placeholder="Add a note..."
+                  placeholder={t('sharedUrl.addNote')}
                   className="min-h-[60px] resize-none pr-8"
                 />
                 {editDescription && (
@@ -361,7 +363,7 @@ export function SharedUrlActionSheet({
 
             {/* Folder/Tag Selection */}
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Folder (optional)</label>
+              <label className="text-xs font-medium text-muted-foreground">{t('sharedUrl.folderOptional')}</label>
               <ScrollArea className="w-full">
                 <div className="flex gap-2 pb-2">
                   <button
@@ -374,7 +376,7 @@ export function SharedUrlActionSheet({
                         : "bg-muted text-muted-foreground hover:bg-muted/80"
                     )}
                   >
-                    None
+                    {t('sharedUrl.none')}
                   </button>
                   {folders.map((folder) => (
                     <button
@@ -399,7 +401,7 @@ export function SharedUrlActionSheet({
             {/* Save Button */}
             <Button className="w-full gap-2" onClick={handleConfirmSave}>
               <Bookmark className="h-4 w-4" />
-              Save to Library
+              {t('sharedUrl.saveToLibrary')}
             </Button>
           </div>
           )}

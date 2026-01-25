@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { App } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { useNavigate } from 'react-router-dom';
@@ -34,6 +35,7 @@ import {
 } from '@/components/ui/alert-dialog';
 
 const Index = () => {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<TabType>('access');
   const [accessStep, setAccessStep] = useState<AccessStep>('source');
   const [contentSourceType, setContentSourceType] = useState<ContentSourceType>(null);
@@ -162,13 +164,12 @@ const Index = () => {
     
     if (result.status === 'added') {
       toast({
-        title: 'Saved to Library',
-        description: 'Link has been added to your bookmarks.',
+        title: t('toasts.linkSaved'),
       });
     } else if (result.status === 'duplicate') {
       toast({
-        title: 'Already saved',
-        description: 'This link is already in your library.',
+        title: t('library.alreadySaved'),
+        description: t('library.alreadySavedDesc'),
       });
     }
     
@@ -428,15 +429,15 @@ const Index = () => {
       <AlertDialog open={showExitConfirmation} onOpenChange={setShowExitConfirmation}>
         <AlertDialogContent className="max-w-[280px] rounded-2xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>Exit app?</AlertDialogTitle>
+            <AlertDialogTitle>{t('app.exitTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to exit the app?
+              {t('app.exitDescription')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-row gap-2">
-            <AlertDialogCancel className="flex-1 m-0">Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="flex-1 m-0">{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction className="flex-1 m-0" onClick={handleExitApp}>
-              Exit
+              {t('app.exit')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { FolderPlus, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -19,6 +20,7 @@ interface CreateFolderDialogProps {
 }
 
 export function CreateFolderDialog({ onFolderCreated }: CreateFolderDialogProps) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [folderName, setFolderName] = useState('');
   const [selectedIcon, setSelectedIcon] = useState('Folder');
@@ -29,7 +31,7 @@ export function CreateFolderDialog({ onFolderCreated }: CreateFolderDialogProps)
     
     if (!trimmed) {
       toast({
-        title: 'Please enter a folder name',
+        title: t('folders.enterName'),
         duration: 2000,
       });
       return;
@@ -37,8 +39,8 @@ export function CreateFolderDialog({ onFolderCreated }: CreateFolderDialogProps)
     
     if (PRESET_TAGS.includes(trimmed) || getCustomFolders().includes(trimmed)) {
       toast({
-        title: 'Folder already exists',
-        description: 'Please choose a different name',
+        title: t('folders.folderExists'),
+        description: t('folders.folderExistsDesc'),
         duration: 2000,
       });
       return;
@@ -48,7 +50,7 @@ export function CreateFolderDialog({ onFolderCreated }: CreateFolderDialogProps)
     
     if (success) {
       toast({
-        title: 'Folder created',
+        title: t('folders.folderCreated'),
         duration: 2000,
       });
       triggerHaptic('success');
@@ -74,19 +76,19 @@ export function CreateFolderDialog({ onFolderCreated }: CreateFolderDialogProps)
           className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50 hover:bg-muted text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
         >
           <FolderPlus className="h-4 w-4" />
-          New Folder
+          {t('folders.newFolder')}
         </button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Create New Folder</DialogTitle>
+          <DialogTitle>{t('folders.createTitle')}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 pt-4">
           <div className="relative">
             <Input
               value={folderName}
               onChange={(e) => setFolderName(e.target.value)}
-              placeholder="Folder name..."
+              placeholder={t('folders.namePlaceholder')}
               autoFocus
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
@@ -107,7 +109,7 @@ export function CreateFolderDialog({ onFolderCreated }: CreateFolderDialogProps)
           
           {/* Icon Picker */}
           <div>
-            <p className="text-sm font-medium text-muted-foreground mb-3">Choose an icon</p>
+            <p className="text-sm font-medium text-muted-foreground mb-3">{t('folders.chooseIcon')}</p>
             <FolderIconPicker 
               selectedIcon={selectedIcon} 
               onSelectIcon={setSelectedIcon} 
@@ -116,10 +118,10 @@ export function CreateFolderDialog({ onFolderCreated }: CreateFolderDialogProps)
           
           <div className="flex gap-2 justify-end pt-2">
             <Button variant="outline" onClick={() => setOpen(false)}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button onClick={handleCreate}>
-              Create Folder
+              {t('folders.createFolder')}
             </Button>
           </div>
         </div>
