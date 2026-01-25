@@ -34,6 +34,10 @@ i18n
     supportedLngs: ['en', 'es', 'pt', 'hi', 'de', 'ja', 'ar'],
     // Don't load translations for languages not in supportedLngs
     nonExplicitSupportedLngs: false,
+    // Enable React Suspense mode for loading states
+    react: {
+      useSuspense: true,
+    },
   });
 
 export default i18n;
