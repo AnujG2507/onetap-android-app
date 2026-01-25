@@ -1,0 +1,116 @@
+{
+  "app": {
+    "name": "OneTap",
+    "tagline": "One tap to what matters"
+  },
+  "onboarding": {
+    "skip": "Skip",
+    "next": "Next",
+    "getStarted": "Get Started",
+    "step1": {
+      "title": "One tap to what matters",
+      "description": "Create shortcuts to your most important files, links, and contacts. Access them instantly from your home screen."
+    },
+    "step2": {
+      "title": "Create in seconds",
+      "description": "Select any file, link, or contact. Customize the icon and name. Add it to your home screen with one tap."
+    },
+    "step3": {
+      "title": "Stay organized",
+      "description": "Schedule reminders, save bookmarks, and sync across devices. Your shortcuts, your way."
+    }
+  },
+  "tabs": {
+    "access": "Access",
+    "notifications": "Reminders",
+    "bookmarks": "Library",
+    "profile": "Profile"
+  },
+  "access": {
+    "title": "Access",
+    "createShortcut": "Create a Shortcut",
+    "photo": "Photo",
+    "video": "Video",
+    "audio": "Audio",
+    "document": "Document",
+    "contact": "Contact",
+    "link": "Link",
+    "browseFiles": "Browse all files",
+    "savedBookmarks": "Saved bookmarks",
+    "contactCall": "Call",
+    "contactMessage": "Message",
+    "contactCallDesc": "Direct dial",
+    "contactMessageDesc": "WhatsApp",
+    "chooseAction": "Choose action type"
+  },
+  "library": {
+    "title": "Library",
+    "empty": "No bookmarks yet",
+    "emptyDescription": "Save links from the share menu or create them here",
+    "search": "Search bookmarks...",
+    "addBookmark": "Add Bookmark",
+    "folders": "Folders",
+    "allBookmarks": "All Bookmarks"
+  },
+  "notifications": {
+    "title": "Reminders",
+    "empty": "No scheduled reminders",
+    "emptyDescription": "Create a shortcut and schedule when it opens",
+    "upcoming": "Upcoming",
+    "past": "Past"
+  },
+  "profile": {
+    "title": "Profile",
+    "signIn": "Sign in",
+    "signOut": "Sign out",
+    "signInDescription": "Sign in to sync your bookmarks across devices",
+    "syncStatus": "Sync Status",
+    "localBookmarks": "Local bookmarks",
+    "cloudBookmarks": "Cloud bookmarks",
+    "lastSync": "Last sync",
+    "deleteAccount": "Delete Account",
+    "deleteAccountWarning": "This will permanently delete your account and all cloud data."
+  },
+  "settings": {
+    "title": "Settings",
+    "description": "Configure app preferences",
+    "appearance": "Appearance",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System",
+    "clipboardDetection": "Clipboard URL detection",
+    "clipboardDescription": "Show suggestions when a URL is copied",
+    "language": "Language",
+    "privacy": "Privacy Policy",
+    "about": "About"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "done": "Done",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "confirm": "Confirm",
+    "close": "Close",
+    "back": "Back",
+    "retry": "Retry"
+  },
+  "errors": {
+    "generic": "Something went wrong",
+    "network": "No internet connection",
+    "permissionDenied": "Permission denied"
+  },
+  "permissions": {
+    "storage": {
+      "title": "Access your files",
+      "description": "To create shortcuts for your photos, videos, and documents, we need permission to access your files."
+    },
+    "notifications": {
+      "title": "Stay on schedule",
+      "description": "Enable notifications to receive reminders when your scheduled shortcuts are ready to open."
+    }
+  }
+}

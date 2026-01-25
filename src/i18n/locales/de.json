@@ -1,0 +1,116 @@
+{
+  "app": {
+    "name": "OneTap",
+    "tagline": "Ein Tipp zu dem, was zählt"
+  },
+  "onboarding": {
+    "skip": "Überspringen",
+    "next": "Weiter",
+    "getStarted": "Loslegen",
+    "step1": {
+      "title": "Ein Tipp zu dem, was zählt",
+      "description": "Erstelle Verknüpfungen zu deinen wichtigsten Dateien, Links und Kontakten. Greife sofort von deinem Startbildschirm darauf zu."
+    },
+    "step2": {
+      "title": "In Sekunden erstellen",
+      "description": "Wähle eine Datei, einen Link oder Kontakt. Passe das Symbol und den Namen an. Füge es mit einem Tipp zum Startbildschirm hinzu."
+    },
+    "step3": {
+      "title": "Bleib organisiert",
+      "description": "Plane Erinnerungen, speichere Lesezeichen und synchronisiere über Geräte hinweg. Deine Verknüpfungen, dein Weg."
+    }
+  },
+  "tabs": {
+    "access": "Zugriff",
+    "notifications": "Erinnerungen",
+    "bookmarks": "Bibliothek",
+    "profile": "Profil"
+  },
+  "access": {
+    "title": "Zugriff",
+    "createShortcut": "Verknüpfung erstellen",
+    "photo": "Foto",
+    "video": "Video",
+    "audio": "Audio",
+    "document": "Dokument",
+    "contact": "Kontakt",
+    "link": "Link",
+    "browseFiles": "Alle Dateien durchsuchen",
+    "savedBookmarks": "Gespeicherte Lesezeichen",
+    "contactCall": "Anrufen",
+    "contactMessage": "Nachricht",
+    "contactCallDesc": "Direktwahl",
+    "contactMessageDesc": "WhatsApp",
+    "chooseAction": "Aktionstyp wählen"
+  },
+  "library": {
+    "title": "Bibliothek",
+    "empty": "Noch keine Lesezeichen",
+    "emptyDescription": "Speichere Links über das Teilen-Menü oder erstelle sie hier",
+    "search": "Lesezeichen suchen...",
+    "addBookmark": "Lesezeichen hinzufügen",
+    "folders": "Ordner",
+    "allBookmarks": "Alle Lesezeichen"
+  },
+  "notifications": {
+    "title": "Erinnerungen",
+    "empty": "Keine geplanten Erinnerungen",
+    "emptyDescription": "Erstelle eine Verknüpfung und plane, wann sie sich öffnet",
+    "upcoming": "Bevorstehend",
+    "past": "Vergangen"
+  },
+  "profile": {
+    "title": "Profil",
+    "signIn": "Anmelden",
+    "signOut": "Abmelden",
+    "signInDescription": "Melde dich an, um deine Lesezeichen über Geräte hinweg zu synchronisieren",
+    "syncStatus": "Synchronisierungsstatus",
+    "localBookmarks": "Lokale Lesezeichen",
+    "cloudBookmarks": "Cloud-Lesezeichen",
+    "lastSync": "Letzte Synchronisierung",
+    "deleteAccount": "Konto löschen",
+    "deleteAccountWarning": "Dies löscht dauerhaft dein Konto und alle Cloud-Daten."
+  },
+  "settings": {
+    "title": "Einstellungen",
+    "description": "App-Einstellungen konfigurieren",
+    "appearance": "Erscheinungsbild",
+    "light": "Hell",
+    "dark": "Dunkel",
+    "system": "System",
+    "clipboardDetection": "Zwischenablage-URL-Erkennung",
+    "clipboardDescription": "Vorschläge anzeigen, wenn eine URL kopiert wird",
+    "language": "Sprache",
+    "privacy": "Datenschutzrichtlinie",
+    "about": "Über"
+  },
+  "common": {
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "delete": "Löschen",
+    "edit": "Bearbeiten",
+    "done": "Fertig",
+    "loading": "Wird geladen...",
+    "error": "Fehler",
+    "success": "Erfolg",
+    "confirm": "Bestätigen",
+    "close": "Schließen",
+    "back": "Zurück",
+    "retry": "Erneut versuchen"
+  },
+  "errors": {
+    "generic": "Etwas ist schiefgelaufen",
+    "network": "Keine Internetverbindung",
+    "permissionDenied": "Berechtigung verweigert"
+  },
+  "permissions": {
+    "storage": {
+      "title": "Auf Dateien zugreifen",
+      "description": "Um Verknüpfungen für deine Fotos, Videos und Dokumente zu erstellen, benötigen wir die Berechtigung, auf deine Dateien zuzugreifen."
+    },
+    "notifications": {
+      "title": "Bleib auf dem Laufenden",
+      "description": "Aktiviere Benachrichtigungen, um Erinnerungen zu erhalten, wenn deine geplanten Verknüpfungen bereit sind."
+    }
+  }
+}

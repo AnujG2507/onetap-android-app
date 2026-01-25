@@ -1,0 +1,116 @@
+{
+  "app": {
+    "name": "OneTap",
+    "tagline": "Um toque para o que importa"
+  },
+  "onboarding": {
+    "skip": "Pular",
+    "next": "Próximo",
+    "getStarted": "Começar",
+    "step1": {
+      "title": "Um toque para o que importa",
+      "description": "Crie atalhos para seus arquivos, links e contatos mais importantes. Acesse instantaneamente da sua tela inicial."
+    },
+    "step2": {
+      "title": "Crie em segundos",
+      "description": "Selecione qualquer arquivo, link ou contato. Personalize o ícone e o nome. Adicione à sua tela inicial com um toque."
+    },
+    "step3": {
+      "title": "Mantenha-se organizado",
+      "description": "Agende lembretes, salve favoritos e sincronize entre dispositivos. Seus atalhos, do seu jeito."
+    }
+  },
+  "tabs": {
+    "access": "Acesso",
+    "notifications": "Lembretes",
+    "bookmarks": "Biblioteca",
+    "profile": "Perfil"
+  },
+  "access": {
+    "title": "Acesso",
+    "createShortcut": "Criar um atalho",
+    "photo": "Foto",
+    "video": "Vídeo",
+    "audio": "Áudio",
+    "document": "Documento",
+    "contact": "Contato",
+    "link": "Link",
+    "browseFiles": "Navegar arquivos",
+    "savedBookmarks": "Favoritos salvos",
+    "contactCall": "Ligar",
+    "contactMessage": "Mensagem",
+    "contactCallDesc": "Ligação direta",
+    "contactMessageDesc": "WhatsApp",
+    "chooseAction": "Escolha o tipo de ação"
+  },
+  "library": {
+    "title": "Biblioteca",
+    "empty": "Sem favoritos ainda",
+    "emptyDescription": "Salve links do menu compartilhar ou crie aqui",
+    "search": "Buscar favoritos...",
+    "addBookmark": "Adicionar favorito",
+    "folders": "Pastas",
+    "allBookmarks": "Todos os favoritos"
+  },
+  "notifications": {
+    "title": "Lembretes",
+    "empty": "Sem lembretes agendados",
+    "emptyDescription": "Crie um atalho e agende quando ele abre",
+    "upcoming": "Próximos",
+    "past": "Passados"
+  },
+  "profile": {
+    "title": "Perfil",
+    "signIn": "Entrar",
+    "signOut": "Sair",
+    "signInDescription": "Entre para sincronizar seus favoritos entre dispositivos",
+    "syncStatus": "Status da sincronização",
+    "localBookmarks": "Favoritos locais",
+    "cloudBookmarks": "Favoritos na nuvem",
+    "lastSync": "Última sincronização",
+    "deleteAccount": "Excluir conta",
+    "deleteAccountWarning": "Isso excluirá permanentemente sua conta e todos os dados na nuvem."
+  },
+  "settings": {
+    "title": "Configurações",
+    "description": "Configure as preferências do app",
+    "appearance": "Aparência",
+    "light": "Claro",
+    "dark": "Escuro",
+    "system": "Sistema",
+    "clipboardDetection": "Detecção de URL da área de transferência",
+    "clipboardDescription": "Mostrar sugestões quando uma URL é copiada",
+    "language": "Idioma",
+    "privacy": "Política de privacidade",
+    "about": "Sobre"
+  },
+  "common": {
+    "save": "Salvar",
+    "cancel": "Cancelar",
+    "delete": "Excluir",
+    "edit": "Editar",
+    "done": "Concluído",
+    "loading": "Carregando...",
+    "error": "Erro",
+    "success": "Sucesso",
+    "confirm": "Confirmar",
+    "close": "Fechar",
+    "back": "Voltar",
+    "retry": "Tentar novamente"
+  },
+  "errors": {
+    "generic": "Algo deu errado",
+    "network": "Sem conexão com a internet",
+    "permissionDenied": "Permissão negada"
+  },
+  "permissions": {
+    "storage": {
+      "title": "Acesse seus arquivos",
+      "description": "Para criar atalhos para suas fotos, vídeos e documentos, precisamos de permissão para acessar seus arquivos."
+    },
+    "notifications": {
+      "title": "Fique em dia",
+      "description": "Ative as notificações para receber lembretes quando seus atalhos agendados estiverem prontos."
+    }
+  }
+}

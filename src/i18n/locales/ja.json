@@ -1,0 +1,116 @@
+{
+  "app": {
+    "name": "OneTap",
+    "tagline": "ワンタップで大切なものへ"
+  },
+  "onboarding": {
+    "skip": "スキップ",
+    "next": "次へ",
+    "getStarted": "始める",
+    "step1": {
+      "title": "ワンタップで大切なものへ",
+      "description": "最も重要なファイル、リンク、連絡先へのショートカットを作成。ホーム画面から即座にアクセス。"
+    },
+    "step2": {
+      "title": "数秒で作成",
+      "description": "ファイル、リンク、連絡先を選択。アイコンと名前をカスタマイズ。ワンタップでホーム画面に追加。"
+    },
+    "step3": {
+      "title": "整理整頓を",
+      "description": "リマインダーのスケジュール、ブックマークの保存、デバイス間の同期。あなたのショートカット、あなたのやり方で。"
+    }
+  },
+  "tabs": {
+    "access": "アクセス",
+    "notifications": "リマインダー",
+    "bookmarks": "ライブラリ",
+    "profile": "プロフィール"
+  },
+  "access": {
+    "title": "アクセス",
+    "createShortcut": "ショートカットを作成",
+    "photo": "写真",
+    "video": "動画",
+    "audio": "音声",
+    "document": "ドキュメント",
+    "contact": "連絡先",
+    "link": "リンク",
+    "browseFiles": "すべてのファイルを閲覧",
+    "savedBookmarks": "保存したブックマーク",
+    "contactCall": "電話",
+    "contactMessage": "メッセージ",
+    "contactCallDesc": "直接発信",
+    "contactMessageDesc": "WhatsApp",
+    "chooseAction": "アクションタイプを選択"
+  },
+  "library": {
+    "title": "ライブラリ",
+    "empty": "ブックマークはまだありません",
+    "emptyDescription": "共有メニューからリンクを保存するか、ここで作成してください",
+    "search": "ブックマークを検索...",
+    "addBookmark": "ブックマークを追加",
+    "folders": "フォルダ",
+    "allBookmarks": "すべてのブックマーク"
+  },
+  "notifications": {
+    "title": "リマインダー",
+    "empty": "スケジュールされたリマインダーはありません",
+    "emptyDescription": "ショートカットを作成し、開く時間をスケジュールしてください",
+    "upcoming": "今後",
+    "past": "過去"
+  },
+  "profile": {
+    "title": "プロフィール",
+    "signIn": "サインイン",
+    "signOut": "サインアウト",
+    "signInDescription": "デバイス間でブックマークを同期するにはサインインしてください",
+    "syncStatus": "同期ステータス",
+    "localBookmarks": "ローカルブックマーク",
+    "cloudBookmarks": "クラウドブックマーク",
+    "lastSync": "最終同期",
+    "deleteAccount": "アカウントを削除",
+    "deleteAccountWarning": "これにより、アカウントとすべてのクラウドデータが完全に削除されます。"
+  },
+  "settings": {
+    "title": "設定",
+    "description": "アプリの設定を構成",
+    "appearance": "外観",
+    "light": "ライト",
+    "dark": "ダーク",
+    "system": "システム",
+    "clipboardDetection": "クリップボードURL検出",
+    "clipboardDescription": "URLがコピーされたときに提案を表示",
+    "language": "言語",
+    "privacy": "プライバシーポリシー",
+    "about": "について"
+  },
+  "common": {
+    "save": "保存",
+    "cancel": "キャンセル",
+    "delete": "削除",
+    "edit": "編集",
+    "done": "完了",
+    "loading": "読み込み中...",
+    "error": "エラー",
+    "success": "成功",
+    "confirm": "確認",
+    "close": "閉じる",
+    "back": "戻る",
+    "retry": "再試行"
+  },
+  "errors": {
+    "generic": "問題が発生しました",
+    "network": "インターネット接続がありません",
+    "permissionDenied": "権限が拒否されました"
+  },
+  "permissions": {
+    "storage": {
+      "title": "ファイルにアクセス",
+      "description": "写真、動画、ドキュメントへのショートカットを作成するには、ファイルへのアクセス権限が必要です。"
+    },
+    "notifications": {
+      "title": "スケジュール通りに",
+      "description": "スケジュールされたショートカットの準備ができたときにリマインダーを受け取るには、通知を有効にしてください。"
+    }
+  }
+}

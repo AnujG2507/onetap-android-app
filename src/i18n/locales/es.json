@@ -1,0 +1,116 @@
+{
+  "app": {
+    "name": "OneTap",
+    "tagline": "Un toque a lo que importa"
+  },
+  "onboarding": {
+    "skip": "Omitir",
+    "next": "Siguiente",
+    "getStarted": "Comenzar",
+    "step1": {
+      "title": "Un toque a lo que importa",
+      "description": "Crea accesos directos a tus archivos, enlaces y contactos más importantes. Accede instantáneamente desde tu pantalla de inicio."
+    },
+    "step2": {
+      "title": "Crea en segundos",
+      "description": "Selecciona cualquier archivo, enlace o contacto. Personaliza el icono y el nombre. Añádelo a tu pantalla de inicio con un toque."
+    },
+    "step3": {
+      "title": "Mantente organizado",
+      "description": "Programa recordatorios, guarda marcadores y sincroniza entre dispositivos. Tus accesos, a tu manera."
+    }
+  },
+  "tabs": {
+    "access": "Acceso",
+    "notifications": "Recordatorios",
+    "bookmarks": "Biblioteca",
+    "profile": "Perfil"
+  },
+  "access": {
+    "title": "Acceso",
+    "createShortcut": "Crear un acceso directo",
+    "photo": "Foto",
+    "video": "Video",
+    "audio": "Audio",
+    "document": "Documento",
+    "contact": "Contacto",
+    "link": "Enlace",
+    "browseFiles": "Explorar archivos",
+    "savedBookmarks": "Marcadores guardados",
+    "contactCall": "Llamar",
+    "contactMessage": "Mensaje",
+    "contactCallDesc": "Llamada directa",
+    "contactMessageDesc": "WhatsApp",
+    "chooseAction": "Elige tipo de acción"
+  },
+  "library": {
+    "title": "Biblioteca",
+    "empty": "Sin marcadores aún",
+    "emptyDescription": "Guarda enlaces desde el menú compartir o créalos aquí",
+    "search": "Buscar marcadores...",
+    "addBookmark": "Añadir marcador",
+    "folders": "Carpetas",
+    "allBookmarks": "Todos los marcadores"
+  },
+  "notifications": {
+    "title": "Recordatorios",
+    "empty": "Sin recordatorios programados",
+    "emptyDescription": "Crea un acceso directo y programa cuándo se abre",
+    "upcoming": "Próximos",
+    "past": "Pasados"
+  },
+  "profile": {
+    "title": "Perfil",
+    "signIn": "Iniciar sesión",
+    "signOut": "Cerrar sesión",
+    "signInDescription": "Inicia sesión para sincronizar tus marcadores entre dispositivos",
+    "syncStatus": "Estado de sincronización",
+    "localBookmarks": "Marcadores locales",
+    "cloudBookmarks": "Marcadores en la nube",
+    "lastSync": "Última sincronización",
+    "deleteAccount": "Eliminar cuenta",
+    "deleteAccountWarning": "Esto eliminará permanentemente tu cuenta y todos los datos en la nube."
+  },
+  "settings": {
+    "title": "Configuración",
+    "description": "Configura las preferencias de la app",
+    "appearance": "Apariencia",
+    "light": "Claro",
+    "dark": "Oscuro",
+    "system": "Sistema",
+    "clipboardDetection": "Detección de URL del portapapeles",
+    "clipboardDescription": "Mostrar sugerencias cuando se copia una URL",
+    "language": "Idioma",
+    "privacy": "Política de privacidad",
+    "about": "Acerca de"
+  },
+  "common": {
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "done": "Hecho",
+    "loading": "Cargando...",
+    "error": "Error",
+    "success": "Éxito",
+    "confirm": "Confirmar",
+    "close": "Cerrar",
+    "back": "Atrás",
+    "retry": "Reintentar"
+  },
+  "errors": {
+    "generic": "Algo salió mal",
+    "network": "Sin conexión a internet",
+    "permissionDenied": "Permiso denegado"
+  },
+  "permissions": {
+    "storage": {
+      "title": "Accede a tus archivos",
+      "description": "Para crear accesos directos a tus fotos, videos y documentos, necesitamos permiso para acceder a tus archivos."
+    },
+    "notifications": {
+      "title": "Mantente al día",
+      "description": "Activa las notificaciones para recibir recordatorios cuando tus accesos programados estén listos."
+    }
+  }
+}
