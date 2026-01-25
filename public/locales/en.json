@@ -1,12 +1,29 @@
 {
   "app": {
     "name": "OneTap",
-    "tagline": "One tap to what matters"
+    "tagline": "One tap to what matters",
+    "exitTitle": "Exit app?",
+    "exitDescription": "Are you sure you want to exit the app?",
+    "exit": "Exit"
   },
   "menu": {
     "title": "Menu",
     "trash": "Trash",
     "settings": "Settings"
+  },
+  "contact": {
+    "call": "Call",
+    "whatsapp": "WhatsApp",
+    "callName": "Call {{name}}",
+    "whatsappName": "WhatsApp {{name}}",
+    "callShortcut": "Call Shortcut",
+    "whatsappShortcut": "WhatsApp Shortcut",
+    "phoneNumber": "Phone Number",
+    "phonePlaceholder": "+1 234 567 8900",
+    "shortcutName": "Shortcut Name",
+    "callPlaceholder": "Call Mom",
+    "whatsappPlaceholder": "WhatsApp Mom",
+    "pickFromContacts": "Pick from contacts"
   },
   "onboarding": {
     "skip": "Skip",
@@ -371,6 +388,19 @@
     "linkSaved": "Link saved to library!",
     "linkDuplicate": "Link already in library",
     "linkFailed": "Could not save link"
+  },
+  "sharedUrl": {
+    "savedToLibrary": "Saved to Library",
+    "saveToLibrary": "Save to Library",
+    "linkReceived": "Link Received",
+    "quickSave": "Quick Save",
+    "editAndSave": "Edit & Save",
+    "shortcut": "Shortcut",
+    "title": "Title",
+    "descriptionOptional": "Description (optional)",
+    "addNote": "Add a note...",
+    "folderOptional": "Folder (optional)",
+    "none": "None"
   },
   "urlInput": {
     "title": "Enter link",

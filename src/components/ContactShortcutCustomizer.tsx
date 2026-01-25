@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Phone, X, UserCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -39,6 +40,7 @@ export function ContactShortcutCustomizer({
   onConfirm,
   onBack,
 }: ContactShortcutCustomizerProps) {
+  const { t } = useTranslation();
   const [name, setName] = useState(contact?.name || '');
   const [phoneNumber, setPhoneNumber] = useState(contact?.phoneNumber || '');
   const [isPickingContact, setIsPickingContact] = useState(false);
@@ -65,9 +67,9 @@ export function ContactShortcutCustomizer({
         setPhoneNumber(result.phoneNumber);
         if (result.name && !name) {
           if (mode === 'dial') {
-            setName(`Call ${result.name}`);
+            setName(t('contact.callName', { name: result.name }));
           } else {
-            setName(`WhatsApp ${result.name}`);
+            setName(t('contact.whatsappName', { name: result.name }));
           }
         }
       }
@@ -82,15 +84,15 @@ export function ContactShortcutCustomizer({
   useEffect(() => {
     if (!name && pickedContact?.name) {
       if (mode === 'dial') {
-        setName(`Call ${pickedContact.name}`);
+        setName(t('contact.callName', { name: pickedContact.name }));
       } else {
-        setName(`WhatsApp ${pickedContact.name}`);
+        setName(t('contact.whatsappName', { name: pickedContact.name }));
       }
     }
-  }, [pickedContact?.name, mode, name]);
+  }, [pickedContact?.name, mode, name, t]);
 
   const handleConfirm = () => {
-    const shortcutName = name || (mode === 'dial' ? 'Call' : 'WhatsApp');
+    const shortcutName = name || (mode === 'dial' ? t('contact.call') : t('contact.whatsapp'));
     
     onConfirm({
       name: shortcutName,
@@ -113,7 +115,7 @@ export function ContactShortcutCustomizer({
           <ArrowLeft className="h-5 w-5 text-muted-foreground" />
         </button>
         <h1 className="text-lg font-semibold text-foreground">
-          {mode === 'dial' ? 'Call Shortcut' : 'WhatsApp Shortcut'}
+          {mode === 'dial' ? t('contact.callShortcut') : t('contact.whatsappShortcut')}
         </h1>
       </header>
 
@@ -137,13 +139,13 @@ export function ContactShortcutCustomizer({
 
         {/* Phone Number Input with Contact Picker */}
         <div className="space-y-2">
-          <Label htmlFor="phone">Phone Number</Label>
+          <Label htmlFor="phone">{t('contact.phoneNumber')}</Label>
           <div className="flex gap-2">
             <div className="relative flex-1">
               <Input
                 id="phone"
                 type="tel"
-                placeholder="+1 234 567 8900"
+                placeholder={t('contact.phonePlaceholder')}
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value)}
                 className="text-lg pr-10"
@@ -156,7 +158,7 @@ export function ContactShortcutCustomizer({
                     setPickedContact(null);
                   }}
                   className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
-                  aria-label="Clear phone number"
+                  aria-label={t('common.clearText')}
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -169,7 +171,7 @@ export function ContactShortcutCustomizer({
               onClick={handlePickContact}
               disabled={isPickingContact}
               className="h-12 w-12 shrink-0"
-              aria-label="Pick from contacts"
+              aria-label={t('contact.pickFromContacts')}
             >
               <UserCircle2 className="h-5 w-5" />
             </Button>
@@ -178,11 +180,11 @@ export function ContactShortcutCustomizer({
 
         {/* Shortcut Name */}
         <div className="space-y-2">
-          <Label htmlFor="name">Shortcut Name</Label>
+          <Label htmlFor="name">{t('contact.shortcutName')}</Label>
           <div className="relative">
             <Input
               id="name"
-              placeholder={mode === 'dial' ? 'Call Mom' : 'WhatsApp Mom'}
+              placeholder={mode === 'dial' ? t('contact.callPlaceholder') : t('contact.whatsappPlaceholder')}
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="pr-10"
@@ -192,7 +194,7 @@ export function ContactShortcutCustomizer({
                 type="button"
                 onClick={() => setName('')}
                 className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
-                aria-label="Clear shortcut name"
+                aria-label={t('common.clearText')}
               >
                 <X className="h-4 w-4" />
               </button>
@@ -216,7 +218,7 @@ export function ContactShortcutCustomizer({
           className="w-full h-14 text-lg font-semibold"
           size="lg"
         >
-          Add to Home Screen
+          {t('shortcutCustomizer.addToHomeScreen')}
         </Button>
       </div>
     </div>

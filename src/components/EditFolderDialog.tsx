@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Pencil, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -26,6 +27,7 @@ export function EditFolderDialog({
   folderName, 
   onFolderUpdated 
 }: EditFolderDialogProps) {
+  const { t } = useTranslation();
   const [newName, setNewName] = useState(folderName);
   const [selectedIcon, setSelectedIcon] = useState('Folder');
   const { toast } = useToast();
@@ -43,7 +45,7 @@ export function EditFolderDialog({
     
     if (!trimmed) {
       toast({
-        title: 'Please enter a folder name',
+        title: t('folders.enterName'),
         duration: 2000,
       });
       return;
@@ -53,8 +55,8 @@ export function EditFolderDialog({
     if (trimmed !== folderName) {
       if (PRESET_TAGS.includes(trimmed) || getCustomFolders().includes(trimmed)) {
         toast({
-          title: 'Folder already exists',
-          description: 'Please choose a different name',
+          title: t('folders.folderExists'),
+          description: t('folders.folderExistsDesc'),
           duration: 2000,
         });
         return;
@@ -70,7 +72,7 @@ export function EditFolderDialog({
     setFolderIcon(trimmed, selectedIcon);
     
     toast({
-      title: 'Folder updated',
+      title: t('folders.folderUpdated'),
       duration: 2000,
     });
     triggerHaptic('success');
@@ -82,14 +84,14 @@ export function EditFolderDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Edit Folder</DialogTitle>
+          <DialogTitle>{t('folders.editTitle')}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 pt-4">
           <div className="relative">
             <Input
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              placeholder="Folder name..."
+              placeholder={t('folders.namePlaceholder')}
               autoFocus
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
@@ -110,7 +112,7 @@ export function EditFolderDialog({
           
           {/* Icon Picker */}
           <div>
-            <p className="text-sm font-medium text-muted-foreground mb-3">Choose an icon</p>
+            <p className="text-sm font-medium text-muted-foreground mb-3">{t('folders.chooseIcon')}</p>
             <FolderIconPicker 
               selectedIcon={selectedIcon} 
               onSelectIcon={setSelectedIcon} 
@@ -119,10 +121,10 @@ export function EditFolderDialog({
           
           <div className="flex gap-2 justify-end pt-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button onClick={handleSave}>
-              Save Changes
+              {t('folders.saveChanges')}
             </Button>
           </div>
         </div>
