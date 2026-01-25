@@ -74,6 +74,7 @@
     "listTooltip": "View all bookmarks in a single list",
     "foldersTooltip": "Organize bookmarks by folder",
     "clearSearch": "Clear search",
+    "sort": "Sort:",
     "sortManual": "Manual",
     "sortNewest": "Newest",
     "sortAZ": "A-Z",
@@ -91,6 +92,7 @@
     "deselectAll": "Deselect all",
     "clear": "Clear",
     "clearTooltip": "Clear selection and exit selection mode",
+    "clearSelection": "Clear selection",
     "movedToTrash": "Moved to trash",
     "undo": "Undo",
     "bookmarkUpdated": "Bookmark updated",
@@ -103,7 +105,19 @@
     "bulkDeletedPermanent": "{{count}} bookmark(s) permanently deleted",
     "bulkMoved": "{{count}} bookmark(s) moved",
     "creatingShortcuts": "Creating {{count}} shortcut(s)...",
-    "movedTo": "Moved to {{folder}}"
+    "movedTo": "Moved to {{folder}}",
+    "selected": "{{count}} selected",
+    "move": "Move",
+    "moveToFolder": "Move to folder",
+    "moveToFolderTooltip": "Move selected to folder",
+    "shortcut": "Shortcut",
+    "shortcutTooltip": "Add shortcut to home screen",
+    "editTooltip": "Edit bookmark details",
+    "deleteTooltip": "Delete selected bookmarks",
+    "deleteConfirmTitle": "Delete {{count}} bookmark(s)?",
+    "deleteConfirmDesc": "Selected bookmarks will be moved to trash. Items in trash are automatically deleted after {{days}} days.",
+    "moveToTrash": "Move to Trash",
+    "deletePermanently": "Delete Permanently"
   },
   "addBookmark": {
     "title": "Add New Bookmark",
@@ -140,6 +154,8 @@
     "emptyDesc": "Deleted bookmarks will appear here for {{days}} days before being permanently removed.",
     "noItems": "No items in trash",
     "itemCount": "{{count}} item(s)",
+    "itemCountSingular": "{{count}} item",
+    "itemCountPlural": "{{count}} items",
     "swipeHint": "Swipe right to restore, left to delete",
     "restoreAll": "Restore All",
     "emptyTrash": "Empty Trash",
@@ -155,6 +171,22 @@
     "trashEmptiedDesc": "All items have been permanently deleted",
     "allRestored": "All items restored",
     "allRestoredDesc": "{{count}} bookmark(s) restored"
+  },
+  "bookmarkAction": {
+    "openInBrowser": "Open in Browser",
+    "createShortcut": "Create Home Screen Shortcut",
+    "edit": "Edit",
+    "delete": "Delete",
+    "deleteConfirm": "Delete bookmark?",
+    "deleteConfirmDesc": "\"{{title}}\" will be moved to trash. Items in trash are automatically deleted after {{days}} days.",
+    "moveToTrash": "Move to Trash",
+    "deletePermanently": "Delete Permanently",
+    "urlPlaceholder": "URL",
+    "titlePlaceholder": "Title",
+    "descriptionPlaceholder": "Description (optional)",
+    "tagLabel": "Tag",
+    "urlRequired": "URL is required",
+    "invalidUrl": "Please enter a valid URL"
   },
   "scheduledActions": {
     "title": "Scheduled Actions",
@@ -184,7 +216,11 @@
     "tryAgain": "Please try again.",
     "expired": "Expired",
     "deleteConfirm": "Delete scheduled action?",
-    "deleteConfirmDesc": "\"{{name}}\" will be permanently deleted. This action cannot be undone."
+    "deleteConfirmDesc": "\"{{name}}\" will be permanently deleted. This action cannot be undone.",
+    "recurrenceOnce": "once",
+    "recurrenceDaily": "daily",
+    "recurrenceWeekly": "weekly",
+    "recurrenceYearly": "yearly"
   },
   "notifications": {
     "title": "Reminders",
@@ -194,6 +230,55 @@
     "upcoming": "Upcoming",
     "past": "Past",
     "search": "Search actions..."
+  },
+  "notificationsPage": {
+    "title": "Reminders",
+    "searchPlaceholder": "Search actions...",
+    "filterAll": "All",
+    "filterOnce": "Once",
+    "filterDaily": "Daily",
+    "filterWeekly": "Weekly",
+    "filterYearly": "Yearly",
+    "sortByTrigger": "Sort by trigger time",
+    "sortAlpha": "Sort alphabetically",
+    "sortRecurrence": "Sort by recurrence type",
+    "reversedOrder": "Reversed order",
+    "normalOrder": "Normal order",
+    "selected": "{{count}} selected",
+    "selectionCleared": "Selection cleared",
+    "bulkEnabled": "{{count}} action(s) enabled",
+    "bulkDisabled": "{{count}} action(s) disabled",
+    "bulkDeleted": "{{count}} action(s) deleted",
+    "enable": "Enable",
+    "enableTooltip": "Enable selected actions",
+    "disable": "Disable",
+    "disableTooltip": "Disable selected actions",
+    "deleteTooltip": "Delete selected actions",
+    "scheduleNew": "Schedule Action",
+    "scheduleNewTooltip": "Schedule a new action",
+    "scheduleFirst": "Schedule your first action",
+    "emptyTitle": "No scheduled actions",
+    "emptyDesc": "Schedule links, files, or contacts to open at specific times",
+    "noMatchTitle": "No actions match",
+    "noMatchDesc": "Try a different search or filter",
+    "clearFilters": "Clear Filters",
+    "deleteConfirmTitle": "Delete {{count}} action(s)?",
+    "deleteConfirmDesc": "These actions will be permanently deleted. This action cannot be undone.",
+    "requesting": "Requesting...",
+    "ok": "OK",
+    "permissions": "Permissions",
+    "allPermissionsGranted": "All permissions granted",
+    "grantPermissions": "Grant required permissions",
+    "notificationsLabel": "Notifications",
+    "alarmsLabel": "Alarms",
+    "permissionsGranted": "Permissions granted",
+    "permissionsGrantedDesc": "You can now schedule actions",
+    "enableAlarms": "Enable exact alarms",
+    "enableAlarmsDesc": "Open settings to enable exact alarms for scheduled actions",
+    "openSettings": "Open Settings",
+    "notificationDenied": "Notification permission denied",
+    "notificationDeniedDesc": "Scheduled actions will not trigger notifications",
+    "permissionsFailed": "Permission request failed"
   },
   "profile": {
     "title": "Profile",
@@ -245,7 +330,8 @@
     "deleting": "Deleting...",
     "signInFailed": "Sign in failed",
     "sessionExpired": "Session expired. Please try signing in again.",
-    "couldNotSignIn": "Could not sign in with Google. Please try again."
+    "couldNotSignIn": "Could not sign in with Google. Please try again.",
+    "tryAgainLater": "Please try again later"
   },
   "settings": {
     "title": "Settings",
@@ -262,38 +348,41 @@
     "resetOnboarding": "Reset Onboarding",
     "resetOnboardingDescription": "Re-experience language selection and intro"
   },
-  "shortcut": {
-    "setupAccess": "Set up access",
-    "name": "Name",
+  "shortcutCustomizer": {
+    "setUpAccess": "Set up access",
+    "nameLabel": "Name",
     "namePlaceholder": "Enter a name",
-    "icon": "Icon",
-    "iconImage": "Image",
-    "iconEmoji": "Emoji",
-    "iconText": "Text",
-    "iconTextPlaceholder": "1-2 characters",
-    "preview": "Preview",
+    "iconLabel": "Icon",
     "returnToLastPage": "Return to last page",
-    "openWhereLeftOff": "Open where you left off",
-    "addToHomeScreen": "Add to Home Screen",
-    "adding": "Adding..."
+    "openWhereYouLeftOff": "Open where you left off",
+    "preview": "Preview",
+    "access": "Access",
+    "adding": "Adding...",
+    "addToHomeScreen": "Add to Home Screen"
   },
-  "success": {
-    "title": "Added to Home Screen",
-    "ready": "\"{{name}}\" is ready",
-    "hint": "One tap from your home screen to open instantly",
-    "addAnother": "Add another"
+  "iconPicker": {
+    "icon": "Icon",
+    "image": "Image",
+    "emoji": "Emoji",
+    "text": "Text",
+    "textPlaceholder": "1-2 characters"
+  },
+  "toasts": {
+    "linkSaved": "Link saved to library!",
+    "linkDuplicate": "Link already in library",
+    "linkFailed": "Could not save link"
   },
   "urlInput": {
     "title": "Enter link",
+    "enterLink": "Enter link",
     "placeholder": "Paste or type a URL",
     "saveToLibrary": "Save to Library",
     "opensIn": "Opens in {{platform}}",
     "continue": "Continue",
     "noUrlDetected": "No URL detected on clipboard",
-    "unableToAccessClipboard": "Unable to access clipboard",
-    "linkSaved": "Link saved to library!",
-    "linkDuplicate": "Link already in library",
-    "linkFailed": "Could not save link"
+    "clipboardAccessError": "Unable to access clipboard",
+    "invalidUrl": "Please enter a valid URL",
+    "pasteFromClipboard": "Paste from clipboard"
   },
   "clipboard": {
     "detected": "URL Detected",
@@ -322,7 +411,17 @@
     "back": "Back",
     "retry": "Retry",
     "previous": "Previous",
-    "next": "Next"
+    "next": "Next",
+    "continue": "Continue",
+    "clearTitle": "Clear title",
+    "clearText": "Clear text"
+  },
+  "pagination": {
+    "previous": "Previous",
+    "next": "Next",
+    "goToPrevious": "Go to previous page",
+    "goToNext": "Go to next page",
+    "morePages": "More pages"
   },
   "permissions": {
     "storage": {
@@ -333,5 +432,25 @@
       "title": "Stay on schedule",
       "description": "Enable notifications to receive reminders when your scheduled shortcuts are ready to open."
     }
+  },
+  "success": {
+    "title": "Added to Home Screen",
+    "ready": "\"{{name}}\" is ready",
+    "hint": "One tap from your home screen to open instantly",
+    "addAnother": "Add another"
+  },
+  "usage": {
+    "title": "Usage Insights",
+    "shortcuts": "Shortcuts",
+    "totalTaps": "Total Taps",
+    "weeklyActivity": "This Week",
+    "topShortcuts": "Most Used",
+    "taps": "taps",
+    "noShortcuts": "Create your first shortcut to see insights!",
+    "startUsing": "Start using your shortcuts to see your stats!",
+    "gettingStarted": "You're getting started! Keep it up!",
+    "doingGreat": "You're doing great! {{taps}} taps saved this month.",
+    "powerUser": "Power user! You've saved {{taps}} taps this month! 🔥",
+    "superUser": "🏆 Super user! {{taps}} taps saved this month!"
   }
 }
