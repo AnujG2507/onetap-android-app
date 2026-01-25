@@ -21,6 +21,7 @@ import type { SavedLink } from '@/lib/savedLinksManager';
 import { getSettings } from '@/lib/settingsManager';
 import { detectPlatform } from '@/lib/platformIcons';
 import { PlatformIcon } from '@/components/PlatformIcon';
+import { useRTL } from '@/hooks/useRTL';
 
 interface BookmarkItemProps {
   link: SavedLink;
@@ -56,6 +57,7 @@ export function BookmarkItem({
   isDragDisabled,
   isSelectionMode = false,
 }: BookmarkItemProps) {
+  const { isRTL, isDeleteSwipe, getSwipeTransform } = useRTL();
   const faviconUrl = extractFaviconUrl(link.url);
   const platform = useMemo(() => detectPlatform(link.url), [link.url]);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
@@ -163,20 +165,19 @@ export function BookmarkItem({
       }
     }
     
-    // Only handle horizontal swipes (left swipe for delete)
-    if (isHorizontalSwipe.current && deltaX < 0) {
+    // Only handle horizontal swipes for delete action (RTL-aware)
+    if (isHorizontalSwipe.current && isDeleteSwipe(deltaX)) {
       e.preventDefault();
-      // Limit the swipe distance with resistance
-      const resistance = 0.5;
-      const limitedDelta = Math.max(deltaX * resistance, -SWIPE_DELETE_THRESHOLD);
-      setSwipeX(limitedDelta);
+      // Calculate swipe distance with resistance (RTL-aware)
+      const swipeDistance = getSwipeTransform(deltaX, SWIPE_DELETE_THRESHOLD);
+      setSwipeX(swipeDistance);
       
       // Haptic feedback when crossing threshold
       if (Math.abs(deltaX) >= SWIPE_THRESHOLD && Math.abs(swipeX) < SWIPE_THRESHOLD) {
         triggerHaptic('light');
       }
     }
-  }, [isSelectionMode, handleLongPressEnd, swipeX]);
+  }, [isSelectionMode, handleLongPressEnd, swipeX, isDeleteSwipe, getSwipeTransform]);
 
   const handleTouchEnd = useCallback(() => {
     handleLongPressEnd();
@@ -219,10 +220,12 @@ export function BookmarkItem({
         isDragging && "opacity-50 shadow-lg scale-[1.02] z-50"
       )}
     >
-      {/* Delete action background */}
+      {/* Delete action background - RTL-aware positioning */}
       <div 
         className={cn(
-          "absolute inset-y-0 right-0 flex items-center justify-end px-4 bg-destructive transition-opacity",
+          "absolute inset-y-0 flex items-center px-4 bg-destructive transition-opacity",
+          // Position on the correct side based on text direction
+          isRTL ? "start-0 justify-start" : "end-0 justify-end",
           Math.abs(swipeX) > 20 ? "opacity-100" : "opacity-0"
         )}
         style={{ width: Math.abs(swipeX) + 20 }}
@@ -239,7 +242,7 @@ export function BookmarkItem({
           "w-full flex items-start gap-2 p-4",
           "bg-card hover:bg-muted/50",
           "transition-all duration-200",
-          "text-left group border",
+          "text-start group border",
           // Selection mode visual feedback
           isSelectionMode && link.isShortlisted
             ? "border-primary/50 bg-primary/5 ring-1 ring-primary/20"
@@ -267,7 +270,7 @@ export function BookmarkItem({
                 <GripVertical className="h-5 w-5 text-primary/70" />
               </button>
             </TooltipTrigger>
-            <TooltipContent side="left" className="text-xs">
+            <TooltipContent side={isRTL ? "right" : "left"} className="text-xs">
               Drag to reorder
             </TooltipContent>
           </Tooltip>
@@ -293,7 +296,7 @@ export function BookmarkItem({
           onMouseDown={handleLongPressStart}
           onMouseUp={handleLongPressEnd}
           onMouseLeave={handleLongPressEnd}
-          className="flex-1 flex items-start gap-3 text-left active:scale-[0.99] transition-transform select-none"
+          className="flex-1 flex items-start gap-3 text-start active:scale-[0.99] transition-transform select-none"
         >
           {/* Platform icon or Favicon */}
           {platform ? (
@@ -320,7 +323,7 @@ export function BookmarkItem({
             <p className="font-medium text-foreground truncate">{link.title}</p>
             <div 
               className={cn(
-                "flex items-start gap-1 text-xs text-muted-foreground mt-0.5 text-left",
+                "flex items-start gap-1 text-xs text-muted-foreground mt-0.5 text-start",
                 !isSelectionMode && "hover:text-muted-foreground/80 cursor-pointer"
               )}
               onClick={(e) => {

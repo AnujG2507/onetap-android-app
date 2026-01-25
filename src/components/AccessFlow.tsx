@@ -281,7 +281,7 @@ export function AccessFlow({
         <>
           {/* Offline indicator banner */}
           {!isOnline && (
-            <div className="bg-muted/80 border-b border-border px-5 py-2 flex items-center gap-2">
+            <div className="bg-muted/80 border-b border-border ps-5 pe-5 py-2 flex items-center gap-2">
               <WifiOff className="h-4 w-4 text-muted-foreground" />
               <span className="text-xs text-muted-foreground">
                 {t('access.offline')}
@@ -289,7 +289,7 @@ export function AccessFlow({
             </div>
           )}
 
-          <header className="px-5 pt-8 pb-4">
+          <header className="ps-5 pe-5 pt-8 pb-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Zap className="h-5 w-5 text-primary" />

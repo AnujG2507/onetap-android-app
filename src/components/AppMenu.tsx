@@ -28,6 +28,7 @@ import { useSheetBackHandler } from '@/hooks/useSheetBackHandler';
 import { CloudBackupSection } from './CloudBackupSection';
 import { useSettings } from '@/hooks/useSettings';
 import { useOnboarding } from '@/hooks/useOnboarding';
+import { useRTL } from '@/hooks/useRTL';
 
 type ThemeOption = 'light' | 'dark' | 'system';
 
@@ -39,6 +40,7 @@ interface AppMenuProps {
 
 export function AppMenu({ onOpenTrash }: AppMenuProps) {
   const { t } = useTranslation();
+  const { menuSide, shouldCloseOnSwipe } = useRTL();
   const [open, setOpen] = useState(false);
   const [trashCount, setTrashCount] = useState(getTrashCount());
   const [expiringCount, setExpiringCount] = useState(0);
@@ -99,8 +101,8 @@ export function AppMenu({ onOpenTrash }: AppMenuProps) {
   const handleTouchEnd = () => {
     if (touchStartX.current !== null && touchCurrentX.current !== null) {
       const deltaX = touchCurrentX.current - touchStartX.current;
-      // Swipe right to close (since menu is on the right side)
-      if (deltaX > SWIPE_THRESHOLD) {
+      // RTL-aware swipe to close
+      if (shouldCloseOnSwipe(deltaX)) {
         setOpen(false);
       }
     }
@@ -114,28 +116,28 @@ export function AppMenu({ onOpenTrash }: AppMenuProps) {
         <Button variant="ghost" size="icon" className="h-9 w-9 relative">
           <Menu className="h-5 w-5" />
           {expiringCount > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-amber-500 flex items-center justify-center">
+            <span className="absolute -top-0.5 -end-0.5 h-4 w-4 rounded-full bg-amber-500 flex items-center justify-center">
               <AlertTriangle className="h-2.5 w-2.5 text-white" />
             </span>
           )}
         </Button>
       </SheetTrigger>
       <SheetContent 
-        side="right" 
+        side={menuSide as "left" | "right"}
         className="w-72 flex flex-col"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
         <SheetHeader className="pb-4">
-          <SheetTitle className="text-left">{t('menu.title', 'Menu')}</SheetTitle>
+          <SheetTitle className="text-start">{t('menu.title', 'Menu')}</SheetTitle>
         </SheetHeader>
 
         <div className="flex flex-col gap-1 flex-1">
           {/* Trash */}
           <Button
             variant="ghost"
-            className="w-full justify-start h-12 px-3"
+            className="w-full justify-start h-12 ps-3 pe-3"
             onClick={() => handleMenuItem(onOpenTrash)}
           >
             <div className="flex items-center gap-3 flex-1">
@@ -166,10 +168,10 @@ export function AppMenu({ onOpenTrash }: AppMenuProps) {
         {/* Settings Section - at bottom */}
         <div className="mt-auto pt-4">
           <Separator className="mb-4" />
-          <p className="text-xs text-muted-foreground px-3 mb-3">{t('settings.title')}</p>
+          <p className="text-xs text-muted-foreground ps-3 mb-3">{t('settings.title')}</p>
           
           {/* Theme Selection */}
-          <div className="px-3 mb-4">
+          <div className="ps-3 pe-3 mb-4">
             <p className="text-sm font-medium mb-2">{t('settings.appearance')}</p>
             <div className="flex gap-1">
               {themeOptions.map((option) => (
@@ -191,7 +193,7 @@ export function AppMenu({ onOpenTrash }: AppMenuProps) {
           </div>
 
           {/* Language Selection */}
-          <div className="px-3 mb-2">
+          <div className="ps-3 pe-3 mb-2">
             <LanguagePicker 
               open={languagePickerOpen} 
               onOpenChange={setLanguagePickerOpen} 
@@ -199,13 +201,13 @@ export function AppMenu({ onOpenTrash }: AppMenuProps) {
           </div>
           
           {/* Clipboard Detection Toggle */}
-          <div className="flex items-center justify-between px-3 py-2">
+          <div className="flex items-center justify-between ps-3 pe-3 py-2">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <Clipboard className="h-4 w-4 text-muted-foreground shrink-0" />
                 <span className="text-sm">{t('settings.clipboardDetection')}</span>
               </div>
-              <p className="text-xs text-muted-foreground mt-0.5 pl-6">
+              <p className="text-xs text-muted-foreground mt-0.5 ps-6">
                 {t('settings.clipboardDescription')}
               </p>
             </div>
@@ -218,19 +220,19 @@ export function AppMenu({ onOpenTrash }: AppMenuProps) {
           {/* Reset Onboarding */}
           <Button
             variant="ghost"
-            className="w-full justify-start h-auto px-3 py-2 whitespace-normal"
+            className="w-full justify-start h-auto ps-3 pe-3 py-2 whitespace-normal"
             onClick={() => handleMenuItem(() => {
               resetOnboarding();
               // Reload to trigger the onboarding flow with fresh state
               window.location.reload();
             })}
           >
-            <div className="flex-1 min-w-0 text-left overflow-hidden">
+            <div className="flex-1 min-w-0 text-start overflow-hidden">
               <div className="flex items-center gap-2">
                 <RotateCcw className="h-4 w-4 text-muted-foreground shrink-0" />
                 <span className="text-sm truncate">{t('settings.resetOnboarding')}</span>
               </div>
-              <p className="text-xs text-muted-foreground mt-0.5 pl-6 break-words">
+              <p className="text-xs text-muted-foreground mt-0.5 ps-6 break-words">
                 {t('settings.resetOnboardingDescription')}
               </p>
             </div>
