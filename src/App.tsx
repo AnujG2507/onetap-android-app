@@ -29,8 +29,8 @@ const PageLoader = () => (
 );
 
 const App = () => (
-  <ErrorBoundary>
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+  <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+    <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <SheetRegistryProvider>
           <TooltipProvider>
@@ -61,8 +61,8 @@ const App = () => (
           </TooltipProvider>
         </SheetRegistryProvider>
       </QueryClientProvider>
-    </ThemeProvider>
-  </ErrorBoundary>
+    </ErrorBoundary>
+  </ThemeProvider>
 );
 
 export default App;
