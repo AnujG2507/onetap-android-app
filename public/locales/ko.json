@@ -1,0 +1,121 @@
+{
+  "app": {
+    "name": "OneTap",
+    "tagline": "한 번의 탭으로 중요한 것에"
+  },
+  "menu": {
+    "title": "메뉴",
+    "trash": "휴지통",
+    "settings": "설정"
+  },
+  "onboarding": {
+    "skip": "건너뛰기",
+    "next": "다음",
+    "getStarted": "시작하기",
+    "step1": {
+      "title": "한 번의 탭으로 중요한 것에",
+      "description": "가장 중요한 파일, 링크, 연락처에 대한 바로가기를 만드세요. 홈 화면에서 즉시 접근하세요."
+    },
+    "step2": {
+      "title": "몇 초 만에 생성",
+      "description": "파일, 링크 또는 연락처를 선택하세요. 아이콘과 이름을 사용자 지정하세요. 한 번의 탭으로 홈 화면에 추가하세요."
+    },
+    "step3": {
+      "title": "정리된 상태 유지",
+      "description": "알림을 예약하고, 북마크를 저장하고, 기기 간에 동기화하세요. 나만의 바로가기, 나만의 방식으로."
+    }
+  },
+  "tabs": {
+    "access": "접근",
+    "notifications": "알림",
+    "bookmarks": "라이브러리",
+    "profile": "프로필"
+  },
+  "access": {
+    "title": "접근",
+    "createShortcut": "바로가기 만들기",
+    "photo": "사진",
+    "video": "동영상",
+    "audio": "오디오",
+    "document": "문서",
+    "contact": "연락처",
+    "link": "링크",
+    "browseFiles": "모든 파일 찾아보기",
+    "savedBookmarks": "저장된 북마크",
+    "contactCall": "전화",
+    "contactMessage": "메시지",
+    "contactCallDesc": "바로 전화",
+    "contactMessageDesc": "WhatsApp",
+    "chooseAction": "동작 유형 선택"
+  },
+  "library": {
+    "title": "라이브러리",
+    "empty": "북마크 없음",
+    "emptyDescription": "공유 메뉴에서 링크를 저장하거나 여기서 만드세요",
+    "search": "북마크 검색...",
+    "addBookmark": "북마크 추가",
+    "folders": "폴더",
+    "allBookmarks": "모든 북마크"
+  },
+  "notifications": {
+    "title": "알림",
+    "empty": "예약된 알림 없음",
+    "emptyDescription": "바로가기를 만들고 열리는 시간을 예약하세요",
+    "upcoming": "예정",
+    "past": "지남"
+  },
+  "profile": {
+    "title": "프로필",
+    "signIn": "로그인",
+    "signOut": "로그아웃",
+    "signInDescription": "기기 간 북마크 동기화를 위해 로그인하세요",
+    "syncStatus": "동기화 상태",
+    "localBookmarks": "로컬 북마크",
+    "cloudBookmarks": "클라우드 북마크",
+    "lastSync": "마지막 동기화",
+    "deleteAccount": "계정 삭제",
+    "deleteAccountWarning": "계정과 모든 클라우드 데이터가 영구적으로 삭제됩니다."
+  },
+  "settings": {
+    "title": "설정",
+    "description": "앱 환경 설정 구성",
+    "appearance": "모양",
+    "light": "라이트",
+    "dark": "다크",
+    "system": "자동",
+    "clipboardDetection": "클립보드 URL 감지",
+    "clipboardDescription": "URL 복사 시 제안 표시",
+    "language": "언어",
+    "privacy": "개인정보 처리방침",
+    "about": "정보"
+  },
+  "common": {
+    "save": "저장",
+    "cancel": "취소",
+    "delete": "삭제",
+    "edit": "편집",
+    "done": "완료",
+    "loading": "로딩 중...",
+    "error": "오류",
+    "success": "성공",
+    "confirm": "확인",
+    "close": "닫기",
+    "back": "뒤로",
+    "retry": "다시 시도"
+  },
+  "errors": {
+    "generic": "문제가 발생했습니다",
+    "network": "인터넷 연결 없음",
+    "permissionDenied": "권한이 거부되었습니다"
+  },
+  "permissions": {
+    "storage": {
+      "title": "파일 접근",
+      "description": "사진, 동영상, 문서에 대한 바로가기를 만들려면 파일 접근 권한이 필요합니다."
+    },
+    "notifications": {
+      "title": "시간 맞추기",
+      "description": "예약된 바로가기가 준비되면 알림을 받을 수 있도록 알림을 활성화하세요."
+    }
+  }
+}

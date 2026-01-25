@@ -1,0 +1,121 @@
+{
+  "app": {
+    "name": "OneTap",
+    "tagline": "一键直达重要内容"
+  },
+  "menu": {
+    "title": "菜单",
+    "trash": "回收站",
+    "settings": "设置"
+  },
+  "onboarding": {
+    "skip": "跳过",
+    "next": "下一步",
+    "getStarted": "开始使用",
+    "step1": {
+      "title": "一键直达重要内容",
+      "description": "为您最重要的文件、链接和联系人创建快捷方式。从主屏幕即时访问。"
+    },
+    "step2": {
+      "title": "几秒钟内创建",
+      "description": "选择任何文件、链接或联系人。自定义图标和名称。一键添加到主屏幕。"
+    },
+    "step3": {
+      "title": "保持有序",
+      "description": "安排提醒、保存书签并在设备间同步。您的快捷方式，随心所欲。"
+    }
+  },
+  "tabs": {
+    "access": "访问",
+    "notifications": "提醒",
+    "bookmarks": "收藏库",
+    "profile": "个人"
+  },
+  "access": {
+    "title": "访问",
+    "createShortcut": "创建快捷方式",
+    "photo": "照片",
+    "video": "视频",
+    "audio": "音频",
+    "document": "文档",
+    "contact": "联系人",
+    "link": "链接",
+    "browseFiles": "浏览所有文件",
+    "savedBookmarks": "已保存的书签",
+    "contactCall": "通话",
+    "contactMessage": "消息",
+    "contactCallDesc": "直接拨号",
+    "contactMessageDesc": "WhatsApp",
+    "chooseAction": "选择操作类型"
+  },
+  "library": {
+    "title": "收藏库",
+    "empty": "暂无书签",
+    "emptyDescription": "从分享菜单保存链接或在此创建",
+    "search": "搜索书签...",
+    "addBookmark": "添加书签",
+    "folders": "文件夹",
+    "allBookmarks": "所有书签"
+  },
+  "notifications": {
+    "title": "提醒",
+    "empty": "暂无计划提醒",
+    "emptyDescription": "创建快捷方式并安排打开时间",
+    "upcoming": "即将到来",
+    "past": "已过期"
+  },
+  "profile": {
+    "title": "个人资料",
+    "signIn": "登录",
+    "signOut": "退出登录",
+    "signInDescription": "登录以在设备间同步书签",
+    "syncStatus": "同步状态",
+    "localBookmarks": "本地书签",
+    "cloudBookmarks": "云端书签",
+    "lastSync": "上次同步",
+    "deleteAccount": "删除账户",
+    "deleteAccountWarning": "这将永久删除您的账户和所有云端数据。"
+  },
+  "settings": {
+    "title": "设置",
+    "description": "配置应用偏好",
+    "appearance": "外观",
+    "light": "浅色",
+    "dark": "深色",
+    "system": "自动",
+    "clipboardDetection": "剪贴板URL检测",
+    "clipboardDescription": "复制URL时显示建议",
+    "language": "语言",
+    "privacy": "隐私政策",
+    "about": "关于"
+  },
+  "common": {
+    "save": "保存",
+    "cancel": "取消",
+    "delete": "删除",
+    "edit": "编辑",
+    "done": "完成",
+    "loading": "加载中...",
+    "error": "错误",
+    "success": "成功",
+    "confirm": "确认",
+    "close": "关闭",
+    "back": "返回",
+    "retry": "重试"
+  },
+  "errors": {
+    "generic": "出了点问题",
+    "network": "无网络连接",
+    "permissionDenied": "权限被拒绝"
+  },
+  "permissions": {
+    "storage": {
+      "title": "访问您的文件",
+      "description": "为了创建照片、视频和文档的快捷方式，我们需要访问您文件的权限。"
+    },
+    "notifications": {
+      "title": "保持准时",
+      "description": "启用通知以在您的计划快捷方式准备就绪时收到提醒。"
+    }
+  }
+}
