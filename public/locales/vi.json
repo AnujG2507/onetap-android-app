@@ -1,0 +1,121 @@
+{
+  "app": {
+    "name": "OneTap",
+    "tagline": "Một chạm đến điều quan trọng"
+  },
+  "menu": {
+    "title": "Menu",
+    "trash": "Thùng rác",
+    "settings": "Cài đặt"
+  },
+  "onboarding": {
+    "skip": "Bỏ qua",
+    "next": "Tiếp theo",
+    "getStarted": "Bắt đầu",
+    "step1": {
+      "title": "Một chạm đến điều quan trọng",
+      "description": "Tạo lối tắt đến các tệp, liên kết và danh bạ quan trọng nhất của bạn. Truy cập ngay từ màn hình chính."
+    },
+    "step2": {
+      "title": "Tạo trong vài giây",
+      "description": "Chọn bất kỳ tệp, liên kết hoặc danh bạ nào. Tùy chỉnh biểu tượng và tên. Thêm vào màn hình chính chỉ với một chạm."
+    },
+    "step3": {
+      "title": "Luôn ngăn nắp",
+      "description": "Lên lịch nhắc nhở, lưu dấu trang và đồng bộ giữa các thiết bị. Lối tắt của bạn, theo cách của bạn."
+    }
+  },
+  "tabs": {
+    "access": "Truy cập",
+    "notifications": "Nhắc nhở",
+    "bookmarks": "Thư viện",
+    "profile": "Hồ sơ"
+  },
+  "access": {
+    "title": "Truy cập",
+    "createShortcut": "Tạo lối tắt",
+    "photo": "Ảnh",
+    "video": "Video",
+    "audio": "Âm thanh",
+    "document": "Tài liệu",
+    "contact": "Danh bạ",
+    "link": "Liên kết",
+    "browseFiles": "Duyệt tất cả tệp",
+    "savedBookmarks": "Dấu trang đã lưu",
+    "contactCall": "Gọi",
+    "contactMessage": "Nhắn tin",
+    "contactCallDesc": "Gọi trực tiếp",
+    "contactMessageDesc": "WhatsApp",
+    "chooseAction": "Chọn loại hành động"
+  },
+  "library": {
+    "title": "Thư viện",
+    "empty": "Chưa có dấu trang",
+    "emptyDescription": "Lưu liên kết từ menu chia sẻ hoặc tạo tại đây",
+    "search": "Tìm dấu trang...",
+    "addBookmark": "Thêm dấu trang",
+    "folders": "Thư mục",
+    "allBookmarks": "Tất cả dấu trang"
+  },
+  "notifications": {
+    "title": "Nhắc nhở",
+    "empty": "Không có nhắc nhở đã lên lịch",
+    "emptyDescription": "Tạo lối tắt và lên lịch khi nó mở",
+    "upcoming": "Sắp tới",
+    "past": "Đã qua"
+  },
+  "profile": {
+    "title": "Hồ sơ",
+    "signIn": "Đăng nhập",
+    "signOut": "Đăng xuất",
+    "signInDescription": "Đăng nhập để đồng bộ dấu trang giữa các thiết bị",
+    "syncStatus": "Trạng thái đồng bộ",
+    "localBookmarks": "Dấu trang cục bộ",
+    "cloudBookmarks": "Dấu trang đám mây",
+    "lastSync": "Đồng bộ lần cuối",
+    "deleteAccount": "Xóa tài khoản",
+    "deleteAccountWarning": "Điều này sẽ xóa vĩnh viễn tài khoản và tất cả dữ liệu đám mây của bạn."
+  },
+  "settings": {
+    "title": "Cài đặt",
+    "description": "Cấu hình tùy chọn ứng dụng",
+    "appearance": "Giao diện",
+    "light": "Sáng",
+    "dark": "Tối",
+    "system": "Tự động",
+    "clipboardDetection": "Phát hiện URL từ clipboard",
+    "clipboardDescription": "Hiển thị gợi ý khi sao chép URL",
+    "language": "Ngôn ngữ",
+    "privacy": "Chính sách bảo mật",
+    "about": "Giới thiệu"
+  },
+  "common": {
+    "save": "Lưu",
+    "cancel": "Hủy",
+    "delete": "Xóa",
+    "edit": "Sửa",
+    "done": "Xong",
+    "loading": "Đang tải...",
+    "error": "Lỗi",
+    "success": "Thành công",
+    "confirm": "Xác nhận",
+    "close": "Đóng",
+    "back": "Quay lại",
+    "retry": "Thử lại"
+  },
+  "errors": {
+    "generic": "Đã xảy ra lỗi",
+    "network": "Không có kết nối internet",
+    "permissionDenied": "Quyền bị từ chối"
+  },
+  "permissions": {
+    "storage": {
+      "title": "Truy cập tệp của bạn",
+      "description": "Để tạo lối tắt cho ảnh, video và tài liệu của bạn, chúng tôi cần quyền truy cập tệp của bạn."
+    },
+    "notifications": {
+      "title": "Luôn đúng giờ",
+      "description": "Bật thông báo để nhận nhắc nhở khi các lối tắt đã lên lịch sẵn sàng mở."
+    }
+  }
+}

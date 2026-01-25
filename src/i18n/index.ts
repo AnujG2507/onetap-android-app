@@ -34,7 +34,7 @@ i18n
     // Only load the detected language (not all languages)
     load: 'languageOnly',
     // Supported languages - others will fall back to English
-    supportedLngs: ['en', 'es', 'pt', 'hi', 'de', 'ja', 'ar', 'fr', 'it', 'zh', 'ko', 'ru'],
+    supportedLngs: ['en', 'es', 'pt', 'hi', 'de', 'ja', 'ar', 'fr', 'it', 'zh', 'ko', 'ru', 'th', 'vi'],
     // Don't load translations for languages not in supportedLngs
     nonExplicitSupportedLngs: false,
     // Disable Suspense to avoid race conditions with language switching
@@ -58,6 +58,8 @@ export const supportedLanguages: readonly LanguageConfig[] = [
   { code: 'zh', name: 'Chinese', nativeName: '中文', rtl: false },
   { code: 'ko', name: 'Korean', nativeName: '한국어', rtl: false },
   { code: 'ru', name: 'Russian', nativeName: 'Русский', rtl: false },
+  { code: 'th', name: 'Thai', nativeName: 'ไทย', rtl: false },
+  { code: 'vi', name: 'Vietnamese', nativeName: 'Tiếng Việt', rtl: false },
 ];
 
 interface LanguageConfig {
