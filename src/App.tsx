@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { SheetRegistryProvider } from "@/contexts/SheetRegistryContext";
+import "@/i18n"; // Initialize i18n
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 

@@ -8,6 +8,8 @@ import { AccessFlow, AccessStep, ContentSourceType } from '@/components/AccessFl
 import { ProfilePage } from '@/components/ProfilePage';
 import { NotificationsPage } from '@/components/NotificationsPage';
 import { SharedUrlActionSheet } from '@/components/SharedUrlActionSheet';
+import { OnboardingFlow } from '@/components/OnboardingFlow';
+import { useOnboarding } from '@/hooks/useOnboarding';
 import { useBackButton } from '@/hooks/useBackButton';
 import { useAuth } from '@/hooks/useAuth';
 import { useAutoSync } from '@/hooks/useAutoSync';
@@ -45,6 +47,9 @@ const Index = () => {
   const [activeActionsCount, setActiveActionsCount] = useState(() => getActiveCount());
   const lastSharedIdRef = useRef<string | null>(null);
   const previousTabRef = useRef<TabType>('access');
+
+  // Onboarding state
+  const { isComplete: onboardingComplete, currentStep, nextStep, skipOnboarding, completeOnboarding } = useOnboarding();
 
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -329,6 +334,18 @@ const Index = () => {
     if (slideDirection === 'right') return 'animate-slide-in-from-left';
     return 'animate-fade-in';
   };
+
+  // Show onboarding for first-time users
+  if (!onboardingComplete) {
+    return (
+      <OnboardingFlow
+        currentStep={currentStep}
+        onNext={nextStep}
+        onSkip={skipOnboarding}
+        onComplete={completeOnboarding}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col overflow-hidden">

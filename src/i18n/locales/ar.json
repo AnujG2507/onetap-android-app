@@ -1,0 +1,116 @@
+{
+  "app": {
+    "name": "OneTap",
+    "tagline": "لمسة واحدة لما يهم"
+  },
+  "onboarding": {
+    "skip": "تخطي",
+    "next": "التالي",
+    "getStarted": "ابدأ",
+    "step1": {
+      "title": "لمسة واحدة لما يهم",
+      "description": "أنشئ اختصارات لأهم ملفاتك وروابطك وجهات اتصالك. اوصل إليها فوراً من شاشتك الرئيسية."
+    },
+    "step2": {
+      "title": "أنشئ في ثوانٍ",
+      "description": "اختر أي ملف أو رابط أو جهة اتصال. خصص الأيقونة والاسم. أضفه إلى شاشتك الرئيسية بلمسة واحدة."
+    },
+    "step3": {
+      "title": "ابق منظماً",
+      "description": "جدول التذكيرات، احفظ المفضلات، وزامن عبر الأجهزة. اختصاراتك، بطريقتك."
+    }
+  },
+  "tabs": {
+    "access": "الوصول",
+    "notifications": "التذكيرات",
+    "bookmarks": "المكتبة",
+    "profile": "الملف الشخصي"
+  },
+  "access": {
+    "title": "الوصول",
+    "createShortcut": "إنشاء اختصار",
+    "photo": "صورة",
+    "video": "فيديو",
+    "audio": "صوت",
+    "document": "مستند",
+    "contact": "جهة اتصال",
+    "link": "رابط",
+    "browseFiles": "تصفح جميع الملفات",
+    "savedBookmarks": "المفضلات المحفوظة",
+    "contactCall": "اتصال",
+    "contactMessage": "رسالة",
+    "contactCallDesc": "اتصال مباشر",
+    "contactMessageDesc": "واتساب",
+    "chooseAction": "اختر نوع الإجراء"
+  },
+  "library": {
+    "title": "المكتبة",
+    "empty": "لا توجد مفضلات بعد",
+    "emptyDescription": "احفظ الروابط من قائمة المشاركة أو أنشئها هنا",
+    "search": "ابحث في المفضلات...",
+    "addBookmark": "إضافة مفضلة",
+    "folders": "المجلدات",
+    "allBookmarks": "جميع المفضلات"
+  },
+  "notifications": {
+    "title": "التذكيرات",
+    "empty": "لا توجد تذكيرات مجدولة",
+    "emptyDescription": "أنشئ اختصاراً وحدد موعد فتحه",
+    "upcoming": "القادمة",
+    "past": "السابقة"
+  },
+  "profile": {
+    "title": "الملف الشخصي",
+    "signIn": "تسجيل الدخول",
+    "signOut": "تسجيل الخروج",
+    "signInDescription": "سجل الدخول لمزامنة مفضلاتك عبر الأجهزة",
+    "syncStatus": "حالة المزامنة",
+    "localBookmarks": "المفضلات المحلية",
+    "cloudBookmarks": "المفضلات السحابية",
+    "lastSync": "آخر مزامنة",
+    "deleteAccount": "حذف الحساب",
+    "deleteAccountWarning": "سيؤدي هذا إلى حذف حسابك وجميع بياناتك السحابية نهائياً."
+  },
+  "settings": {
+    "title": "الإعدادات",
+    "description": "تكوين تفضيلات التطبيق",
+    "appearance": "المظهر",
+    "light": "فاتح",
+    "dark": "داكن",
+    "system": "النظام",
+    "clipboardDetection": "اكتشاف روابط الحافظة",
+    "clipboardDescription": "عرض اقتراحات عند نسخ رابط",
+    "language": "اللغة",
+    "privacy": "سياسة الخصوصية",
+    "about": "حول"
+  },
+  "common": {
+    "save": "حفظ",
+    "cancel": "إلغاء",
+    "delete": "حذف",
+    "edit": "تعديل",
+    "done": "تم",
+    "loading": "جار التحميل...",
+    "error": "خطأ",
+    "success": "نجاح",
+    "confirm": "تأكيد",
+    "close": "إغلاق",
+    "back": "رجوع",
+    "retry": "إعادة المحاولة"
+  },
+  "errors": {
+    "generic": "حدث خطأ ما",
+    "network": "لا يوجد اتصال بالإنترنت",
+    "permissionDenied": "تم رفض الإذن"
+  },
+  "permissions": {
+    "storage": {
+      "title": "الوصول إلى ملفاتك",
+      "description": "لإنشاء اختصارات لصورك ومقاطع الفيديو والمستندات، نحتاج إذن الوصول إلى ملفاتك."
+    },
+    "notifications": {
+      "title": "ابق على الموعد",
+      "description": "فعّل الإشعارات لتلقي تذكيرات عندما تكون اختصاراتك المجدولة جاهزة للفتح."
+    }
+  }
+}
