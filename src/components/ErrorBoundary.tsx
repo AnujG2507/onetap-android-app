@@ -1,6 +1,7 @@
 import { Component, ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
+import { crashReporting, BreadcrumbCategory } from '@/lib/crashReporting';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -23,6 +24,12 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error('[ErrorBoundary] Caught error:', error, errorInfo);
+    
+    // Report to crash reporting service
+    crashReporting.addBreadcrumb(BreadcrumbCategory.ERROR, `Component stack: ${errorInfo.componentStack?.slice(0, 200)}`);
+    crashReporting.recordError(error, {
+      componentStack: errorInfo.componentStack || 'unknown'
+    });
   }
 
   handleReload = () => {

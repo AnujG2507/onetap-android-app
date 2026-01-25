@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Preview image for Favorites widget (4x2) shown in widget picker -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    
+    <!-- Background -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#1a1a2e" />
+            <corners android:radius="24dp" />
+        </shape>
+    </item>
+    
+    <!-- Header area background -->
+    <item
+        android:left="12dp"
+        android:top="12dp"
+        android:right="12dp"
+        android:bottom="80dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#2a2a4e" />
+            <corners android:radius="8dp" />
+        </shape>
+    </item>
+    
+    <!-- Grid item 1 -->
+    <item
+        android:width="40dp"
+        android:height="40dp"
+        android:left="16dp"
+        android:top="48dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#2a2a4e" />
+            <corners android:radius="12dp" />
+        </shape>
+    </item>
+    
+    <!-- Grid item 2 -->
+    <item
+        android:width="40dp"
+        android:height="40dp"
+        android:left="64dp"
+        android:top="48dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#2a2a4e" />
+            <corners android:radius="12dp" />
+        </shape>
+    </item>
+    
+    <!-- Grid item 3 -->
+    <item
+        android:width="40dp"
+        android:height="40dp"
+        android:left="112dp"
+        android:top="48dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#2a2a4e" />
+            <corners android:radius="12dp" />
+        </shape>
+    </item>
+    
+    <!-- Grid item 4 -->
+    <item
+        android:width="40dp"
+        android:height="40dp"
+        android:left="160dp"
+        android:top="48dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#8b5cf6" />
+            <corners android:radius="12dp" />
+        </shape>
+    </item>
+    
+    <!-- Accent dot on header -->
+    <item
+        android:width="8dp"
+        android:height="8dp"
+        android:left="20dp"
+        android:top="20dp">
+        <shape android:shape="oval">
+            <solid android:color="#8b5cf6" />
+        </shape>
+    </item>
+    
+</layer-list>

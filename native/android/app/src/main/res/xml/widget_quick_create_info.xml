@@ -7,6 +7,8 @@
     android:targetCellHeight="1"
     android:updatePeriodMillis="0"
     android:initialLayout="@layout/widget_quick_create"
+    android:previewImage="@drawable/widget_preview_quick_create"
+    android:previewLayout="@layout/widget_quick_create"
     android:resizeMode="none"
     android:widgetCategory="home_screen"
     android:description="@string/widget_quick_create_desc" />

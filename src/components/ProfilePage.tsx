@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { UsageInsights } from '@/components/UsageInsights';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -221,8 +222,8 @@ export function ProfilePage() {
   // Not signed in state
   if (!user) {
     return (
-      <div className="flex-1 flex flex-col p-6 safe-top">
-        <div className="flex-1 flex flex-col items-center justify-center gap-6 max-w-sm mx-auto text-center">
+      <div className="flex-1 flex flex-col p-4 pb-20 safe-top overflow-y-auto">
+        <div className="flex-1 flex flex-col items-center justify-center gap-6 max-w-sm mx-auto text-center mb-6">
           <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center">
             <User className="w-10 h-10 text-muted-foreground" />
           </div>
@@ -255,6 +256,9 @@ export function ProfilePage() {
             </p>
           </div>
         </div>
+
+        {/* Usage Insights for signed-out users too */}
+        <UsageInsights />
       </div>
     );
   }
@@ -340,6 +344,11 @@ export function ProfilePage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Usage Insights */}
+      <div className="mb-4">
+        <UsageInsights />
+      </div>
 
       {/* Actions Card */}
       <Card className="mb-4">
