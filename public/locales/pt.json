@@ -11,7 +11,12 @@
   "onboarding": {
     "skip": "Pular",
     "next": "Próximo",
+    "continue": "Continuar",
     "getStarted": "Começar",
+    "languageSelection": {
+      "title": "Escolha seu idioma",
+      "subtitle": "Você pode alterar isso depois nas configurações"
+    },
     "step1": {
       "title": "Um toque para o que importa",
       "description": "Crie atalhos para seus arquivos, links e contatos mais importantes. Acesse instantaneamente da sua tela inicial."

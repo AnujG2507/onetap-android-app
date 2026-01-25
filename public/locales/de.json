@@ -11,7 +11,12 @@
   "onboarding": {
     "skip": "Überspringen",
     "next": "Weiter",
+    "continue": "Fortfahren",
     "getStarted": "Loslegen",
+    "languageSelection": {
+      "title": "Wähle deine Sprache",
+      "subtitle": "Du kannst dies später in den Einstellungen ändern"
+    },
     "step1": {
       "title": "Ein Tipp zu dem, was zählt",
       "description": "Erstelle Verknüpfungen zu deinen wichtigsten Dateien, Links und Kontakten. Greife sofort von deinem Startbildschirm darauf zu."

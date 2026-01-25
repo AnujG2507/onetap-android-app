@@ -11,7 +11,12 @@
   "onboarding": {
     "skip": "Skip",
     "next": "Next",
+    "continue": "Continue",
     "getStarted": "Get Started",
+    "languageSelection": {
+      "title": "Choose your language",
+      "subtitle": "You can change this later in settings"
+    },
     "step1": {
       "title": "One tap to what matters",
       "description": "Create shortcuts to your most important files, links, and contacts. Access them instantly from your home screen."

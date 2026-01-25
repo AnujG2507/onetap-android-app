@@ -11,7 +11,12 @@
   "onboarding": {
     "skip": "Bỏ qua",
     "next": "Tiếp theo",
+    "continue": "Tiếp tục",
     "getStarted": "Bắt đầu",
+    "languageSelection": {
+      "title": "Chọn ngôn ngữ của bạn",
+      "subtitle": "Bạn có thể thay đổi sau trong cài đặt"
+    },
     "step1": {
       "title": "Một chạm đến điều quan trọng",
       "description": "Tạo lối tắt đến các tệp, liên kết và danh bạ quan trọng nhất của bạn. Truy cập ngay từ màn hình chính."

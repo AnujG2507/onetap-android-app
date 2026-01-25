@@ -11,7 +11,12 @@
   "onboarding": {
     "skip": "スキップ",
     "next": "次へ",
+    "continue": "続ける",
     "getStarted": "始める",
+    "languageSelection": {
+      "title": "言語を選択してください",
+      "subtitle": "設定で後から変更できます"
+    },
     "step1": {
       "title": "ワンタップで大切なものへ",
       "description": "最も重要なファイル、リンク、連絡先へのショートカットを作成。ホーム画面から即座にアクセス。"
