@@ -190,7 +190,7 @@ export function TrashItem({ link, onRestore, onDelete }: TrashItemProps) {
             {link.title}
           </p>
           <div 
-            className="flex items-start gap-1 text-xs text-muted-foreground mt-0.5 text-left hover:text-muted-foreground/80 cursor-pointer"
+            className="flex items-start gap-1 text-xs text-muted-foreground mt-0.5 text-start hover:text-muted-foreground/80 cursor-pointer"
             onClick={(e) => {
               e.stopPropagation();
               setIsUrlExpanded(!isUrlExpanded);
