@@ -51,7 +51,8 @@
     "contactMessage": "Nhắn tin",
     "contactCallDesc": "Gọi trực tiếp",
     "contactMessageDesc": "WhatsApp",
-    "chooseAction": "Chọn loại hành động"
+    "chooseAction": "Chọn loại hành động",
+    "offlineMessage": "Bạn đang ngoại tuyến. Một số tính năng có thể bị hạn chế."
   },
   "library": {
     "title": "Thư viện",
@@ -60,7 +61,25 @@
     "search": "Tìm dấu trang...",
     "addBookmark": "Thêm dấu trang",
     "folders": "Thư mục",
-    "allBookmarks": "Tất cả dấu trang"
+    "allBookmarks": "Tất cả dấu trang",
+    "add": "Thêm",
+    "addTooltip": "Bạn cũng có thể thêm dấu trang bằng cách chia sẻ bất kỳ URL nào đến ứng dụng này",
+    "yourSavedLinks": "Liên kết đã lưu của bạn",
+    "listView": "Danh sách",
+    "foldersView": "Thư mục",
+    "listTooltip": "Xem tất cả dấu trang trong một danh sách",
+    "foldersTooltip": "Sắp xếp dấu trang theo thư mục",
+    "searchPlaceholder": "Tìm dấu trang...",
+    "clearSearch": "Xóa tìm kiếm",
+    "noBookmarksTitle": "Chưa có dấu trang",
+    "noBookmarksDesc": "Lưu liên kết bằng cách chia sẻ chúng đến ứng dụng này hoặc nhấn nút bên dưới",
+    "addFirstBookmark": "Thêm dấu trang đầu tiên",
+    "sortNewest": "Sắp xếp theo mới nhất",
+    "sortAlphabetical": "Sắp xếp A-Z",
+    "sortManual": "Chế độ sắp xếp thủ công",
+    "clickToReverse": "Nhấp để đảo ngược thứ tự",
+    "clickToEnableManual": "Nhấp để bật sắp xếp thủ công",
+    "uncategorized": "Chưa phân loại"
   },
   "notifications": {
     "title": "Nhắc nhở",
@@ -68,6 +87,11 @@
     "emptyDescription": "Tạo lối tắt và lên lịch khi nó mở",
     "upcoming": "Sắp tới",
     "past": "Đã qua"
+  },
+  "notificationsPage": {
+    "notifications": "Thông báo",
+    "alarms": "Báo thức",
+    "searchPlaceholder": "Tìm hành động..."
   },
   "profile": {
     "title": "Hồ sơ",
@@ -79,7 +103,48 @@
     "cloudBookmarks": "Dấu trang đám mây",
     "lastSync": "Đồng bộ lần cuối",
     "deleteAccount": "Xóa tài khoản",
-    "deleteAccountWarning": "Điều này sẽ xóa vĩnh viễn tài khoản và tất cả dữ liệu đám mây của bạn."
+    "deleteAccountWarning": "Điều này sẽ xóa vĩnh viễn tài khoản và tất cả dữ liệu đám mây của bạn.",
+    "signInToSync": "Đăng nhập để đồng bộ",
+    "signInWithGoogle": "Đăng nhập với Google",
+    "secureBackup": "Sao lưu đám mây an toàn",
+    "syncAcrossDevices": "Đồng bộ giữa các thiết bị",
+    "autoSyncOn": "Bật đồng bộ tự động",
+    "autoSyncOff": "Tắt đồng bộ tự động",
+    "local": "Cục bộ",
+    "cloud": "Đám mây",
+    "lastSyncInfo": "Đồng bộ lần cuối: ↑{{uploaded}} đã tải lên, ↓{{downloaded}} đã tải xuống",
+    "quickActions": "Hành động nhanh",
+    "syncNow": "Đồng bộ ngay",
+    "syncing": "Đang đồng bộ...",
+    "upload": "Tải lên",
+    "uploading": "Đang tải lên...",
+    "download": "Tải xuống",
+    "downloading": "Đang tải xuống...",
+    "autoSync": "Đồng bộ tự động",
+    "autoSyncDesc": "Tự động sao lưu khi dấu trang thay đổi",
+    "autoSyncEnabled": "Đã bật đồng bộ tự động",
+    "autoSyncDisabled": "Đã tắt đồng bộ tự động",
+    "autoSyncEnabledDesc": "Dấu trang sẽ tự động đồng bộ khi có thay đổi",
+    "autoSyncDisabledDesc": "Sử dụng đồng bộ thủ công để sao lưu dấu trang của bạn",
+    "syncComplete": "Đồng bộ hoàn tất",
+    "syncCompleteDesc": "Đã tải lên {{uploaded}}, tải xuống {{downloaded}} dấu trang",
+    "syncFailed": "Đồng bộ thất bại",
+    "uploadComplete": "Tải lên hoàn tất",
+    "uploadCompleteDesc": "Đã tải lên {{count}} dấu trang lên đám mây",
+    "uploadFailed": "Tải lên thất bại",
+    "downloadComplete": "Tải xuống hoàn tất",
+    "downloadCompleteDesc": "Đã tải xuống {{count}} dấu trang mới",
+    "downloadFailed": "Tải xuống thất bại",
+    "deleteAccountTitle": "Xóa tài khoản của bạn?",
+    "deleteAccountDesc": "Điều này sẽ xóa vĩnh viễn tài khoản và tất cả dấu trang đám mây của bạn. Dấu trang cục bộ trên thiết bị này sẽ không bị ảnh hưởng.",
+    "accountDeleted": "Đã xóa tài khoản",
+    "accountDeletedDesc": "Tài khoản và tất cả dữ liệu đám mây của bạn đã bị xóa vĩnh viễn.",
+    "deleteAccountFailed": "Không thể xóa tài khoản",
+    "deleting": "Đang xóa...",
+    "signInFailed": "Đăng nhập thất bại",
+    "sessionExpired": "Phiên đã hết hạn. Vui lòng đăng nhập lại.",
+    "couldNotSignIn": "Không thể đăng nhập với Google. Vui lòng thử lại.",
+    "settings": "Cài đặt"
   },
   "settings": {
     "title": "Cài đặt",
@@ -108,12 +173,21 @@
     "confirm": "Xác nhận",
     "close": "Đóng",
     "back": "Quay lại",
-    "retry": "Thử lại"
+    "retry": "Thử lại",
+    "undo": "Hoàn tác",
+    "selectAll": "Chọn tất cả",
+    "clear": "Xóa",
+    "continue": "Tiếp tục",
+    "create": "Tạo",
+    "saveChanges": "Lưu thay đổi"
   },
   "errors": {
     "generic": "Đã xảy ra lỗi",
     "network": "Không có kết nối internet",
-    "permissionDenied": "Quyền bị từ chối"
+    "permissionDenied": "Quyền bị từ chối",
+    "somethingWentWrong": "Đã xảy ra lỗi",
+    "unexpectedError": "Ứng dụng gặp lỗi không mong muốn. Vui lòng làm mới để tiếp tục.",
+    "refreshApp": "Làm mới ứng dụng"
   },
   "permissions": {
     "storage": {
@@ -124,5 +198,137 @@
       "title": "Luôn đúng giờ",
       "description": "Bật thông báo để nhận nhắc nhở khi các lối tắt đã lên lịch sẵn sàng mở."
     }
+  },
+  "success": {
+    "title": "Đã thêm vào màn hình chính",
+    "ready": "\"{name}\" đã sẵn sàng",
+    "hint": "Một chạm từ màn hình chính để mở ngay lập tức",
+    "addAnother": "Thêm cái khác"
+  },
+  "addBookmark": {
+    "title": "Thêm dấu trang mới",
+    "urlPlaceholder": "URL (ví dụ: youtube.com)",
+    "titlePlaceholder": "Tiêu đề (tùy chọn)",
+    "descriptionPlaceholder": "Mô tả (tùy chọn)",
+    "tagLabel": "Thẻ (tùy chọn)",
+    "duplicateTitle": "URL này đã tồn tại",
+    "savedAs": "Đã lưu: {title}",
+    "folder": "Thư mục: {folder}",
+    "editExisting": "Sửa hiện có",
+    "clearAndSkip": "Xóa và bỏ qua",
+    "saveBookmark": "Lưu dấu trang"
+  },
+  "folders": {
+    "createTitle": "Tạo thư mục mới",
+    "editTitle": "Sửa thư mục",
+    "namePlaceholder": "Tên thư mục...",
+    "chooseIcon": "Chọn biểu tượng"
+  },
+  "scheduledActions": {
+    "whatToOpen": "Mở cái gì",
+    "selectDescription": "Chọn những gì sẽ mở khi hành động này được kích hoạt.",
+    "localFile": "Tệp cục bộ",
+    "localFileDesc": "Ảnh, video, PDF hoặc tài liệu",
+    "link": "Liên kết",
+    "linkDesc": "Website hoặc dấu trang đã lưu",
+    "contact": "Danh bạ",
+    "contactDesc": "Gọi ai đó vào thời gian đã lên lịch",
+    "addLink": "Thêm liên kết",
+    "enterUrl": "Nhập URL",
+    "typeOrPaste": "Nhập hoặc dán liên kết",
+    "savedBookmark": "Dấu trang đã lưu",
+    "chooseFromLibrary": "Chọn từ thư viện của bạn",
+    "urlPlaceholder": "example.com",
+    "pleaseEnterUrl": "Vui lòng nhập URL",
+    "pleaseEnterValidUrl": "Vui lòng nhập URL hợp lệ",
+    "nameAction": "Đặt tên hành động này",
+    "actionName": "Tên hành động",
+    "actionNameHint": "Sẽ xuất hiện trong thông báo khi được kích hoạt.",
+    "myAction": "Hành động của tôi",
+    "repeats": "Lặp lại {frequency}",
+    "actionScheduled": "Đã lên lịch hành động",
+    "couldNotSchedule": "Không thể lên lịch",
+    "tryAgain": "Vui lòng thử lại.",
+    "expired": "Đã hết hạn"
+  },
+  "trash": {
+    "title": "Thùng rác",
+    "empty": "Thùng rác trống",
+    "emptyDescription": "Dấu trang đã xóa sẽ xuất hiện ở đây trong {{days}} ngày trước khi bị xóa vĩnh viễn.",
+    "swipeHint": "Vuốt phải để khôi phục, vuốt trái để xóa",
+    "restoreAll": "Khôi phục tất cả",
+    "emptyTrash": "Làm trống thùng rác",
+    "permanentlyDelete": "Xóa vĩnh viễn?",
+    "permanentlyDeleteDesc": "Dấu trang này sẽ bị xóa vĩnh viễn. Hành động này không thể hoàn tác.",
+    "restoreAllTitle": "Khôi phục tất cả các mục?",
+    "restoreAllDesc": "Điều này sẽ khôi phục tất cả {{count}} mục từ thùng rác về dấu trang của bạn.",
+    "emptyTrashTitle": "Làm trống thùng rác?",
+    "emptyTrashDesc": "Điều này sẽ xóa vĩnh viễn tất cả {{count}} mục trong thùng rác."
+  },
+  "shortcutCustomizer": {
+    "setupAccess": "Thiết lập truy cập",
+    "nameLabel": "Tên",
+    "namePlaceholder": "Nhập tên",
+    "iconLabel": "Biểu tượng",
+    "preview": "Xem trước",
+    "returnToLastPage": "Quay lại trang cuối",
+    "openWhereYouLeftOff": "Mở từ nơi bạn dừng lại",
+    "adding": "Đang thêm...",
+    "addToHomeScreen": "Thêm vào màn hình chính"
+  },
+  "iconPicker": {
+    "icon": "Biểu tượng",
+    "image": "Hình ảnh",
+    "emoji": "Emoji",
+    "text": "Văn bản",
+    "textPlaceholder": "1-2 ký tự"
+  },
+  "urlInput": {
+    "enterLink": "Nhập liên kết",
+    "pasteOrType": "Dán hoặc nhập URL",
+    "pleaseEnterValidUrl": "Vui lòng nhập URL hợp lệ",
+    "opensIn": "Mở trong {platform}",
+    "saveToLibrary": "Lưu vào thư viện",
+    "continue": "Tiếp tục"
+  },
+  "clipboard": {
+    "detected": "Phát hiện URL",
+    "dismiss": "Bỏ qua",
+    "useLink": "Sử dụng liên kết này"
+  },
+  "toasts": {
+    "linkSaved": "Đã lưu liên kết vào thư viện!",
+    "linkDuplicate": "Liên kết đã có trong thư viện",
+    "linkFailed": "Không thể lưu liên kết",
+    "bookmarkSaved": "Đã lưu dấu trang",
+    "bookmarkUpdated": "Đã cập nhật dấu trang",
+    "movedToTrash": "Đã chuyển vào thùng rác",
+    "permanentlyDeleted": "Đã xóa vĩnh viễn",
+    "bookmarkRestored": "Đã khôi phục dấu trang",
+    "selectionCleared": "Đã xóa lựa chọn",
+    "folderCreated": "Đã tạo thư mục",
+    "folderUpdated": "Đã cập nhật thư mục",
+    "folderDeleted": "Đã xóa thư mục",
+    "movedTo": "Đã chuyển đến {folder}",
+    "noUrlOnClipboard": "Không tìm thấy URL trong clipboard",
+    "unableToAccessClipboard": "Không thể truy cập clipboard"
+  },
+  "usage": {
+    "title": "Thống kê sử dụng",
+    "shortcuts": "Lối tắt",
+    "totalTaps": "Tổng số chạm",
+    "weeklyActivity": "Tuần này",
+    "topShortcuts": "Dùng nhiều nhất",
+    "taps": "lần chạm",
+    "noShortcuts": "Tạo lối tắt đầu tiên để xem thống kê!",
+    "startUsing": "Bắt đầu sử dụng lối tắt để xem thống kê!",
+    "gettingStarted": "Bạn đang bắt đầu! Tiếp tục nhé!",
+    "doingGreat": "Tuyệt vời! Đã tiết kiệm {{taps}} lần chạm trong tháng này.",
+    "powerUser": "Power user! Bạn đã tiết kiệm {{taps}} lần chạm trong tháng này! 🔥",
+    "superUser": "🏆 Super user! Đã tiết kiệm {{taps}} lần chạm trong tháng này!"
+  },
+  "pagination": {
+    "previous": "Trước",
+    "next": "Sau"
   }
 }

@@ -51,7 +51,8 @@
     "contactMessage": "メッセージ",
     "contactCallDesc": "直接発信",
     "contactMessageDesc": "WhatsApp",
-    "chooseAction": "アクションタイプを選択"
+    "chooseAction": "アクションタイプを選択",
+    "offlineMessage": "オフラインです。一部の機能が制限される場合があります。"
   },
   "library": {
     "title": "ライブラリ",
@@ -60,7 +61,25 @@
     "search": "ブックマークを検索...",
     "addBookmark": "ブックマークを追加",
     "folders": "フォルダ",
-    "allBookmarks": "すべてのブックマーク"
+    "allBookmarks": "すべてのブックマーク",
+    "add": "追加",
+    "addTooltip": "このアプリにURLを共有してブックマークを追加できます",
+    "yourSavedLinks": "保存したリンク",
+    "listView": "リスト",
+    "foldersView": "フォルダ",
+    "listTooltip": "すべてのブックマークを一覧表示",
+    "foldersTooltip": "フォルダ別にブックマークを整理",
+    "searchPlaceholder": "ブックマークを検索...",
+    "clearSearch": "検索をクリア",
+    "noBookmarksTitle": "ブックマークはまだありません",
+    "noBookmarksDesc": "このアプリにリンクを共有するか、下のボタンをタップして保存",
+    "addFirstBookmark": "最初のブックマークを追加",
+    "sortNewest": "新しい順に並べ替え",
+    "sortAlphabetical": "A-Z順に並べ替え",
+    "sortManual": "手動並べ替えモード",
+    "clickToReverse": "クリックして順序を逆転",
+    "clickToEnableManual": "クリックして手動並べ替えを有効化",
+    "uncategorized": "未分類"
   },
   "notifications": {
     "title": "リマインダー",
@@ -68,6 +87,11 @@
     "emptyDescription": "ショートカットを作成し、開く時間をスケジュールしてください",
     "upcoming": "今後",
     "past": "過去"
+  },
+  "notificationsPage": {
+    "notifications": "通知",
+    "alarms": "アラーム",
+    "searchPlaceholder": "アクションを検索..."
   },
   "profile": {
     "title": "プロフィール",
@@ -79,7 +103,48 @@
     "cloudBookmarks": "クラウドブックマーク",
     "lastSync": "最終同期",
     "deleteAccount": "アカウントを削除",
-    "deleteAccountWarning": "これにより、アカウントとすべてのクラウドデータが完全に削除されます。"
+    "deleteAccountWarning": "これにより、アカウントとすべてのクラウドデータが完全に削除されます。",
+    "signInToSync": "同期するにはサインイン",
+    "signInWithGoogle": "Googleでサインイン",
+    "secureBackup": "安全なクラウドバックアップ",
+    "syncAcrossDevices": "デバイス間で同期",
+    "autoSyncOn": "自動同期オン",
+    "autoSyncOff": "自動同期オフ",
+    "local": "ローカル",
+    "cloud": "クラウド",
+    "lastSyncInfo": "最終同期: ↑{{uploaded}}アップロード、↓{{downloaded}}ダウンロード",
+    "quickActions": "クイックアクション",
+    "syncNow": "今すぐ同期",
+    "syncing": "同期中...",
+    "upload": "アップロード",
+    "uploading": "アップロード中...",
+    "download": "ダウンロード",
+    "downloading": "ダウンロード中...",
+    "autoSync": "自動同期",
+    "autoSyncDesc": "ブックマーク変更時に自動バックアップ",
+    "autoSyncEnabled": "自動同期が有効",
+    "autoSyncDisabled": "自動同期が無効",
+    "autoSyncEnabledDesc": "変更時にブックマークが自動的に同期されます",
+    "autoSyncDisabledDesc": "手動同期でブックマークをバックアップ",
+    "syncComplete": "同期完了",
+    "syncCompleteDesc": "{{uploaded}}アップロード、{{downloaded}}ブックマークをダウンロード",
+    "syncFailed": "同期失敗",
+    "uploadComplete": "アップロード完了",
+    "uploadCompleteDesc": "{{count}}ブックマークをクラウドにアップロード",
+    "uploadFailed": "アップロード失敗",
+    "downloadComplete": "ダウンロード完了",
+    "downloadCompleteDesc": "{{count}}個の新しいブックマークをダウンロード",
+    "downloadFailed": "ダウンロード失敗",
+    "deleteAccountTitle": "アカウントを削除しますか？",
+    "deleteAccountDesc": "アカウントとすべてのクラウドブックマークが完全に削除されます。このデバイスのローカルブックマークは影響を受けません。",
+    "accountDeleted": "アカウントが削除されました",
+    "accountDeletedDesc": "アカウントとすべてのクラウドデータが完全に削除されました。",
+    "deleteAccountFailed": "アカウントの削除に失敗",
+    "deleting": "削除中...",
+    "signInFailed": "サインイン失敗",
+    "sessionExpired": "セッションが期限切れです。再度サインインしてください。",
+    "couldNotSignIn": "Googleでサインインできませんでした。再試行してください。",
+    "settings": "設定"
   },
   "settings": {
     "title": "設定",
@@ -108,12 +173,21 @@
     "confirm": "確認",
     "close": "閉じる",
     "back": "戻る",
-    "retry": "再試行"
+    "retry": "再試行",
+    "undo": "元に戻す",
+    "selectAll": "すべて選択",
+    "clear": "クリア",
+    "continue": "続ける",
+    "create": "作成",
+    "saveChanges": "変更を保存"
   },
   "errors": {
     "generic": "問題が発生しました",
     "network": "インターネット接続がありません",
-    "permissionDenied": "権限が拒否されました"
+    "permissionDenied": "権限が拒否されました",
+    "somethingWentWrong": "問題が発生しました",
+    "unexpectedError": "予期しないエラーが発生しました。更新して続行してください。",
+    "refreshApp": "アプリを更新"
   },
   "permissions": {
     "storage": {
@@ -124,5 +198,137 @@
       "title": "スケジュール通りに",
       "description": "スケジュールされたショートカットの準備ができたときにリマインダーを受け取るには、通知を有効にしてください。"
     }
+  },
+  "success": {
+    "title": "ホーム画面に追加されました",
+    "ready": "「{name}」の準備ができました",
+    "hint": "ホーム画面からワンタップで即座に開けます",
+    "addAnother": "もう一つ追加"
+  },
+  "addBookmark": {
+    "title": "新しいブックマークを追加",
+    "urlPlaceholder": "URL（例：youtube.com）",
+    "titlePlaceholder": "タイトル（オプション）",
+    "descriptionPlaceholder": "説明（オプション）",
+    "tagLabel": "タグ（オプション）",
+    "duplicateTitle": "このURLは既に存在します",
+    "savedAs": "保存名: {title}",
+    "folder": "フォルダ: {folder}",
+    "editExisting": "既存を編集",
+    "clearAndSkip": "クリアしてスキップ",
+    "saveBookmark": "ブックマークを保存"
+  },
+  "folders": {
+    "createTitle": "新しいフォルダを作成",
+    "editTitle": "フォルダを編集",
+    "namePlaceholder": "フォルダ名...",
+    "chooseIcon": "アイコンを選択"
+  },
+  "scheduledActions": {
+    "whatToOpen": "開くもの",
+    "selectDescription": "このアクションがトリガーされたときに開くものを選択します。",
+    "localFile": "ローカルファイル",
+    "localFileDesc": "写真、動画、PDF、またはドキュメント",
+    "link": "リンク",
+    "linkDesc": "ウェブサイトまたは保存されたブックマーク",
+    "contact": "連絡先",
+    "contactDesc": "スケジュールされた時間に誰かに電話",
+    "addLink": "リンクを追加",
+    "enterUrl": "URLを入力",
+    "typeOrPaste": "リンクを入力または貼り付け",
+    "savedBookmark": "保存されたブックマーク",
+    "chooseFromLibrary": "ライブラリから選択",
+    "urlPlaceholder": "example.com",
+    "pleaseEnterUrl": "URLを入力してください",
+    "pleaseEnterValidUrl": "有効なURLを入力してください",
+    "nameAction": "このアクションに名前を付ける",
+    "actionName": "アクション名",
+    "actionNameHint": "トリガー時に通知に表示されます。",
+    "myAction": "マイアクション",
+    "repeats": "{frequency}繰り返し",
+    "actionScheduled": "アクションがスケジュールされました",
+    "couldNotSchedule": "スケジュールできませんでした",
+    "tryAgain": "再試行してください。",
+    "expired": "期限切れ"
+  },
+  "trash": {
+    "title": "ゴミ箱",
+    "empty": "ゴミ箱は空です",
+    "emptyDescription": "削除されたブックマークは、完全に削除される前に{{days}}日間ここに表示されます。",
+    "swipeHint": "右にスワイプで復元、左にスワイプで削除",
+    "restoreAll": "すべて復元",
+    "emptyTrash": "ゴミ箱を空にする",
+    "permanentlyDelete": "完全に削除しますか？",
+    "permanentlyDeleteDesc": "このブックマークは完全に削除されます。この操作は取り消せません。",
+    "restoreAllTitle": "すべてのアイテムを復元しますか？",
+    "restoreAllDesc": "ゴミ箱から{{count}}件すべてのアイテムをブックマークに復元します。",
+    "emptyTrashTitle": "ゴミ箱を空にしますか？",
+    "emptyTrashDesc": "ゴミ箱内の{{count}}件すべてのアイテムを完全に削除します。"
+  },
+  "shortcutCustomizer": {
+    "setupAccess": "アクセスを設定",
+    "nameLabel": "名前",
+    "namePlaceholder": "名前を入力",
+    "iconLabel": "アイコン",
+    "preview": "プレビュー",
+    "returnToLastPage": "最後のページに戻る",
+    "openWhereYouLeftOff": "中断したところから開く",
+    "adding": "追加中...",
+    "addToHomeScreen": "ホーム画面に追加"
+  },
+  "iconPicker": {
+    "icon": "アイコン",
+    "image": "画像",
+    "emoji": "絵文字",
+    "text": "テキスト",
+    "textPlaceholder": "1-2文字"
+  },
+  "urlInput": {
+    "enterLink": "リンクを入力",
+    "pasteOrType": "URLを貼り付けまたは入力",
+    "pleaseEnterValidUrl": "有効なURLを入力してください",
+    "opensIn": "{platform}で開きます",
+    "saveToLibrary": "ライブラリに保存",
+    "continue": "続ける"
+  },
+  "clipboard": {
+    "detected": "URLを検出",
+    "dismiss": "閉じる",
+    "useLink": "このリンクを使用"
+  },
+  "toasts": {
+    "linkSaved": "リンクがライブラリに保存されました！",
+    "linkDuplicate": "リンクは既にライブラリにあります",
+    "linkFailed": "リンクを保存できませんでした",
+    "bookmarkSaved": "ブックマークを保存しました",
+    "bookmarkUpdated": "ブックマークを更新しました",
+    "movedToTrash": "ゴミ箱に移動しました",
+    "permanentlyDeleted": "完全に削除しました",
+    "bookmarkRestored": "ブックマークを復元しました",
+    "selectionCleared": "選択を解除しました",
+    "folderCreated": "フォルダを作成しました",
+    "folderUpdated": "フォルダを更新しました",
+    "folderDeleted": "フォルダを削除しました",
+    "movedTo": "{folder}に移動しました",
+    "noUrlOnClipboard": "クリップボードにURLがありません",
+    "unableToAccessClipboard": "クリップボードにアクセスできません"
+  },
+  "usage": {
+    "title": "使用状況の分析",
+    "shortcuts": "ショートカット",
+    "totalTaps": "合計タップ",
+    "weeklyActivity": "今週",
+    "topShortcuts": "最も使用",
+    "taps": "タップ",
+    "noShortcuts": "分析を表示するには最初のショートカットを作成してください！",
+    "startUsing": "統計を表示するにはショートカットの使用を開始してください！",
+    "gettingStarted": "始まったばかりです！頑張って！",
+    "doingGreat": "素晴らしい！今月{{taps}}タップを節約しました。",
+    "powerUser": "パワーユーザー！今月{{taps}}タップを節約しました！🔥",
+    "superUser": "🏆 スーパーユーザー！今月{{taps}}タップを節約しました！"
+  },
+  "pagination": {
+    "previous": "前へ",
+    "next": "次へ"
   }
 }

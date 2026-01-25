@@ -51,7 +51,8 @@
     "contactMessage": "Messaggio",
     "contactCallDesc": "Chiamata diretta",
     "contactMessageDesc": "WhatsApp",
-    "chooseAction": "Scegli tipo di azione"
+    "chooseAction": "Scegli tipo di azione",
+    "offlineMessage": "Sei offline. Alcune funzionalità potrebbero essere limitate."
   },
   "library": {
     "title": "Libreria",
@@ -60,7 +61,25 @@
     "search": "Cerca preferiti...",
     "addBookmark": "Aggiungi preferito",
     "folders": "Cartelle",
-    "allBookmarks": "Tutti i preferiti"
+    "allBookmarks": "Tutti i preferiti",
+    "add": "Aggiungi",
+    "addTooltip": "Puoi anche aggiungere preferiti condividendo qualsiasi URL con questa app",
+    "yourSavedLinks": "I tuoi link salvati",
+    "listView": "Lista",
+    "foldersView": "Cartelle",
+    "listTooltip": "Visualizza tutti i preferiti in un elenco",
+    "foldersTooltip": "Organizza i preferiti per cartella",
+    "searchPlaceholder": "Cerca preferiti...",
+    "clearSearch": "Cancella ricerca",
+    "noBookmarksTitle": "Nessun preferito ancora",
+    "noBookmarksDesc": "Salva link condividendoli con questa app o tocca il pulsante qui sotto",
+    "addFirstBookmark": "Aggiungi il tuo primo preferito",
+    "sortNewest": "Ordina per più recenti",
+    "sortAlphabetical": "Ordina A-Z",
+    "sortManual": "Modalità ordinamento manuale",
+    "clickToReverse": "Clicca per invertire l'ordine",
+    "clickToEnableManual": "Clicca per abilitare l'ordinamento manuale",
+    "uncategorized": "Non categorizzato"
   },
   "notifications": {
     "title": "Promemoria",
@@ -68,6 +87,11 @@
     "emptyDescription": "Crea una scorciatoia e programma quando si apre",
     "upcoming": "In arrivo",
     "past": "Passati"
+  },
+  "notificationsPage": {
+    "notifications": "Notifiche",
+    "alarms": "Allarmi",
+    "searchPlaceholder": "Cerca azioni..."
   },
   "profile": {
     "title": "Profilo",
@@ -79,7 +103,48 @@
     "cloudBookmarks": "Preferiti cloud",
     "lastSync": "Ultima sincronizzazione",
     "deleteAccount": "Elimina account",
-    "deleteAccountWarning": "Questo eliminerà permanentemente il tuo account e tutti i dati cloud."
+    "deleteAccountWarning": "Questo eliminerà permanentemente il tuo account e tutti i dati cloud.",
+    "signInToSync": "Accedi per sincronizzare",
+    "signInWithGoogle": "Accedi con Google",
+    "secureBackup": "Backup cloud sicuro",
+    "syncAcrossDevices": "Sincronizza tra dispositivi",
+    "autoSyncOn": "Sincronizzazione automatica attiva",
+    "autoSyncOff": "Sincronizzazione automatica disattiva",
+    "local": "Locale",
+    "cloud": "Cloud",
+    "lastSyncInfo": "Ultima sincronizzazione: ↑{{uploaded}} caricati, ↓{{downloaded}} scaricati",
+    "quickActions": "Azioni rapide",
+    "syncNow": "Sincronizza ora",
+    "syncing": "Sincronizzazione...",
+    "upload": "Carica",
+    "uploading": "Caricamento...",
+    "download": "Scarica",
+    "downloading": "Scaricamento...",
+    "autoSync": "Sincronizzazione automatica",
+    "autoSyncDesc": "Backup automatico quando i preferiti cambiano",
+    "autoSyncEnabled": "Sincronizzazione automatica abilitata",
+    "autoSyncDisabled": "Sincronizzazione automatica disabilitata",
+    "autoSyncEnabledDesc": "I preferiti verranno sincronizzati automaticamente quando vengono apportate modifiche",
+    "autoSyncDisabledDesc": "Usa la sincronizzazione manuale per il backup dei tuoi preferiti",
+    "syncComplete": "Sincronizzazione completata",
+    "syncCompleteDesc": "Caricati {{uploaded}}, scaricati {{downloaded}} preferiti",
+    "syncFailed": "Sincronizzazione fallita",
+    "uploadComplete": "Caricamento completato",
+    "uploadCompleteDesc": "Caricati {{count}} preferiti sul cloud",
+    "uploadFailed": "Caricamento fallito",
+    "downloadComplete": "Scaricamento completato",
+    "downloadCompleteDesc": "Scaricati {{count}} nuovi preferiti",
+    "downloadFailed": "Scaricamento fallito",
+    "deleteAccountTitle": "Eliminare il tuo account?",
+    "deleteAccountDesc": "Questo eliminerà permanentemente il tuo account e tutti i preferiti cloud. I preferiti locali su questo dispositivo non saranno influenzati.",
+    "accountDeleted": "Account eliminato",
+    "accountDeletedDesc": "Il tuo account e tutti i dati cloud sono stati eliminati permanentemente.",
+    "deleteAccountFailed": "Impossibile eliminare l'account",
+    "deleting": "Eliminazione...",
+    "signInFailed": "Accesso fallito",
+    "sessionExpired": "Sessione scaduta. Riprova ad accedere.",
+    "couldNotSignIn": "Impossibile accedere con Google. Riprova.",
+    "settings": "Impostazioni"
   },
   "settings": {
     "title": "Impostazioni",
@@ -108,12 +173,21 @@
     "confirm": "Conferma",
     "close": "Chiudi",
     "back": "Indietro",
-    "retry": "Riprova"
+    "retry": "Riprova",
+    "undo": "Annulla",
+    "selectAll": "Seleziona tutto",
+    "clear": "Cancella",
+    "continue": "Continua",
+    "create": "Crea",
+    "saveChanges": "Salva modifiche"
   },
   "errors": {
     "generic": "Qualcosa è andato storto",
     "network": "Nessuna connessione internet",
-    "permissionDenied": "Permesso negato"
+    "permissionDenied": "Permesso negato",
+    "somethingWentWrong": "Qualcosa è andato storto",
+    "unexpectedError": "L'app ha riscontrato un errore imprevisto. Aggiorna per continuare.",
+    "refreshApp": "Aggiorna app"
   },
   "permissions": {
     "storage": {
@@ -124,5 +198,137 @@
       "title": "Resta puntuale",
       "description": "Abilita le notifiche per ricevere promemoria quando le tue scorciatoie programmate sono pronte."
     }
+  },
+  "success": {
+    "title": "Aggiunto alla schermata home",
+    "ready": "\"{name}\" è pronto",
+    "hint": "Un tocco dalla schermata home per aprire istantaneamente",
+    "addAnother": "Aggiungi un altro"
+  },
+  "addBookmark": {
+    "title": "Aggiungi nuovo preferito",
+    "urlPlaceholder": "URL (es. youtube.com)",
+    "titlePlaceholder": "Titolo (opzionale)",
+    "descriptionPlaceholder": "Descrizione (opzionale)",
+    "tagLabel": "Tag (opzionale)",
+    "duplicateTitle": "Questo URL esiste già",
+    "savedAs": "Salvato come: {title}",
+    "folder": "Cartella: {folder}",
+    "editExisting": "Modifica esistente",
+    "clearAndSkip": "Cancella e salta",
+    "saveBookmark": "Salva preferito"
+  },
+  "folders": {
+    "createTitle": "Crea nuova cartella",
+    "editTitle": "Modifica cartella",
+    "namePlaceholder": "Nome cartella...",
+    "chooseIcon": "Scegli un'icona"
+  },
+  "scheduledActions": {
+    "whatToOpen": "Cosa aprire",
+    "selectDescription": "Seleziona cosa deve aprirsi quando questa azione si attiva.",
+    "localFile": "File locale",
+    "localFileDesc": "Foto, video, PDF o documento",
+    "link": "Link",
+    "linkDesc": "Sito web o preferito salvato",
+    "contact": "Contatto",
+    "contactDesc": "Chiama qualcuno a un orario programmato",
+    "addLink": "Aggiungi un link",
+    "enterUrl": "Inserisci URL",
+    "typeOrPaste": "Digita o incolla un link",
+    "savedBookmark": "Preferito salvato",
+    "chooseFromLibrary": "Scegli dalla tua libreria",
+    "urlPlaceholder": "esempio.com",
+    "pleaseEnterUrl": "Inserisci un URL",
+    "pleaseEnterValidUrl": "Inserisci un URL valido",
+    "nameAction": "Dai un nome a questa azione",
+    "actionName": "Nome azione",
+    "actionNameHint": "Apparirà nella notifica quando attivata.",
+    "myAction": "La mia azione",
+    "repeats": "Si ripete {frequency}",
+    "actionScheduled": "Azione programmata",
+    "couldNotSchedule": "Impossibile programmare",
+    "tryAgain": "Riprova.",
+    "expired": "Scaduto"
+  },
+  "trash": {
+    "title": "Cestino",
+    "empty": "Il cestino è vuoto",
+    "emptyDescription": "I preferiti eliminati appariranno qui per {{days}} giorni prima di essere rimossi permanentemente.",
+    "swipeHint": "Scorri a destra per ripristinare, a sinistra per eliminare",
+    "restoreAll": "Ripristina tutto",
+    "emptyTrash": "Svuota cestino",
+    "permanentlyDelete": "Eliminare permanentemente?",
+    "permanentlyDeleteDesc": "Questo preferito verrà eliminato permanentemente. Questa azione non può essere annullata.",
+    "restoreAllTitle": "Ripristinare tutti gli elementi?",
+    "restoreAllDesc": "Questo ripristinerà tutti i {{count}} elementi dal cestino ai tuoi preferiti.",
+    "emptyTrashTitle": "Svuotare il cestino?",
+    "emptyTrashDesc": "Questo eliminerà permanentemente tutti i {{count}} elementi nel cestino."
+  },
+  "shortcutCustomizer": {
+    "setupAccess": "Configura accesso",
+    "nameLabel": "Nome",
+    "namePlaceholder": "Inserisci un nome",
+    "iconLabel": "Icona",
+    "preview": "Anteprima",
+    "returnToLastPage": "Torna all'ultima pagina",
+    "openWhereYouLeftOff": "Apri da dove eri rimasto",
+    "adding": "Aggiunta...",
+    "addToHomeScreen": "Aggiungi alla schermata home"
+  },
+  "iconPicker": {
+    "icon": "Icona",
+    "image": "Immagine",
+    "emoji": "Emoji",
+    "text": "Testo",
+    "textPlaceholder": "1-2 caratteri"
+  },
+  "urlInput": {
+    "enterLink": "Inserisci link",
+    "pasteOrType": "Incolla o digita un URL",
+    "pleaseEnterValidUrl": "Inserisci un URL valido",
+    "opensIn": "Si apre in {platform}",
+    "saveToLibrary": "Salva in libreria",
+    "continue": "Continua"
+  },
+  "clipboard": {
+    "detected": "URL rilevato",
+    "dismiss": "Ignora",
+    "useLink": "Usa questo link"
+  },
+  "toasts": {
+    "linkSaved": "Link salvato nella libreria!",
+    "linkDuplicate": "Link già presente nella libreria",
+    "linkFailed": "Impossibile salvare il link",
+    "bookmarkSaved": "Preferito salvato",
+    "bookmarkUpdated": "Preferito aggiornato",
+    "movedToTrash": "Spostato nel cestino",
+    "permanentlyDeleted": "Eliminato permanentemente",
+    "bookmarkRestored": "Preferito ripristinato",
+    "selectionCleared": "Selezione cancellata",
+    "folderCreated": "Cartella creata",
+    "folderUpdated": "Cartella aggiornata",
+    "folderDeleted": "Cartella eliminata",
+    "movedTo": "Spostato in {folder}",
+    "noUrlOnClipboard": "Nessun URL trovato negli appunti",
+    "unableToAccessClipboard": "Impossibile accedere agli appunti"
+  },
+  "usage": {
+    "title": "Statistiche di utilizzo",
+    "shortcuts": "Scorciatoie",
+    "totalTaps": "Tocchi totali",
+    "weeklyActivity": "Questa settimana",
+    "topShortcuts": "Più usate",
+    "taps": "tocchi",
+    "noShortcuts": "Crea la tua prima scorciatoia per vedere le statistiche!",
+    "startUsing": "Inizia a usare le tue scorciatoie per vedere le statistiche!",
+    "gettingStarted": "Stai iniziando! Continua così!",
+    "doingGreat": "Stai andando alla grande! {{taps}} tocchi risparmiati questo mese.",
+    "powerUser": "Power user! Hai risparmiato {{taps}} tocchi questo mese! 🔥",
+    "superUser": "🏆 Super user! {{taps}} tocchi risparmiati questo mese!"
+  },
+  "pagination": {
+    "previous": "Precedente",
+    "next": "Successivo"
   }
 }

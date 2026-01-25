@@ -51,7 +51,8 @@
     "contactMessage": "메시지",
     "contactCallDesc": "바로 전화",
     "contactMessageDesc": "WhatsApp",
-    "chooseAction": "동작 유형 선택"
+    "chooseAction": "동작 유형 선택",
+    "offlineMessage": "오프라인입니다. 일부 기능이 제한될 수 있습니다."
   },
   "library": {
     "title": "라이브러리",
@@ -60,7 +61,25 @@
     "search": "북마크 검색...",
     "addBookmark": "북마크 추가",
     "folders": "폴더",
-    "allBookmarks": "모든 북마크"
+    "allBookmarks": "모든 북마크",
+    "add": "추가",
+    "addTooltip": "이 앱에 URL을 공유하여 북마크를 추가할 수도 있습니다",
+    "yourSavedLinks": "저장된 링크",
+    "listView": "목록",
+    "foldersView": "폴더",
+    "listTooltip": "모든 북마크를 목록으로 보기",
+    "foldersTooltip": "폴더별로 북마크 정리",
+    "searchPlaceholder": "북마크 검색...",
+    "clearSearch": "검색 지우기",
+    "noBookmarksTitle": "아직 북마크가 없습니다",
+    "noBookmarksDesc": "이 앱에 링크를 공유하여 저장하거나 아래 버튼을 탭하세요",
+    "addFirstBookmark": "첫 번째 북마크 추가",
+    "sortNewest": "최신순 정렬",
+    "sortAlphabetical": "가나다순 정렬",
+    "sortManual": "수동 정렬 모드",
+    "clickToReverse": "클릭하여 정렬 순서 반전",
+    "clickToEnableManual": "클릭하여 수동 정렬 활성화",
+    "uncategorized": "미분류"
   },
   "notifications": {
     "title": "알림",
@@ -68,6 +87,11 @@
     "emptyDescription": "바로가기를 만들고 열리는 시간을 예약하세요",
     "upcoming": "예정",
     "past": "지남"
+  },
+  "notificationsPage": {
+    "notifications": "알림",
+    "alarms": "알람",
+    "searchPlaceholder": "작업 검색..."
   },
   "profile": {
     "title": "프로필",
@@ -79,7 +103,48 @@
     "cloudBookmarks": "클라우드 북마크",
     "lastSync": "마지막 동기화",
     "deleteAccount": "계정 삭제",
-    "deleteAccountWarning": "계정과 모든 클라우드 데이터가 영구적으로 삭제됩니다."
+    "deleteAccountWarning": "계정과 모든 클라우드 데이터가 영구적으로 삭제됩니다.",
+    "signInToSync": "동기화하려면 로그인",
+    "signInWithGoogle": "Google로 로그인",
+    "secureBackup": "안전한 클라우드 백업",
+    "syncAcrossDevices": "기기 간 동기화",
+    "autoSyncOn": "자동 동기화 켜짐",
+    "autoSyncOff": "자동 동기화 꺼짐",
+    "local": "로컬",
+    "cloud": "클라우드",
+    "lastSyncInfo": "마지막 동기화: ↑{{uploaded}} 업로드, ↓{{downloaded}} 다운로드",
+    "quickActions": "빠른 작업",
+    "syncNow": "지금 동기화",
+    "syncing": "동기화 중...",
+    "upload": "업로드",
+    "uploading": "업로드 중...",
+    "download": "다운로드",
+    "downloading": "다운로드 중...",
+    "autoSync": "자동 동기화",
+    "autoSyncDesc": "북마크 변경 시 자동 백업",
+    "autoSyncEnabled": "자동 동기화 활성화됨",
+    "autoSyncDisabled": "자동 동기화 비활성화됨",
+    "autoSyncEnabledDesc": "변경 시 북마크가 자동으로 동기화됩니다",
+    "autoSyncDisabledDesc": "수동 동기화로 북마크를 백업하세요",
+    "syncComplete": "동기화 완료",
+    "syncCompleteDesc": "{{uploaded}} 업로드, {{downloaded}}개 북마크 다운로드",
+    "syncFailed": "동기화 실패",
+    "uploadComplete": "업로드 완료",
+    "uploadCompleteDesc": "{{count}}개 북마크를 클라우드에 업로드",
+    "uploadFailed": "업로드 실패",
+    "downloadComplete": "다운로드 완료",
+    "downloadCompleteDesc": "{{count}}개의 새 북마크 다운로드",
+    "downloadFailed": "다운로드 실패",
+    "deleteAccountTitle": "계정을 삭제하시겠습니까?",
+    "deleteAccountDesc": "계정과 모든 클라우드 북마크가 영구적으로 삭제됩니다. 이 기기의 로컬 북마크는 영향받지 않습니다.",
+    "accountDeleted": "계정이 삭제되었습니다",
+    "accountDeletedDesc": "계정과 모든 클라우드 데이터가 영구적으로 삭제되었습니다.",
+    "deleteAccountFailed": "계정 삭제 실패",
+    "deleting": "삭제 중...",
+    "signInFailed": "로그인 실패",
+    "sessionExpired": "세션이 만료되었습니다. 다시 로그인해 주세요.",
+    "couldNotSignIn": "Google로 로그인할 수 없습니다. 다시 시도해 주세요.",
+    "settings": "설정"
   },
   "settings": {
     "title": "설정",
@@ -108,12 +173,21 @@
     "confirm": "확인",
     "close": "닫기",
     "back": "뒤로",
-    "retry": "다시 시도"
+    "retry": "다시 시도",
+    "undo": "실행 취소",
+    "selectAll": "모두 선택",
+    "clear": "지우기",
+    "continue": "계속",
+    "create": "만들기",
+    "saveChanges": "변경 사항 저장"
   },
   "errors": {
     "generic": "문제가 발생했습니다",
     "network": "인터넷 연결 없음",
-    "permissionDenied": "권한이 거부되었습니다"
+    "permissionDenied": "권한이 거부되었습니다",
+    "somethingWentWrong": "문제가 발생했습니다",
+    "unexpectedError": "예기치 않은 오류가 발생했습니다. 새로고침하여 계속하세요.",
+    "refreshApp": "앱 새로고침"
   },
   "permissions": {
     "storage": {
@@ -124,5 +198,137 @@
       "title": "시간 맞추기",
       "description": "예약된 바로가기가 준비되면 알림을 받을 수 있도록 알림을 활성화하세요."
     }
+  },
+  "success": {
+    "title": "홈 화면에 추가됨",
+    "ready": "\"{name}\" 준비 완료",
+    "hint": "홈 화면에서 한 번 탭으로 즉시 열기",
+    "addAnother": "하나 더 추가"
+  },
+  "addBookmark": {
+    "title": "새 북마크 추가",
+    "urlPlaceholder": "URL (예: youtube.com)",
+    "titlePlaceholder": "제목 (선택)",
+    "descriptionPlaceholder": "설명 (선택)",
+    "tagLabel": "태그 (선택)",
+    "duplicateTitle": "이 URL은 이미 존재합니다",
+    "savedAs": "저장됨: {title}",
+    "folder": "폴더: {folder}",
+    "editExisting": "기존 편집",
+    "clearAndSkip": "지우고 건너뛰기",
+    "saveBookmark": "북마크 저장"
+  },
+  "folders": {
+    "createTitle": "새 폴더 만들기",
+    "editTitle": "폴더 편집",
+    "namePlaceholder": "폴더 이름...",
+    "chooseIcon": "아이콘 선택"
+  },
+  "scheduledActions": {
+    "whatToOpen": "열 항목",
+    "selectDescription": "이 작업이 트리거될 때 열릴 항목을 선택하세요.",
+    "localFile": "로컬 파일",
+    "localFileDesc": "사진, 동영상, PDF 또는 문서",
+    "link": "링크",
+    "linkDesc": "웹사이트 또는 저장된 북마크",
+    "contact": "연락처",
+    "contactDesc": "예약된 시간에 전화하기",
+    "addLink": "링크 추가",
+    "enterUrl": "URL 입력",
+    "typeOrPaste": "링크 입력 또는 붙여넣기",
+    "savedBookmark": "저장된 북마크",
+    "chooseFromLibrary": "라이브러리에서 선택",
+    "urlPlaceholder": "example.com",
+    "pleaseEnterUrl": "URL을 입력해 주세요",
+    "pleaseEnterValidUrl": "유효한 URL을 입력해 주세요",
+    "nameAction": "이 작업 이름 지정",
+    "actionName": "작업 이름",
+    "actionNameHint": "트리거 시 알림에 표시됩니다.",
+    "myAction": "내 작업",
+    "repeats": "{frequency} 반복",
+    "actionScheduled": "작업이 예약되었습니다",
+    "couldNotSchedule": "예약할 수 없습니다",
+    "tryAgain": "다시 시도해 주세요.",
+    "expired": "만료됨"
+  },
+  "trash": {
+    "title": "휴지통",
+    "empty": "휴지통이 비어 있습니다",
+    "emptyDescription": "삭제된 북마크는 영구 삭제되기 전 {{days}}일 동안 여기에 표시됩니다.",
+    "swipeHint": "오른쪽으로 스와이프하여 복원, 왼쪽으로 스와이프하여 삭제",
+    "restoreAll": "모두 복원",
+    "emptyTrash": "휴지통 비우기",
+    "permanentlyDelete": "영구 삭제하시겠습니까?",
+    "permanentlyDeleteDesc": "이 북마크는 영구적으로 삭제됩니다. 이 작업은 취소할 수 없습니다.",
+    "restoreAllTitle": "모든 항목을 복원하시겠습니까?",
+    "restoreAllDesc": "휴지통에서 {{count}}개 항목을 모두 북마크로 복원합니다.",
+    "emptyTrashTitle": "휴지통을 비우시겠습니까?",
+    "emptyTrashDesc": "휴지통의 {{count}}개 항목을 모두 영구 삭제합니다."
+  },
+  "shortcutCustomizer": {
+    "setupAccess": "접근 설정",
+    "nameLabel": "이름",
+    "namePlaceholder": "이름 입력",
+    "iconLabel": "아이콘",
+    "preview": "미리보기",
+    "returnToLastPage": "마지막 페이지로 돌아가기",
+    "openWhereYouLeftOff": "중단한 곳에서 열기",
+    "adding": "추가 중...",
+    "addToHomeScreen": "홈 화면에 추가"
+  },
+  "iconPicker": {
+    "icon": "아이콘",
+    "image": "이미지",
+    "emoji": "이모지",
+    "text": "텍스트",
+    "textPlaceholder": "1-2자"
+  },
+  "urlInput": {
+    "enterLink": "링크 입력",
+    "pasteOrType": "URL 붙여넣기 또는 입력",
+    "pleaseEnterValidUrl": "유효한 URL을 입력해 주세요",
+    "opensIn": "{platform}에서 열기",
+    "saveToLibrary": "라이브러리에 저장",
+    "continue": "계속"
+  },
+  "clipboard": {
+    "detected": "URL 감지됨",
+    "dismiss": "닫기",
+    "useLink": "이 링크 사용"
+  },
+  "toasts": {
+    "linkSaved": "링크가 라이브러리에 저장되었습니다!",
+    "linkDuplicate": "링크가 이미 라이브러리에 있습니다",
+    "linkFailed": "링크를 저장할 수 없습니다",
+    "bookmarkSaved": "북마크 저장됨",
+    "bookmarkUpdated": "북마크 업데이트됨",
+    "movedToTrash": "휴지통으로 이동됨",
+    "permanentlyDeleted": "영구 삭제됨",
+    "bookmarkRestored": "북마크 복원됨",
+    "selectionCleared": "선택 해제됨",
+    "folderCreated": "폴더 생성됨",
+    "folderUpdated": "폴더 업데이트됨",
+    "folderDeleted": "폴더 삭제됨",
+    "movedTo": "{folder}로 이동됨",
+    "noUrlOnClipboard": "클립보드에서 URL을 찾을 수 없습니다",
+    "unableToAccessClipboard": "클립보드에 접근할 수 없습니다"
+  },
+  "usage": {
+    "title": "사용 통계",
+    "shortcuts": "바로가기",
+    "totalTaps": "총 탭 수",
+    "weeklyActivity": "이번 주",
+    "topShortcuts": "가장 많이 사용",
+    "taps": "탭",
+    "noShortcuts": "통계를 보려면 첫 번째 바로가기를 만드세요!",
+    "startUsing": "통계를 보려면 바로가기 사용을 시작하세요!",
+    "gettingStarted": "시작하셨군요! 계속 해보세요!",
+    "doingGreat": "잘하고 계세요! 이번 달 {{taps}}번의 탭을 절약했습니다.",
+    "powerUser": "파워 유저! 이번 달 {{taps}}번의 탭을 절약했습니다! 🔥",
+    "superUser": "🏆 슈퍼 유저! 이번 달 {{taps}}번의 탭을 절약했습니다!"
+  },
+  "pagination": {
+    "previous": "이전",
+    "next": "다음"
   }
 }

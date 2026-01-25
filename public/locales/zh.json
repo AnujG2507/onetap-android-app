@@ -51,7 +51,8 @@
     "contactMessage": "消息",
     "contactCallDesc": "直接拨号",
     "contactMessageDesc": "WhatsApp",
-    "chooseAction": "选择操作类型"
+    "chooseAction": "选择操作类型",
+    "offlineMessage": "您已离线。部分功能可能受限。"
   },
   "library": {
     "title": "收藏库",
@@ -60,7 +61,25 @@
     "search": "搜索书签...",
     "addBookmark": "添加书签",
     "folders": "文件夹",
-    "allBookmarks": "所有书签"
+    "allBookmarks": "所有书签",
+    "add": "添加",
+    "addTooltip": "您也可以通过分享任何URL到此应用来添加书签",
+    "yourSavedLinks": "您保存的链接",
+    "listView": "列表",
+    "foldersView": "文件夹",
+    "listTooltip": "在单一列表中查看所有书签",
+    "foldersTooltip": "按文件夹组织书签",
+    "searchPlaceholder": "搜索书签...",
+    "clearSearch": "清除搜索",
+    "noBookmarksTitle": "暂无书签",
+    "noBookmarksDesc": "通过分享链接到此应用保存，或点击下方按钮",
+    "addFirstBookmark": "添加您的第一个书签",
+    "sortNewest": "按最新排序",
+    "sortAlphabetical": "按字母排序",
+    "sortManual": "手动排序模式",
+    "clickToReverse": "点击反转排序顺序",
+    "clickToEnableManual": "点击启用手动排序",
+    "uncategorized": "未分类"
   },
   "notifications": {
     "title": "提醒",
@@ -68,6 +87,11 @@
     "emptyDescription": "创建快捷方式并安排打开时间",
     "upcoming": "即将到来",
     "past": "已过期"
+  },
+  "notificationsPage": {
+    "notifications": "通知",
+    "alarms": "闹钟",
+    "searchPlaceholder": "搜索操作..."
   },
   "profile": {
     "title": "个人资料",
@@ -79,7 +103,48 @@
     "cloudBookmarks": "云端书签",
     "lastSync": "上次同步",
     "deleteAccount": "删除账户",
-    "deleteAccountWarning": "这将永久删除您的账户和所有云端数据。"
+    "deleteAccountWarning": "这将永久删除您的账户和所有云端数据。",
+    "signInToSync": "登录以同步",
+    "signInWithGoogle": "使用Google登录",
+    "secureBackup": "安全云备份",
+    "syncAcrossDevices": "跨设备同步",
+    "autoSyncOn": "自动同步已开启",
+    "autoSyncOff": "自动同步已关闭",
+    "local": "本地",
+    "cloud": "云端",
+    "lastSyncInfo": "上次同步：↑{{uploaded}}已上传，↓{{downloaded}}已下载",
+    "quickActions": "快捷操作",
+    "syncNow": "立即同步",
+    "syncing": "同步中...",
+    "upload": "上传",
+    "uploading": "上传中...",
+    "download": "下载",
+    "downloading": "下载中...",
+    "autoSync": "自动同步",
+    "autoSyncDesc": "书签更改时自动备份",
+    "autoSyncEnabled": "自动同步已启用",
+    "autoSyncDisabled": "自动同步已禁用",
+    "autoSyncEnabledDesc": "更改时书签将自动同步",
+    "autoSyncDisabledDesc": "使用手动同步备份您的书签",
+    "syncComplete": "同步完成",
+    "syncCompleteDesc": "已上传{{uploaded}}，已下载{{downloaded}}个书签",
+    "syncFailed": "同步失败",
+    "uploadComplete": "上传完成",
+    "uploadCompleteDesc": "已上传{{count}}个书签到云端",
+    "uploadFailed": "上传失败",
+    "downloadComplete": "下载完成",
+    "downloadCompleteDesc": "已下载{{count}}个新书签",
+    "downloadFailed": "下载失败",
+    "deleteAccountTitle": "删除您的账户？",
+    "deleteAccountDesc": "这将永久删除您的账户和所有云端书签。此设备上的本地书签不会受到影响。",
+    "accountDeleted": "账户已删除",
+    "accountDeletedDesc": "您的账户和所有云端数据已被永久删除。",
+    "deleteAccountFailed": "无法删除账户",
+    "deleting": "删除中...",
+    "signInFailed": "登录失败",
+    "sessionExpired": "会话已过期。请重新登录。",
+    "couldNotSignIn": "无法使用Google登录。请重试。",
+    "settings": "设置"
   },
   "settings": {
     "title": "设置",
@@ -108,12 +173,21 @@
     "confirm": "确认",
     "close": "关闭",
     "back": "返回",
-    "retry": "重试"
+    "retry": "重试",
+    "undo": "撤销",
+    "selectAll": "全选",
+    "clear": "清除",
+    "continue": "继续",
+    "create": "创建",
+    "saveChanges": "保存更改"
   },
   "errors": {
     "generic": "出了点问题",
     "network": "无网络连接",
-    "permissionDenied": "权限被拒绝"
+    "permissionDenied": "权限被拒绝",
+    "somethingWentWrong": "出了点问题",
+    "unexpectedError": "应用遇到意外错误。请刷新以继续。",
+    "refreshApp": "刷新应用"
   },
   "permissions": {
     "storage": {
@@ -124,5 +198,137 @@
       "title": "保持准时",
       "description": "启用通知以在您的计划快捷方式准备就绪时收到提醒。"
     }
+  },
+  "success": {
+    "title": "已添加到主屏幕",
+    "ready": ""{name}"已准备就绪",
+    "hint": "从主屏幕一键即可立即打开",
+    "addAnother": "添加另一个"
+  },
+  "addBookmark": {
+    "title": "添加新书签",
+    "urlPlaceholder": "URL（例如：youtube.com）",
+    "titlePlaceholder": "标题（可选）",
+    "descriptionPlaceholder": "描述（可选）",
+    "tagLabel": "标签（可选）",
+    "duplicateTitle": "此URL已存在",
+    "savedAs": "保存为：{title}",
+    "folder": "文件夹：{folder}",
+    "editExisting": "编辑现有",
+    "clearAndSkip": "清除并跳过",
+    "saveBookmark": "保存书签"
+  },
+  "folders": {
+    "createTitle": "创建新文件夹",
+    "editTitle": "编辑文件夹",
+    "namePlaceholder": "文件夹名称...",
+    "chooseIcon": "选择图标"
+  },
+  "scheduledActions": {
+    "whatToOpen": "要打开什么",
+    "selectDescription": "选择此操作触发时应该打开什么。",
+    "localFile": "本地文件",
+    "localFileDesc": "照片、视频、PDF或文档",
+    "link": "链接",
+    "linkDesc": "网站或已保存的书签",
+    "contact": "联系人",
+    "contactDesc": "在预定时间给某人打电话",
+    "addLink": "添加链接",
+    "enterUrl": "输入URL",
+    "typeOrPaste": "输入或粘贴链接",
+    "savedBookmark": "已保存的书签",
+    "chooseFromLibrary": "从您的收藏库中选择",
+    "urlPlaceholder": "example.com",
+    "pleaseEnterUrl": "请输入URL",
+    "pleaseEnterValidUrl": "请输入有效的URL",
+    "nameAction": "为此操作命名",
+    "actionName": "操作名称",
+    "actionNameHint": "触发时将显示在通知中。",
+    "myAction": "我的操作",
+    "repeats": "重复{frequency}",
+    "actionScheduled": "操作已安排",
+    "couldNotSchedule": "无法安排",
+    "tryAgain": "请重试。",
+    "expired": "已过期"
+  },
+  "trash": {
+    "title": "回收站",
+    "empty": "回收站为空",
+    "emptyDescription": "已删除的书签将在永久删除前在此显示{{days}}天。",
+    "swipeHint": "右滑恢复，左滑删除",
+    "restoreAll": "全部恢复",
+    "emptyTrash": "清空回收站",
+    "permanentlyDelete": "永久删除？",
+    "permanentlyDeleteDesc": "此书签将被永久删除。此操作无法撤销。",
+    "restoreAllTitle": "恢复所有项目？",
+    "restoreAllDesc": "这将把回收站中的所有{{count}}个项目恢复到您的书签。",
+    "emptyTrashTitle": "清空回收站？",
+    "emptyTrashDesc": "这将永久删除回收站中的所有{{count}}个项目。"
+  },
+  "shortcutCustomizer": {
+    "setupAccess": "设置访问",
+    "nameLabel": "名称",
+    "namePlaceholder": "输入名称",
+    "iconLabel": "图标",
+    "preview": "预览",
+    "returnToLastPage": "返回上一页",
+    "openWhereYouLeftOff": "从上次位置打开",
+    "adding": "添加中...",
+    "addToHomeScreen": "添加到主屏幕"
+  },
+  "iconPicker": {
+    "icon": "图标",
+    "image": "图片",
+    "emoji": "表情",
+    "text": "文字",
+    "textPlaceholder": "1-2个字符"
+  },
+  "urlInput": {
+    "enterLink": "输入链接",
+    "pasteOrType": "粘贴或输入URL",
+    "pleaseEnterValidUrl": "请输入有效的URL",
+    "opensIn": "在{platform}中打开",
+    "saveToLibrary": "保存到收藏库",
+    "continue": "继续"
+  },
+  "clipboard": {
+    "detected": "检测到URL",
+    "dismiss": "忽略",
+    "useLink": "使用此链接"
+  },
+  "toasts": {
+    "linkSaved": "链接已保存到收藏库！",
+    "linkDuplicate": "链接已在收藏库中",
+    "linkFailed": "无法保存链接",
+    "bookmarkSaved": "书签已保存",
+    "bookmarkUpdated": "书签已更新",
+    "movedToTrash": "已移至回收站",
+    "permanentlyDeleted": "已永久删除",
+    "bookmarkRestored": "书签已恢复",
+    "selectionCleared": "已清除选择",
+    "folderCreated": "文件夹已创建",
+    "folderUpdated": "文件夹已更新",
+    "folderDeleted": "文件夹已删除",
+    "movedTo": "已移至{folder}",
+    "noUrlOnClipboard": "剪贴板中未找到URL",
+    "unableToAccessClipboard": "无法访问剪贴板"
+  },
+  "usage": {
+    "title": "使用统计",
+    "shortcuts": "快捷方式",
+    "totalTaps": "总点击次数",
+    "weeklyActivity": "本周",
+    "topShortcuts": "最常使用",
+    "taps": "次点击",
+    "noShortcuts": "创建您的第一个快捷方式以查看统计！",
+    "startUsing": "开始使用您的快捷方式以查看统计！",
+    "gettingStarted": "您刚开始！继续加油！",
+    "doingGreat": "做得很棒！本月节省了{{taps}}次点击。",
+    "powerUser": "高级用户！本月您节省了{{taps}}次点击！🔥",
+    "superUser": "🏆 超级用户！本月节省了{{taps}}次点击！"
+  },
+  "pagination": {
+    "previous": "上一页",
+    "next": "下一页"
   }
 }
