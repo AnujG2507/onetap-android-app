@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ArrowLeft, ArrowRight, Globe, Instagram, Youtube, Clipboard, Star, Tag, X } from 'lucide-react';
 import { Clipboard as CapClipboard } from '@capacitor/clipboard';
 import { Button } from '@/components/ui/button';
@@ -45,6 +46,7 @@ interface UrlInputProps {
 }
 
 export function UrlInput({ onSubmit, onBack, initialUrl }: UrlInputProps) {
+  const { t } = useTranslation();
   const [url, setUrl] = useState(initialUrl || '');
   const [error, setError] = useState('');
   const [saveToLibrary, setSaveToLibrary] = useState(false);
@@ -68,7 +70,7 @@ export function UrlInput({ onSubmit, onBack, initialUrl }: UrlInputProps) {
     }
     
     if (!isValidUrl(finalUrl)) {
-      setError('Please enter a valid URL');
+      setError(t('urlInput.invalidUrl'));
       return;
     }
     
@@ -83,13 +85,13 @@ export function UrlInput({ onSubmit, onBack, initialUrl }: UrlInputProps) {
       
       switch (result.status) {
         case 'added':
-          toast.success('Link saved to library!');
+          toast.success(t('toasts.linkSaved'));
           break;
         case 'duplicate':
-          toast.info('Link already in library');
+          toast.info(t('toasts.linkDuplicate'));
           break;
         case 'failed':
-          toast.error('Could not save link');
+          toast.error(t('toasts.linkFailed'));
           break;
       }
     }
@@ -107,7 +109,7 @@ export function UrlInput({ onSubmit, onBack, initialUrl }: UrlInputProps) {
         setUrl(url);
         setError('');
       } else {
-        toast.error('No URL detected on clipboard');
+        toast.error(t('urlInput.noUrlDetected'));
       }
     } catch {
       try {
@@ -118,10 +120,10 @@ export function UrlInput({ onSubmit, onBack, initialUrl }: UrlInputProps) {
           setUrl(url);
           setError('');
         } else {
-          toast.error('No URL detected on clipboard');
+          toast.error(t('urlInput.noUrlDetected'));
         }
       } catch {
-        toast.error('Unable to access clipboard');
+        toast.error(t('urlInput.clipboardAccessError'));
       }
     }
   };
@@ -148,7 +150,7 @@ export function UrlInput({ onSubmit, onBack, initialUrl }: UrlInputProps) {
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h2 className="text-lg font-medium">Enter link</h2>
+        <h2 className="text-lg font-medium">{t('urlInput.enterLink')}</h2>
       </header>
       
       <div className="flex-1 p-4 overflow-y-auto">
@@ -163,7 +165,7 @@ export function UrlInput({ onSubmit, onBack, initialUrl }: UrlInputProps) {
                 setUrl(e.target.value);
                 setError('');
               }}
-              placeholder="Paste or type a URL"
+              placeholder={t('urlInput.placeholder')}
               className={cn(
                 "pl-11 pr-10 h-12 text-base",
                 error && "border-destructive focus-visible:ring-destructive"
@@ -185,7 +187,7 @@ export function UrlInput({ onSubmit, onBack, initialUrl }: UrlInputProps) {
           <button
             onClick={handlePaste}
             className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-muted hover:bg-muted/80 active:scale-95 transition-all"
-            title="Paste from clipboard"
+            title={t('urlInput.pasteFromClipboard')}
           >
             <Clipboard className="h-5 w-5 text-muted-foreground" />
           </button>
@@ -197,7 +199,7 @@ export function UrlInput({ onSubmit, onBack, initialUrl }: UrlInputProps) {
         
         {linkInfo?.isDeepLink && (
           <p className="mt-3 text-xs text-muted-foreground animate-fade-in">
-            Opens in {linkInfo.platform}
+            {t('urlInput.opensIn', { platform: linkInfo.platform })}
           </p>
         )}
 
@@ -207,7 +209,7 @@ export function UrlInput({ onSubmit, onBack, initialUrl }: UrlInputProps) {
             <div className="flex items-center gap-3">
               <Star className="h-5 w-5 text-primary" />
               <Label htmlFor="save-toggle" className="font-medium cursor-pointer">
-                Save to Library
+                {t('urlInput.saveToLibrary')}
               </Label>
             </div>
             <Switch
@@ -224,7 +226,7 @@ export function UrlInput({ onSubmit, onBack, initialUrl }: UrlInputProps) {
                 <Input
                   value={linkTitle}
                   onChange={(e) => setLinkTitle(e.target.value)}
-                  placeholder="Title (optional)"
+                  placeholder={t('addBookmark.titlePlaceholder')}
                   className="h-10 pr-10"
                 />
                 {linkTitle && (
@@ -232,7 +234,7 @@ export function UrlInput({ onSubmit, onBack, initialUrl }: UrlInputProps) {
                     type="button"
                     onClick={() => setLinkTitle('')}
                     className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
-                    aria-label="Clear title"
+                    aria-label={t('common.clearTitle')}
                   >
                     <X className="h-4 w-4" />
                   </button>
@@ -242,7 +244,7 @@ export function UrlInput({ onSubmit, onBack, initialUrl }: UrlInputProps) {
               <Textarea
                 value={linkDescription}
                 onChange={(e) => setLinkDescription(e.target.value)}
-                placeholder="Description (optional)"
+                placeholder={t('addBookmark.descriptionPlaceholder')}
                 className="resize-none"
                 rows={2}
                 maxLength={200}
@@ -252,7 +254,7 @@ export function UrlInput({ onSubmit, onBack, initialUrl }: UrlInputProps) {
               <div>
                 <div className="flex items-center gap-2 mb-2">
                   <Tag className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">Tag (optional)</span>
+                  <span className="text-xs text-muted-foreground">{t('addBookmark.tagLabel')}</span>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {PRESET_TAGS.map(tag => (
@@ -283,7 +285,7 @@ export function UrlInput({ onSubmit, onBack, initialUrl }: UrlInputProps) {
           disabled={!url.trim()}
           className="w-full h-12 text-base font-medium"
         >
-          Continue
+          {t('common.continue')}
           <ArrowRight className="ml-2 h-5 w-5" />
         </Button>
       </div>

@@ -245,7 +245,8 @@
     "deleting": "Deleting...",
     "signInFailed": "Sign in failed",
     "sessionExpired": "Session expired. Please try signing in again.",
-    "couldNotSignIn": "Could not sign in with Google. Please try again."
+    "couldNotSignIn": "Could not sign in with Google. Please try again.",
+    "tryAgainLater": "Please try again later"
   },
   "settings": {
     "title": "Settings",
@@ -262,38 +263,41 @@
     "resetOnboarding": "Reset Onboarding",
     "resetOnboardingDescription": "Re-experience language selection and intro"
   },
-  "shortcut": {
-    "setupAccess": "Set up access",
-    "name": "Name",
+  "shortcutCustomizer": {
+    "setUpAccess": "Set up access",
+    "nameLabel": "Name",
     "namePlaceholder": "Enter a name",
-    "icon": "Icon",
-    "iconImage": "Image",
-    "iconEmoji": "Emoji",
-    "iconText": "Text",
-    "iconTextPlaceholder": "1-2 characters",
-    "preview": "Preview",
+    "iconLabel": "Icon",
     "returnToLastPage": "Return to last page",
-    "openWhereLeftOff": "Open where you left off",
-    "addToHomeScreen": "Add to Home Screen",
-    "adding": "Adding..."
+    "openWhereYouLeftOff": "Open where you left off",
+    "preview": "Preview",
+    "access": "Access",
+    "adding": "Adding...",
+    "addToHomeScreen": "Add to Home Screen"
   },
-  "success": {
-    "title": "Added to Home Screen",
-    "ready": "\"{{name}}\" is ready",
-    "hint": "One tap from your home screen to open instantly",
-    "addAnother": "Add another"
+  "iconPicker": {
+    "icon": "Icon",
+    "image": "Image",
+    "emoji": "Emoji",
+    "text": "Text",
+    "textPlaceholder": "1-2 characters"
+  },
+  "toasts": {
+    "linkSaved": "Link saved to library!",
+    "linkDuplicate": "Link already in library",
+    "linkFailed": "Could not save link"
   },
   "urlInput": {
     "title": "Enter link",
+    "enterLink": "Enter link",
     "placeholder": "Paste or type a URL",
     "saveToLibrary": "Save to Library",
     "opensIn": "Opens in {{platform}}",
     "continue": "Continue",
     "noUrlDetected": "No URL detected on clipboard",
-    "unableToAccessClipboard": "Unable to access clipboard",
-    "linkSaved": "Link saved to library!",
-    "linkDuplicate": "Link already in library",
-    "linkFailed": "Could not save link"
+    "clipboardAccessError": "Unable to access clipboard",
+    "invalidUrl": "Please enter a valid URL",
+    "pasteFromClipboard": "Paste from clipboard"
   },
   "clipboard": {
     "detected": "URL Detected",
@@ -322,7 +326,17 @@
     "back": "Back",
     "retry": "Retry",
     "previous": "Previous",
-    "next": "Next"
+    "next": "Next",
+    "continue": "Continue",
+    "clearTitle": "Clear title",
+    "clearText": "Clear text"
+  },
+  "pagination": {
+    "previous": "Previous",
+    "next": "Next",
+    "goToPrevious": "Go to previous page",
+    "goToNext": "Go to next page",
+    "morePages": "More pages"
   },
   "permissions": {
     "storage": {

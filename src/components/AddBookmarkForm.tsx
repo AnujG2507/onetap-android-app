@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X, Tag, AlertCircle, Pencil, SkipForward } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -13,6 +14,7 @@ interface AddBookmarkFormProps {
 }
 
 export function AddBookmarkForm({ onSave, onCancel, onEditExisting }: AddBookmarkFormProps) {
+  const { t } = useTranslation();
   const [url, setUrl] = useState('');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -60,7 +62,7 @@ export function AddBookmarkForm({ onSave, onCancel, onEditExisting }: AddBookmar
   return (
     <div className="p-4 rounded-xl bg-muted/50 animate-fade-in">
       <div className="flex items-center justify-between mb-3">
-        <span className="text-sm font-medium">Add New Bookmark</span>
+        <span className="text-sm font-medium">{t('addBookmark.title')}</span>
         <button onClick={onCancel} className="p-1 rounded-full hover:bg-muted">
           <X className="h-4 w-4" />
         </button>
@@ -71,7 +73,7 @@ export function AddBookmarkForm({ onSave, onCancel, onEditExisting }: AddBookmar
         <Input
           value={url}
           onChange={(e) => setUrl(e.target.value)}
-          placeholder="URL (e.g., youtube.com)"
+          placeholder={t('addBookmark.urlPlaceholder')}
           className={cn(
             "pr-10",
             existingLink && "border-amber-500 focus-visible:ring-amber-500"
@@ -96,14 +98,14 @@ export function AddBookmarkForm({ onSave, onCancel, onEditExisting }: AddBookmar
             <AlertCircle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-amber-600 dark:text-amber-400">
-                This URL already exists
+                {t('addBookmark.duplicateTitle')}
               </p>
               <p className="text-xs text-muted-foreground mt-1 truncate">
-                Saved as: {existingLink.title}
+                {t('addBookmark.savedAs', { title: existingLink.title })}
               </p>
               {existingLink.tag && (
                 <p className="text-xs text-muted-foreground">
-                  Folder: {existingLink.tag}
+                  {t('addBookmark.folder', { folder: existingLink.tag })}
                 </p>
               )}
             </div>
@@ -117,7 +119,7 @@ export function AddBookmarkForm({ onSave, onCancel, onEditExisting }: AddBookmar
                 className="flex-1 gap-1.5"
               >
                 <Pencil className="h-3.5 w-3.5" />
-                Edit Existing
+                {t('addBookmark.editExisting')}
               </Button>
             )}
             <Button
@@ -127,7 +129,7 @@ export function AddBookmarkForm({ onSave, onCancel, onEditExisting }: AddBookmar
               className="flex-1 gap-1.5"
             >
               <SkipForward className="h-3.5 w-3.5" />
-              Clear & Skip
+              {t('addBookmark.clearAndSkip')}
             </Button>
           </div>
         </div>
@@ -141,7 +143,7 @@ export function AddBookmarkForm({ onSave, onCancel, onEditExisting }: AddBookmar
             <Input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Title (optional)"
+              placeholder={t('addBookmark.titlePlaceholder')}
               className="pr-10"
             />
             {title && (
@@ -160,7 +162,7 @@ export function AddBookmarkForm({ onSave, onCancel, onEditExisting }: AddBookmar
             <Textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Description (optional)"
+              placeholder={t('addBookmark.descriptionPlaceholder')}
               className="resize-none pr-10"
               rows={2}
               maxLength={200}
@@ -180,7 +182,7 @@ export function AddBookmarkForm({ onSave, onCancel, onEditExisting }: AddBookmar
           <div className="mb-3">
             <div className="flex items-center gap-2 mb-2">
               <Tag className="h-4 w-4 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">Tag (optional)</span>
+              <span className="text-xs text-muted-foreground">{t('addBookmark.tagLabel')}</span>
             </div>
             <div className="flex flex-wrap gap-2">
               {PRESET_TAGS.map(tag => (
@@ -201,7 +203,7 @@ export function AddBookmarkForm({ onSave, onCancel, onEditExisting }: AddBookmar
           </div>
           
           <Button onClick={handleSubmit} disabled={!url.trim()} className="w-full">
-            Save Bookmark
+            {t('addBookmark.saveBookmark')}
           </Button>
         </>
       )}

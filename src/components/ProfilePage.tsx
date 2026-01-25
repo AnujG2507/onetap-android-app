@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { User, Cloud, Upload, Download, RefreshCw, LogOut, HardDrive, Clock, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,6 +27,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 export function ProfilePage() {
+  const { t } = useTranslation();
   const { user, loading, signInWithGoogle, signOut } = useAuth();
   const { toast } = useToast();
   const [isSyncing, setIsSyncing] = useState(false);
@@ -58,10 +60,10 @@ export function ProfilePage() {
     updateSettings({ autoSyncEnabled: enabled });
     window.dispatchEvent(new CustomEvent('settings-changed'));
     toast({
-      title: enabled ? 'Auto-sync enabled' : 'Auto-sync disabled',
+      title: enabled ? t('profile.autoSyncEnabled') : t('profile.autoSyncDisabled'),
       description: enabled 
-        ? 'Bookmarks will sync automatically when changes are made'
-        : 'Use manual sync to backup your bookmarks',
+        ? t('profile.autoSyncEnabledDesc')
+        : t('profile.autoSyncDisabledDesc'),
     });
   };
 
@@ -95,14 +97,14 @@ export function ProfilePage() {
       await supabase.auth.signOut();
 
       toast({
-        title: 'Account deleted',
-        description: 'Your account and all cloud data have been permanently deleted.',
+        title: t('profile.accountDeleted'),
+        description: t('profile.accountDeletedDesc'),
       });
     } catch (error) {
       console.error('[DeleteAccount] Error:', error);
       toast({
-        title: 'Failed to delete account',
-        description: error instanceof Error ? error.message : 'Please try again later',
+        title: t('profile.deleteAccountFailed'),
+        description: error instanceof Error ? error.message : t('profile.tryAgainLater'),
         variant: 'destructive',
       });
     } finally {
@@ -119,10 +121,10 @@ export function ProfilePage() {
                            error?.message?.includes('invalid') ||
                            error?.message?.includes('signing method');
       toast({
-        title: 'Sign in failed',
+        title: t('profile.signInFailed'),
         description: isTokenError 
-          ? 'Session expired. Please try signing in again.'
-          : 'Could not sign in with Google. Please try again.',
+          ? t('profile.sessionExpired')
+          : t('profile.couldNotSignIn'),
         variant: 'destructive',
       });
     }
@@ -141,8 +143,8 @@ export function ProfilePage() {
         recordSync(result.uploaded, result.downloaded);
         setSyncStatus(getSyncStatus());
         toast({
-          title: 'Sync complete',
-          description: `Uploaded ${result.uploaded}, downloaded ${result.downloaded} bookmarks`,
+          title: t('profile.syncComplete'),
+          description: t('profile.syncCompleteDesc', { uploaded: result.uploaded, downloaded: result.downloaded }),
         });
         if (result.downloaded > 0) {
           window.location.reload();
@@ -151,7 +153,7 @@ export function ProfilePage() {
         }
       } else {
         toast({
-          title: 'Sync failed',
+          title: t('profile.syncFailed'),
           description: result.error,
           variant: 'destructive',
         });
@@ -169,13 +171,13 @@ export function ProfilePage() {
         recordSync(result.uploaded, 0);
         setSyncStatus(getSyncStatus());
         toast({
-          title: 'Upload complete',
-          description: `Uploaded ${result.uploaded} bookmarks to cloud`,
+          title: t('profile.uploadComplete'),
+          description: t('profile.uploadCompleteDesc', { count: result.uploaded }),
         });
         await refreshCounts();
       } else {
         toast({
-          title: 'Upload failed',
+          title: t('profile.uploadFailed'),
           description: result.error,
           variant: 'destructive',
         });
@@ -193,15 +195,15 @@ export function ProfilePage() {
         recordSync(0, result.downloaded);
         setSyncStatus(getSyncStatus());
         toast({
-          title: 'Download complete',
-          description: `Downloaded ${result.downloaded} new bookmarks`,
+          title: t('profile.downloadComplete'),
+          description: t('profile.downloadCompleteDesc', { count: result.downloaded }),
         });
         if (result.downloaded > 0) {
           window.location.reload();
         }
       } else {
         toast({
-          title: 'Download failed',
+          title: t('profile.downloadFailed'),
           description: result.error,
           variant: 'destructive',
         });
@@ -229,9 +231,9 @@ export function ProfilePage() {
           </div>
           
           <div className="space-y-2">
-            <h1 className="text-2xl font-bold">Sign in to sync</h1>
+            <h1 className="text-2xl font-bold">{t('profile.signInToSync')}</h1>
             <p className="text-muted-foreground">
-              Sign in with your Google account to backup your bookmarks to the cloud and sync across devices.
+              {t('profile.signInDescription')}
             </p>
           </div>
 
@@ -243,16 +245,16 @@ export function ProfilePage() {
                 <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
                 <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
               </svg>
-              Sign in with Google
+              {t('profile.signInWithGoogle')}
             </Button>
           </div>
 
           <div className="text-sm text-muted-foreground space-y-1">
             <p className="flex items-center gap-2 justify-center">
-              <Cloud className="w-4 h-4" /> Secure cloud backup
+              <Cloud className="w-4 h-4" /> {t('profile.secureBackup')}
             </p>
             <p className="flex items-center gap-2 justify-center">
-              <RefreshCw className="w-4 h-4" /> Sync across devices
+              <RefreshCw className="w-4 h-4" /> {t('profile.syncAcrossDevices')}
             </p>
           </div>
         </div>
@@ -301,7 +303,7 @@ export function ProfilePage() {
           <div className="flex items-center justify-between">
             <CardTitle className="text-base flex items-center gap-2">
               <Clock className="w-4 h-4" />
-              Sync Status
+              {t('profile.syncStatus')}
             </CardTitle>
             {autoSyncEnabled ? (
               <span className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400">
@@ -309,10 +311,10 @@ export function ProfilePage() {
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
                 </span>
-                Auto-sync on
+                {t('profile.autoSyncOn')}
               </span>
             ) : (
-              <span className="text-xs text-muted-foreground">Auto-sync off</span>
+              <span className="text-xs text-muted-foreground">{t('profile.autoSyncOff')}</span>
             )}
           </div>
           <CardDescription>
@@ -325,21 +327,21 @@ export function ProfilePage() {
               <HardDrive className="w-5 h-5 text-muted-foreground" />
               <div>
                 <p className="text-2xl font-bold">{localCount}</p>
-                <p className="text-xs text-muted-foreground">Local</p>
+                <p className="text-xs text-muted-foreground">{t('profile.local')}</p>
               </div>
             </div>
             <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
               <Cloud className="w-5 h-5 text-muted-foreground" />
               <div>
                 <p className="text-2xl font-bold">{cloudCount ?? '—'}</p>
-                <p className="text-xs text-muted-foreground">Cloud</p>
+                <p className="text-xs text-muted-foreground">{t('profile.cloud')}</p>
               </div>
             </div>
           </div>
 
           {syncStatus.lastSyncAt && (
             <div className="mt-3 text-xs text-muted-foreground text-center">
-              Last sync: ↑{syncStatus.lastUploadCount} uploaded, ↓{syncStatus.lastDownloadCount} downloaded
+              {t('profile.lastSyncInfo', { uploaded: syncStatus.lastUploadCount, downloaded: syncStatus.lastDownloadCount })}
             </div>
           )}
         </CardContent>
@@ -353,7 +355,7 @@ export function ProfilePage() {
       {/* Actions Card */}
       <Card className="mb-4">
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Quick Actions</CardTitle>
+          <CardTitle className="text-base">{t('profile.quickActions')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           <Button 
@@ -362,7 +364,7 @@ export function ProfilePage() {
             className="w-full gap-2"
           >
             <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
-            {isSyncing ? 'Syncing...' : 'Sync Now'}
+            {isSyncing ? t('profile.syncing') : t('profile.syncNow')}
           </Button>
           
           <div className="grid grid-cols-2 gap-2">
@@ -373,7 +375,7 @@ export function ProfilePage() {
               className="gap-2"
             >
               <Upload className="w-4 h-4" />
-              {isUploading ? 'Uploading...' : 'Upload'}
+              {isUploading ? t('profile.uploading') : t('profile.upload')}
             </Button>
             <Button 
               variant="outline" 
@@ -382,7 +384,7 @@ export function ProfilePage() {
               className="gap-2"
             >
               <Download className="w-4 h-4" />
-              {isDownloading ? 'Downloading...' : 'Download'}
+              {isDownloading ? t('profile.downloading') : t('profile.download')}
             </Button>
           </div>
         </CardContent>
@@ -391,16 +393,16 @@ export function ProfilePage() {
       {/* Settings Card */}
       <Card className="mb-4">
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Settings</CardTitle>
+          <CardTitle className="text-base">{t('settings.title')}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <Label htmlFor="auto-sync" className="text-sm font-medium">
-                Auto-sync
+                {t('profile.autoSync')}
               </Label>
               <p className="text-xs text-muted-foreground">
-                Automatically backup when bookmarks change
+                {t('profile.autoSyncDesc')}
               </p>
             </div>
             <Switch
@@ -421,7 +423,7 @@ export function ProfilePage() {
           className="w-full gap-2 text-muted-foreground"
         >
           <LogOut className="w-4 h-4" />
-          Sign Out
+          {t('profile.signOut')}
         </Button>
 
         <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
@@ -432,28 +434,26 @@ export function ProfilePage() {
               className="w-full gap-2 text-destructive hover:text-destructive hover:bg-destructive/10"
             >
               <Trash2 className="w-4 h-4" />
-              Delete Account
+              {t('profile.deleteAccount')}
             </Button>
           </AlertDialogTrigger>
           <AlertDialogContent className="max-w-[320px] rounded-2xl">
             <AlertDialogHeader>
-              <AlertDialogTitle>Delete your account?</AlertDialogTitle>
+              <AlertDialogTitle>{t('profile.deleteAccountTitle')}</AlertDialogTitle>
               <AlertDialogDescription>
-                This will permanently delete your account and all cloud bookmarks. 
-                Local bookmarks on this device will not be affected. 
-                This action cannot be undone.
+                {t('profile.deleteAccountDesc')}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter className="flex-row gap-2">
               <AlertDialogCancel className="flex-1 m-0" disabled={isDeleting}>
-                Cancel
+                {t('common.cancel')}
               </AlertDialogCancel>
               <AlertDialogAction 
                 className="flex-1 m-0 bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 onClick={handleDeleteAccount}
                 disabled={isDeleting}
               >
-                {isDeleting ? 'Deleting...' : 'Delete'}
+                {isDeleting ? t('profile.deleting') : t('common.delete')}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

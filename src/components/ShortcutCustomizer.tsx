@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Check, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +16,7 @@ interface ShortcutCustomizerProps {
 }
 
 export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustomizerProps) {
+  const { t } = useTranslation();
   const [name, setName] = useState(() => getContentName(source));
   const [thumbnail, setThumbnail] = useState<string | null>(null);
   const [resumeEnabled, setResumeEnabled] = useState(false);
@@ -72,7 +74,7 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h2 className="text-lg font-medium">Set up access</h2>
+        <h2 className="text-lg font-medium">{t('shortcutCustomizer.setUpAccess')}</h2>
       </header>
       
       <div className="flex-1 p-4 space-y-8 overflow-auto animate-fade-in">
@@ -82,13 +84,13 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
         {/* Name input */}
         <div className="space-y-2">
           <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Name
+            {t('shortcutCustomizer.nameLabel')}
           </label>
           <div className="relative">
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Enter a name"
+              placeholder={t('shortcutCustomizer.namePlaceholder')}
               className="h-12 text-base pr-10"
               maxLength={30}
             />
@@ -107,7 +109,7 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
         {/* Icon picker */}
         <div className="space-y-2">
           <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Icon
+            {t('shortcutCustomizer.iconLabel')}
           </label>
           <div className="relative">
             <IconPicker
@@ -128,8 +130,8 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
           <div className="space-y-2">
             <div className="flex items-center justify-between p-4 rounded-xl bg-muted/30">
               <div className="flex-1 mr-4">
-                <p className="font-medium text-foreground">Return to last page</p>
-                <p className="text-sm text-muted-foreground">Open where you left off</p>
+                <p className="font-medium text-foreground">{t('shortcutCustomizer.returnToLastPage')}</p>
+                <p className="text-sm text-muted-foreground">{t('shortcutCustomizer.openWhereYouLeftOff')}</p>
               </div>
               <Switch
                 checked={resumeEnabled}
@@ -142,7 +144,7 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
         {/* Preview */}
         <div className="pt-6 border-t border-border">
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-center mb-4">
-            Preview
+            {t('shortcutCustomizer.preview')}
           </p>
           <div className="flex flex-col items-center gap-2">
             <div
@@ -167,7 +169,7 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
               )}
             </div>
             <span className="text-xs text-foreground max-w-[72px] text-center truncate">
-              {name || 'Access'}
+              {name || t('shortcutCustomizer.access')}
             </span>
           </div>
         </div>
@@ -182,12 +184,12 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
           {isCreating ? (
             <>
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-              Adding...
+              {t('shortcutCustomizer.adding')}
             </>
           ) : (
             <>
               <Check className="mr-2 h-5 w-5" />
-              Add to Home Screen
+              {t('shortcutCustomizer.addToHomeScreen')}
             </>
           )}
         </Button>

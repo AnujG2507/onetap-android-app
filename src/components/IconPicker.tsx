@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Image, Type, Smile, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { triggerSelectionFeedback } from '@/lib/haptics';
@@ -25,6 +26,7 @@ const COMMON_EMOJIS = [
 ];
 
 export function IconPicker({ thumbnail, selectedIcon, onSelect }: IconPickerProps) {
+  const { t } = useTranslation();
   const [textValue, setTextValue] = useState(
     selectedIcon.type === 'text' ? selectedIcon.value : ''
   );
@@ -105,14 +107,14 @@ export function IconPicker({ thumbnail, selectedIcon, onSelect }: IconPickerProp
   }, [selectedIcon.value, onSelect]);
 
   const iconTypes: { type: IconType; icon: React.ReactNode; label: string }[] = [
-    ...(thumbnail ? [{ type: 'thumbnail' as IconType, icon: <Image className="h-5 w-5" />, label: 'Image' }] : []),
-    { type: 'emoji', icon: <Smile className="h-5 w-5" />, label: 'Emoji' },
-    { type: 'text', icon: <Type className="h-5 w-5" />, label: 'Text' },
+    ...(thumbnail ? [{ type: 'thumbnail' as IconType, icon: <Image className="h-5 w-5" />, label: t('iconPicker.image') }] : []),
+    { type: 'emoji', icon: <Smile className="h-5 w-5" />, label: t('iconPicker.emoji') },
+    { type: 'text', icon: <Type className="h-5 w-5" />, label: t('iconPicker.text') },
   ];
 
   return (
     <div className="space-y-4">
-      <p className="text-sm font-medium text-foreground">Icon</p>
+      <p className="text-sm font-medium text-foreground">{t('iconPicker.icon')}</p>
       
       {/* Icon type selector */}
       <div className="flex gap-2">
@@ -213,7 +215,7 @@ export function IconPicker({ thumbnail, selectedIcon, onSelect }: IconPickerProp
               setTextValue(value);
               onSelect({ type: 'text', value: value || 'A' });
             }}
-            placeholder="1-2 characters"
+            placeholder={t('iconPicker.textPlaceholder')}
             maxLength={2}
             className="text-center text-lg font-medium h-12 pr-10"
           />
@@ -225,7 +227,7 @@ export function IconPicker({ thumbnail, selectedIcon, onSelect }: IconPickerProp
                 onSelect({ type: 'text', value: 'A' });
               }}
               className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
-              aria-label="Clear text"
+              aria-label={t('common.clearText')}
             >
               <X className="h-4 w-4" />
             </button>
