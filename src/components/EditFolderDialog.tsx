@@ -103,7 +103,7 @@ export function EditFolderDialog({
               <button
                 type="button"
                 onClick={() => setNewName('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50"
+                className="absolute end-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50"
               >
                 <X className="h-4 w-4 text-muted-foreground" />
               </button>

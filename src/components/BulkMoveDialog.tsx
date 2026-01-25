@@ -66,7 +66,7 @@ export function BulkMoveDialog({
               <button
                 onClick={() => setSelectedFolder(null)}
                 className={cn(
-                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors",
+                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-start transition-colors",
                   selectedFolder === null
                     ? "bg-primary/10 text-primary ring-1 ring-primary/20"
                     : "hover:bg-muted"
@@ -90,7 +90,7 @@ export function BulkMoveDialog({
                     key={folder}
                     onClick={() => setSelectedFolder(folder)}
                     className={cn(
-                      "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors",
+                      "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-start transition-colors",
                       isSelected
                         ? "bg-primary/10 text-primary ring-1 ring-primary/20"
                         : "hover:bg-muted"
