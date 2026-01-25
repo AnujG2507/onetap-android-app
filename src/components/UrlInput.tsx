@@ -146,9 +146,9 @@ export function UrlInput({ onSubmit, onBack, initialUrl }: UrlInputProps) {
       <header className="flex items-center gap-3 p-4 border-b">
         <button
           onClick={onBack}
-          className="p-2 -ml-2 rounded-full hover:bg-muted active:bg-muted/80"
+          className="p-2 -ms-2 rounded-full hover:bg-muted active:bg-muted/80"
         >
-          <ArrowLeft className="h-5 w-5" />
+          <ArrowLeft className="h-5 w-5 rtl:rotate-180" />
         </button>
         <h2 className="text-lg font-medium">{t('urlInput.enterLink')}</h2>
       </header>
@@ -156,7 +156,7 @@ export function UrlInput({ onSubmit, onBack, initialUrl }: UrlInputProps) {
       <div className="flex-1 p-4 overflow-y-auto">
         <div className="relative flex gap-2">
           <div className="relative flex-1">
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+            <div className="absolute start-3 top-1/2 -translate-y-1/2 text-muted-foreground">
               {getPlatformIcon()}
             </div>
             <Input
@@ -167,7 +167,7 @@ export function UrlInput({ onSubmit, onBack, initialUrl }: UrlInputProps) {
               }}
               placeholder={t('urlInput.placeholder')}
               className={cn(
-                "pl-11 pr-10 h-12 text-base",
+                "ps-11 pe-10 h-12 text-base",
                 error && "border-destructive focus-visible:ring-destructive"
               )}
               autoFocus
@@ -177,7 +177,7 @@ export function UrlInput({ onSubmit, onBack, initialUrl }: UrlInputProps) {
               <button
                 type="button"
                 onClick={() => setUrl('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
+                className="absolute end-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
                 aria-label="Clear URL"
               >
                 <X className="h-4 w-4" />
@@ -227,13 +227,13 @@ export function UrlInput({ onSubmit, onBack, initialUrl }: UrlInputProps) {
                   value={linkTitle}
                   onChange={(e) => setLinkTitle(e.target.value)}
                   placeholder={t('addBookmark.titlePlaceholder')}
-                  className="h-10 pr-10"
+                  className="h-10 pe-10"
                 />
                 {linkTitle && (
                   <button
                     type="button"
                     onClick={() => setLinkTitle('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
+                    className="absolute end-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
                     aria-label={t('common.clearTitle')}
                   >
                     <X className="h-4 w-4" />
@@ -286,7 +286,7 @@ export function UrlInput({ onSubmit, onBack, initialUrl }: UrlInputProps) {
           className="w-full h-12 text-base font-medium"
         >
           {t('common.continue')}
-          <ArrowRight className="ml-2 h-5 w-5" />
+          <ArrowRight className="ms-2 h-5 w-5 rtl:rotate-180" />
         </Button>
       </div>
     </div>

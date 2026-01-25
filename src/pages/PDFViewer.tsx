@@ -1218,10 +1218,10 @@ export default function PDFViewer() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                className="pr-10"
+                className="pe-10"
               />
               {isSearching && (
-                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                <div className="absolute end-3 top-1/2 -translate-y-1/2">
                   <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                 </div>
               )}
@@ -1385,7 +1385,7 @@ export default function PDFViewer() {
                 </div>
                 
                 {/* Page number overlay */}
-                <div className="absolute bottom-2 right-2 bg-background/80 backdrop-blur-sm text-xs px-2 py-1 rounded text-muted-foreground">
+                <div className="absolute bottom-2 end-2 bg-background/80 backdrop-blur-sm text-xs px-2 py-1 rounded text-muted-foreground">
                   {pageNum}
                 </div>
               </div>
@@ -1398,8 +1398,8 @@ export default function PDFViewer() {
       {/* Scroll Position Indicator - appears during momentum when zoomed */}
       {showScrollIndicator && displayZoom > 1 && (
         <>
-          {/* Vertical indicator (right edge) */}
-          <div className="absolute right-1 top-16 bottom-20 w-1 pointer-events-none z-20">
+          {/* Vertical indicator (end edge) */}
+          <div className="absolute end-1 top-16 bottom-20 w-1 pointer-events-none z-20">
             <div 
               className="absolute w-full bg-foreground/30 rounded-full"
               style={{
@@ -1412,13 +1412,13 @@ export default function PDFViewer() {
           
           {/* Horizontal indicator (bottom edge) - only when significantly zoomed */}
           {displayZoom > 1.5 && (
-            <div className="absolute bottom-20 left-4 right-4 h-1 pointer-events-none z-20">
+            <div className="absolute bottom-20 inset-x-4 h-1 pointer-events-none z-20">
               <div 
                 className="absolute h-full bg-foreground/30 rounded-full"
                 style={{
                   width: '15%',
-                  left: `${scrollProgress.x * 85}%`,
-                  transition: 'left 0.05s ease-out',
+                  insetInlineStart: `${scrollProgress.x * 85}%`,
+                  transition: 'inset-inline-start 0.05s ease-out',
                 }}
               />
             </div>
@@ -1505,7 +1505,7 @@ export default function PDFViewer() {
         onClick={e => e.stopPropagation()}
       >
         {/* Page indicator - centered, tappable for page jump */}
-        <div className="absolute left-1/2 -translate-x-1/2 bottom-24 mb-safe">
+        <div className="absolute start-1/2 -translate-x-1/2 rtl:translate-x-1/2 bottom-24 mb-safe">
           <button
             onClick={() => setShowPageJump(true)}
             className="bg-background/90 backdrop-blur-sm rounded-full px-4 py-2 shadow-lg border text-sm font-medium"

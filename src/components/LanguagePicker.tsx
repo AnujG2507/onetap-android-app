@@ -56,7 +56,7 @@ export function LanguagePicker({ open, onOpenChange }: LanguagePickerProps) {
         <button
           className={cn(
             "flex items-center justify-between w-full py-3 px-1",
-            "text-left hover:bg-muted/50 rounded-lg transition-colors"
+            "text-start hover:bg-muted/50 rounded-lg transition-colors"
           )}
           aria-label={t('settings.language')}
         >
@@ -70,7 +70,7 @@ export function LanguagePicker({ open, onOpenChange }: LanguagePickerProps) {
         </button>
       </SheetTrigger>
       <SheetContent side="bottom" className="rounded-t-2xl">
-        <SheetHeader className="text-left">
+        <SheetHeader className="text-start">
           <SheetTitle>{t('settings.language')}</SheetTitle>
         </SheetHeader>
         <div className="mt-4 space-y-1">

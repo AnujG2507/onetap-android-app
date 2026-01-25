@@ -156,18 +156,18 @@ export function SavedLinksSheet({ open, onOpenChange, onSelectLink, onGoToBookma
 
         {/* Search */}
         <div className="relative mb-3">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={t('savedLinks.searchPlaceholder')}
-            className="pl-10 pr-10"
+            className="ps-10 pe-10"
           />
           {searchQuery && (
             <button
               type="button"
               onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
+              className="absolute end-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
               aria-label={t('library.clearSearch')}
             >
               <X className="h-4 w-4" />
@@ -227,14 +227,14 @@ export function SavedLinksSheet({ open, onOpenChange, onSelectLink, onGoToBookma
                   value={newUrl}
                   onChange={(e) => setNewUrl(e.target.value)}
                   placeholder={t('savedLinks.urlPlaceholder')}
-                  className="pr-10"
+                  className="pe-10"
                   autoFocus
                 />
                 {newUrl && (
                   <button
                     type="button"
                     onClick={() => setNewUrl('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
+                    className="absolute end-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
                     aria-label={t('common.clearText')}
                   >
                     <X className="h-4 w-4" />
@@ -248,14 +248,14 @@ export function SavedLinksSheet({ open, onOpenChange, onSelectLink, onGoToBookma
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
                 placeholder={t('savedLinks.titlePlaceholder')}
-                className="pr-10"
+                className="pe-10"
                 autoFocus={!!editingLink}
               />
               {newTitle && (
                 <button
                   type="button"
                   onClick={() => setNewTitle('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
+                  className="absolute end-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
                   aria-label={t('common.clearTitle')}
                 >
                   <X className="h-4 w-4" />
@@ -268,7 +268,7 @@ export function SavedLinksSheet({ open, onOpenChange, onSelectLink, onGoToBookma
                 value={newDescription}
                 onChange={(e) => setNewDescription(e.target.value)}
                 placeholder={t('savedLinks.descriptionPlaceholder')}
-                className="resize-none pr-10"
+                className="resize-none pe-10"
                 rows={2}
                 maxLength={200}
               />
@@ -276,7 +276,7 @@ export function SavedLinksSheet({ open, onOpenChange, onSelectLink, onGoToBookma
                 <button
                   type="button"
                   onClick={() => setNewDescription('')}
-                  className="absolute right-3 top-3 p-1 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
+                  className="absolute end-3 top-3 p-1 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
                   aria-label={t('common.clearText')}
                 >
                   <X className="h-4 w-4" />
@@ -356,15 +356,15 @@ export function SavedLinksSheet({ open, onOpenChange, onSelectLink, onGoToBookma
               </p>
               
               {onGoToBookmarks && (
-                <button
-                  onClick={() => {
-                    onOpenChange(false);
-                    onGoToBookmarks();
-                  }}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 active:scale-[0.98] transition-all"
-                >
-                  {t('savedLinks.goToBookmarks')}
-                  <ArrowRight className="h-4 w-4" />
+                  <button
+                    onClick={() => {
+                      onOpenChange(false);
+                      onGoToBookmarks();
+                    }}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 active:scale-[0.98] transition-all"
+                  >
+                    {t('savedLinks.goToBookmarks')}
+                    <ArrowRight className="h-4 w-4 rtl:rotate-180" />
                 </button>
               )}
             </div>
@@ -383,7 +383,7 @@ export function SavedLinksSheet({ open, onOpenChange, onSelectLink, onGoToBookma
                     "w-full flex items-start gap-3 p-3 rounded-xl",
                     "bg-muted/30 hover:bg-muted/50",
                     "active:scale-[0.98] transition-all",
-                    "text-left group"
+                    "text-start group"
                   )}
                 >
                   {(() => {
