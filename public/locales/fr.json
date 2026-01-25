@@ -1,0 +1,121 @@
+{
+  "app": {
+    "name": "OneTap",
+    "tagline": "Un tap vers l'essentiel"
+  },
+  "menu": {
+    "title": "Menu",
+    "trash": "Corbeille",
+    "settings": "Paramètres"
+  },
+  "onboarding": {
+    "skip": "Passer",
+    "next": "Suivant",
+    "getStarted": "Commencer",
+    "step1": {
+      "title": "Un tap vers l'essentiel",
+      "description": "Créez des raccourcis vers vos fichiers, liens et contacts les plus importants. Accédez-y instantanément depuis votre écran d'accueil."
+    },
+    "step2": {
+      "title": "Créez en quelques secondes",
+      "description": "Sélectionnez un fichier, un lien ou un contact. Personnalisez l'icône et le nom. Ajoutez-le à votre écran d'accueil en un tap."
+    },
+    "step3": {
+      "title": "Restez organisé",
+      "description": "Programmez des rappels, enregistrez des favoris et synchronisez entre appareils. Vos raccourcis, à votre façon."
+    }
+  },
+  "tabs": {
+    "access": "Accès",
+    "notifications": "Rappels",
+    "bookmarks": "Bibliothèque",
+    "profile": "Profil"
+  },
+  "access": {
+    "title": "Accès",
+    "createShortcut": "Créer un raccourci",
+    "photo": "Photo",
+    "video": "Vidéo",
+    "audio": "Audio",
+    "document": "Document",
+    "contact": "Contact",
+    "link": "Lien",
+    "browseFiles": "Parcourir les fichiers",
+    "savedBookmarks": "Favoris enregistrés",
+    "contactCall": "Appeler",
+    "contactMessage": "Message",
+    "contactCallDesc": "Appel direct",
+    "contactMessageDesc": "WhatsApp",
+    "chooseAction": "Choisir le type d'action"
+  },
+  "library": {
+    "title": "Bibliothèque",
+    "empty": "Aucun favori",
+    "emptyDescription": "Enregistrez des liens depuis le menu de partage ou créez-les ici",
+    "search": "Rechercher des favoris...",
+    "addBookmark": "Ajouter un favori",
+    "folders": "Dossiers",
+    "allBookmarks": "Tous les favoris"
+  },
+  "notifications": {
+    "title": "Rappels",
+    "empty": "Aucun rappel programmé",
+    "emptyDescription": "Créez un raccourci et programmez son ouverture",
+    "upcoming": "À venir",
+    "past": "Passés"
+  },
+  "profile": {
+    "title": "Profil",
+    "signIn": "Se connecter",
+    "signOut": "Se déconnecter",
+    "signInDescription": "Connectez-vous pour synchroniser vos favoris entre appareils",
+    "syncStatus": "État de synchronisation",
+    "localBookmarks": "Favoris locaux",
+    "cloudBookmarks": "Favoris cloud",
+    "lastSync": "Dernière synchronisation",
+    "deleteAccount": "Supprimer le compte",
+    "deleteAccountWarning": "Cela supprimera définitivement votre compte et toutes les données cloud."
+  },
+  "settings": {
+    "title": "Paramètres",
+    "description": "Configurer les préférences de l'application",
+    "appearance": "Apparence",
+    "light": "Clair",
+    "dark": "Sombre",
+    "system": "Auto",
+    "clipboardDetection": "Détection d'URL du presse-papiers",
+    "clipboardDescription": "Afficher des suggestions lorsqu'une URL est copiée",
+    "language": "Langue",
+    "privacy": "Politique de confidentialité",
+    "about": "À propos"
+  },
+  "common": {
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "done": "Terminé",
+    "loading": "Chargement...",
+    "error": "Erreur",
+    "success": "Succès",
+    "confirm": "Confirmer",
+    "close": "Fermer",
+    "back": "Retour",
+    "retry": "Réessayer"
+  },
+  "errors": {
+    "generic": "Une erreur s'est produite",
+    "network": "Pas de connexion internet",
+    "permissionDenied": "Permission refusée"
+  },
+  "permissions": {
+    "storage": {
+      "title": "Accéder à vos fichiers",
+      "description": "Pour créer des raccourcis vers vos photos, vidéos et documents, nous avons besoin de l'autorisation d'accéder à vos fichiers."
+    },
+    "notifications": {
+      "title": "Restez à l'heure",
+      "description": "Activez les notifications pour recevoir des rappels lorsque vos raccourcis programmés sont prêts."
+    }
+  }
+}

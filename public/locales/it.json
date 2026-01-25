@@ -1,0 +1,121 @@
+{
+  "app": {
+    "name": "OneTap",
+    "tagline": "Un tocco verso ciò che conta"
+  },
+  "menu": {
+    "title": "Menu",
+    "trash": "Cestino",
+    "settings": "Impostazioni"
+  },
+  "onboarding": {
+    "skip": "Salta",
+    "next": "Avanti",
+    "getStarted": "Inizia",
+    "step1": {
+      "title": "Un tocco verso ciò che conta",
+      "description": "Crea scorciatoie per i tuoi file, link e contatti più importanti. Accedi istantaneamente dalla schermata home."
+    },
+    "step2": {
+      "title": "Crea in pochi secondi",
+      "description": "Seleziona un file, un link o un contatto. Personalizza l'icona e il nome. Aggiungilo alla schermata home con un tocco."
+    },
+    "step3": {
+      "title": "Resta organizzato",
+      "description": "Programma promemoria, salva preferiti e sincronizza tra dispositivi. Le tue scorciatoie, a modo tuo."
+    }
+  },
+  "tabs": {
+    "access": "Accesso",
+    "notifications": "Promemoria",
+    "bookmarks": "Libreria",
+    "profile": "Profilo"
+  },
+  "access": {
+    "title": "Accesso",
+    "createShortcut": "Crea una scorciatoia",
+    "photo": "Foto",
+    "video": "Video",
+    "audio": "Audio",
+    "document": "Documento",
+    "contact": "Contatto",
+    "link": "Link",
+    "browseFiles": "Sfoglia tutti i file",
+    "savedBookmarks": "Preferiti salvati",
+    "contactCall": "Chiama",
+    "contactMessage": "Messaggio",
+    "contactCallDesc": "Chiamata diretta",
+    "contactMessageDesc": "WhatsApp",
+    "chooseAction": "Scegli tipo di azione"
+  },
+  "library": {
+    "title": "Libreria",
+    "empty": "Nessun preferito",
+    "emptyDescription": "Salva link dal menu di condivisione o creali qui",
+    "search": "Cerca preferiti...",
+    "addBookmark": "Aggiungi preferito",
+    "folders": "Cartelle",
+    "allBookmarks": "Tutti i preferiti"
+  },
+  "notifications": {
+    "title": "Promemoria",
+    "empty": "Nessun promemoria programmato",
+    "emptyDescription": "Crea una scorciatoia e programma quando si apre",
+    "upcoming": "In arrivo",
+    "past": "Passati"
+  },
+  "profile": {
+    "title": "Profilo",
+    "signIn": "Accedi",
+    "signOut": "Esci",
+    "signInDescription": "Accedi per sincronizzare i preferiti tra dispositivi",
+    "syncStatus": "Stato sincronizzazione",
+    "localBookmarks": "Preferiti locali",
+    "cloudBookmarks": "Preferiti cloud",
+    "lastSync": "Ultima sincronizzazione",
+    "deleteAccount": "Elimina account",
+    "deleteAccountWarning": "Questo eliminerà permanentemente il tuo account e tutti i dati cloud."
+  },
+  "settings": {
+    "title": "Impostazioni",
+    "description": "Configura le preferenze dell'app",
+    "appearance": "Aspetto",
+    "light": "Chiaro",
+    "dark": "Scuro",
+    "system": "Auto",
+    "clipboardDetection": "Rilevamento URL appunti",
+    "clipboardDescription": "Mostra suggerimenti quando viene copiato un URL",
+    "language": "Lingua",
+    "privacy": "Informativa sulla privacy",
+    "about": "Informazioni"
+  },
+  "common": {
+    "save": "Salva",
+    "cancel": "Annulla",
+    "delete": "Elimina",
+    "edit": "Modifica",
+    "done": "Fatto",
+    "loading": "Caricamento...",
+    "error": "Errore",
+    "success": "Successo",
+    "confirm": "Conferma",
+    "close": "Chiudi",
+    "back": "Indietro",
+    "retry": "Riprova"
+  },
+  "errors": {
+    "generic": "Qualcosa è andato storto",
+    "network": "Nessuna connessione internet",
+    "permissionDenied": "Permesso negato"
+  },
+  "permissions": {
+    "storage": {
+      "title": "Accedi ai tuoi file",
+      "description": "Per creare scorciatoie per foto, video e documenti, abbiamo bisogno del permesso di accedere ai tuoi file."
+    },
+    "notifications": {
+      "title": "Resta puntuale",
+      "description": "Abilita le notifiche per ricevere promemoria quando le tue scorciatoie programmate sono pronte."
+    }
+  }
+}
