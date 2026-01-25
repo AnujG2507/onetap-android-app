@@ -11,7 +11,12 @@
   "onboarding": {
     "skip": "Salta",
     "next": "Avanti",
+    "continue": "Continua",
     "getStarted": "Inizia",
+    "languageSelection": {
+      "title": "Scegli la tua lingua",
+      "subtitle": "Puoi cambiarlo più tardi nelle impostazioni"
+    },
     "step1": {
       "title": "Un tocco verso ciò che conta",
       "description": "Crea scorciatoie per i tuoi file, link e contatti più importanti. Accedi istantaneamente dalla schermata home."

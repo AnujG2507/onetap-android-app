@@ -11,7 +11,12 @@
   "onboarding": {
     "skip": "Passer",
     "next": "Suivant",
+    "continue": "Continuer",
     "getStarted": "Commencer",
+    "languageSelection": {
+      "title": "Choisissez votre langue",
+      "subtitle": "Vous pouvez changer cela plus tard dans les paramètres"
+    },
     "step1": {
       "title": "Un tap vers l'essentiel",
       "description": "Créez des raccourcis vers vos fichiers, liens et contacts les plus importants. Accédez-y instantanément depuis votre écran d'accueil."

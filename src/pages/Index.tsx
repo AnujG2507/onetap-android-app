@@ -9,6 +9,7 @@ import { ProfilePage } from '@/components/ProfilePage';
 import { NotificationsPage } from '@/components/NotificationsPage';
 import { SharedUrlActionSheet } from '@/components/SharedUrlActionSheet';
 import { OnboardingFlow } from '@/components/OnboardingFlow';
+import { LanguageSelectionStep } from '@/components/LanguageSelectionStep';
 import { useOnboarding } from '@/hooks/useOnboarding';
 import { useBackButton } from '@/hooks/useBackButton';
 import { useAuth } from '@/hooks/useAuth';
@@ -49,7 +50,7 @@ const Index = () => {
   const previousTabRef = useRef<TabType>('access');
 
   // Onboarding state
-  const { isComplete: onboardingComplete, currentStep, nextStep, skipOnboarding, completeOnboarding } = useOnboarding();
+  const { isComplete: onboardingComplete, hasSelectedLanguage, markLanguageSelected, currentStep, nextStep, skipOnboarding, completeOnboarding } = useOnboarding();
 
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -334,6 +335,11 @@ const Index = () => {
     if (slideDirection === 'right') return 'animate-slide-in-from-left';
     return 'animate-fade-in';
   };
+
+  // Show language selection first for new users
+  if (!hasSelectedLanguage) {
+    return <LanguageSelectionStep onContinue={markLanguageSelected} />;
+  }
 
   // Show onboarding for first-time users
   if (!onboardingComplete) {

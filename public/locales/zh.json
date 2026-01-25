@@ -11,7 +11,12 @@
   "onboarding": {
     "skip": "跳过",
     "next": "下一步",
+    "continue": "继续",
     "getStarted": "开始使用",
+    "languageSelection": {
+      "title": "选择您的语言",
+      "subtitle": "您可以稍后在设置中更改"
+    },
     "step1": {
       "title": "一键直达重要内容",
       "description": "为您最重要的文件、链接和联系人创建快捷方式。从主屏幕即时访问。"

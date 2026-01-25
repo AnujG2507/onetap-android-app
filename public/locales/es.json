@@ -11,7 +11,12 @@
   "onboarding": {
     "skip": "Omitir",
     "next": "Siguiente",
+    "continue": "Continuar",
     "getStarted": "Comenzar",
+    "languageSelection": {
+      "title": "Elige tu idioma",
+      "subtitle": "Puedes cambiar esto más tarde en configuración"
+    },
     "step1": {
       "title": "Un toque a lo que importa",
       "description": "Crea accesos directos a tus archivos, enlaces y contactos más importantes. Accede instantáneamente desde tu pantalla de inicio."

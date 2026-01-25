@@ -1,11 +1,20 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 
 const ONBOARDING_KEY = 'onetap_onboarding_complete';
+const LANGUAGE_SELECTED_KEY = 'onetap_language_selected';
 
 export function useOnboarding() {
   const [isComplete, setIsComplete] = useState<boolean>(() => {
     try {
       return localStorage.getItem(ONBOARDING_KEY) === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const [hasSelectedLanguage, setHasSelectedLanguage] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(LANGUAGE_SELECTED_KEY) === 'true';
     } catch {
       return false;
     }
@@ -26,6 +35,15 @@ export function useOnboarding() {
     completeOnboarding();
   }, [completeOnboarding]);
 
+  const markLanguageSelected = useCallback(() => {
+    try {
+      localStorage.setItem(LANGUAGE_SELECTED_KEY, 'true');
+    } catch {
+      // Ignore storage errors
+    }
+    setHasSelectedLanguage(true);
+  }, []);
+
   const nextStep = useCallback(() => {
     setCurrentStep((prev) => prev + 1);
   }, []);
@@ -37,19 +55,23 @@ export function useOnboarding() {
   const resetOnboarding = useCallback(() => {
     try {
       localStorage.removeItem(ONBOARDING_KEY);
+      localStorage.removeItem(LANGUAGE_SELECTED_KEY);
     } catch {
       // Ignore storage errors
     }
     setIsComplete(false);
+    setHasSelectedLanguage(false);
     setCurrentStep(0);
   }, []);
 
   return {
     isComplete,
+    hasSelectedLanguage,
     currentStep,
     setCurrentStep,
     completeOnboarding,
     skipOnboarding,
+    markLanguageSelected,
     nextStep,
     previousStep,
     resetOnboarding,
