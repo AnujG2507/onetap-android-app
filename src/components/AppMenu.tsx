@@ -218,15 +218,15 @@ export function AppMenu({ onOpenTrash }: AppMenuProps) {
           {/* Reset Onboarding */}
           <Button
             variant="ghost"
-            className="w-full justify-start h-auto px-3 py-2"
+            className="w-full justify-start h-auto px-3 py-2 whitespace-normal"
             onClick={() => handleMenuItem(resetOnboarding)}
           >
-            <div className="flex-1 min-w-0 text-left">
+            <div className="flex-1 min-w-0 text-left overflow-hidden">
               <div className="flex items-center gap-2">
                 <RotateCcw className="h-4 w-4 text-muted-foreground shrink-0" />
-                <span className="text-sm">{t('settings.resetOnboarding')}</span>
+                <span className="text-sm truncate">{t('settings.resetOnboarding')}</span>
               </div>
-              <p className="text-xs text-muted-foreground mt-0.5 pl-6">
+              <p className="text-xs text-muted-foreground mt-0.5 pl-6 break-words">
                 {t('settings.resetOnboardingDescription')}
               </p>
             </div>
