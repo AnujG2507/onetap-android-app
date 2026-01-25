@@ -594,7 +594,7 @@ export function BookmarkLibrary({
   return (
     <div className="flex flex-col h-full pb-20">
       {/* Header */}
-      <header className="px-5 pt-8 pb-4">
+      <header className="ps-5 pe-5 pt-8 pb-4">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
@@ -678,24 +678,24 @@ export function BookmarkLibrary({
       </header>
 
       {/* Search */}
-      <div className="px-5 mb-3">
+      <div className="ps-5 pe-5 mb-3">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={t('library.search')}
-            className="pl-10 pr-10"
+            className="ps-10 pe-10"
           />
           {searchQuery && (
             <TooltipProvider delayDuration={0}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50 transition-colors"
-                  >
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      className="absolute end-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50 transition-colors"
+                    >
                     <X className="h-4 w-4 text-muted-foreground" />
                   </button>
                 </TooltipTrigger>
@@ -708,7 +708,7 @@ export function BookmarkLibrary({
 
       {/* Tag Filter Bar */}
       {availableTags.length > 0 && (
-        <div className="flex gap-2 overflow-x-auto pb-3 px-5 scrollbar-hide">
+        <div className="flex gap-2 overflow-x-auto pb-3 ps-5 pe-5 scrollbar-hide">
           <button
             onClick={() => setActiveTagFilter(null)}
             className={cn(
@@ -778,7 +778,7 @@ export function BookmarkLibrary({
 
       {/* Add Bookmark Form */}
       {showAddForm && (
-        <div className="px-5 mb-4">
+        <div className="ps-5 pe-5 mb-4">
           <AddBookmarkForm
             onSave={handleAddBookmark}
             onCancel={() => setShowAddForm(false)}
@@ -837,7 +837,7 @@ export function BookmarkLibrary({
 
       {/* Sort Controls - below Add Bookmark */}
       {links.length > 0 && (
-        <div className="px-5 mb-4">
+        <div className="ps-5 pe-5 mb-4">
           <TooltipProvider delayDuration={0}>
             <div className="flex items-center gap-1.5 select-none">
               <span className="text-xs text-muted-foreground shrink-0">
@@ -973,7 +973,7 @@ export function BookmarkLibrary({
           
           lastScrollTop.current = scrollTop;
         }}
-        className="flex-1 overflow-y-auto px-5 pb-16"
+        className="flex-1 overflow-y-auto ps-5 pe-5 pb-16"
       >
         {filteredLinks.length === 0 && (searchQuery || activeTagFilter) ? (
           <div className="text-center py-12 text-muted-foreground">
@@ -1171,7 +1171,8 @@ export function BookmarkLibrary({
       {/* Floating Action Bar */}
       <div
         className={cn(
-          "fixed bottom-20 left-1/2 -translate-x-1/2 z-50",
+          "fixed bottom-20 start-1/2 -translate-x-1/2 z-50",
+          "[html[dir=rtl]_&]:translate-x-1/2",
           "flex items-center gap-2 px-4 py-3 rounded-2xl",
           "bg-card border border-border shadow-lg",
           "transition-all duration-300 ease-out",
@@ -1180,7 +1181,7 @@ export function BookmarkLibrary({
             : "opacity-0 translate-y-4 pointer-events-none"
         )}
       >
-        <span className="text-sm font-medium text-foreground mr-2">
+        <span className="text-sm font-medium text-foreground me-2">
           {t('library.selected', { count: shortlistedLinks.length })}
         </span>
         
@@ -1314,7 +1315,7 @@ export function BookmarkLibrary({
       {/* Bottom Full-Width Add Button - positioned above nav bar with safe area */}
       <div 
         className={cn(
-          "fixed left-0 right-0 px-5 pb-3 transition-all duration-300 ease-out z-40",
+          "fixed inset-x-0 px-5 pb-3 transition-all duration-300 ease-out z-40",
           "bottom-[calc(3.5rem+env(safe-area-inset-bottom))]",
           isBottomButtonVisible && !hasShortlist && !showAddForm && links.length > 0
             ? "translate-y-0 opacity-100"

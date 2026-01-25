@@ -487,13 +487,13 @@ export function NotificationsPage({
       {actions.length > 0 && (
         <div className="px-5 pb-3 shrink-0">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               type="text"
               placeholder={t('notificationsPage.searchPlaceholder')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 pr-9 h-10"
+              className="ps-9 pe-9 h-10"
             />
             {searchQuery && (
               <TooltipProvider delayDuration={0}>
@@ -501,7 +501,7 @@ export function NotificationsPage({
                   <TooltipTrigger asChild>
                     <button
                       onClick={() => setSearchQuery('')}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      className="absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                     >
                       <X className="h-4 w-4" />
                     </button>
@@ -692,7 +692,7 @@ export function NotificationsPage({
 
       {/* Floating bulk action bar (when selection mode active) */}
       {isSelectionMode && selectedIds.size > 0 && (
-        <div className="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom)+1rem)] left-0 right-0 px-5 z-10">
+        <div className="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom)+1rem)] inset-x-0 px-5 z-10">
           <div className="bg-card border rounded-2xl shadow-lg p-3 flex items-center gap-2">
             <TooltipProvider delayDuration={0}>
               <Tooltip>
@@ -757,7 +757,7 @@ export function NotificationsPage({
 
       {/* Floating add button (when not in selection mode) */}
       {!isSelectionMode && actions.length > 0 && !isScrolledDown && (
-        <div className="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom)+1rem)] left-0 right-0 px-5 z-10">
+        <div className="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom)+1rem)] inset-x-0 px-5 z-10">
           <TooltipProvider delayDuration={0}>
             <Tooltip>
               <TooltipTrigger asChild>

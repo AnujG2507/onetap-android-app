@@ -26,6 +26,7 @@ import { cn } from '@/lib/utils';
 import { formatTriggerTime, formatRecurrence } from '@/lib/scheduledActionsManager';
 import type { ScheduledAction, RecurrenceType } from '@/types/scheduledAction';
 import { triggerHaptic } from '@/lib/haptics';
+import { useRTL } from '@/hooks/useRTL';
 
 interface ScheduledActionItemProps {
   action: ScheduledAction;
@@ -49,11 +50,12 @@ export function ScheduledActionItem({
   isSelected,
   isSelectionMode,
   onTap,
-  onToggle, 
+  onToggle,
   onDelete,
   onToggleSelection,
   onEnterSelectionMode,
 }: ScheduledActionItemProps) {
+  const { isRTL, isDeleteSwipe, getSwipeTransform } = useRTL();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   
   // Swipe state
@@ -149,29 +151,28 @@ export function ScheduledActionItem({
       }
     }
 
-    // Only handle left swipes for delete (not in selection mode)
-    if (!isSelectionMode && isHorizontalSwipe.current && deltaX < 0) {
+    // Only handle swipes for delete (RTL-aware direction)
+    if (!isSelectionMode && isHorizontalSwipe.current && isDeleteSwipe(deltaX)) {
       e.preventDefault();
       e.stopPropagation();
-      const resistance = 0.6;
-      const limitedDelta = Math.max(deltaX * resistance, -SWIPE_DELETE_THRESHOLD);
-      setSwipeX(limitedDelta);
+      const swipeDistance = getSwipeTransform(deltaX, SWIPE_DELETE_THRESHOLD);
+      setSwipeX(swipeDistance);
 
       // Haptic feedback when crossing threshold
-      if (Math.abs(limitedDelta) >= SWIPE_THRESHOLD && !hasTriggeredHaptic.current) {
+      if (Math.abs(swipeDistance) >= SWIPE_THRESHOLD && !hasTriggeredHaptic.current) {
         hasTriggeredHaptic.current = true;
         triggerHaptic('light');
-      } else if (Math.abs(limitedDelta) < SWIPE_THRESHOLD && hasTriggeredHaptic.current) {
+      } else if (Math.abs(swipeDistance) < SWIPE_THRESHOLD && hasTriggeredHaptic.current) {
         hasTriggeredHaptic.current = false;
       }
     }
-  }, [isSelectionMode, clearLongPressTimer]);
+  }, [isSelectionMode, clearLongPressTimer, isDeleteSwipe, getSwipeTransform]);
 
   const handleTouchEnd = useCallback(() => {
     clearLongPressTimer();
     
-    // Handle swipe completion
-    if (isSwiping && swipeX <= -SWIPE_THRESHOLD) {
+    // Handle swipe completion (RTL-aware threshold check)
+    if (isSwiping && Math.abs(swipeX) >= SWIPE_THRESHOLD) {
       triggerHaptic('warning');
       setShowDeleteConfirm(true);
     }
@@ -217,11 +218,12 @@ export function ScheduledActionItem({
           isDeleting && "opacity-30 pointer-events-none"
         )}
       >
-        {/* Delete action background */}
+        {/* Delete action background - RTL-aware positioning */}
         {!isSelectionMode && (
           <div 
             className={cn(
-              "absolute inset-y-0 right-0 flex items-center justify-end px-4 bg-destructive transition-opacity rounded-r-2xl",
+              "absolute inset-y-0 flex items-center px-4 bg-destructive transition-opacity",
+              isRTL ? "start-0 justify-start rounded-s-2xl" : "end-0 justify-end rounded-e-2xl",
               Math.abs(swipeX) > 20 ? "opacity-100" : "opacity-0"
             )}
             style={{ width: Math.abs(swipeX) + 20 }}
