@@ -29,6 +29,7 @@ import android.view.WindowInsetsController;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.MediaController;
 import android.widget.Toast;
@@ -265,7 +266,8 @@ public class NativeVideoPlayerActivity extends Activity implements TextureView.S
         bg.setShape(GradientDrawable.OVAL);
         bg.setColor(0x40FFFFFF);
         button.setBackground(bg);
-        button.setScaleType(ImageButton.ScaleType.CENTER_INSIDE);
+        // ImageButton inherits ScaleType from ImageView
+        button.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
         button.setPadding(dpToPx(12), dpToPx(12), dpToPx(12), dpToPx(12));
         
         return button;
@@ -440,7 +442,13 @@ public class NativeVideoPlayerActivity extends Activity implements TextureView.S
                     adjustVideoSize();
                     mp.start();
                     showTopBar();
-                    mediaController.show(AUTO_HIDE_DELAY_MS);
+                    // NOTE: onSurfaceTextureAvailable can fire before onCreate finishes.
+                    // Guard against mediaController being null to prevent a crash.
+                    if (mediaController != null) {
+                        mediaController.show(AUTO_HIDE_DELAY_MS);
+                    } else {
+                        Log.w(TAG, "mediaController not initialized yet; skipping show()");
+                    }
                     hideHandler.removeCallbacks(hideRunnable);
                     hideHandler.postDelayed(hideRunnable, AUTO_HIDE_DELAY_MS);
                 } catch (Exception e) {
