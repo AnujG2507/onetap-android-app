@@ -13,6 +13,7 @@ import {
   ChevronRight,
   Check,
   Loader2,
+  BookOpen,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -37,6 +38,7 @@ import { useTheme } from 'next-themes';
 import { useSettings } from '@/hooks/useSettings';
 import { useOnboarding } from '@/hooks/useOnboarding';
 import { useSheetBackHandler } from '@/hooks/useSheetBackHandler';
+import { resetAllTutorials } from '@/hooks/useTutorial';
 import { supportedLanguages } from '@/i18n';
 import i18n from '@/i18n';
 import type { TrashRetentionDays } from '@/lib/settingsManager';
@@ -105,6 +107,11 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
 
   const handleResetOnboarding = () => {
     resetOnboarding();
+    window.location.reload();
+  };
+
+  const handleResetTutorials = () => {
+    resetAllTutorials();
     window.location.reload();
   };
 
@@ -277,18 +284,34 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
                 {t('settingsPage.advanced')}
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <Button
-                variant="outline"
-                className="w-full justify-start gap-2"
-                onClick={handleResetOnboarding}
-              >
-                <RotateCcw className="h-4 w-4" />
-                {t('settings.resetOnboarding')}
-              </Button>
-              <p className="text-xs text-muted-foreground mt-2">
-                {t('settings.resetOnboardingDescription')}
-              </p>
+            <CardContent className="space-y-3">
+              <div>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start gap-2"
+                  onClick={handleResetOnboarding}
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  {t('settings.resetOnboarding')}
+                </Button>
+                <p className="text-xs text-muted-foreground mt-2">
+                  {t('settings.resetOnboardingDescription')}
+                </p>
+              </div>
+              <Separator />
+              <div>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start gap-2"
+                  onClick={handleResetTutorials}
+                >
+                  <BookOpen className="h-4 w-4" />
+                  {t('settings.resetTutorials')}
+                </Button>
+                <p className="text-xs text-muted-foreground mt-2">
+                  {t('settings.resetTutorialsDescription')}
+                </p>
+              </div>
             </CardContent>
           </Card>
         </div>

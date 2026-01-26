@@ -10,11 +10,13 @@ import { ClipboardSuggestion } from '@/components/ClipboardSuggestion';
 import { AppMenu } from '@/components/AppMenu';
 import { TrashSheet } from '@/components/TrashSheet';
 import { SavedLinksSheet } from '@/components/SavedLinksSheet';
+import { TutorialOverlay } from '@/components/TutorialOverlay';
 import { useShortcuts } from '@/hooks/useShortcuts';
 import { useClipboardDetection } from '@/hooks/useClipboardDetection';
 import { useSettings } from '@/hooks/useSettings';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useSheetBackHandler } from '@/hooks/useSheetBackHandler';
+import { useTutorial } from '@/hooks/useTutorial';
 import { useToast } from '@/hooks/use-toast';
 import { pickFile, FileTypeFilter } from '@/lib/contentResolver';
 import { createHomeScreenShortcut } from '@/lib/shortcutManager';
@@ -66,6 +68,7 @@ export function AccessFlow({
   const { toast } = useToast();
   const { settings } = useSettings();
   const { isOnline } = useNetworkStatus();
+  const tutorial = useTutorial('access');
 
   // Auto-detect clipboard URL (only on source screen and if enabled in settings)
   const clipboardEnabled = step === 'source' && settings.clipboardDetectionEnabled;
@@ -311,6 +314,17 @@ export function AccessFlow({
               url={detectedUrl}
               onUse={handleClipboardUse}
               onDismiss={dismissDetection}
+            />
+          )}
+
+          {/* Tutorial Overlay */}
+          {tutorial.isActive && (
+            <TutorialOverlay
+              steps={tutorial.steps}
+              currentStep={tutorial.currentStep}
+              onNext={tutorial.next}
+              onPrevious={tutorial.previous}
+              onSkip={tutorial.skip}
             />
           )}
         </>

@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { UsageInsights } from '@/components/UsageInsights';
+import { TutorialOverlay } from '@/components/TutorialOverlay';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,6 +20,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useAuth } from '@/hooks/useAuth';
 import { useSheetBackHandler } from '@/hooks/useSheetBackHandler';
+import { useTutorial } from '@/hooks/useTutorial';
 import { getSavedLinks } from '@/lib/savedLinksManager';
 import { syncBookmarks, uploadBookmarksToCloud, downloadBookmarksFromCloud, getCloudBookmarkCount } from '@/lib/cloudSync';
 import { getSyncStatus, recordSync, formatRelativeTime, clearSyncStatus } from '@/lib/syncStatusManager';
@@ -44,6 +46,7 @@ export function ProfilePage() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isTrashOpen, setIsTrashOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const tutorial = useTutorial('profile');
 
   // Register dialog with back button handler
   const handleCloseDeleteDialog = useCallback(() => setShowDeleteDialog(false), []);
@@ -249,6 +252,7 @@ export function ProfilePage() {
           </div>
           <div className="flex items-center gap-1">
             <Button
+              id="tutorial-settings-button"
               variant="ghost"
               size="icon"
               className="h-9 w-9"
@@ -260,7 +264,7 @@ export function ProfilePage() {
           </div>
         </header>
 
-        <div className="flex-1 flex flex-col items-center justify-center gap-6 max-w-sm mx-auto text-center mb-6">
+        <div id="tutorial-user-card" className="flex-1 flex flex-col items-center justify-center gap-6 max-w-sm mx-auto text-center mb-6">
           <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center">
             <User className="w-10 h-10 text-muted-foreground" />
           </div>
@@ -302,6 +306,17 @@ export function ProfilePage() {
           open={isTrashOpen} 
           onOpenChange={setIsTrashOpen} 
         />
+
+        {/* Tutorial Overlay */}
+        {tutorial.isActive && (
+          <TutorialOverlay
+            steps={tutorial.steps}
+            currentStep={tutorial.currentStep}
+            onNext={tutorial.next}
+            onPrevious={tutorial.previous}
+            onSkip={tutorial.skip}
+          />
+        )}
       </div>
     );
   }
@@ -324,6 +339,7 @@ export function ProfilePage() {
         </div>
         <div className="flex items-center gap-1">
           <Button
+            id="tutorial-settings-button"
             variant="ghost"
             size="icon"
             className="h-9 w-9"
@@ -336,7 +352,7 @@ export function ProfilePage() {
       </header>
 
       {/* User Info Card */}
-      <Card className="mb-4">
+      <Card id="tutorial-user-card" className="mb-4">
         <CardContent className="pt-6">
           <div className="flex items-center gap-4">
             {avatarUrl ? (
@@ -527,6 +543,17 @@ export function ProfilePage() {
         open={isTrashOpen} 
         onOpenChange={setIsTrashOpen} 
       />
+
+      {/* Tutorial Overlay */}
+      {tutorial.isActive && (
+        <TutorialOverlay
+          steps={tutorial.steps}
+          currentStep={tutorial.currentStep}
+          onNext={tutorial.next}
+          onPrevious={tutorial.previous}
+          onSkip={tutorial.skip}
+        />
+      )}
     </div>
   );
 }

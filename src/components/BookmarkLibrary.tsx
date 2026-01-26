@@ -50,8 +50,10 @@ import { BulkMoveDialog } from './BulkMoveDialog';
 import { AppMenu } from './AppMenu';
 import { TrashSheet } from './TrashSheet';
 import { EmptyStateWithValueProp } from './EmptyStateWithValueProp';
+import { TutorialOverlay } from './TutorialOverlay';
 import { useToast } from '@/hooks/use-toast';
 import { useSheetBackHandler } from '@/hooks/useSheetBackHandler';
+import { useTutorial } from '@/hooks/useTutorial';
 import { triggerHaptic } from '@/lib/haptics';
 import { openInAppBrowser } from '@/lib/inAppBrowser';
 import {
@@ -157,6 +159,7 @@ export function BookmarkLibrary({
   const lastScrollTop = useRef(0);
   
   const { toast } = useToast();
+  const tutorial = useTutorial('library');
 
   // Register sheets with back button handler
   const handleCloseActionSheet = useCallback(() => setShowActionSheet(false), []);
@@ -608,6 +611,7 @@ export function BookmarkLibrary({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
+                    id="tutorial-add-bookmark"
                     onClick={() => {
                       setShowAddForm(true);
                       triggerHaptic('light');
@@ -635,7 +639,7 @@ export function BookmarkLibrary({
         
         {/* View Mode Toggle */}
         {links.length > 0 && (
-          <div className="flex items-center gap-2 mt-3">
+          <div id="tutorial-view-toggle" className="flex items-center gap-2 mt-3">
             <TooltipProvider delayDuration={0}>
               <div className="flex items-center gap-1 p-1 bg-muted rounded-lg">
                 <Tooltip>
@@ -1283,6 +1287,17 @@ export function BookmarkLibrary({
         onOpenChange={setIsTrashOpen} 
         onRestored={refreshLinks} 
       />
+
+      {/* Tutorial Overlay */}
+      {tutorial.isActive && links.length > 0 && (
+        <TutorialOverlay
+          steps={tutorial.steps}
+          currentStep={tutorial.currentStep}
+          onNext={tutorial.next}
+          onPrevious={tutorial.previous}
+          onSkip={tutorial.skip}
+        />
+      )}
       
       {/* Bottom Full-Width Add Button - positioned above nav bar with safe area */}
       <div 

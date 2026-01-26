@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { useScheduledActions } from '@/hooks/useScheduledActions';
 import { useSheetBackHandler } from '@/hooks/useSheetBackHandler';
+import { useTutorial } from '@/hooks/useTutorial';
 import { ScheduledActionEditor } from './ScheduledActionEditor';
 import { ScheduledActionItem } from './ScheduledActionItem';
 import { ScheduledActionActionSheet } from './ScheduledActionActionSheet';
@@ -37,6 +38,7 @@ import { ScheduledActionCreator } from './ScheduledActionCreator';
 import { AppMenu } from './AppMenu';
 import { TrashSheet } from './TrashSheet';
 import { EmptyStateWithValueProp } from './EmptyStateWithValueProp';
+import { TutorialOverlay } from './TutorialOverlay';
 import type { ScheduledAction, RecurrenceType } from '@/types/scheduledAction';
 import { 
   getSelectedIds, 
@@ -128,6 +130,7 @@ export function NotificationsPage({
   const lastScrollTop = useRef(0);
   
   const { toast } = useToast();
+  const tutorial = useTutorial('reminders');
 
   // Register sheets with back button handler
   const handleCloseActionSheet = useCallback(() => setActionSheetAction(null), []);
@@ -525,7 +528,7 @@ export function NotificationsPage({
 
       {/* Filter bar */}
       {actions.length > 0 && (
-        <div className="px-5 pb-3 shrink-0">
+        <div id="tutorial-filter-chips" className="px-5 pb-3 shrink-0">
           <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
             {RECURRENCE_FILTERS.map(filter => {
               const count = filterCounts[filter.value];
@@ -766,7 +769,7 @@ export function NotificationsPage({
 
       {/* Floating add button (when not in selection mode) */}
       {!isSelectionMode && actions.length > 0 && !isScrolledDown && (
-        <div className="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom)+1rem)] inset-x-0 px-5 z-10">
+        <div id="tutorial-add-reminder" className="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom)+1rem)] inset-x-0 px-5 z-10">
           <TooltipProvider delayDuration={0}>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -833,6 +836,17 @@ export function NotificationsPage({
         open={isTrashOpen} 
         onOpenChange={setIsTrashOpen} 
       />
+
+      {/* Tutorial Overlay */}
+      {tutorial.isActive && actions.length > 0 && (
+        <TutorialOverlay
+          steps={tutorial.steps}
+          currentStep={tutorial.currentStep}
+          onNext={tutorial.next}
+          onPrevious={tutorial.previous}
+          onSkip={tutorial.skip}
+        />
+      )}
     </div>
   );
 }
