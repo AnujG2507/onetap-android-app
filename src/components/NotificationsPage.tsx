@@ -72,6 +72,8 @@ interface NotificationsPageProps {
   onInitialDestinationConsumed?: () => void;
   /** Called when the creator form is opened or closed */
   onCreatorOpenChange?: (isOpen: boolean) => void;
+  /** Called when the editor is opened or closed */
+  onEditorOpenChange?: (isOpen: boolean) => void;
 }
 
 interface PermissionStatus {
@@ -94,6 +96,7 @@ export function NotificationsPage({
   initialDestination,
   onInitialDestinationConsumed,
   onCreatorOpenChange,
+  onEditorOpenChange,
 }: NotificationsPageProps) {
   const { t } = useTranslation();
   const { 
@@ -175,6 +178,11 @@ export function NotificationsPage({
   useEffect(() => {
     onCreatorOpenChange?.(showCreator);
   }, [showCreator, onCreatorOpenChange]);
+
+  // Notify parent when editor is opened/closed
+  useEffect(() => {
+    onEditorOpenChange?.(!!editingAction);
+  }, [editingAction, onEditorOpenChange]);
 
   // Exit selection mode when all items are deselected
   useEffect(() => {
