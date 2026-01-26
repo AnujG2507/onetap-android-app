@@ -3,6 +3,7 @@ package app.onetap.shortcuts;
 import android.app.Activity;
 import android.content.Intent;
 import android.graphics.SurfaceTexture;
+import android.media.AudioAttributes;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.net.Uri;
@@ -22,6 +23,7 @@ import android.view.WindowInsetsController;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.MediaController;
+import android.widget.Toast;
 
 import java.io.IOException;
 
@@ -74,12 +76,16 @@ public class NativeVideoPlayerActivity extends Activity implements TextureView.S
             try {
                 mediaPlayer.stop();
             } catch (Exception ignored) {}
-            mediaPlayer.release();
+            try {
+                mediaPlayer.release();
+            } catch (Exception ignored) {}
             mediaPlayer = null;
         }
 
         if (surface != null) {
-            surface.release();
+            try {
+                surface.release();
+            } catch (Exception ignored) {}
             surface = null;
         }
 
@@ -99,61 +105,74 @@ public class NativeVideoPlayerActivity extends Activity implements TextureView.S
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Fullscreen
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        try {
+            // Fullscreen
+            getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+            getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            getWindow().setDecorFitsSystemWindows(false);
-            WindowInsetsController controller = getWindow().getInsetsController();
-            if (controller != null) {
-                controller.hide(WindowInsets.Type.statusBars() | WindowInsets.Type.navigationBars());
-                controller.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                getWindow().setDecorFitsSystemWindows(false);
+                WindowInsetsController controller = getWindow().getInsetsController();
+                if (controller != null) {
+                    controller.hide(WindowInsets.Type.statusBars() | WindowInsets.Type.navigationBars());
+                    controller.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+                }
+            } else {
+                getWindow().getDecorView().setSystemUiVisibility(
+                    View.SYSTEM_UI_FLAG_FULLSCREEN
+                        | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                        | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                        | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                        | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                        | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                );
             }
-        } else {
-            getWindow().getDecorView().setSystemUiVisibility(
-                View.SYSTEM_UI_FLAG_FULLSCREEN
-                    | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                    | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-                    | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                    | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                    | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+
+            // Root
+            root = new FrameLayout(this);
+            root.setBackgroundColor(0xFF000000);
+            setContentView(root);
+
+            // Video surface
+            textureView = new TextureView(this);
+            textureView.setSurfaceTextureListener(this);
+            FrameLayout.LayoutParams videoParams = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                Gravity.CENTER
             );
+            root.addView(textureView, videoParams);
+
+            // Tap toggles media controls
+            textureView.setOnClickListener(v -> toggleMediaControls());
+
+            // Intent data
+            Intent intent = getIntent();
+            videoUri = intent != null ? intent.getData() : null;
+            String mimeType = intent != null ? intent.getType() : null;
+            Log.d(TAG, "Starting native playback. uri=" + videoUri + ", type=" + mimeType);
+
+            if (videoUri == null) {
+                Log.e(TAG, "No video URI provided");
+                showErrorAndFinish("No video URI provided");
+                return;
+            }
+
+            // MediaController
+            mediaController = new MediaController(this);
+            mediaController.setMediaPlayer(this);
+            mediaController.setAnchorView(root);
+        } catch (Exception e) {
+            Log.e(TAG, "Error in onCreate: " + e.getMessage(), e);
+            showErrorAndFinish("Failed to initialize video player");
         }
+    }
 
-        // Root
-        root = new FrameLayout(this);
-        root.setBackgroundColor(0xFF000000);
-        setContentView(root);
-
-        // Video surface
-        textureView = new TextureView(this);
-        textureView.setSurfaceTextureListener(this);
-        FrameLayout.LayoutParams videoParams = new FrameLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            Gravity.CENTER
-        );
-        root.addView(textureView, videoParams);
-
-        // Tap toggles media controls
-        textureView.setOnClickListener(v -> toggleMediaControls());
-
-        // Intent data
-        Intent intent = getIntent();
-        videoUri = intent != null ? intent.getData() : null;
-        String mimeType = intent != null ? intent.getType() : null;
-        Log.d(TAG, "Starting native playback. uri=" + videoUri + ", type=" + mimeType);
-
-        if (videoUri == null) {
-            finish();
-            return;
-        }
-
-        // MediaController
-        mediaController = new MediaController(this);
-        mediaController.setMediaPlayer(this);
-        mediaController.setAnchorView(root);
+    private void showErrorAndFinish(String message) {
+        try {
+            Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+        } catch (Exception ignored) {}
+        finish();
     }
 
     @Override
@@ -174,32 +193,63 @@ public class NativeVideoPlayerActivity extends Activity implements TextureView.S
 
     @Override
     public void onSurfaceTextureAvailable(SurfaceTexture surfaceTexture, int width, int height) {
-        surface = new Surface(surfaceTexture);
-
-        mediaPlayer = new MediaPlayer();
-        mediaPlayer.setSurface(surface);
-        mediaPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
-
-        mediaPlayer.setOnPreparedListener(mp -> {
-            isPrepared = true;
-            videoWidth = mp.getVideoWidth();
-            videoHeight = mp.getVideoHeight();
-            adjustVideoSize();
-            mp.start();
-            toggleMediaControls();
-        });
-
-        mediaPlayer.setOnErrorListener((mp, what, extra) -> {
-            Log.e(TAG, "MediaPlayer error what=" + what + " extra=" + extra + " uri=" + videoUri);
-            return false;
-        });
-
         try {
-            mediaPlayer.setDataSource(this, videoUri);
-            mediaPlayer.prepareAsync();
-        } catch (IOException e) {
-            Log.e(TAG, "Failed to set data source: " + e.getMessage());
-            finish();
+            surface = new Surface(surfaceTexture);
+
+            mediaPlayer = new MediaPlayer();
+            mediaPlayer.setSurface(surface);
+            
+            // Use AudioAttributes instead of deprecated setAudioStreamType
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                AudioAttributes audioAttributes = new AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_MOVIE)
+                    .build();
+                mediaPlayer.setAudioAttributes(audioAttributes);
+            } else {
+                // Fallback for older devices
+                mediaPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
+            }
+
+            mediaPlayer.setOnPreparedListener(mp -> {
+                try {
+                    isPrepared = true;
+                    videoWidth = mp.getVideoWidth();
+                    videoHeight = mp.getVideoHeight();
+                    adjustVideoSize();
+                    mp.start();
+                    toggleMediaControls();
+                } catch (Exception e) {
+                    Log.e(TAG, "Error in onPrepared: " + e.getMessage(), e);
+                }
+            });
+
+            mediaPlayer.setOnErrorListener((mp, what, extra) -> {
+                Log.e(TAG, "MediaPlayer error what=" + what + " extra=" + extra + " uri=" + videoUri);
+                showErrorAndFinish("Unable to play video (error: " + what + ")");
+                return true; // Return true to indicate we handled the error
+            });
+            
+            mediaPlayer.setOnCompletionListener(mp -> {
+                Log.d(TAG, "Video playback completed");
+            });
+
+            try {
+                mediaPlayer.setDataSource(this, videoUri);
+                mediaPlayer.prepareAsync();
+            } catch (IOException e) {
+                Log.e(TAG, "Failed to set data source: " + e.getMessage(), e);
+                showErrorAndFinish("Cannot access video file");
+            } catch (IllegalArgumentException e) {
+                Log.e(TAG, "Invalid video URI: " + e.getMessage(), e);
+                showErrorAndFinish("Invalid video file");
+            } catch (SecurityException e) {
+                Log.e(TAG, "Permission denied for video: " + e.getMessage(), e);
+                showErrorAndFinish("Permission denied to access video");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error setting up media player: " + e.getMessage(), e);
+            showErrorAndFinish("Failed to initialize video playback");
         }
     }
 
@@ -247,32 +297,62 @@ public class NativeVideoPlayerActivity extends Activity implements TextureView.S
     // MediaController.MediaPlayerControl
     @Override
     public void start() {
-        if (mediaPlayer != null && isPrepared) mediaPlayer.start();
+        if (mediaPlayer != null && isPrepared) {
+            try {
+                mediaPlayer.start();
+            } catch (Exception e) {
+                Log.e(TAG, "Error starting playback: " + e.getMessage());
+            }
+        }
     }
 
     @Override
     public void pause() {
-        if (mediaPlayer != null && isPrepared && mediaPlayer.isPlaying()) mediaPlayer.pause();
+        if (mediaPlayer != null && isPrepared) {
+            try {
+                if (mediaPlayer.isPlaying()) mediaPlayer.pause();
+            } catch (Exception e) {
+                Log.e(TAG, "Error pausing playback: " + e.getMessage());
+            }
+        }
     }
 
     @Override
     public int getDuration() {
-        return (mediaPlayer != null && isPrepared) ? mediaPlayer.getDuration() : 0;
+        try {
+            return (mediaPlayer != null && isPrepared) ? mediaPlayer.getDuration() : 0;
+        } catch (Exception e) {
+            return 0;
+        }
     }
 
     @Override
     public int getCurrentPosition() {
-        return (mediaPlayer != null && isPrepared) ? mediaPlayer.getCurrentPosition() : 0;
+        try {
+            return (mediaPlayer != null && isPrepared) ? mediaPlayer.getCurrentPosition() : 0;
+        } catch (Exception e) {
+            return 0;
+        }
     }
 
     @Override
     public void seekTo(int pos) {
-        if (mediaPlayer != null && isPrepared) mediaPlayer.seekTo(pos);
+        if (mediaPlayer != null && isPrepared) {
+            try {
+                mediaPlayer.seekTo(pos);
+            } catch (Exception e) {
+                Log.e(TAG, "Error seeking: " + e.getMessage());
+            }
+        }
     }
 
     @Override
     public boolean isPlaying() {
-        return mediaPlayer != null && isPrepared && mediaPlayer.isPlaying();
+        try {
+            return mediaPlayer != null && isPrepared && mediaPlayer.isPlaying();
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     @Override
@@ -297,13 +377,23 @@ public class NativeVideoPlayerActivity extends Activity implements TextureView.S
 
     @Override
     public int getAudioSessionId() {
-        return mediaPlayer != null ? mediaPlayer.getAudioSessionId() : 0;
+        try {
+            return mediaPlayer != null ? mediaPlayer.getAudioSessionId() : 0;
+        } catch (Exception e) {
+            return 0;
+        }
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-        if (mediaPlayer != null && mediaPlayer.isPlaying()) mediaPlayer.pause();
+        if (mediaPlayer != null) {
+            try {
+                if (mediaPlayer.isPlaying()) mediaPlayer.pause();
+            } catch (Exception e) {
+                Log.e(TAG, "Error pausing in onPause: " + e.getMessage());
+            }
+        }
     }
 
     @Override
