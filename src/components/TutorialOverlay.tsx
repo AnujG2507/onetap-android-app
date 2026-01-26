@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { TutorialStep } from '@/hooks/useTutorial';
@@ -171,11 +171,11 @@ export function TutorialOverlay({
         />
       )}
 
-      {/* Click blocker that allows clicking through the spotlight */}
+      {/* Click handler - tap outside tooltip to dismiss, tap spotlight to advance */}
       <div 
         className="absolute inset-0"
         onClick={(e) => {
-          // Allow clicks on the target element
+          // Allow clicks on the target element to advance
           if (targetRect) {
             const x = e.clientX;
             const y = e.clientY;
@@ -185,24 +185,15 @@ export function TutorialOverlay({
               y >= targetRect.top &&
               y <= targetRect.top + targetRect.height
             ) {
-              // Click is within spotlight, let it through and advance
+              // Click is within spotlight, advance to next step
               onNext();
               return;
             }
           }
-          // Block other clicks
-          e.stopPropagation();
+          // Tap anywhere else dismisses the tutorial
+          onSkip();
         }}
       />
-
-      {/* Skip button */}
-      <button
-        onClick={onSkip}
-        className="absolute top-4 end-4 z-10 flex items-center gap-1 px-3 py-1.5 rounded-full bg-background/90 text-muted-foreground text-sm hover:bg-background transition-colors"
-      >
-        <X className="h-4 w-4" />
-        <span>{t('tutorial.skip')}</span>
-      </button>
 
       {/* Tooltip */}
       <div
