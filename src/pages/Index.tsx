@@ -446,9 +446,6 @@ const Index = () => {
         <AlertDialogContent className="max-w-[280px] rounded-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle>{t('app.exitTitle')}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t('app.exitDescription')}
-            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-row gap-2">
             <AlertDialogCancel className="flex-1 m-0">{t('common.cancel')}</AlertDialogCancel>
