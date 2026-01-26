@@ -57,6 +57,6 @@ export interface ContentSource {
 // File size threshold for copying vs direct access (5MB for general files)
 export const FILE_SIZE_THRESHOLD = 5 * 1024 * 1024;
 
-// Video size limit - videos up to this size can have shortcuts created (50MB)
+// Video size limit - videos up to this size can have shortcuts created (100MB)
 // Videos larger than this cannot have shortcuts created (Android system constraint)
-export const VIDEO_CACHE_THRESHOLD = 50 * 1024 * 1024;
+export const VIDEO_CACHE_THRESHOLD = 100 * 1024 * 1024;
