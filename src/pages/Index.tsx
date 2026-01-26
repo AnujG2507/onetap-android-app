@@ -45,6 +45,7 @@ const Index = () => {
   const [isRemindersCreatorOpen, setIsRemindersCreatorOpen] = useState(false);
   const [isRemindersEditorOpen, setIsRemindersEditorOpen] = useState(false);
   const [isBookmarkActionSheetOpen, setIsBookmarkActionSheetOpen] = useState(false);
+  const [isAccessPickerOpen, setIsAccessPickerOpen] = useState(false);
   const [bookmarkClearSignal, setBookmarkClearSignal] = useState(0);
   const [notificationsClearSignal, setNotificationsClearSignal] = useState(0);
   const [shortcutUrlFromBookmark, setShortcutUrlFromBookmark] = useState<string | null>(null);
@@ -296,8 +297,8 @@ const Index = () => {
   // Tab order for swipe navigation
   const tabOrder: TabType[] = useMemo(() => ['access', 'reminders', 'bookmarks', 'profile'], []);
   
-  // Swipe is only enabled on home screens (source step for access, or bookmarks/profile tabs without selection mode or open forms/sheets)
-  const swipeEnabled = showBottomNav && !isBookmarkSelectionMode && !isNotificationsSelectionMode && !isRemindersCreatorOpen && !isRemindersEditorOpen && !isBookmarkActionSheetOpen;
+  // Swipe is only enabled on home screens (source step for access, or bookmarks/profile tabs without selection mode or open forms/sheets/pickers)
+  const swipeEnabled = showBottomNav && !isBookmarkSelectionMode && !isNotificationsSelectionMode && !isRemindersCreatorOpen && !isRemindersEditorOpen && !isBookmarkActionSheetOpen && !isAccessPickerOpen;
   
   // Track tab changes to determine slide direction
   const handleTabChange = useCallback((newTab: TabType) => {
@@ -379,6 +380,7 @@ const Index = () => {
               setPendingReminderDestination(destination);
               handleTabChange('reminders');
             }}
+            onPickerOpenChange={setIsAccessPickerOpen}
           />
         </div>
       )}

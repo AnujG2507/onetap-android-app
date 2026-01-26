@@ -47,6 +47,8 @@ interface AccessFlowProps {
   onGoToNotifications?: () => void;
   /** Called when user wants to create a reminder with initial destination */
   onCreateReminder?: (destination: ScheduledActionDestination) => void;
+  /** Called when the inline content picker is opened or closed */
+  onPickerOpenChange?: (isOpen: boolean) => void;
 }
 
 export function AccessFlow({ 
@@ -57,6 +59,7 @@ export function AccessFlow({
   onGoToBookmarks,
   onGoToNotifications,
   onCreateReminder,
+  onPickerOpenChange,
 }: AccessFlowProps) {
   const [step, setStep] = useState<AccessStep>('source');
   const [contentSource, setContentSource] = useState<ContentSource | null>(null);
@@ -360,6 +363,7 @@ export function AccessFlow({
             onSelectContact={handleSelectContact}
             onSelectFromLibrary={handleSelectFromLibrary}
             onEnterUrl={handleEnterUrl}
+            onPickerOpenChange={onPickerOpenChange}
           />
 
           {/* Clipboard URL auto-detection */}

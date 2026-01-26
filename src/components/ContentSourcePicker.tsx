@@ -12,6 +12,8 @@ interface ContentSourcePickerProps {
   onSelectContact?: (mode: ContactMode, actionMode: ActionMode) => void;
   onSelectFromLibrary?: () => void;
   onEnterUrl?: (actionMode: ActionMode) => void;
+  /** Called when the inline picker is opened or closed */
+  onPickerOpenChange?: (isOpen: boolean) => void;
 }
 
 type ActivePicker = 'photo' | 'video' | 'audio' | 'document' | 'contact' | 'link' | null;
@@ -21,13 +23,20 @@ export function ContentSourcePicker({
   onSelectContact, 
   onSelectFromLibrary, 
   onEnterUrl,
+  onPickerOpenChange,
 }: ContentSourcePickerProps) {
   const { t } = useTranslation();
   const [activePicker, setActivePicker] = useState<ActivePicker>(null);
   const [contactMode, setContactMode] = useState<ContactMode>('dial');
 
+  // Notify parent when picker opens/closes
+  const updateActivePicker = (picker: ActivePicker) => {
+    setActivePicker(picker);
+    onPickerOpenChange?.(picker !== null);
+  };
+
   const handleActionSelect = (picker: ActivePicker, action: ActionMode) => {
-    setActivePicker(null);
+    updateActivePicker(null);
     
     if (picker === 'contact') {
       onSelectContact?.(contactMode, action);
@@ -50,14 +59,14 @@ export function ContentSourcePicker({
 
   const handleGridButtonClick = (picker: ActivePicker) => {
     if (activePicker === picker) {
-      setActivePicker(null);
+      updateActivePicker(null);
     } else {
-      setActivePicker(picker);
+      updateActivePicker(picker);
     }
   };
 
   const closePicker = () => {
-    setActivePicker(null);
+    updateActivePicker(null);
   };
 
   return (
