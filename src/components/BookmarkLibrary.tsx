@@ -85,15 +85,12 @@ interface BookmarkLibraryProps {
   onSelectionModeChange?: (isSelectionMode: boolean) => void;
   /** Increment this value to request clearing the current shortlist/selection from a parent (e.g. Android back button). */
   clearSelectionSignal?: number;
-  /** Called when the add bookmark form is opened or closed */
-  onAddFormOpenChange?: (isOpen: boolean) => void;
 }
 
 export function BookmarkLibrary({ 
   onCreateShortcut, 
   onSelectionModeChange, 
   clearSelectionSignal,
-  onAddFormOpenChange,
 }: BookmarkLibraryProps) {
   const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
@@ -233,11 +230,6 @@ export function BookmarkLibrary({
   useEffect(() => {
     onSelectionModeChange?.(hasShortlist);
   }, [hasShortlist, onSelectionModeChange]);
-
-  // Notify parent when add form is opened/closed
-  useEffect(() => {
-    onAddFormOpenChange?.(showAddForm);
-  }, [showAddForm, onAddFormOpenChange]);
 
   // Filtered and sorted links
   const filteredLinks = useMemo(() => {
