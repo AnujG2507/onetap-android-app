@@ -534,5 +534,13 @@
     "stockStep3": "En Ajustes → Batería → Batería adaptativa, considera desactivarla",
     "stockStep4": "Asegúrate de que el modo Ahorro de batería esté desactivado para notificaciones confiables",
     "helpButton": "Ayuda"
+  },
+  "missedNotifications": {
+    "title": "{{count}} recordatorio(s) perdido(s)",
+    "subtitle": "Toca para ver y actuar",
+    "missed": "Perdido",
+    "dismissAll": "Descartar todo",
+    "reschedule": "Reprogramar",
+    "openNow": "Abrir ahora"
   }
 }

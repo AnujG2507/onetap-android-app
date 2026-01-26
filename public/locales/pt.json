@@ -534,5 +534,13 @@
     "stockStep3": "Em Configurações → Bateria → Bateria adaptativa, considere desativar",
     "stockStep4": "Certifique-se de que o modo Economia de bateria esteja desativado para notificações confiáveis",
     "helpButton": "Ajuda"
+  },
+  "missedNotifications": {
+    "title": "{{count}} lembrete(s) perdido(s)",
+    "subtitle": "Toque para ver e agir",
+    "missed": "Perdido",
+    "dismissAll": "Descartar tudo",
+    "reschedule": "Reagendar",
+    "openNow": "Abrir agora"
   }
 }

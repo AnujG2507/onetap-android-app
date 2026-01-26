@@ -521,5 +521,13 @@
     "stockStep3": "In Impostazioni → Batteria → Batteria adattiva, considera di disabilitarla",
     "stockStep4": "Assicurati che la modalità Risparmio batteria sia disattivata per notifiche affidabili",
     "helpButton": "Aiuto"
+  },
+  "missedNotifications": {
+    "title": "{{count}} promemoria perso/i",
+    "subtitle": "Tocca per visualizzare e agire",
+    "missed": "Perso",
+    "dismissAll": "Ignora tutti",
+    "reschedule": "Riprogramma",
+    "openNow": "Apri ora"
   }
 }

@@ -521,5 +521,13 @@
     "stockStep3": "在设置 → 电池 → 自适应电池中，考虑禁用它",
     "stockStep4": "确保省电模式已关闭以获得可靠的通知",
     "helpButton": "帮助"
+  },
+  "missedNotifications": {
+    "title": "{{count}}个错过的提醒",
+    "subtitle": "点击查看并采取行动",
+    "missed": "错过",
+    "dismissAll": "全部忽略",
+    "reschedule": "重新安排",
+    "openNow": "立即打开"
   }
 }

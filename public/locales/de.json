@@ -534,5 +534,13 @@
     "stockStep3": "In Einstellungen → Akku → Adaptive Akkulaufzeit, erwäge die Deaktivierung",
     "stockStep4": "Stelle sicher, dass der Energiesparmodus für zuverlässige Benachrichtigungen ausgeschaltet ist",
     "helpButton": "Hilfe"
+  },
+  "missedNotifications": {
+    "title": "{{count}} verpasste Erinnerung(en)",
+    "subtitle": "Tippen zum Anzeigen und Handeln",
+    "missed": "Verpasst",
+    "dismissAll": "Alle verwerfen",
+    "reschedule": "Neu planen",
+    "openNow": "Jetzt öffnen"
   }
 }

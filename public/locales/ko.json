@@ -521,5 +521,13 @@
     "stockStep3": "설정 → 배터리 → 적응형 배터리에서 비활성화 고려",
     "stockStep4": "안정적인 알림을 위해 배터리 절약 모드가 꺼져 있는지 확인",
     "helpButton": "도움말"
+  },
+  "missedNotifications": {
+    "title": "{{count}}개의 놓친 알림",
+    "subtitle": "탭하여 보기 및 조치",
+    "missed": "놓침",
+    "dismissAll": "모두 닫기",
+    "reschedule": "다시 예약",
+    "openNow": "지금 열기"
   }
 }

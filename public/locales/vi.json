@@ -521,5 +521,13 @@
     "stockStep3": "Trong Cài đặt → Pin → Pin thích ứng, xem xét tắt",
     "stockStep4": "Đảm bảo chế độ Tiết kiệm pin đã tắt để có thông báo đáng tin cậy",
     "helpButton": "Trợ giúp"
+  },
+  "missedNotifications": {
+    "title": "{{count}} lời nhắc bị bỏ lỡ",
+    "subtitle": "Nhấn để xem và hành động",
+    "missed": "Bỏ lỡ",
+    "dismissAll": "Bỏ qua tất cả",
+    "reschedule": "Lên lịch lại",
+    "openNow": "Mở ngay"
   }
 }

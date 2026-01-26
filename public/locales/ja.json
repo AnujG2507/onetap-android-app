@@ -521,5 +521,13 @@
     "stockStep3": "設定 → バッテリー → バッテリー最適化で無効にすることを検討",
     "stockStep4": "確実な通知のためにバッテリーセーバーモードがオフになっていることを確認",
     "helpButton": "ヘルプ"
+  },
+  "missedNotifications": {
+    "title": "{{count}}件のリマインダーを見逃しました",
+    "subtitle": "タップして確認・対応",
+    "missed": "見逃し",
+    "dismissAll": "すべて閉じる",
+    "reschedule": "再スケジュール",
+    "openNow": "今すぐ開く"
   }
 }

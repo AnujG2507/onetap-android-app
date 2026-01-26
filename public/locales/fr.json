@@ -534,5 +534,13 @@
     "stockStep3": "Dans Paramètres → Batterie → Batterie adaptative, envisagez de la désactiver",
     "stockStep4": "Assurez-vous que le mode Économie de batterie est désactivé pour des notifications fiables",
     "helpButton": "Aide"
+  },
+  "missedNotifications": {
+    "title": "{{count}} rappel(s) manqué(s)",
+    "subtitle": "Appuyez pour voir et agir",
+    "missed": "Manqué",
+    "dismissAll": "Tout ignorer",
+    "reschedule": "Reprogrammer",
+    "openNow": "Ouvrir maintenant"
   }
 }

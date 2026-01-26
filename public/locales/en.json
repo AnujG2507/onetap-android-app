@@ -687,5 +687,13 @@
     "stockStep3": "In Settings → Battery → Adaptive Battery, consider disabling it",
     "stockStep4": "Make sure Battery Saver mode is off for reliable notifications",
     "helpButton": "Help"
+  },
+  "missedNotifications": {
+    "title": "{{count}} missed reminder(s)",
+    "subtitle": "Tap to view and take action",
+    "missed": "Missed",
+    "dismissAll": "Dismiss All",
+    "reschedule": "Reschedule",
+    "openNow": "Open Now"
   }
 }

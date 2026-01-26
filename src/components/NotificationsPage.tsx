@@ -41,6 +41,7 @@ import { TrashSheet } from './TrashSheet';
 import { EmptyStateWithValueProp } from './EmptyStateWithValueProp';
 import { TutorialCoachMarks } from './TutorialCoachMarks';
 import { BatteryOptimizationHelp } from './BatteryOptimizationHelp';
+import { MissedNotificationsBanner } from './MissedNotificationsBanner';
 import type { ScheduledAction, RecurrenceType, ScheduledActionDestination } from '@/types/scheduledAction';
 import { 
   getSelectedIds, 
@@ -555,6 +556,11 @@ export function NotificationsPage({
           </div>
         )}
       </header>
+
+      {/* Missed Notifications Banner */}
+      <div className="px-5 pb-3 shrink-0">
+        <MissedNotificationsBanner />
+      </div>
 
       {/* Search input */}
       {actions.length > 0 && (
