@@ -85,12 +85,15 @@ interface BookmarkLibraryProps {
   onSelectionModeChange?: (isSelectionMode: boolean) => void;
   /** Increment this value to request clearing the current shortlist/selection from a parent (e.g. Android back button). */
   clearSelectionSignal?: number;
+  /** Called when the action sheet is opened or closed */
+  onActionSheetOpenChange?: (isOpen: boolean) => void;
 }
 
 export function BookmarkLibrary({ 
   onCreateShortcut, 
   onSelectionModeChange, 
   clearSelectionSignal,
+  onActionSheetOpenChange,
 }: BookmarkLibraryProps) {
   const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
@@ -230,6 +233,11 @@ export function BookmarkLibrary({
   useEffect(() => {
     onSelectionModeChange?.(hasShortlist);
   }, [hasShortlist, onSelectionModeChange]);
+
+  // Notify parent when action sheet is opened/closed
+  useEffect(() => {
+    onActionSheetOpenChange?.(showActionSheet);
+  }, [showActionSheet, onActionSheetOpenChange]);
 
   // Filtered and sorted links
   const filteredLinks = useMemo(() => {
