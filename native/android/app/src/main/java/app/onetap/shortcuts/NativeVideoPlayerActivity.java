@@ -45,7 +45,6 @@ import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.OptIn;
@@ -84,6 +83,7 @@ public class NativeVideoPlayerActivity extends Activity {
     private PlayerView playerView;
     private LinearLayout topBar;
     private TextView speedButton;
+    private TextView debugTextView;
     private boolean isTopBarVisible = true;
 
     private ExoPlayer exoPlayer;
@@ -91,7 +91,6 @@ public class NativeVideoPlayerActivity extends Activity {
     private Uri videoUri;
     private String videoMimeType;
     private boolean hasTriedExternalFallback = false;
-    private boolean isTopBarVisible = true;
     private int currentSpeedIndex = 2; // Default to 1.0x
 
     // Store the raw intent for diagnostics
