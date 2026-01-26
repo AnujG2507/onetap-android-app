@@ -10,6 +10,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface LanguagePickerProps {
   open?: boolean;
@@ -69,44 +70,46 @@ export function LanguagePicker({ open, onOpenChange }: LanguagePickerProps) {
           </span>
         </button>
       </SheetTrigger>
-      <SheetContent side="bottom" className="rounded-t-2xl">
-        <SheetHeader className="text-start">
+      <SheetContent side="bottom" className="rounded-t-2xl max-h-[85vh] flex flex-col">
+        <SheetHeader className="text-start shrink-0">
           <SheetTitle>{t('settings.language')}</SheetTitle>
         </SheetHeader>
-        <div className="mt-4 space-y-1">
-          {supportedLanguages.map((lang) => {
-            const isSelected = currentLanguage === lang.code;
-            const isLoading = changingTo === lang.code;
-            
-            return (
-              <button
-                key={lang.code}
-                onClick={() => handleLanguageChange(lang.code)}
-                disabled={isChanging}
-                className={cn(
-                  "flex items-center justify-between w-full py-3 px-4 rounded-xl",
-                  "transition-colors",
-                  isSelected
-                    ? "bg-primary/10 text-primary"
-                    : "hover:bg-muted/50",
-                  isChanging && !isLoading && "opacity-50"
-                )}
-                dir={lang.rtl ? 'rtl' : 'ltr'}
-                aria-label={lang.name}
-              >
-                <div className="flex flex-col items-start">
-                  <span className="font-medium">{lang.nativeName}</span>
-                  <span className="text-sm text-muted-foreground">{lang.name}</span>
-                </div>
-                {isLoading ? (
-                  <Loader2 className="h-5 w-5 text-primary animate-spin" aria-hidden="true" />
-                ) : isSelected ? (
-                  <Check className="h-5 w-5 text-primary" aria-hidden="true" />
-                ) : null}
-              </button>
-            );
-          })}
-        </div>
+        <ScrollArea className="flex-1 mt-4 -mx-6 px-6">
+          <div className="space-y-1 pb-4">
+            {supportedLanguages.map((lang) => {
+              const isSelected = currentLanguage === lang.code;
+              const isLoading = changingTo === lang.code;
+              
+              return (
+                <button
+                  key={lang.code}
+                  onClick={() => handleLanguageChange(lang.code)}
+                  disabled={isChanging}
+                  className={cn(
+                    "flex items-center justify-between w-full py-3 px-4 rounded-xl",
+                    "transition-colors",
+                    isSelected
+                      ? "bg-primary/10 text-primary"
+                      : "hover:bg-muted/50",
+                    isChanging && !isLoading && "opacity-50"
+                  )}
+                  dir={lang.rtl ? 'rtl' : 'ltr'}
+                  aria-label={lang.name}
+                >
+                  <div className="flex flex-col items-start">
+                    <span className="font-medium">{lang.nativeName}</span>
+                    <span className="text-sm text-muted-foreground">{lang.name}</span>
+                  </div>
+                  {isLoading ? (
+                    <Loader2 className="h-5 w-5 text-primary animate-spin" aria-hidden="true" />
+                  ) : isSelected ? (
+                    <Check className="h-5 w-5 text-primary" aria-hidden="true" />
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
+        </ScrollArea>
       </SheetContent>
     </Sheet>
   );

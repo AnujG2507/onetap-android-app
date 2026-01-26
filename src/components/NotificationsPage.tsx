@@ -34,6 +34,8 @@ import { ScheduledActionEditor } from './ScheduledActionEditor';
 import { ScheduledActionItem } from './ScheduledActionItem';
 import { ScheduledActionActionSheet } from './ScheduledActionActionSheet';
 import { ScheduledActionCreator } from './ScheduledActionCreator';
+import { AppMenu } from './AppMenu';
+import { TrashSheet } from './TrashSheet';
 import type { ScheduledAction, RecurrenceType } from '@/types/scheduledAction';
 import { 
   getSelectedIds, 
@@ -117,6 +119,9 @@ export function NotificationsPage({
   // Creator mode
   const [showCreator, setShowCreator] = useState(false);
   
+  // Trash state
+  const [isTrashOpen, setIsTrashOpen] = useState(false);
+  
   // Scroll state for hiding bottom button
   const [isScrolledDown, setIsScrolledDown] = useState(false);
   const lastScrollTop = useRef(0);
@@ -128,11 +133,13 @@ export function NotificationsPage({
   const handleCloseEditor = useCallback(() => setEditingAction(null), []);
   const handleCloseBulkDeleteConfirm = useCallback(() => setShowBulkDeleteConfirm(false), []);
   const handleCloseCreator = useCallback(() => setShowCreator(false), []);
+  const handleCloseTrash = useCallback(() => setIsTrashOpen(false), []);
   
   useSheetBackHandler('notifications-action-sheet', !!actionSheetAction, handleCloseActionSheet);
   useSheetBackHandler('notifications-editor', !!editingAction, handleCloseEditor);
   useSheetBackHandler('notifications-bulk-delete-confirm', showBulkDeleteConfirm, handleCloseBulkDeleteConfirm, 10);
   useSheetBackHandler('notifications-creator', showCreator, handleCloseCreator);
+  useSheetBackHandler('notifications-trash-sheet', isTrashOpen, handleCloseTrash);
 
   // Load selection state and subscribe to changes
   useEffect(() => {
@@ -463,6 +470,7 @@ export function NotificationsPage({
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
+            <AppMenu onOpenTrash={() => setIsTrashOpen(true)} />
           </div>
         </div>
         
@@ -818,6 +826,12 @@ export function NotificationsPage({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Trash Sheet */}
+      <TrashSheet 
+        open={isTrashOpen} 
+        onOpenChange={setIsTrashOpen} 
+      />
     </div>
   );
 }
