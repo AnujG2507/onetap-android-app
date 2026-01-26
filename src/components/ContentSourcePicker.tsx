@@ -327,20 +327,23 @@ function GridButton({ id, icon, label, onClick, isActive }: GridButtonProps) {
       className={cn(
         "flex flex-col items-center gap-2 rounded-xl p-4",
         "shadow-sm active:scale-[0.96] active:shadow-none",
-        "transition-all duration-150",
+        "transition-all duration-200 ease-out",
         "focus:outline-none focus:ring-2 focus:ring-ring",
         isActive 
-          ? "bg-primary/10 ring-2 ring-primary/30" 
+          ? "bg-primary/10 ring-2 ring-primary/30 scale-105 shadow-md" 
           : "bg-muted/40 hover:scale-[1.02] hover:shadow-md hover:bg-muted/60"
       )}
     >
       <div className={cn(
-        "flex h-10 w-10 items-center justify-center rounded-full",
-        isActive ? "bg-primary/20 text-primary" : "bg-primary/10 text-primary"
+        "flex items-center justify-center rounded-full transition-all duration-200",
+        isActive ? "h-12 w-12 bg-primary/20 text-primary" : "h-10 w-10 bg-primary/10 text-primary"
       )}>
         {icon}
       </div>
-      <span className="text-xs font-medium text-foreground">{label}</span>
+      <span className={cn(
+        "font-medium text-foreground transition-all duration-200",
+        isActive ? "text-sm" : "text-xs"
+      )}>{label}</span>
     </button>
   );
 }
