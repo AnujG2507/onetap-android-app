@@ -25,6 +25,8 @@ import { getSyncStatus, recordSync, formatRelativeTime, clearSyncStatus } from '
 import { getSettings, updateSettings } from '@/lib/settingsManager';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { AppMenu } from './AppMenu';
+import { TrashSheet } from './TrashSheet';
 
 export function ProfilePage() {
   const { t } = useTranslation();
@@ -39,10 +41,13 @@ export function ProfilePage() {
   const [autoSyncEnabled, setAutoSyncEnabled] = useState(() => getSettings().autoSyncEnabled);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isTrashOpen, setIsTrashOpen] = useState(false);
 
   // Register dialog with back button handler
   const handleCloseDeleteDialog = useCallback(() => setShowDeleteDialog(false), []);
+  const handleCloseTrash = useCallback(() => setIsTrashOpen(false), []);
   useSheetBackHandler('profile-delete-dialog', showDeleteDialog, handleCloseDeleteDialog, 10);
+  useSheetBackHandler('profile-trash-sheet', isTrashOpen, handleCloseTrash);
 
   const isOperating = isSyncing || isUploading || isDownloading || isDeleting;
 
@@ -225,6 +230,17 @@ export function ProfilePage() {
   if (!user) {
     return (
       <div className="flex-1 flex flex-col p-4 pb-20 safe-top overflow-y-auto">
+        {/* Header with Menu */}
+        <header className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
+              <User className="h-4 w-4 text-primary-foreground" />
+            </div>
+            <h1 className="text-xl font-semibold text-foreground">{t('tabs.profile')}</h1>
+          </div>
+          <AppMenu onOpenTrash={() => setIsTrashOpen(true)} />
+        </header>
+
         <div className="flex-1 flex flex-col items-center justify-center gap-6 max-w-sm mx-auto text-center mb-6">
           <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center">
             <User className="w-10 h-10 text-muted-foreground" />
@@ -261,6 +277,12 @@ export function ProfilePage() {
 
         {/* Usage Insights for signed-out users too */}
         <UsageInsights />
+        
+        {/* Trash Sheet */}
+        <TrashSheet 
+          open={isTrashOpen} 
+          onOpenChange={setIsTrashOpen} 
+        />
       </div>
     );
   }
@@ -273,6 +295,17 @@ export function ProfilePage() {
 
   return (
     <div className="flex-1 flex flex-col p-4 pb-20 safe-top overflow-y-auto">
+      {/* Header with Menu */}
+      <header className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
+            <User className="h-4 w-4 text-primary-foreground" />
+          </div>
+          <h1 className="text-xl font-semibold text-foreground">{t('tabs.profile')}</h1>
+        </div>
+        <AppMenu onOpenTrash={() => setIsTrashOpen(true)} />
+      </header>
+
       {/* User Info Card */}
       <Card className="mb-4">
         <CardContent className="pt-6">
@@ -459,6 +492,12 @@ export function ProfilePage() {
           </AlertDialogContent>
         </AlertDialog>
       </div>
+
+      {/* Trash Sheet */}
+      <TrashSheet 
+        open={isTrashOpen} 
+        onOpenChange={setIsTrashOpen} 
+      />
     </div>
   );
 }
