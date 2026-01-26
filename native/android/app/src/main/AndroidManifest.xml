@@ -149,10 +149,15 @@
         </activity>
 
         <!-- Native video player used for <=50MB videos (reliable vs WebView) -->
+        <!-- PiP support requires Android 8.0+ (API 26+) -->
         <activity
             android:name=".NativeVideoPlayerActivity"
             android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen"
-            android:exported="false" />
+            android:exported="false"
+            android:supportsPictureInPicture="true"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
+            android:launchMode="singleTask"
+            android:resizeableActivity="true" />
 
         <!-- Desktop WebView Activity - custom WebView with User-Agent control -->
         <activity
