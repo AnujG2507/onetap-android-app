@@ -413,16 +413,26 @@ function SecondaryButton({ id, icon, label, onClick, isActive }: SecondaryButton
       id={id}
       onClick={onClick}
       className={cn(
-        "flex items-center gap-2 rounded-xl px-3 py-2.5",
+        "flex items-center gap-3 rounded-xl px-4 py-3",
+        "border border-border/60",
         "active:scale-[0.97] transition-all duration-200",
         "focus:outline-none focus:ring-2 focus:ring-ring",
+        "shadow-sm",
         isActive 
-          ? "bg-primary/10 ring-2 ring-primary/30 scale-105 shadow-md" 
-          : "bg-muted/20 hover:bg-muted/40 hover:text-foreground"
+          ? "bg-primary/10 border-primary/40 ring-2 ring-primary/30 scale-[1.02] shadow-md" 
+          : "bg-gradient-to-br from-muted/30 to-muted/10 hover:from-muted/50 hover:to-muted/20 hover:border-border hover:shadow-md"
       )}
     >
-      <span className={cn(isActive ? "text-primary" : "text-muted-foreground")}>{icon}</span>
-      <span className={cn("text-sm", isActive ? "text-foreground font-medium" : "text-muted-foreground")}>{label}</span>
+      <div className={cn(
+        "flex h-8 w-8 items-center justify-center rounded-lg transition-colors",
+        isActive ? "bg-primary/20 text-primary" : "bg-primary/10 text-primary"
+      )}>
+        {icon}
+      </div>
+      <span className={cn(
+        "text-sm font-medium",
+        isActive ? "text-foreground" : "text-foreground/80"
+      )}>{label}</span>
     </button>
   );
 }
