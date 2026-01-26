@@ -1,129 +1,73 @@
 
-# Fix: Android 15/16 NullPointerException in Video Player
 
-## Problem Summary
+## Add Translations for File Size Indicator & Progress Bar
 
-The native video player crashes on **Android 15/16 (API 35-36)** devices, specifically Samsung devices, during `onCreate()`. The crash occurs because the code accesses `DecorView.getWindowInsetsController()` which returns null when the decor view isn't fully initialized.
-
-**Error:**
-```
-java.lang.NullPointerException: Attempt to invoke virtual method 
-'android.view.WindowInsetsController com.android.internal.policy.DecorView.getWindowInsetsController()' 
-on a null object reference
-```
-
-**Root Cause:** The current implementation calls `decor.getWindowInsetsController()` on the DecorView, which fails on newer Android versions due to lifecycle timing. The DecorView may not be fully attached to the window yet.
+This plan adds the missing translation keys for the new video file size indicator and progress bar across all 14 supported languages, while also making the large file warning more subtle.
 
 ---
 
-## Solution
+### Changes Overview
 
-Replace the unsafe `DecorView.getWindowInsetsController()` pattern with the Android-15-safe `getWindow().getInsetsController()` approach, which retrieves the controller directly from the Window rather than from the DecorView.
+#### 1. Update English Locale (Subtle Warning)
+- Change `largeFileWarning` from "May take longer to process" to "Large file" for a more subtle, less alarming tone
 
----
+#### 2. Add Missing Translation Keys to All Locales
 
-## Implementation Details
+Each locale file will receive 6 new keys under `shortcutCustomizer`:
 
-### File to Modify
-`native/android/app/src/main/java/app/onetap/shortcuts/NativeVideoPlayerActivity.java`
-
-### Changes to `applyImmersiveModeSafely()` Method (Lines 278-325)
-
-**Current problematic code:**
-```java
-View decor = null;
-try {
-    decor = getWindow().getDecorView();
-} catch (Throwable ignored) {}
-
-WindowInsetsController controller = null;
-try {
-    if (decor != null) controller = decor.getWindowInsetsController();
-} catch (Throwable ignored) {}
-```
-
-**New Android-15-safe code:**
-```java
-WindowInsetsController controller = null;
-try {
-    controller = getWindow().getInsetsController();
-} catch (Throwable ignored) {}
-```
-
-### Complete Rewritten Method
-
-The `applyImmersiveModeSafely()` method will be updated to:
-
-1. Use `getWindow().getInsetsController()` instead of `decor.getWindowInsetsController()`
-2. Remove direct `DecorView` access for getting the controller
-3. Keep a safe fallback to legacy system UI visibility flags for older devices
-4. Maintain defensive null checks and try-catch blocks
-5. Add a null URI guard in `onCreate()` to gracefully exit if no video URI is provided
+| Key | English | Purpose |
+|-----|---------|---------|
+| `videoFile` | Video file | Label for video file indicator |
+| `largeFileWarning` | Large file | Subtle warning for files >50MB |
+| `processingVideo` | Processing video | Progress bar title for videos |
+| `processingFile` | Processing file | Progress bar title for other files |
+| `processingLargeVideo` | Copying {{size}} MB video to app storage... | Progress description for videos |
+| `processingLargeFile` | Copying {{size}} MB file to app storage... | Progress description for files |
 
 ---
 
-## Technical Details
+### Translations by Language
 
-```text
-┌─────────────────────────────────────────────────────────────┐
-│                    applyImmersiveModeSafely()               │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  Android 11+ (API 30+):                                     │
-│  ┌───────────────────────────────────────────────────────┐  │
-│  │ 1. setDecorFitsSystemWindows(false)                   │  │
-│  │ 2. getWindow().getInsetsController() ← SAFE METHOD    │  │
-│  │ 3. controller.hide(systemBars())                      │  │
-│  │ 4. controller.setBehavior(TRANSIENT_BARS_BY_SWIPE)    │  │
-│  └───────────────────────────────────────────────────────┘  │
-│                           │                                 │
-│                           ▼                                 │
-│                    controller == null?                      │
-│                           │                                 │
-│            ┌──────────────┴──────────────┐                  │
-│            ▼                             ▼                  │
-│       Use legacy                   Apply modern             │
-│    setSystemUiVisibility()          immersive mode          │
-│                                                             │
-├─────────────────────────────────────────────────────────────┤
-│  Android < 11 (API < 30):                                   │
-│  ┌───────────────────────────────────────────────────────┐  │
-│  │ Use legacy setSystemUiVisibility() flags              │  │
-│  └───────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
-```
+| Language | `videoFile` | `largeFileWarning` |
+|----------|-------------|-------------------|
+| Spanish (es) | Archivo de video | Archivo grande |
+| Portuguese (pt) | Arquivo de vídeo | Arquivo grande |
+| German (de) | Videodatei | Große Datei |
+| French (fr) | Fichier vidéo | Fichier volumineux |
+| Italian (it) | File video | File grande |
+| Japanese (ja) | 動画ファイル | 大きなファイル |
+| Korean (ko) | 동영상 파일 | 대용량 파일 |
+| Hindi (hi) | वीडियो फाइल | बड़ी फाइल |
+| Arabic (ar) | ملف فيديو | ملف كبير |
+| Russian (ru) | Видеофайл | Большой файл |
+| Thai (th) | ไฟล์วิดีโอ | ไฟล์ขนาดใหญ่ |
+| Vietnamese (vi) | Tệp video | Tệp lớn |
+| Chinese (zh) | 视频文件 | 大文件 |
 
 ---
 
-## Optional Safety Add-on
+### Files to Modify
 
-Add a defensive check in `onCreate()` to gracefully exit the activity if the incoming video URI is null, rather than showing the diagnostics screen which may not be fully initialized:
-
-```java
-if (videoUri == null) {
-    logError("No video URI provided - exiting gracefully");
-    Toast.makeText(this, "No video to play", Toast.LENGTH_SHORT).show();
-    finish();
-    return;
-}
-```
-
----
-
-## Testing
-
-After applying the fix:
-
-1. Run `npx cap sync android`
-2. Rebuild the app with Android Studio
-3. Test on Android 15/16 devices (especially Samsung)
-4. Verify video shortcuts launch the player successfully
-5. Confirm fullscreen immersive mode works without crashes
+1. `public/locales/en.json` - Update warning text to be more subtle
+2. `public/locales/es.json` - Add all 6 keys
+3. `public/locales/pt.json` - Add all 6 keys
+4. `public/locales/de.json` - Add all 6 keys
+5. `public/locales/fr.json` - Add all 6 keys
+6. `public/locales/it.json` - Add all 6 keys
+7. `public/locales/ja.json` - Add all 6 keys
+8. `public/locales/ko.json` - Add all 6 keys
+9. `public/locales/hi.json` - Add all 6 keys
+10. `public/locales/ar.json` - Add all 6 keys
+11. `public/locales/ru.json` - Add all 6 keys
+12. `public/locales/th.json` - Add all 6 keys
+13. `public/locales/vi.json` - Add all 6 keys
+14. `public/locales/zh.json` - Add all 6 keys
 
 ---
 
-## Files Changed
+### Technical Details
 
-| File | Change |
-|------|--------|
-| `native/android/app/src/main/java/app/onetap/shortcuts/NativeVideoPlayerActivity.java` | Rewrite `applyImmersiveModeSafely()` to use `getWindow().getInsetsController()` instead of `DecorView.getWindowInsetsController()` |
+The translations will be added to the existing `shortcutCustomizer` section in each locale file. For languages that don't have a `shortcutCustomizer` section yet (some use `shortcut` instead), the keys will be added to the appropriate existing section or a new `shortcutCustomizer` section will be created to match the English structure.
+
+The `{{size}}` placeholder in `processingLargeVideo` and `processingLargeFile` is an i18next interpolation variable that will be replaced with the actual file size in MB at runtime.
+
