@@ -23,6 +23,7 @@ import { useSheetRegistry } from '@/contexts/SheetRegistryContext';
 import { getShortlistedLinks, clearAllShortlist, addSavedLink } from '@/lib/savedLinksManager';
 import { getActiveCount, onScheduledActionsChange } from '@/lib/scheduledActionsManager';
 import ShortcutPlugin from '@/plugins/ShortcutPlugin';
+import type { ScheduledActionDestination } from '@/types/scheduledAction';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -48,6 +49,7 @@ const Index = () => {
   const [pendingSharedUrl, setPendingSharedUrl] = useState<string | null>(null);
   const [slideDirection, setSlideDirection] = useState<'left' | 'right' | null>(null);
   const [activeActionsCount, setActiveActionsCount] = useState(() => getActiveCount());
+  const [pendingReminderDestination, setPendingReminderDestination] = useState<ScheduledActionDestination | null>(null);
   const lastSharedIdRef = useRef<string | null>(null);
   const previousTabRef = useRef<TabType>('access');
 
@@ -370,6 +372,10 @@ const Index = () => {
             onInitialUrlConsumed={handleInitialUrlConsumed}
             onGoToBookmarks={() => handleTabChange('bookmarks')}
             onGoToNotifications={() => handleTabChange('reminders')}
+            onCreateReminder={(destination) => {
+              setPendingReminderDestination(destination);
+              handleTabChange('reminders');
+            }}
           />
         </div>
       )}
@@ -384,6 +390,8 @@ const Index = () => {
           <NotificationsPage
             onSelectionModeChange={setIsNotificationsSelectionMode}
             clearSelectionSignal={notificationsClearSignal}
+            initialDestination={pendingReminderDestination}
+            onInitialDestinationConsumed={() => setPendingReminderDestination(null)}
           />
         </div>
       )}

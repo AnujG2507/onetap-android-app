@@ -107,6 +107,11 @@
     "contactCallDesc": "Direct dial",
     "contactMessageDesc": "WhatsApp",
     "chooseAction": "Choose action type",
+    "contactType": "Contact type",
+    "shortcut": "Shortcut",
+    "shortcutDesc": "Add to home screen",
+    "reminder": "Reminder",
+    "reminderDesc": "Schedule for later",
     "offline": "You're offline. Some features may be limited."
   },
   "library": {

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Zap, WifiOff } from 'lucide-react';
-import { ContentSourcePicker, ContactMode } from '@/components/ContentSourcePicker';
+import { ContentSourcePicker, ContactMode, ActionMode } from '@/components/ContentSourcePicker';
 import { UrlInput } from '@/components/UrlInput';
 import { ShortcutCustomizer } from '@/components/ShortcutCustomizer';
 import { ContactShortcutCustomizer } from '@/components/ContactShortcutCustomizer';
@@ -21,6 +21,7 @@ import { useToast } from '@/hooks/use-toast';
 import { pickFile, FileTypeFilter } from '@/lib/contentResolver';
 import { createHomeScreenShortcut } from '@/lib/shortcutManager';
 import type { ContentSource, ShortcutIcon, MessageApp } from '@/types/shortcut';
+import type { ScheduledActionDestination } from '@/types/scheduledAction';
 
 export type AccessStep = 'source' | 'url' | 'customize' | 'contact' | 'success';
 export type ContentSourceType = 'url' | 'file' | null;
@@ -44,6 +45,8 @@ interface AccessFlowProps {
   onGoToBookmarks?: () => void;
   /** Called when user wants to navigate to notifications tab */
   onGoToNotifications?: () => void;
+  /** Called when user wants to create a reminder with initial destination */
+  onCreateReminder?: (destination: ScheduledActionDestination) => void;
 }
 
 export function AccessFlow({ 
@@ -53,6 +56,7 @@ export function AccessFlow({
   onInitialUrlConsumed,
   onGoToBookmarks,
   onGoToNotifications,
+  onCreateReminder,
 }: AccessFlowProps) {
   const [step, setStep] = useState<AccessStep>('source');
   const [contentSource, setContentSource] = useState<ContentSource | null>(null);
@@ -61,6 +65,7 @@ export function AccessFlow({
   const [contactMode, setContactMode] = useState<ContactMode>('dial');
   const [isTrashOpen, setIsTrashOpen] = useState(false);
   const [showBookmarkPicker, setShowBookmarkPicker] = useState(false);
+  const [pendingActionMode, setPendingActionMode] = useState<ActionMode>('shortcut');
   const processedInitialUrlRef = useRef<string | null>(null);
 
   const { t } = useTranslation();
@@ -132,19 +137,40 @@ export function AccessFlow({
     setStep('customize');
   };
 
-  const handleEnterUrl = () => {
+  const handleEnterUrl = (actionMode: ActionMode) => {
+    setPendingActionMode(actionMode);
     setStep('url');
   };
 
   const handleUrlSubmit = (url: string) => {
-    setContentSource({
-      type: 'url',
-      uri: url,
-    });
-    setStep('customize');
+    if (pendingActionMode === 'reminder') {
+      // Create reminder destination and navigate to notifications
+      try {
+        const hostname = new URL(url).hostname.replace('www.', '');
+        const destination: ScheduledActionDestination = {
+          type: 'url',
+          uri: url,
+          name: hostname,
+        };
+        onCreateReminder?.(destination);
+      } catch {
+        // Invalid URL, still try
+        onCreateReminder?.({
+          type: 'url',
+          uri: url,
+          name: 'Link',
+        });
+      }
+    } else {
+      setContentSource({
+        type: 'url',
+        uri: url,
+      });
+      setStep('customize');
+    }
   };
 
-  const handleSelectFile = async (filter: FileTypeFilter) => {
+  const handleSelectFile = async (filter: FileTypeFilter, actionMode: ActionMode) => {
     const file = await pickFile(filter);
     if (file) {
       console.log('[AccessFlow] File selected:', {
@@ -153,13 +179,26 @@ export function AccessFlow({
         mimeType: file.mimeType,
         hasFileData: !!file.fileData,
       });
-      setContentSource(file);
-      setStep('customize');
+      
+      if (actionMode === 'reminder') {
+        // Create reminder destination and navigate to notifications
+        const destination: ScheduledActionDestination = {
+          type: 'file',
+          uri: file.uri,
+          name: file.name || 'File',
+          mimeType: file.mimeType,
+        };
+        onCreateReminder?.(destination);
+      } else {
+        setContentSource(file);
+        setStep('customize');
+      }
     }
   };
 
-  const handleSelectContact = (mode: ContactMode) => {
+  const handleSelectContact = (mode: ContactMode, actionMode: ActionMode) => {
     setContactMode(mode);
+    setPendingActionMode(actionMode);
     setContactData(null);
     setStep('contact');
   };
@@ -172,6 +211,18 @@ export function AccessFlow({
     slackTeamId?: string;
     slackUserId?: string;
   }) => {
+    // If pending action is reminder, create reminder instead
+    if (pendingActionMode === 'reminder') {
+      const destination: ScheduledActionDestination = {
+        type: 'contact',
+        phoneNumber: data.phoneNumber,
+        contactName: data.name,
+      };
+      onCreateReminder?.(destination);
+      handleReset();
+      return;
+    }
+    
     try {
       const shortcut = createContactShortcut(
         contactMode === 'dial' ? 'contact' : 'message',
@@ -247,6 +298,7 @@ export function AccessFlow({
     setContentSource(null);
     setContactData(null);
     setLastCreatedName('');
+    setPendingActionMode('shortcut');
   };
 
   // Consolidated back navigation handler
@@ -255,6 +307,7 @@ export function AccessFlow({
       case 'url':
         setStep('source');
         setContentSource(null);
+        setPendingActionMode('shortcut');
         break;
       case 'customize':
         if (contentSource?.type === 'url') {
@@ -268,6 +321,7 @@ export function AccessFlow({
         setStep('source');
         setContactData(null);
         setContentSource(null);
+        setPendingActionMode('shortcut');
         break;
       case 'success':
         handleReset();

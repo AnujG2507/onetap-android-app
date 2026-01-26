@@ -39,7 +39,7 @@ import { AppMenu } from './AppMenu';
 import { TrashSheet } from './TrashSheet';
 import { EmptyStateWithValueProp } from './EmptyStateWithValueProp';
 import { TutorialOverlay } from './TutorialOverlay';
-import type { ScheduledAction, RecurrenceType } from '@/types/scheduledAction';
+import type { ScheduledAction, RecurrenceType, ScheduledActionDestination } from '@/types/scheduledAction';
 import { 
   getSelectedIds, 
   toggleSelection, 
@@ -66,6 +66,10 @@ import {
 interface NotificationsPageProps {
   onSelectionModeChange?: (isSelectionMode: boolean) => void;
   clearSelectionSignal?: number;
+  /** Initial destination for creating a reminder (from Access tab) */
+  initialDestination?: ScheduledActionDestination | null;
+  /** Called when the initial destination has been consumed */
+  onInitialDestinationConsumed?: () => void;
 }
 
 interface PermissionStatus {
@@ -85,6 +89,8 @@ const RECURRENCE_FILTERS: { value: RecurrenceType | 'all'; labelKey: string; ico
 export function NotificationsPage({ 
   onSelectionModeChange,
   clearSelectionSignal,
+  initialDestination,
+  onInitialDestinationConsumed,
 }: NotificationsPageProps) {
   const { t } = useTranslation();
   const { 
@@ -119,8 +125,10 @@ export function NotificationsPage({
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
   
-  // Creator mode
+  // Creator mode - track the destination for the creator
   const [showCreator, setShowCreator] = useState(false);
+  const [creatorDestination, setCreatorDestination] = useState<ScheduledActionDestination | null>(null);
+  const processedDestinationRef = useRef<string | null>(null);
   
   // Trash state
   const [isTrashOpen, setIsTrashOpen] = useState(false);
@@ -174,6 +182,19 @@ export function NotificationsPage({
       setIsSelectionMode(false);
     }
   }, [clearSelectionSignal]);
+
+  // Handle initial destination from Access tab
+  useEffect(() => {
+    if (initialDestination) {
+      const destKey = JSON.stringify(initialDestination);
+      if (processedDestinationRef.current !== destKey) {
+        processedDestinationRef.current = destKey;
+        setCreatorDestination(initialDestination);
+        setShowCreator(true);
+        onInitialDestinationConsumed?.();
+      }
+    }
+  }, [initialDestination, onInitialDestinationConsumed]);
 
   // Check permissions on mount
   useEffect(() => {
@@ -419,15 +440,18 @@ export function NotificationsPage({
   };
 
   const handleCreateNew = () => {
+    setCreatorDestination(null);
     setShowCreator(true);
   };
 
   const handleCreatorComplete = () => {
     setShowCreator(false);
+    setCreatorDestination(null);
   };
 
   const handleCreatorBack = () => {
     setShowCreator(false);
+    setCreatorDestination(null);
   };
 
   const allPermissionsGranted = permissionStatus.notifications && permissionStatus.alarms;
@@ -439,6 +463,7 @@ export function NotificationsPage({
       <ScheduledActionCreator
         onComplete={handleCreatorComplete}
         onBack={handleCreatorBack}
+        initialDestination={creatorDestination || undefined}
       />
     );
   }
