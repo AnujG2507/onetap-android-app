@@ -275,39 +275,62 @@ public class NativeVideoPlayerActivity extends Activity {
      * On some OEM builds, calling getWindow().getInsetsController() too early can crash
      * because the decor view isn't created yet.
      */
+    /**
+     * Apply immersive fullscreen safely - Android 15/16 compatible.
+     *
+     * CRITICAL: On Android 15+ (API 35+), accessing DecorView.getWindowInsetsController()
+     * can throw NullPointerException if the DecorView isn't fully attached yet.
+     * 
+     * Solution: Use getWindow().getInsetsController() which is safe and doesn't require
+     * the DecorView to be fully initialized.
+     */
     private void applyImmersiveModeSafely() {
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                // Set window to draw behind system bars
                 try {
                     getWindow().setDecorFitsSystemWindows(false);
                 } catch (Throwable ignored) {}
 
-                View decor = null;
-                try {
-                    decor = getWindow().getDecorView();
-                } catch (Throwable ignored) {}
-
+                // ANDROID 15-SAFE: Get controller directly from Window, NOT from DecorView
+                // This avoids the NullPointerException on Android 15/16 devices
                 WindowInsetsController controller = null;
                 try {
-                    if (decor != null) controller = decor.getWindowInsetsController();
+                    controller = getWindow().getInsetsController();
                 } catch (Throwable ignored) {}
 
                 if (controller != null) {
-                    controller.hide(WindowInsets.Type.statusBars() | WindowInsets.Type.navigationBars());
+                    // Hide system bars and set transient behavior
+                    controller.hide(WindowInsets.Type.systemBars());
                     controller.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
-                } else if (decor != null) {
-                    // Fallback to legacy flags even on newer Android builds.
-                    decor.setSystemUiVisibility(
-                        View.SYSTEM_UI_FLAG_FULLSCREEN
-                            | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                            | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-                            | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                            | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                            | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                    );
+                    logInfo("Immersive mode applied via WindowInsetsController");
+                } else {
+                    // Fallback to legacy flags if controller is null
+                    applyLegacyImmersiveMode();
                 }
             } else {
-                getWindow().getDecorView().setSystemUiVisibility(
+                // Pre-Android 11: Use legacy system UI visibility flags
+                applyLegacyImmersiveMode();
+            }
+        } catch (Throwable t) {
+            // Never crash the player because of fullscreen chrome
+            try {
+                Log.w(TAG, "applyImmersiveModeSafely failed, trying legacy fallback", t);
+                applyLegacyImmersiveMode();
+            } catch (Throwable ignored) {}
+        }
+    }
+
+    /**
+     * Legacy immersive mode using deprecated setSystemUiVisibility flags.
+     * Used as fallback for pre-Android 11 devices or when WindowInsetsController fails.
+     */
+    @SuppressWarnings("deprecation")
+    private void applyLegacyImmersiveMode() {
+        try {
+            View decor = getWindow().getDecorView();
+            if (decor != null) {
+                decor.setSystemUiVisibility(
                     View.SYSTEM_UI_FLAG_FULLSCREEN
                         | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
                         | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
@@ -315,12 +338,10 @@ public class NativeVideoPlayerActivity extends Activity {
                         | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
                         | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
                 );
+                logInfo("Immersive mode applied via legacy setSystemUiVisibility");
             }
         } catch (Throwable t) {
-            // Never crash the player because of fullscreen chrome.
-            try {
-                Log.w(TAG, "applyImmersiveModeSafely failed", t);
-            } catch (Throwable ignored) {}
+            Log.w(TAG, "applyLegacyImmersiveMode failed", t);
         }
     }
 
