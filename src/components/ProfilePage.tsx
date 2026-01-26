@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { User, Cloud, Upload, Download, RefreshCw, LogOut, HardDrive, Clock, Trash2 } from 'lucide-react';
+import { User, Cloud, Upload, Download, RefreshCw, LogOut, HardDrive, Clock, Trash2, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
@@ -27,6 +27,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { AppMenu } from './AppMenu';
 import { TrashSheet } from './TrashSheet';
+import { SettingsPage } from './SettingsPage';
 
 export function ProfilePage() {
   const { t } = useTranslation();
@@ -42,12 +43,15 @@ export function ProfilePage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isTrashOpen, setIsTrashOpen] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   // Register dialog with back button handler
   const handleCloseDeleteDialog = useCallback(() => setShowDeleteDialog(false), []);
   const handleCloseTrash = useCallback(() => setIsTrashOpen(false), []);
+  const handleCloseSettings = useCallback(() => setShowSettings(false), []);
   useSheetBackHandler('profile-delete-dialog', showDeleteDialog, handleCloseDeleteDialog, 10);
   useSheetBackHandler('profile-trash-sheet', isTrashOpen, handleCloseTrash);
+  useSheetBackHandler('profile-settings-page', showSettings, handleCloseSettings);
 
   const isOperating = isSyncing || isUploading || isDownloading || isDeleting;
 
@@ -218,6 +222,11 @@ export function ProfilePage() {
     }
   };
 
+  // Show settings page
+  if (showSettings) {
+    return <SettingsPage onBack={() => setShowSettings(false)} />;
+  }
+
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center p-6">
@@ -238,7 +247,17 @@ export function ProfilePage() {
             </div>
             <h1 className="text-xl font-semibold text-foreground">{t('tabs.profile')}</h1>
           </div>
-          <AppMenu onOpenTrash={() => setIsTrashOpen(true)} />
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9"
+              onClick={() => setShowSettings(true)}
+            >
+              <Settings className="h-5 w-5" />
+            </Button>
+            <AppMenu onOpenTrash={() => setIsTrashOpen(true)} />
+          </div>
         </header>
 
         <div className="flex-1 flex flex-col items-center justify-center gap-6 max-w-sm mx-auto text-center mb-6">
@@ -303,7 +322,17 @@ export function ProfilePage() {
           </div>
           <h1 className="text-xl font-semibold text-foreground">{t('tabs.profile')}</h1>
         </div>
-        <AppMenu onOpenTrash={() => setIsTrashOpen(true)} />
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9"
+            onClick={() => setShowSettings(true)}
+          >
+            <Settings className="h-5 w-5" />
+          </Button>
+          <AppMenu onOpenTrash={() => setIsTrashOpen(true)} />
+        </div>
       </header>
 
       {/* User Info Card */}

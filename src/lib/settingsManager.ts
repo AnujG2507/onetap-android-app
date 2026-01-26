@@ -6,12 +6,17 @@ export interface AppSettings {
   clipboardDetectionEnabled: boolean;
   trashRetentionDays: TrashRetentionDays;
   autoSyncEnabled: boolean;
+  // Notification settings
+  scheduledRemindersEnabled: boolean;
+  reminderSoundEnabled: boolean;
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
   clipboardDetectionEnabled: true,
   trashRetentionDays: 30,
   autoSyncEnabled: true,
+  scheduledRemindersEnabled: true,
+  reminderSoundEnabled: true,
 };
 
 export function getSettings(): AppSettings {

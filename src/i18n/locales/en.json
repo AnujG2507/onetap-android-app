@@ -365,6 +365,28 @@
     "resetOnboarding": "Reset Onboarding",
     "resetOnboardingDescription": "Re-experience language selection and intro"
   },
+  "settingsPage": {
+    "appearanceDesc": "Choose your preferred theme",
+    "languageDesc": "Select your preferred language",
+    "notifications": "Notifications",
+    "notificationsDesc": "Configure reminder and notification preferences",
+    "scheduledReminders": "Scheduled reminders",
+    "scheduledRemindersDesc": "Receive notifications for scheduled actions",
+    "reminderSound": "Reminder sound",
+    "reminderSoundDesc": "Play sound with reminders",
+    "clipboard": "Clipboard",
+    "clipboardDesc": "Configure clipboard detection behavior",
+    "trashSettings": "Trash",
+    "trashSettingsDesc": "Configure how deleted items are handled",
+    "retentionPeriod": "Retention period",
+    "retentionPeriodDesc": "How long to keep deleted items",
+    "retention7": "7 days",
+    "retention14": "14 days",
+    "retention30": "30 days",
+    "retention60": "60 days",
+    "advanced": "Advanced",
+    "openSettings": "Open Settings"
+  },
   "shortcutCustomizer": {
     "setUpAccess": "Set up access",
     "nameLabel": "Name",
