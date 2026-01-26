@@ -281,19 +281,19 @@ function ActionModeButton({ icon, label, description, onClick }: ActionModeButto
     <button
       onClick={onClick}
       className={cn(
-        "flex items-center gap-3 rounded-lg bg-card p-3",
+        "flex flex-col items-start rounded-lg bg-card p-3",
         "active:scale-[0.98] transition-transform",
         "focus:outline-none focus:ring-2 focus:ring-ring",
         "border border-border/50"
       )}
     >
-      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary shrink-0">
-        {icon}
+      <div className="flex items-center gap-2 mb-1">
+        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-primary shrink-0">
+          {icon}
+        </div>
+        <span className="text-sm font-medium text-foreground">{label}</span>
       </div>
-      <div className="text-left">
-        <span className="text-sm font-medium text-foreground block">{label}</span>
-        <span className="text-xs text-muted-foreground">{description}</span>
-      </div>
+      <span className="text-xs text-muted-foreground text-left">{description}</span>
     </button>
   );
 }
