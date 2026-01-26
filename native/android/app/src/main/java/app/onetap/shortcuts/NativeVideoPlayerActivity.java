@@ -1029,32 +1029,6 @@ public class NativeVideoPlayerActivity extends Activity {
         speedParams.setMargins(dpToPx(8), 0, dpToPx(8), 0);
         topBar.addView(speedButton, speedParams);
 
-        // Intent diagnostics button (document icon)
-        ImageButton intentButton = createIconButton(
-            android.R.drawable.ic_menu_agenda,
-            "Show intent diagnostics"
-        );
-        intentButton.setOnClickListener(v -> toggleIntentDiagnostics());
-        
-        LinearLayout.LayoutParams intentParams = new LinearLayout.LayoutParams(
-            dpToPx(48), dpToPx(48)
-        );
-        intentParams.setMargins(dpToPx(8), 0, dpToPx(8), 0);
-        topBar.addView(intentButton, intentParams);
-
-        // Debug button (info icon)
-        ImageButton debugButton = createIconButton(
-            android.R.drawable.ic_menu_info_details,
-            "Show debug info"
-        );
-        debugButton.setOnClickListener(v -> toggleDebugOverlay());
-        
-        LinearLayout.LayoutParams debugParams = new LinearLayout.LayoutParams(
-            dpToPx(48), dpToPx(48)
-        );
-        debugParams.setMargins(dpToPx(8), 0, dpToPx(8), 0);
-        topBar.addView(debugButton, debugParams);
-
         // PiP button (Picture-in-Picture) - only on Android 8.0+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             ImageButton pipButton = createIconButton(
