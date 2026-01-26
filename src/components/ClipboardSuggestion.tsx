@@ -105,7 +105,7 @@ export function ClipboardSuggestion({ url, onUse, onDismiss }: ClipboardSuggesti
     >
       <div 
         className={cn(
-          "bg-card border border-border rounded-2xl shadow-lg overflow-hidden",
+          "bg-card/95 backdrop-blur-md border border-border rounded-2xl shadow-lg overflow-hidden",
           !isSwiping && "transition-transform duration-200"
         )}
         style={{ 
