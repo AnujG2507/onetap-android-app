@@ -36,8 +36,9 @@ public class VideoProxyActivity extends Activity {
 
         Uri videoUri = receivedIntent.getData();
         String mimeType = receivedIntent.getType();
+        String shortcutTitle = receivedIntent.getStringExtra("shortcut_title");
 
-        Log.d(TAG, "Video URI: " + videoUri + ", MIME type: " + mimeType);
+        Log.d(TAG, "Video URI: " + videoUri + ", MIME type: " + mimeType + ", Title: " + shortcutTitle);
 
         if (videoUri == null) {
             Log.e(TAG, "No video URI in intent");
@@ -52,12 +53,12 @@ public class VideoProxyActivity extends Activity {
 
         // Always use internal player (videos are limited to 100MB)
         Log.d(TAG, "Opening video in internal player");
-        openInternalPlayer(videoUri, mimeType);
+        openInternalPlayer(videoUri, mimeType, shortcutTitle);
 
         finish();
     }
 
-    private void openInternalPlayer(Uri videoUri, String mimeType) {
+    private void openInternalPlayer(Uri videoUri, String mimeType, String shortcutTitle) {
         try {
             // Use a native player activity for reliable playback (avoids WebView MediaError issues).
             Intent playIntent = new Intent(this, NativeVideoPlayerActivity.class);
@@ -65,6 +66,11 @@ public class VideoProxyActivity extends Activity {
             playIntent.setDataAndType(videoUri, mimeType);
             playIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             playIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            
+            // Pass the shortcut title for display in the player
+            if (shortcutTitle != null && !shortcutTitle.isEmpty()) {
+                playIntent.putExtra("shortcut_title", shortcutTitle);
+            }
 
             // IMPORTANT: Some providers/launchers require ClipData to reliably propagate URI grants.
             if ("content".equals(videoUri.getScheme())) {

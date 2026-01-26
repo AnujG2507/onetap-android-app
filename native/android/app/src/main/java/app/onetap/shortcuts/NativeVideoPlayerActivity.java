@@ -630,9 +630,24 @@ public class NativeVideoPlayerActivity extends Activity {
     }
     
     /**
-     * Extract video title from URI for display
+     * Extract video title - prioritize shortcut name from intent, fallback to URI
      */
     private void extractVideoTitle() {
+        // First, check if a shortcut title was passed via intent
+        if (launchIntent != null) {
+            String shortcutTitle = launchIntent.getStringExtra("shortcut_title");
+            if (shortcutTitle != null && !shortcutTitle.isEmpty()) {
+                videoTitle = shortcutTitle;
+                logInfo("Using shortcut title: " + videoTitle);
+                // Truncate if too long
+                if (videoTitle.length() > 40) {
+                    videoTitle = videoTitle.substring(0, 37) + "...";
+                }
+                return;
+            }
+        }
+        
+        // Fallback: extract from URI
         if (videoUri == null) return;
         
         try {

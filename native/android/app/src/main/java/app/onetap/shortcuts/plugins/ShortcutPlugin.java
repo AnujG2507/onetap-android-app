@@ -260,6 +260,8 @@ public class ShortcutPlugin extends Plugin {
                     intent.setDataAndType(finalDataUri, finalIntentType != null ? finalIntentType : "video/*");
                     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                     intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    // Pass shortcut name as title for video player display
+                    intent.putExtra("shortcut_title", finalLabel);
                 } else if (finalUsePDFProxy != null && finalUsePDFProxy) {
                     android.util.Log.d("ShortcutPlugin", "Using PDFProxyActivity for PDF shortcut, resumeEnabled=" + finalResumeEnabled);
                     intent = new Intent(context, PDFProxyActivity.class);
