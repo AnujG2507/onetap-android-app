@@ -2,6 +2,8 @@ package app.onetap.shortcuts;
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
+import android.animation.ObjectAnimator;
+import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.PendingIntent;
@@ -21,12 +23,16 @@ import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.Icon;
+import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
 import android.provider.OpenableColumns;
+import android.provider.Settings;
 import android.util.Log;
 import android.util.Rational;
 import android.util.TypedValue;
@@ -40,10 +46,13 @@ import android.view.ViewGroup;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.view.WindowManager;
+import android.view.animation.AccelerateDecelerateInterpolator;
+import android.view.animation.OvershootInterpolator;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -68,15 +77,14 @@ import java.util.Locale;
 
 /**
  * NativeVideoPlayerActivity
- * Native Android video playback using ExoPlayer (Media3) for broad codec support.
- * Includes hardware-accelerated HDR playback (HDR10, HDR10+, HLG, Dolby Vision).
- * Falls back to external player apps if internal playback fails.
- * Includes debug overlay for diagnosing device-specific failures.
+ * Premium video player with ExoPlayer (Media3) for broad codec support.
+ * Features: HDR playback, gestures (double-tap seek, swipe volume/brightness),
+ * PiP mode, and cinematic UI.
  */
 @OptIn(markerClass = UnstableApi.class)
 public class NativeVideoPlayerActivity extends Activity {
     private static final String TAG = "NativeVideoPlayer";
-    private static final int AUTO_HIDE_DELAY_MS = 4000;
+    private static final int AUTO_HIDE_DELAY_MS = 3500;
     private static final float[] PLAYBACK_SPEEDS = {0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f};
 
     private FrameLayout root;
@@ -84,12 +92,17 @@ public class NativeVideoPlayerActivity extends Activity {
     private LinearLayout topBar;
     private TextView speedButton;
     private TextView debugTextView;
+    private TextView titleView;
+    private ImageButton closeButton;
+    private ImageButton lockButton;
     private boolean isTopBarVisible = true;
+    private boolean isControlsLocked = false;
 
     private ExoPlayer exoPlayer;
 
     private Uri videoUri;
     private String videoMimeType;
+    private String videoTitle = "";
     private boolean hasTriedExternalFallback = false;
     private int currentSpeedIndex = 2; // Default to 1.0x
 
@@ -110,17 +123,31 @@ public class NativeVideoPlayerActivity extends Activity {
     private static final String PIP_ACTION_PLAY_PAUSE = "app.onetap.shortcuts.PIP_PLAY_PAUSE";
     private static final String PIP_ACTION_SEEK_BACK = "app.onetap.shortcuts.PIP_SEEK_BACK";
     private static final String PIP_ACTION_SEEK_FORWARD = "app.onetap.shortcuts.PIP_SEEK_FORWARD";
-    private static final long PIP_SEEK_INCREMENT_MS = 10000; // 10 seconds
+    private static final long PIP_SEEK_INCREMENT_MS = 10000;
     private BroadcastReceiver pipActionReceiver;
 
-    // Double-tap seek gesture
+    // Gesture controls
     private GestureDetector gestureDetector;
-    private static final long DOUBLE_TAP_SEEK_MS = 10000; // 10 seconds
+    private static final long DOUBLE_TAP_SEEK_MS = 10000;
     private TextView seekIndicatorLeft;
     private TextView seekIndicatorRight;
     private int cumulativeSeekLeft = 0;
     private int cumulativeSeekRight = 0;
     private final Handler seekIndicatorHandler = new Handler(Looper.getMainLooper());
+
+    // Volume/brightness gesture state
+    private TextView gestureIndicator;
+    private float initialTouchY;
+    private float initialVolume;
+    private float initialBrightness;
+    private boolean isSwipeGestureActive = false;
+    private boolean isVolumeGesture = false;
+    private AudioManager audioManager;
+    private int maxVolume;
+
+    // Premium loading indicator
+    private FrameLayout loadingOverlay;
+    private ValueAnimator loadingAnimator;
 
     // Debug logging
     private final List<String> debugLogs = new ArrayList<>();
@@ -282,54 +309,7 @@ public class NativeVideoPlayerActivity extends Activity {
         );
     }
 
-    /**
-     * Set up double-tap gesture detection for seeking.
-     * Double-tap left side: seek back 10s
-     * Double-tap right side: seek forward 10s
-     */
-    private void setupDoubleTapGesture() {
-        gestureDetector = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
-            @Override
-            public boolean onDoubleTap(MotionEvent e) {
-                if (exoPlayer == null || isInPipMode) return false;
-                
-                float x = e.getX();
-                float screenWidth = playerView.getWidth();
-                
-                if (screenWidth <= 0) return false;
-                
-                // Determine if tap is on left or right half
-                if (x < screenWidth / 2) {
-                    // Left side - seek back
-                    seekByDoubleTap(-DOUBLE_TAP_SEEK_MS, true);
-                } else {
-                    // Right side - seek forward
-                    seekByDoubleTap(DOUBLE_TAP_SEEK_MS, false);
-                }
-                
-                return true;
-            }
-
-            @Override
-            public boolean onSingleTapConfirmed(MotionEvent e) {
-                // Single tap toggles controls
-                toggleTopBar();
-                return true;
-            }
-
-            @Override
-            public boolean onDown(MotionEvent e) {
-                return true;
-            }
-        });
-
-        // Apply gesture detector to playerView
-        playerView.setOnTouchListener((v, event) -> {
-            gestureDetector.onTouchEvent(event);
-            // Return false to allow PlayerView to handle its own touch events (controls)
-            return false;
-        });
-    }
+    // setupDoubleTapGesture removed - replaced by setupGestures which handles all gestures
 
     /**
      * Perform seek by double-tap with cumulative effect and visual feedback.
@@ -378,79 +358,83 @@ public class NativeVideoPlayerActivity extends Activity {
         // Left indicator (rewind)
         seekIndicatorLeft = createSeekIndicatorView(true);
         FrameLayout.LayoutParams leftParams = new FrameLayout.LayoutParams(
-            dpToPx(120), dpToPx(120)
+            dpToPx(100), dpToPx(100)
         );
         leftParams.gravity = Gravity.CENTER_VERTICAL | Gravity.START;
-        leftParams.leftMargin = dpToPx(48);
+        leftParams.leftMargin = dpToPx(60);
         root.addView(seekIndicatorLeft, leftParams);
 
         // Right indicator (forward)
         seekIndicatorRight = createSeekIndicatorView(false);
         FrameLayout.LayoutParams rightParams = new FrameLayout.LayoutParams(
-            dpToPx(120), dpToPx(120)
+            dpToPx(100), dpToPx(100)
         );
         rightParams.gravity = Gravity.CENTER_VERTICAL | Gravity.END;
-        rightParams.rightMargin = dpToPx(48);
+        rightParams.rightMargin = dpToPx(60);
         root.addView(seekIndicatorRight, rightParams);
     }
 
     /**
-     * Create a premium seek indicator view with ripple effect.
+     * Create a premium seek indicator view with glassmorphism effect.
      */
     private TextView createSeekIndicatorView(boolean isRewind) {
         TextView indicator = new TextView(this);
         indicator.setTextColor(Color.WHITE);
-        indicator.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-        indicator.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        indicator.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        indicator.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
         indicator.setGravity(Gravity.CENTER);
         indicator.setVisibility(View.GONE);
         indicator.setAlpha(0f);
         
-        // Premium frosted glass circular background
+        // Premium glassmorphism circular background
         GradientDrawable bg = new GradientDrawable();
         bg.setShape(GradientDrawable.OVAL);
-        bg.setColor(0x66000000);
-        bg.setStroke(dpToPx(2), 0x33FFFFFF);
+        bg.setColor(0x80000000);
+        bg.setStroke(dpToPx(2), 0x40FFFFFF);
         indicator.setBackground(bg);
-        indicator.setElevation(dpToPx(4));
+        indicator.setElevation(dpToPx(12));
         
         return indicator;
     }
 
     /**
-     * Show the seek indicator with animation.
+     * Show the seek indicator with premium overshoot animation.
      */
     private void showSeekIndicator(boolean isLeft, int totalSeconds) {
         TextView indicator = isLeft ? seekIndicatorLeft : seekIndicatorRight;
         if (indicator == null) return;
         
-        // Set text with icon and seconds
-        String icon = isLeft ? "⏪" : "⏩";
+        // Set text with arrow icon and seconds
+        String icon = isLeft ? "◀◀" : "▶▶";
         indicator.setText(icon + "\n" + totalSeconds + "s");
         
         // Cancel any running animation
         indicator.animate().cancel();
+        seekIndicatorHandler.removeCallbacksAndMessages(null);
         
-        // Show with animation
+        // Show with premium overshoot animation
         indicator.setVisibility(View.VISIBLE);
-        indicator.setScaleX(0.5f);
-        indicator.setScaleY(0.5f);
+        indicator.setScaleX(0.3f);
+        indicator.setScaleY(0.3f);
         indicator.setAlpha(0f);
+        indicator.setRotation(isLeft ? -15f : 15f);
         
         indicator.animate()
             .alpha(1f)
             .scaleX(1f)
             .scaleY(1f)
-            .setDuration(150)
+            .rotation(0f)
+            .setDuration(250)
+            .setInterpolator(new OvershootInterpolator(1.5f))
             .setListener(null)
             .start();
         
         // Schedule hide
-        seekIndicatorHandler.postDelayed(() -> hideSeekIndicator(isLeft), 800);
+        seekIndicatorHandler.postDelayed(() -> hideSeekIndicator(isLeft), 700);
     }
 
     /**
-     * Hide the seek indicator with fade-out animation.
+     * Hide the seek indicator with smooth fade-out animation.
      */
     private void hideSeekIndicator(boolean isLeft) {
         TextView indicator = isLeft ? seekIndicatorLeft : seekIndicatorRight;
@@ -458,9 +442,10 @@ public class NativeVideoPlayerActivity extends Activity {
         
         indicator.animate()
             .alpha(0f)
-            .scaleX(0.8f)
-            .scaleY(0.8f)
-            .setDuration(200)
+            .scaleX(0.7f)
+            .scaleY(0.7f)
+            .setDuration(250)
+            .setInterpolator(new AccelerateDecelerateInterpolator())
             .setListener(new AnimatorListenerAdapter() {
                 @Override
                 public void onAnimationEnd(Animator animation) {
@@ -552,7 +537,11 @@ public class NativeVideoPlayerActivity extends Activity {
         startTimeMs = System.currentTimeMillis();
 
         try {
-            logInfo("onCreate started (ExoPlayer)");
+            logInfo("onCreate started (Premium ExoPlayer)");
+            
+            // Initialize audio manager for volume gestures
+            audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+            maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
             
             // Fullscreen
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
@@ -566,11 +555,11 @@ public class NativeVideoPlayerActivity extends Activity {
             // Apply immersive mode after decor view exists.
             applyImmersiveModeSafely();
 
-            // ExoPlayer view
+            // ExoPlayer view with premium settings
             playerView = new PlayerView(this);
             playerView.setBackgroundColor(Color.BLACK);
             playerView.setUseController(true);
-            playerView.setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING);
+            playerView.setShowBuffering(PlayerView.SHOW_BUFFERING_NEVER); // We'll use custom loading
             playerView.setControllerAutoShow(true);
             playerView.setControllerShowTimeoutMs(AUTO_HIDE_DELAY_MS);
             
@@ -580,8 +569,14 @@ public class NativeVideoPlayerActivity extends Activity {
             );
             root.addView(playerView, playerParams);
 
-            // Set up double-tap gesture detector for seeking
-            setupDoubleTapGesture();
+            // Create premium loading overlay
+            createLoadingOverlay();
+            
+            // Create gesture indicator for volume/brightness
+            createGestureIndicator();
+
+            // Set up gestures (double-tap seek + swipe volume/brightness)
+            setupGestures();
             
             // Create seek indicator overlays
             createSeekIndicators();
@@ -595,6 +590,9 @@ public class NativeVideoPlayerActivity extends Activity {
             if (videoMimeType == null || videoMimeType.isEmpty()) {
                 videoMimeType = "video/*";
             }
+            
+            // Extract video title
+            extractVideoTitle();
             
             // Log intent diagnostics
             logIntentDiagnostics(launchIntent);
@@ -618,7 +616,7 @@ public class NativeVideoPlayerActivity extends Activity {
             // Check permissions for content URI
             checkUriPermissions(videoUri);
 
-            // Create top bar with buttons
+            // Create premium top bar with close button and title
             createTopBar();
 
             // Initialize ExoPlayer
@@ -628,6 +626,317 @@ public class NativeVideoPlayerActivity extends Activity {
             scheduleHide();
         } catch (Throwable t) {
             handleFatalInitError("onCreate failed", t);
+        }
+    }
+    
+    /**
+     * Extract video title from URI for display
+     */
+    private void extractVideoTitle() {
+        if (videoUri == null) return;
+        
+        try {
+            if ("content".equals(videoUri.getScheme())) {
+                try (Cursor cursor = getContentResolver().query(videoUri, null, null, null, null)) {
+                    if (cursor != null && cursor.moveToFirst()) {
+                        int nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+                        if (nameIndex >= 0) {
+                            videoTitle = cursor.getString(nameIndex);
+                        }
+                    }
+                }
+            } else {
+                String path = videoUri.getLastPathSegment();
+                if (path != null) {
+                    videoTitle = path;
+                }
+            }
+            
+            // Clean up title
+            if (videoTitle != null && videoTitle.length() > 40) {
+                videoTitle = videoTitle.substring(0, 37) + "...";
+            }
+        } catch (Exception e) {
+            logWarn("Could not extract video title: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Create premium loading overlay with pulsing animation
+     */
+    private void createLoadingOverlay() {
+        loadingOverlay = new FrameLayout(this);
+        loadingOverlay.setBackgroundColor(0x99000000);
+        loadingOverlay.setVisibility(View.VISIBLE);
+        
+        // Create loading container
+        LinearLayout loadingContainer = new LinearLayout(this);
+        loadingContainer.setOrientation(LinearLayout.VERTICAL);
+        loadingContainer.setGravity(Gravity.CENTER);
+        
+        // Premium spinner with circular style
+        ProgressBar spinner = new ProgressBar(this, null, android.R.attr.progressBarStyleLarge);
+        spinner.getIndeterminateDrawable().setColorFilter(0xFFFFFFFF, android.graphics.PorterDuff.Mode.SRC_IN);
+        
+        LinearLayout.LayoutParams spinnerParams = new LinearLayout.LayoutParams(dpToPx(56), dpToPx(56));
+        spinnerParams.gravity = Gravity.CENTER;
+        loadingContainer.addView(spinner, spinnerParams);
+        
+        // Loading text
+        TextView loadingText = new TextView(this);
+        loadingText.setText("Loading...");
+        loadingText.setTextColor(0xBBFFFFFF);
+        loadingText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+        loadingText.setTypeface(Typeface.create("sans-serif-light", Typeface.NORMAL));
+        loadingText.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams textParams = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        textParams.topMargin = dpToPx(16);
+        loadingContainer.addView(loadingText, textParams);
+        
+        FrameLayout.LayoutParams containerParams = new FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER
+        );
+        loadingOverlay.addView(loadingContainer, containerParams);
+        
+        FrameLayout.LayoutParams overlayParams = new FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT
+        );
+        root.addView(loadingOverlay, overlayParams);
+        
+        // Pulse animation for loading text
+        loadingAnimator = ObjectAnimator.ofFloat(loadingText, "alpha", 0.5f, 1f);
+        loadingAnimator.setDuration(800);
+        loadingAnimator.setRepeatMode(ValueAnimator.REVERSE);
+        loadingAnimator.setRepeatCount(ValueAnimator.INFINITE);
+        loadingAnimator.start();
+    }
+    
+    private void hideLoadingOverlay() {
+        if (loadingOverlay != null && loadingOverlay.getVisibility() == View.VISIBLE) {
+            loadingOverlay.animate()
+                .alpha(0f)
+                .setDuration(300)
+                .withEndAction(() -> {
+                    loadingOverlay.setVisibility(View.GONE);
+                    if (loadingAnimator != null) {
+                        loadingAnimator.cancel();
+                    }
+                })
+                .start();
+        }
+    }
+    
+    /**
+     * Create gesture indicator for volume/brightness feedback
+     */
+    private void createGestureIndicator() {
+        gestureIndicator = new TextView(this);
+        gestureIndicator.setTextColor(Color.WHITE);
+        gestureIndicator.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        gestureIndicator.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        gestureIndicator.setGravity(Gravity.CENTER);
+        gestureIndicator.setPadding(dpToPx(24), dpToPx(16), dpToPx(24), dpToPx(16));
+        gestureIndicator.setVisibility(View.GONE);
+        
+        // Premium frosted glass pill
+        GradientDrawable bg = new GradientDrawable();
+        bg.setCornerRadius(dpToPx(28));
+        bg.setColor(0x99000000);
+        bg.setStroke(dpToPx(1), 0x33FFFFFF);
+        gestureIndicator.setBackground(bg);
+        gestureIndicator.setElevation(dpToPx(8));
+        
+        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER
+        );
+        root.addView(gestureIndicator, params);
+    }
+
+    /**
+     * Set up comprehensive gestures: double-tap seek + swipe volume/brightness
+     */
+    private void setupGestures() {
+        gestureDetector = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
+            @Override
+            public boolean onDoubleTap(MotionEvent e) {
+                if (exoPlayer == null || isInPipMode || isControlsLocked) return false;
+                
+                float x = e.getX();
+                float screenWidth = playerView.getWidth();
+                
+                if (screenWidth <= 0) return false;
+                
+                // Haptic feedback
+                performHapticFeedback();
+                
+                if (x < screenWidth / 2) {
+                    seekByDoubleTap(-DOUBLE_TAP_SEEK_MS, true);
+                } else {
+                    seekByDoubleTap(DOUBLE_TAP_SEEK_MS, false);
+                }
+                
+                return true;
+            }
+
+            @Override
+            public boolean onSingleTapConfirmed(MotionEvent e) {
+                if (!isControlsLocked) {
+                    toggleTopBar();
+                }
+                return true;
+            }
+
+            @Override
+            public boolean onDown(MotionEvent e) {
+                return true;
+            }
+            
+            @Override
+            public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
+                if (e1 == null || isInPipMode || isControlsLocked) return false;
+                
+                float x = e1.getX();
+                float screenWidth = playerView.getWidth();
+                float screenHeight = playerView.getHeight();
+                
+                // Only activate for vertical swipes
+                if (Math.abs(distanceY) > Math.abs(distanceX) * 1.5f) {
+                    if (!isSwipeGestureActive) {
+                        // Determine if this is volume (right) or brightness (left)
+                        isVolumeGesture = x > screenWidth / 2;
+                        initialTouchY = e1.getY();
+                        
+                        if (isVolumeGesture) {
+                            initialVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
+                        } else {
+                            initialBrightness = getScreenBrightness();
+                        }
+                        isSwipeGestureActive = true;
+                    }
+                    
+                    // Calculate change based on swipe distance
+                    float deltaY = initialTouchY - e2.getY();
+                    float percentChange = deltaY / (screenHeight * 0.5f);
+                    
+                    if (isVolumeGesture) {
+                        handleVolumeGesture(percentChange);
+                    } else {
+                        handleBrightnessGesture(percentChange);
+                    }
+                    
+                    return true;
+                }
+                
+                return false;
+            }
+        });
+
+        playerView.setOnTouchListener((v, event) -> {
+            gestureDetector.onTouchEvent(event);
+            
+            // Reset swipe gesture on touch up
+            if (event.getAction() == MotionEvent.ACTION_UP || event.getAction() == MotionEvent.ACTION_CANCEL) {
+                if (isSwipeGestureActive) {
+                    isSwipeGestureActive = false;
+                    hideGestureIndicator();
+                }
+            }
+            
+            return false;
+        });
+    }
+    
+    private void handleVolumeGesture(float percentChange) {
+        int newVolume = (int) (initialVolume + percentChange * maxVolume);
+        newVolume = Math.max(0, Math.min(maxVolume, newVolume));
+        
+        audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, newVolume, 0);
+        
+        int volumePercent = (int) ((newVolume / (float) maxVolume) * 100);
+        showGestureIndicator("🔊  " + volumePercent + "%");
+    }
+    
+    private void handleBrightnessGesture(float percentChange) {
+        float newBrightness = initialBrightness + percentChange;
+        newBrightness = Math.max(0.01f, Math.min(1f, newBrightness));
+        
+        WindowManager.LayoutParams layoutParams = getWindow().getAttributes();
+        layoutParams.screenBrightness = newBrightness;
+        getWindow().setAttributes(layoutParams);
+        
+        int brightnessPercent = (int) (newBrightness * 100);
+        showGestureIndicator("☀️  " + brightnessPercent + "%");
+    }
+    
+    private float getScreenBrightness() {
+        WindowManager.LayoutParams layoutParams = getWindow().getAttributes();
+        if (layoutParams.screenBrightness < 0) {
+            try {
+                return Settings.System.getInt(getContentResolver(), Settings.System.SCREEN_BRIGHTNESS) / 255f;
+            } catch (Settings.SettingNotFoundException e) {
+                return 0.5f;
+            }
+        }
+        return layoutParams.screenBrightness;
+    }
+    
+    private void showGestureIndicator(String text) {
+        if (gestureIndicator == null) return;
+        
+        gestureIndicator.setText(text);
+        gestureIndicator.setVisibility(View.VISIBLE);
+        gestureIndicator.setAlpha(1f);
+    }
+    
+    private void hideGestureIndicator() {
+        if (gestureIndicator == null) return;
+        
+        gestureIndicator.animate()
+            .alpha(0f)
+            .setDuration(300)
+            .withEndAction(() -> gestureIndicator.setVisibility(View.GONE))
+            .start();
+    }
+    
+    private void performHapticFeedback() {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                Vibrator vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+                if (vibrator != null && vibrator.hasVibrator()) {
+                    vibrator.vibrate(VibrationEffect.createOneShot(20, VibrationEffect.DEFAULT_AMPLITUDE));
+                }
+            }
+        } catch (Exception ignored) {}
+    }
+    
+    private void toggleControlsLock() {
+        isControlsLocked = !isControlsLocked;
+        
+        if (lockButton != null) {
+            lockButton.setImageResource(isControlsLocked 
+                ? android.R.drawable.ic_lock_lock 
+                : android.R.drawable.ic_lock_idle_lock);
+            
+            // Animation feedback
+            lockButton.animate()
+                .scaleX(1.2f).scaleY(1.2f)
+                .setDuration(100)
+                .withEndAction(() -> lockButton.animate().scaleX(1f).scaleY(1f).setDuration(100).start())
+                .start();
+        }
+        
+        // Show feedback toast
+        Toast.makeText(this, isControlsLocked ? "Controls locked" : "Controls unlocked", Toast.LENGTH_SHORT).show();
+        
+        if (isControlsLocked) {
+            hideTopBar();
+            playerView.setUseController(false);
+        } else {
+            showTopBar();
+            scheduleHide();
+            playerView.setUseController(true);
         }
     }
 
@@ -659,12 +968,16 @@ public class NativeVideoPlayerActivity extends Activity {
                     logInfo("Playback state: " + state);
                     
                     if (playbackState == Player.STATE_READY) {
+                        hideLoadingOverlay();
                         showTopBar();
                         scheduleHide();
                         // Check video format for HDR info
                         detectHdrFromCurrentTrack();
+                    } else if (playbackState == Player.STATE_BUFFERING) {
+                        // Could show loading again for rebuffering if desired
                     } else if (playbackState == Player.STATE_ENDED) {
                         logInfo("Playback completed");
+                        showTopBar();
                     }
                     
                     updateDebugOverlay();
@@ -976,34 +1289,97 @@ public class NativeVideoPlayerActivity extends Activity {
     }
 
     private void createTopBar() {
-        // Top bar container with premium gradient background
+        // Top bar container with premium cinematic gradient
         topBar = new LinearLayout(this);
         topBar.setOrientation(LinearLayout.HORIZONTAL);
-        topBar.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
-        topBar.setPadding(dpToPx(20), dpToPx(24), dpToPx(20), dpToPx(20));
+        topBar.setGravity(Gravity.CENTER_VERTICAL);
+        topBar.setPadding(dpToPx(16), dpToPx(20), dpToPx(16), dpToPx(16));
         
-        // Smoother gradient background (darker, more cinematic)
+        // Premium 4-stop gradient for cinematic depth
         GradientDrawable gradient = new GradientDrawable(
             GradientDrawable.Orientation.TOP_BOTTOM,
-            new int[]{0xCC000000, 0x66000000, 0x00000000}
+            new int[]{0xE6000000, 0xB3000000, 0x4D000000, 0x00000000}
         );
         topBar.setBackground(gradient);
 
         FrameLayout.LayoutParams topBarParams = new FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
-            dpToPx(100),
+            dpToPx(110),
             Gravity.TOP
         );
         root.addView(topBar, topBarParams);
 
+        // Close button (left side)
+        closeButton = createPremiumIconButton(
+            android.R.drawable.ic_menu_close_clear_cancel,
+            "Close"
+        );
+        closeButton.setOnClickListener(v -> {
+            performHapticFeedback();
+            exitPlayerAndApp();
+        });
+        topBar.addView(closeButton);
+        
+        // Title container (takes remaining space)
+        LinearLayout titleContainer = new LinearLayout(this);
+        titleContainer.setOrientation(LinearLayout.VERTICAL);
+        titleContainer.setGravity(Gravity.CENTER_VERTICAL);
+        titleContainer.setPadding(dpToPx(12), 0, dpToPx(12), 0);
+        
+        LinearLayout.LayoutParams titleContainerParams = new LinearLayout.LayoutParams(
+            0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f
+        );
+        topBar.addView(titleContainer, titleContainerParams);
+        
+        // Video title
+        titleView = new TextView(this);
+        titleView.setText(videoTitle != null && !videoTitle.isEmpty() ? videoTitle : "Video");
+        titleView.setTextColor(Color.WHITE);
+        titleView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        titleView.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        titleView.setMaxLines(1);
+        titleView.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        titleContainer.addView(titleView);
+        
+        // Subtitle (HDR badge if applicable)
+        if (isHdrContent) {
+            TextView hdrBadge = new TextView(this);
+            hdrBadge.setText("HDR");
+            hdrBadge.setTextColor(0xFFFFD700);
+            hdrBadge.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+            hdrBadge.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
+            LinearLayout.LayoutParams badgeParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
+            );
+            badgeParams.topMargin = dpToPx(2);
+            titleContainer.addView(hdrBadge, badgeParams);
+        }
+        
+        // Right side buttons container
+        LinearLayout rightButtons = new LinearLayout(this);
+        rightButtons.setOrientation(LinearLayout.HORIZONTAL);
+        rightButtons.setGravity(Gravity.CENTER_VERTICAL);
+        topBar.addView(rightButtons);
+        
+        // Lock button
+        lockButton = createPremiumIconButton(
+            android.R.drawable.ic_lock_idle_lock,
+            "Lock controls"
+        );
+        lockButton.setOnClickListener(v -> toggleControlsLock());
+        rightButtons.addView(lockButton);
+        
         // PiP button (Picture-in-Picture) - only on Android 8.0+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             ImageButton pipButton = createPremiumIconButton(
                 android.R.drawable.ic_menu_crop,
                 "Picture-in-Picture"
             );
-            pipButton.setOnClickListener(v -> enterPipMode());
-            topBar.addView(pipButton);
+            pipButton.setOnClickListener(v -> {
+                performHapticFeedback();
+                enterPipMode();
+            });
+            rightButtons.addView(pipButton);
         }
 
         // "Open with" button
@@ -1011,8 +1387,11 @@ public class NativeVideoPlayerActivity extends Activity {
             android.R.drawable.ic_menu_share,
             "Open with another app"
         );
-        openWithButton.setOnClickListener(v -> openInExternalPlayerDirect());
-        topBar.addView(openWithButton);
+        openWithButton.setOnClickListener(v -> {
+            performHapticFeedback();
+            openInExternalPlayerDirect();
+        });
+        rightButtons.addView(openWithButton);
     }
 
     private TextView createSpeedButton() {
@@ -1041,18 +1420,33 @@ public class NativeVideoPlayerActivity extends Activity {
         button.setContentDescription(contentDescription);
         button.setColorFilter(Color.WHITE);
         
-        // Premium frosted glass circle
+        // Premium glassmorphism circle with subtle glow
         GradientDrawable bg = new GradientDrawable();
         bg.setShape(GradientDrawable.OVAL);
-        bg.setColor(0x33FFFFFF);
-        bg.setStroke(dpToPx(1), 0x22FFFFFF);
+        bg.setColor(0x40FFFFFF);
+        bg.setStroke(dpToPx(1), 0x30FFFFFF);
         button.setBackground(bg);
         button.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
-        button.setPadding(dpToPx(10), dpToPx(10), dpToPx(10), dpToPx(10));
+        button.setPadding(dpToPx(11), dpToPx(11), dpToPx(11), dpToPx(11));
+        button.setElevation(dpToPx(4));
         
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dpToPx(44), dpToPx(44));
-        params.setMargins(dpToPx(6), 0, dpToPx(6), 0);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dpToPx(46), dpToPx(46));
+        params.setMargins(dpToPx(5), 0, dpToPx(5), 0);
         button.setLayoutParams(params);
+        
+        // Add touch feedback animation
+        button.setOnTouchListener((v, event) -> {
+            switch (event.getAction()) {
+                case MotionEvent.ACTION_DOWN:
+                    v.animate().scaleX(0.9f).scaleY(0.9f).setDuration(80).start();
+                    break;
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_CANCEL:
+                    v.animate().scaleX(1f).scaleY(1f).setDuration(80).start();
+                    break;
+            }
+            return false;
+        });
         
         return button;
     }
