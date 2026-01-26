@@ -2,16 +2,23 @@ package app.onetap.shortcuts;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.PendingIntent;
+import android.app.PictureInPictureParams;
+import android.app.RemoteAction;
 import android.content.ActivityNotFoundException;
+import android.content.BroadcastReceiver;
 import android.content.ClipData;
 import android.content.ContentResolver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.database.Cursor;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.Icon;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -19,6 +26,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.provider.OpenableColumns;
 import android.util.Log;
+import android.util.Rational;
 import android.util.TypedValue;
 import android.view.Display;
 import android.view.Gravity;
@@ -37,6 +45,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.OptIn;
+import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
@@ -95,6 +104,13 @@ public class NativeVideoPlayerActivity extends Activity {
     private String hdrType = "SDR";
     private String colorSpace = "unknown";
     private String colorTransfer = "unknown";
+
+    // Picture-in-Picture state
+    private boolean isInPipMode = false;
+    private int videoWidth = 16;
+    private int videoHeight = 9;
+    private static final String PIP_ACTION_PLAY_PAUSE = "app.onetap.shortcuts.PIP_PLAY_PAUSE";
+    private BroadcastReceiver pipActionReceiver;
 
     // Debug logging
     private final List<String> debugLogs = new ArrayList<>();
@@ -484,11 +500,20 @@ public class NativeVideoPlayerActivity extends Activity {
                 @Override
                 public void onIsPlayingChanged(boolean isPlaying) {
                     logInfo("isPlaying: " + isPlaying);
+                    // Update PiP controls when play state changes
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && isInPipMode) {
+                        updatePipParams();
+                    }
                 }
 
                 @Override
                 public void onVideoSizeChanged(VideoSize videoSize) {
                     logInfo("Video size: " + videoSize.width + "x" + videoSize.height);
+                    // Store video dimensions for PiP aspect ratio
+                    if (videoSize.width > 0 && videoSize.height > 0) {
+                        videoWidth = videoSize.width;
+                        videoHeight = videoSize.height;
+                    }
                 }
             });
 
@@ -824,6 +849,21 @@ public class NativeVideoPlayerActivity extends Activity {
         );
         debugParams.setMargins(dpToPx(8), 0, dpToPx(8), 0);
         topBar.addView(debugButton, debugParams);
+
+        // PiP button (Picture-in-Picture) - only on Android 8.0+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            ImageButton pipButton = createIconButton(
+                android.R.drawable.ic_menu_crop,
+                "Picture-in-Picture"
+            );
+            pipButton.setOnClickListener(v -> enterPipMode());
+            
+            LinearLayout.LayoutParams pipParams = new LinearLayout.LayoutParams(
+                dpToPx(48), dpToPx(48)
+            );
+            pipParams.setMargins(dpToPx(8), 0, dpToPx(8), 0);
+            topBar.addView(pipButton, pipParams);
+        }
 
         // "Open with" button
         ImageButton openWithButton = createIconButton(
@@ -1531,7 +1571,11 @@ public class NativeVideoPlayerActivity extends Activity {
     @Override
     protected void onStart() {
         super.onStart();
-        if (exoPlayer != null) {
+        // Register PiP action receiver
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            registerPipActionReceiver();
+        }
+        if (exoPlayer != null && !isInPipMode) {
             exoPlayer.setPlayWhenReady(true);
         }
     }
@@ -1539,7 +1583,7 @@ public class NativeVideoPlayerActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
-        if (exoPlayer != null) {
+        if (exoPlayer != null && !isInPipMode) {
             exoPlayer.setPlayWhenReady(true);
         }
     }
@@ -1547,7 +1591,8 @@ public class NativeVideoPlayerActivity extends Activity {
     @Override
     protected void onPause() {
         super.onPause();
-        if (exoPlayer != null) {
+        // Don't pause playback if entering PiP mode
+        if (exoPlayer != null && !isInPipMode) {
             exoPlayer.setPlayWhenReady(false);
         }
     }
@@ -1555,7 +1600,14 @@ public class NativeVideoPlayerActivity extends Activity {
     @Override
     protected void onStop() {
         super.onStop();
-        if (exoPlayer != null) {
+        // Unregister PiP action receiver
+        if (pipActionReceiver != null) {
+            try {
+                unregisterReceiver(pipActionReceiver);
+            } catch (Exception ignored) {}
+            pipActionReceiver = null;
+        }
+        if (exoPlayer != null && !isInPipMode) {
             exoPlayer.setPlayWhenReady(false);
         }
     }
@@ -1564,5 +1616,177 @@ public class NativeVideoPlayerActivity extends Activity {
     protected void onDestroy() {
         super.onDestroy();
         releasePlayer();
+    }
+
+    @Override
+    protected void onUserLeaveHint() {
+        super.onUserLeaveHint();
+        // Auto-enter PiP when user presses home button while playing
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && exoPlayer != null && exoPlayer.isPlaying()) {
+            enterPipMode();
+        }
+    }
+
+    @Override
+    public void onPictureInPictureModeChanged(boolean isInPictureInPictureMode, Configuration newConfig) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig);
+        isInPipMode = isInPictureInPictureMode;
+        logInfo("PiP mode: " + (isInPipMode ? "ENTERED" : "EXITED"));
+        
+        if (isInPipMode) {
+            // Hide all UI controls in PiP mode
+            if (topBar != null) topBar.setVisibility(View.GONE);
+            if (debugOverlay != null) debugOverlay.setVisibility(View.GONE);
+            if (intentDiagnosticsOverlay != null) intentDiagnosticsOverlay.setVisibility(View.GONE);
+            if (playerView != null) playerView.setUseController(false);
+            hideHandler.removeCallbacks(hideRunnable);
+        } else {
+            // Restore UI when exiting PiP
+            if (playerView != null) playerView.setUseController(true);
+            showTopBar();
+            scheduleHide();
+            
+            // If user closed PiP without returning to app, finish the activity
+            if (exoPlayer != null && !exoPlayer.isPlaying()) {
+                // User likely closed PiP - check if we should exit
+            }
+        }
+    }
+
+    /**
+     * Enter Picture-in-Picture mode.
+     * Requires Android 8.0 (API 26) or higher.
+     */
+    @RequiresApi(api = Build.VERSION_CODES.O)
+    private void enterPipMode() {
+        if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)) {
+            Toast.makeText(this, "PiP not supported on this device", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        try {
+            // Calculate aspect ratio from video dimensions
+            Rational aspectRatio = new Rational(videoWidth, videoHeight);
+            
+            // Clamp to allowed PiP aspect ratios (between 1:2.39 and 2.39:1)
+            float ratio = (float) videoWidth / videoHeight;
+            if (ratio < 0.418f) {
+                aspectRatio = new Rational(1, 239);
+            } else if (ratio > 2.39f) {
+                aspectRatio = new Rational(239, 100);
+            }
+
+            PictureInPictureParams.Builder pipBuilder = new PictureInPictureParams.Builder()
+                .setAspectRatio(aspectRatio);
+            
+            // Add play/pause action for Android 8.0+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                ArrayList<RemoteAction> actions = new ArrayList<>();
+                
+                boolean isPlaying = exoPlayer != null && exoPlayer.isPlaying();
+                int iconRes = isPlaying ? android.R.drawable.ic_media_pause : android.R.drawable.ic_media_play;
+                String title = isPlaying ? "Pause" : "Play";
+                
+                Intent actionIntent = new Intent(PIP_ACTION_PLAY_PAUSE);
+                PendingIntent pendingIntent = PendingIntent.getBroadcast(
+                    this, 0, actionIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+                );
+                
+                RemoteAction playPauseAction = new RemoteAction(
+                    Icon.createWithResource(this, iconRes),
+                    title,
+                    title,
+                    pendingIntent
+                );
+                actions.add(playPauseAction);
+                
+                pipBuilder.setActions(actions);
+            }
+
+            // Enable seamless resize on Android 12+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                pipBuilder.setSeamlessResizeEnabled(true);
+                pipBuilder.setAutoEnterEnabled(true);
+            }
+
+            logInfo("Entering PiP mode (aspect: " + videoWidth + ":" + videoHeight + ")");
+            enterPictureInPictureMode(pipBuilder.build());
+            
+        } catch (Exception e) {
+            logError("Failed to enter PiP: " + e.getMessage());
+            Toast.makeText(this, "Unable to enter PiP mode", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    /**
+     * Update PiP params when video size changes or play state changes.
+     */
+    @RequiresApi(api = Build.VERSION_CODES.O)
+    private void updatePipParams() {
+        if (!isInPipMode) return;
+        
+        try {
+            Rational aspectRatio = new Rational(videoWidth, videoHeight);
+            
+            ArrayList<RemoteAction> actions = new ArrayList<>();
+            boolean isPlaying = exoPlayer != null && exoPlayer.isPlaying();
+            int iconRes = isPlaying ? android.R.drawable.ic_media_pause : android.R.drawable.ic_media_play;
+            String title = isPlaying ? "Pause" : "Play";
+            
+            Intent actionIntent = new Intent(PIP_ACTION_PLAY_PAUSE);
+            PendingIntent pendingIntent = PendingIntent.getBroadcast(
+                this, 0, actionIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+            );
+            
+            RemoteAction playPauseAction = new RemoteAction(
+                Icon.createWithResource(this, iconRes),
+                title,
+                title,
+                pendingIntent
+            );
+            actions.add(playPauseAction);
+
+            PictureInPictureParams.Builder pipBuilder = new PictureInPictureParams.Builder()
+                .setAspectRatio(aspectRatio)
+                .setActions(actions);
+            
+            setPictureInPictureParams(pipBuilder.build());
+        } catch (Exception e) {
+            logWarn("Failed to update PiP params: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Register broadcast receiver for PiP remote actions (play/pause).
+     */
+    @RequiresApi(api = Build.VERSION_CODES.O)
+    private void registerPipActionReceiver() {
+        if (pipActionReceiver != null) return;
+        
+        pipActionReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                if (PIP_ACTION_PLAY_PAUSE.equals(intent.getAction()) && exoPlayer != null) {
+                    if (exoPlayer.isPlaying()) {
+                        exoPlayer.pause();
+                    } else {
+                        exoPlayer.play();
+                    }
+                    // Update PiP button icon
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        updatePipParams();
+                    }
+                }
+            }
+        };
+        
+        IntentFilter filter = new IntentFilter(PIP_ACTION_PLAY_PAUSE);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(pipActionReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(pipActionReceiver, filter);
+        }
     }
 }
