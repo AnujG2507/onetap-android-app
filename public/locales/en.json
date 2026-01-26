@@ -422,7 +422,7 @@
     "adding": "Adding...",
     "addingVideo": "Processing video...",
     "videoFile": "Video file",
-    "largeFileWarning": "May take longer to process",
+    "largeFileWarning": "Large file",
     "processingVideo": "Processing video",
     "processingFile": "Processing file",
     "processingLargeVideo": "Copying {{size}} MB video to app storage...",

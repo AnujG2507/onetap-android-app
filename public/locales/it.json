@@ -318,7 +318,13 @@
     "returnToLastPage": "Torna all'ultima pagina",
     "openWhereYouLeftOff": "Apri da dove eri rimasto",
     "adding": "Aggiunta...",
-    "addToHomeScreen": "Aggiungi alla schermata home"
+    "addToHomeScreen": "Aggiungi alla schermata home",
+    "videoFile": "File video",
+    "largeFileWarning": "File grande",
+    "processingVideo": "Elaborazione video",
+    "processingFile": "Elaborazione file",
+    "processingLargeVideo": "Copia video di {{size}} MB nello spazio di archiviazione dell'app...",
+    "processingLargeFile": "Copia file di {{size}} MB nello spazio di archiviazione dell'app..."
   },
   "iconPicker": {
     "icon": "Icona",

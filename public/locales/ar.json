@@ -320,6 +320,14 @@
     "addToHomeScreen": "إضافة للشاشة الرئيسية",
     "adding": "جاري الإضافة..."
   },
+  "shortcutCustomizer": {
+    "videoFile": "ملف فيديو",
+    "largeFileWarning": "ملف كبير",
+    "processingVideo": "جاري معالجة الفيديو",
+    "processingFile": "جاري معالجة الملف",
+    "processingLargeVideo": "جاري نسخ فيديو بحجم {{size}} ميجابايت إلى تخزين التطبيق...",
+    "processingLargeFile": "جاري نسخ ملف بحجم {{size}} ميجابايت إلى تخزين التطبيق..."
+  },
   "success": {
     "title": "تمت الإضافة للشاشة الرئيسية",
     "ready": "\"{{name}}\" جاهز",

@@ -318,7 +318,13 @@
     "returnToLastPage": "最後のページに戻る",
     "openWhereYouLeftOff": "中断したところから開く",
     "adding": "追加中...",
-    "addToHomeScreen": "ホーム画面に追加"
+    "addToHomeScreen": "ホーム画面に追加",
+    "videoFile": "動画ファイル",
+    "largeFileWarning": "大きなファイル",
+    "processingVideo": "動画を処理中",
+    "processingFile": "ファイルを処理中",
+    "processingLargeVideo": "{{size}} MBの動画をアプリストレージにコピー中...",
+    "processingLargeFile": "{{size}} MBのファイルをアプリストレージにコピー中..."
   },
   "iconPicker": {
     "icon": "アイコン",

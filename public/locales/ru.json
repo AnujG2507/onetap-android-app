@@ -318,7 +318,13 @@
     "returnToLastPage": "Вернуться на последнюю страницу",
     "openWhereYouLeftOff": "Открыть с места остановки",
     "adding": "Добавление...",
-    "addToHomeScreen": "Добавить на главный экран"
+    "addToHomeScreen": "Добавить на главный экран",
+    "videoFile": "Видеофайл",
+    "largeFileWarning": "Большой файл",
+    "processingVideo": "Обработка видео",
+    "processingFile": "Обработка файла",
+    "processingLargeVideo": "Копирование видео {{size}} МБ в хранилище приложения...",
+    "processingLargeFile": "Копирование файла {{size}} МБ в хранилище приложения..."
   },
   "iconPicker": {
     "icon": "Иконка",

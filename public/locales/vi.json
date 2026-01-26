@@ -318,7 +318,13 @@
     "returnToLastPage": "Quay lại trang cuối",
     "openWhereYouLeftOff": "Mở từ nơi bạn dừng lại",
     "adding": "Đang thêm...",
-    "addToHomeScreen": "Thêm vào màn hình chính"
+    "addToHomeScreen": "Thêm vào màn hình chính",
+    "videoFile": "Tệp video",
+    "largeFileWarning": "Tệp lớn",
+    "processingVideo": "Đang xử lý video",
+    "processingFile": "Đang xử lý tệp",
+    "processingLargeVideo": "Đang sao chép video {{size}} MB vào bộ nhớ ứng dụng...",
+    "processingLargeFile": "Đang sao chép tệp {{size}} MB vào bộ nhớ ứng dụng..."
   },
   "iconPicker": {
     "icon": "Biểu tượng",

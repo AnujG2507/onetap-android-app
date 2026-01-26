@@ -318,7 +318,13 @@
     "returnToLastPage": "กลับไปหน้าสุดท้าย",
     "openWhereYouLeftOff": "เปิดจากจุดที่คุณหยุดไว้",
     "adding": "กำลังเพิ่ม...",
-    "addToHomeScreen": "เพิ่มไปยังหน้าจอหลัก"
+    "addToHomeScreen": "เพิ่มไปยังหน้าจอหลัก",
+    "videoFile": "ไฟล์วิดีโอ",
+    "largeFileWarning": "ไฟล์ขนาดใหญ่",
+    "processingVideo": "กำลังประมวลผลวิดีโอ",
+    "processingFile": "กำลังประมวลผลไฟล์",
+    "processingLargeVideo": "กำลังคัดลอกวิดีโอ {{size}} MB ไปยังที่เก็บข้อมูลแอป...",
+    "processingLargeFile": "กำลังคัดลอกไฟล์ {{size}} MB ไปยังที่เก็บข้อมูลแอป..."
   },
   "iconPicker": {
     "icon": "ไอคอน",
