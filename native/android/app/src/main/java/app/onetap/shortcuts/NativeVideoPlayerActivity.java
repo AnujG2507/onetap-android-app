@@ -45,9 +45,7 @@ import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlayer;
-import androidx.media3.exoplayer.video.VideoFrameMetadataListener;
 import androidx.media3.ui.PlayerView;
 
 import java.util.ArrayList;
@@ -356,24 +354,24 @@ public class NativeVideoPlayerActivity extends Activity {
     }
 
     private void initializePlayer() {
-        logInfo("Initializing ExoPlayer with HDR support...");
+        logInfo("Initializing ExoPlayer...");
         
-        // Check HDR display capability
+        // Check HDR display capability first
         checkHdrDisplaySupport();
         
         try {
-            // Use DefaultRenderersFactory with extension decoder mode for broader HDR codec support
-            DefaultRenderersFactory renderersFactory = new DefaultRenderersFactory(this)
-                .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
-                .setEnableDecoderFallback(true);
+            // Create ExoPlayer with default configuration
+            // ExoPlayer automatically handles HDR when the device and content support it
+            exoPlayer = new ExoPlayer.Builder(this).build();
             
-            exoPlayer = new ExoPlayer.Builder(this, renderersFactory)
-                .setVideoScalingMode(C.VIDEO_SCALING_MODE_SCALE_TO_FIT)
-                .build();
+            if (exoPlayer == null) {
+                logError("ExoPlayer.Builder returned null");
+                showExternalPlayerDialog("Failed to create video player");
+                return;
+            }
             
             playerView.setPlayer(exoPlayer);
-            
-            logInfo("ExoPlayer created with HDR-capable renderers");
+            logInfo("ExoPlayer created successfully");
             
             // Set up listener
             exoPlayer.addListener(new Player.Listener() {
@@ -415,17 +413,21 @@ public class NativeVideoPlayerActivity extends Activity {
             });
 
             // Create media item and start playback
+            logInfo("Setting media URI: " + videoUri);
             MediaItem mediaItem = MediaItem.fromUri(videoUri);
             exoPlayer.setMediaItem(mediaItem);
             
-            logInfo("Media item set, preparing...");
+            logInfo("Preparing playback...");
             exoPlayer.prepare();
             exoPlayer.setPlayWhenReady(true);
             
-            logInfo("Playback started");
+            logInfo("Playback initiated");
             
         } catch (Exception e) {
-            logError("Failed to initialize ExoPlayer: " + e.getMessage());
+            logError("ExoPlayer init exception: " + e.getClass().getSimpleName() + " - " + e.getMessage());
+            if (e.getCause() != null) {
+                logError("Caused by: " + e.getCause().getMessage());
+            }
             showExternalPlayerDialog("Failed to initialize video player");
         }
     }
