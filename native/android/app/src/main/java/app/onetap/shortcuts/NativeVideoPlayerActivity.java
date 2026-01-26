@@ -1,6 +1,9 @@
 package app.onetap.shortcuts;
 
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.ActivityNotFoundException;
+import android.content.ClipData;
 import android.content.Intent;
 import android.graphics.SurfaceTexture;
 import android.media.AudioAttributes;
@@ -30,7 +33,7 @@ import java.io.IOException;
 /**
  * NativeVideoPlayerActivity
  * Native Android video playback using TextureView + MediaPlayer.
- * (Close button overlay removed.)
+ * Falls back to external player apps if internal playback fails.
  */
 public class NativeVideoPlayerActivity extends Activity implements TextureView.SurfaceTextureListener, MediaController.MediaPlayerControl {
     private static final String TAG = "NativeVideoPlayer";
@@ -44,9 +47,11 @@ public class NativeVideoPlayerActivity extends Activity implements TextureView.S
     private Surface surface;
 
     private Uri videoUri;
+    private String videoMimeType;
     private boolean isPrepared = false;
     private int videoWidth = 0;
     private int videoHeight = 0;
+    private boolean hasTriedExternalFallback = false;
 
     private final Handler hideHandler = new Handler(Looper.getMainLooper());
     private final Runnable hideRunnable = () -> {
@@ -149,8 +154,11 @@ public class NativeVideoPlayerActivity extends Activity implements TextureView.S
             // Intent data
             Intent intent = getIntent();
             videoUri = intent != null ? intent.getData() : null;
-            String mimeType = intent != null ? intent.getType() : null;
-            Log.d(TAG, "Starting native playback. uri=" + videoUri + ", type=" + mimeType);
+            videoMimeType = intent != null ? intent.getType() : "video/*";
+            if (videoMimeType == null || videoMimeType.isEmpty()) {
+                videoMimeType = "video/*";
+            }
+            Log.d(TAG, "Starting native playback. uri=" + videoUri + ", type=" + videoMimeType);
 
             if (videoUri == null) {
                 Log.e(TAG, "No video URI provided");
@@ -173,6 +181,77 @@ public class NativeVideoPlayerActivity extends Activity implements TextureView.S
             Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
         } catch (Exception ignored) {}
         finish();
+    }
+
+    /**
+     * Attempts to open the video in an external player app.
+     * Shows a chooser dialog to let the user pick their preferred app.
+     */
+    private void openInExternalPlayer() {
+        if (videoUri == null || hasTriedExternalFallback) {
+            showErrorAndFinish("Unable to play video");
+            return;
+        }
+        
+        hasTriedExternalFallback = true;
+        releasePlayer();
+        
+        try {
+            Intent externalIntent = new Intent(Intent.ACTION_VIEW);
+            externalIntent.setDataAndType(videoUri, videoMimeType);
+            externalIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            
+            // Add ClipData for content URIs to ensure permission propagation
+            if ("content".equals(videoUri.getScheme())) {
+                try {
+                    externalIntent.setClipData(ClipData.newUri(getContentResolver(), "video", videoUri));
+                } catch (Exception e) {
+                    Log.w(TAG, "Failed to set ClipData: " + e.getMessage());
+                }
+            }
+            
+            // Create a chooser to let user pick the app
+            Intent chooser = Intent.createChooser(externalIntent, "Open with...");
+            chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            
+            startActivity(chooser);
+            Log.d(TAG, "Opened video in external player");
+            finish();
+        } catch (ActivityNotFoundException e) {
+            Log.e(TAG, "No external video player found: " + e.getMessage());
+            showErrorAndFinish("No video player app found");
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to open external player: " + e.getMessage());
+            showErrorAndFinish("Unable to play video");
+        }
+    }
+
+    /**
+     * Shows a dialog asking the user if they want to try an external player.
+     */
+    private void showExternalPlayerDialog(String errorMessage) {
+        if (hasTriedExternalFallback) {
+            showErrorAndFinish(errorMessage);
+            return;
+        }
+        
+        try {
+            new AlertDialog.Builder(this)
+                .setTitle("Playback Error")
+                .setMessage("Unable to play this video. Would you like to try opening it in another app?")
+                .setPositiveButton("Open with...", (dialog, which) -> {
+                    openInExternalPlayer();
+                })
+                .setNegativeButton("Cancel", (dialog, which) -> {
+                    finish();
+                })
+                .setOnCancelListener(dialog -> finish())
+                .show();
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to show dialog: " + e.getMessage());
+            // Fallback: try external player directly
+            openInExternalPlayer();
+        }
     }
 
     @Override
@@ -221,12 +300,14 @@ public class NativeVideoPlayerActivity extends Activity implements TextureView.S
                     toggleMediaControls();
                 } catch (Exception e) {
                     Log.e(TAG, "Error in onPrepared: " + e.getMessage(), e);
+                    showExternalPlayerDialog("Failed to start playback");
                 }
             });
 
             mediaPlayer.setOnErrorListener((mp, what, extra) -> {
                 Log.e(TAG, "MediaPlayer error what=" + what + " extra=" + extra + " uri=" + videoUri);
-                showErrorAndFinish("Unable to play video (error: " + what + ")");
+                // Offer to open in external player
+                showExternalPlayerDialog("Unable to play video (error: " + what + ")");
                 return true; // Return true to indicate we handled the error
             });
             
@@ -239,17 +320,17 @@ public class NativeVideoPlayerActivity extends Activity implements TextureView.S
                 mediaPlayer.prepareAsync();
             } catch (IOException e) {
                 Log.e(TAG, "Failed to set data source: " + e.getMessage(), e);
-                showErrorAndFinish("Cannot access video file");
+                showExternalPlayerDialog("Cannot access video file");
             } catch (IllegalArgumentException e) {
                 Log.e(TAG, "Invalid video URI: " + e.getMessage(), e);
-                showErrorAndFinish("Invalid video file");
+                showExternalPlayerDialog("Invalid video file");
             } catch (SecurityException e) {
                 Log.e(TAG, "Permission denied for video: " + e.getMessage(), e);
-                showErrorAndFinish("Permission denied to access video");
+                showExternalPlayerDialog("Permission denied to access video");
             }
         } catch (Exception e) {
             Log.e(TAG, "Error setting up media player: " + e.getMessage(), e);
-            showErrorAndFinish("Failed to initialize video playback");
+            showExternalPlayerDialog("Failed to initialize video playback");
         }
     }
 
@@ -354,6 +435,54 @@ public class NativeVideoPlayerActivity extends Activity implements TextureView.S
             return false;
         }
     }
+
+    @Override
+    public int getBufferPercentage() {
+        return 0;
+    }
+
+    @Override
+    public boolean canPause() {
+        return true;
+    }
+
+    @Override
+    public boolean canSeekBackward() {
+        return true;
+    }
+
+    @Override
+    public boolean canSeekForward() {
+        return true;
+    }
+
+    @Override
+    public int getAudioSessionId() {
+        try {
+            return mediaPlayer != null ? mediaPlayer.getAudioSessionId() : 0;
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if (mediaPlayer != null) {
+            try {
+                if (mediaPlayer.isPlaying()) mediaPlayer.pause();
+            } catch (Exception e) {
+                Log.e(TAG, "Error pausing in onPause: " + e.getMessage());
+            }
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        releasePlayer();
+    }
+}
 
     @Override
     public int getBufferPercentage() {
