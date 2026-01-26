@@ -50,7 +50,7 @@ import { BulkMoveDialog } from './BulkMoveDialog';
 import { AppMenu } from './AppMenu';
 import { TrashSheet } from './TrashSheet';
 import { EmptyStateWithValueProp } from './EmptyStateWithValueProp';
-import { TutorialOverlay } from './TutorialOverlay';
+import { TutorialCoachMarks } from './TutorialCoachMarks';
 import { useToast } from '@/hooks/use-toast';
 import { useSheetBackHandler } from '@/hooks/useSheetBackHandler';
 import { useTutorial } from '@/hooks/useTutorial';
@@ -1296,14 +1296,13 @@ export function BookmarkLibrary({
         onRestored={refreshLinks} 
       />
 
-      {/* Tutorial Overlay */}
+      {/* Tutorial Coach Marks */}
       {tutorial.isActive && links.length > 0 && (
-        <TutorialOverlay
+        <TutorialCoachMarks
           steps={tutorial.steps}
           currentStep={tutorial.currentStep}
           onNext={tutorial.next}
-          onPrevious={tutorial.previous}
-          onSkip={tutorial.skip}
+          onDismiss={tutorial.skip}
         />
       )}
       

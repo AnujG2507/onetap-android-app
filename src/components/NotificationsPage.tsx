@@ -38,7 +38,7 @@ import { ScheduledActionCreator } from './ScheduledActionCreator';
 import { AppMenu } from './AppMenu';
 import { TrashSheet } from './TrashSheet';
 import { EmptyStateWithValueProp } from './EmptyStateWithValueProp';
-import { TutorialOverlay } from './TutorialOverlay';
+import { TutorialCoachMarks } from './TutorialCoachMarks';
 import type { ScheduledAction, RecurrenceType, ScheduledActionDestination } from '@/types/scheduledAction';
 import { 
   getSelectedIds, 
@@ -878,14 +878,13 @@ export function NotificationsPage({
         onOpenChange={setIsTrashOpen} 
       />
 
-      {/* Tutorial Overlay */}
+      {/* Tutorial Coach Marks */}
       {tutorial.isActive && actions.length > 0 && (
-        <TutorialOverlay
+        <TutorialCoachMarks
           steps={tutorial.steps}
           currentStep={tutorial.currentStep}
           onNext={tutorial.next}
-          onPrevious={tutorial.previous}
-          onSkip={tutorial.skip}
+          onDismiss={tutorial.skip}
         />
       )}
     </div>

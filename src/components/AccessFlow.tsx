@@ -10,7 +10,7 @@ import { ClipboardSuggestion } from '@/components/ClipboardSuggestion';
 import { AppMenu } from '@/components/AppMenu';
 import { TrashSheet } from '@/components/TrashSheet';
 import { SavedLinksSheet } from '@/components/SavedLinksSheet';
-import { TutorialOverlay } from '@/components/TutorialOverlay';
+import { TutorialCoachMarks } from '@/components/TutorialCoachMarks';
 import { useShortcuts } from '@/hooks/useShortcuts';
 import { useClipboardDetection } from '@/hooks/useClipboardDetection';
 import { useSettings } from '@/hooks/useSettings';
@@ -375,14 +375,13 @@ export function AccessFlow({
             />
           )}
 
-          {/* Tutorial Overlay */}
+          {/* Tutorial Coach Marks */}
           {tutorial.isActive && (
-            <TutorialOverlay
+            <TutorialCoachMarks
               steps={tutorial.steps}
               currentStep={tutorial.currentStep}
               onNext={tutorial.next}
-              onPrevious={tutorial.previous}
-              onSkip={tutorial.skip}
+              onDismiss={tutorial.skip}
             />
           )}
         </>

@@ -4,6 +4,7 @@
     "next": "Next",
     "previous": "Back",
     "done": "Got it!",
+    "tapToDismiss": "Tap anywhere to dismiss",
     "access": {
       "step1Title": "Create Shortcuts",
       "step1Desc": "Tap any content type to create a home screen shortcut",

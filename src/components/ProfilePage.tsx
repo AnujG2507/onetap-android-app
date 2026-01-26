@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { UsageInsights } from '@/components/UsageInsights';
-import { TutorialOverlay } from '@/components/TutorialOverlay';
+import { TutorialCoachMarks } from '@/components/TutorialCoachMarks';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -307,14 +307,13 @@ export function ProfilePage() {
           onOpenChange={setIsTrashOpen} 
         />
 
-        {/* Tutorial Overlay */}
+        {/* Tutorial Coach Marks */}
         {tutorial.isActive && (
-          <TutorialOverlay
+          <TutorialCoachMarks
             steps={tutorial.steps}
             currentStep={tutorial.currentStep}
             onNext={tutorial.next}
-            onPrevious={tutorial.previous}
-            onSkip={tutorial.skip}
+            onDismiss={tutorial.skip}
           />
         )}
       </div>
@@ -544,14 +543,13 @@ export function ProfilePage() {
         onOpenChange={setIsTrashOpen} 
       />
 
-      {/* Tutorial Overlay */}
+      {/* Tutorial Coach Marks */}
       {tutorial.isActive && (
-        <TutorialOverlay
+        <TutorialCoachMarks
           steps={tutorial.steps}
           currentStep={tutorial.currentStep}
           onNext={tutorial.next}
-          onPrevious={tutorial.previous}
-          onSkip={tutorial.skip}
+          onDismiss={tutorial.skip}
         />
       )}
     </div>
