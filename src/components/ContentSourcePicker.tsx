@@ -70,69 +70,57 @@ export function ContentSourcePicker({
         
         {/* Primary Grid: 3x2 layout - hide non-selected when picker is active */}
         <div id="tutorial-content-grid" className={cn(
-          "grid gap-3 transition-all duration-300 ease-out",
+          "grid gap-3 transition-all duration-200",
           activePicker ? "grid-cols-1" : "grid-cols-3"
         )}>
           {(!activePicker || activePicker === 'photo') && (
-            <div className={cn(activePicker === 'photo' ? "animate-scale-in" : "animate-fade-in")}>
-              <GridButton
-                icon={<Image className="h-5 w-5" />}
-                label={t('access.photo')}
-                onClick={() => handleGridButtonClick('photo')}
-                isActive={activePicker === 'photo'}
-              />
-            </div>
+            <GridButton
+              icon={<Image className="h-5 w-5" />}
+              label={t('access.photo')}
+              onClick={() => handleGridButtonClick('photo')}
+              isActive={activePicker === 'photo'}
+            />
           )}
           {(!activePicker || activePicker === 'video') && (
-            <div className={cn(activePicker === 'video' ? "animate-scale-in" : "animate-fade-in")} style={{ animationDelay: activePicker ? '0ms' : '30ms' }}>
-              <GridButton
-                icon={<Video className="h-5 w-5" />}
-                label={t('access.video')}
-                onClick={() => handleGridButtonClick('video')}
-                isActive={activePicker === 'video'}
-              />
-            </div>
+            <GridButton
+              icon={<Video className="h-5 w-5" />}
+              label={t('access.video')}
+              onClick={() => handleGridButtonClick('video')}
+              isActive={activePicker === 'video'}
+            />
           )}
           {(!activePicker || activePicker === 'audio') && (
-            <div className={cn(activePicker === 'audio' ? "animate-scale-in" : "animate-fade-in")} style={{ animationDelay: activePicker ? '0ms' : '60ms' }}>
-              <GridButton
-                icon={<Music className="h-5 w-5" />}
-                label={t('access.audio')}
-                onClick={() => handleGridButtonClick('audio')}
-                isActive={activePicker === 'audio'}
-              />
-            </div>
+            <GridButton
+              icon={<Music className="h-5 w-5" />}
+              label={t('access.audio')}
+              onClick={() => handleGridButtonClick('audio')}
+              isActive={activePicker === 'audio'}
+            />
           )}
           {(!activePicker || activePicker === 'document') && (
-            <div className={cn(activePicker === 'document' ? "animate-scale-in" : "animate-fade-in")} style={{ animationDelay: activePicker ? '0ms' : '90ms' }}>
-              <GridButton
-                icon={<FileText className="h-5 w-5" />}
-                label={t('access.document')}
-                onClick={() => handleGridButtonClick('document')}
-                isActive={activePicker === 'document'}
-              />
-            </div>
+            <GridButton
+              icon={<FileText className="h-5 w-5" />}
+              label={t('access.document')}
+              onClick={() => handleGridButtonClick('document')}
+              isActive={activePicker === 'document'}
+            />
           )}
           {onSelectContact && (!activePicker || activePicker === 'contact') && (
-            <div className={cn(activePicker === 'contact' ? "animate-scale-in" : "animate-fade-in")} style={{ animationDelay: activePicker ? '0ms' : '120ms' }}>
-              <GridButton
-                icon={<Phone className="h-5 w-5" />}
-                label={t('access.contact')}
-                onClick={() => handleGridButtonClick('contact')}
-                isActive={activePicker === 'contact'}
-              />
-            </div>
+            <GridButton
+              icon={<Phone className="h-5 w-5" />}
+              label={t('access.contact')}
+              onClick={() => handleGridButtonClick('contact')}
+              isActive={activePicker === 'contact'}
+            />
           )}
           {onEnterUrl && (!activePicker || activePicker === 'link') && (
-            <div className={cn(activePicker === 'link' ? "animate-scale-in" : "animate-fade-in")} style={{ animationDelay: activePicker ? '0ms' : '150ms' }}>
-              <GridButton
-                id="tutorial-link-button"
-                icon={<Link className="h-5 w-5" />}
-                label={t('access.link')}
-                onClick={() => handleGridButtonClick('link')}
-                isActive={activePicker === 'link'}
-              />
-            </div>
+            <GridButton
+              id="tutorial-link-button"
+              icon={<Link className="h-5 w-5" />}
+              label={t('access.link')}
+              onClick={() => handleGridButtonClick('link')}
+              isActive={activePicker === 'link'}
+            />
           )}
         </div>
 
