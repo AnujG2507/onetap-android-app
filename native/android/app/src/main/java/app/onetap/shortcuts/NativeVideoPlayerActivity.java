@@ -335,6 +335,37 @@ public class NativeVideoPlayerActivity extends Activity {
             }
         }
     }
+    
+    /**
+     * Toggle between portrait and landscape orientation manually.
+     */
+    private void toggleOrientation() {
+        try {
+            int currentOrientation = getResources().getConfiguration().orientation;
+            int targetOrientation;
+            String orientationName;
+            
+            if (currentOrientation == Configuration.ORIENTATION_LANDSCAPE) {
+                // Switch to portrait
+                targetOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT;
+                orientationName = "Portrait";
+            } else {
+                // Switch to landscape
+                targetOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE;
+                orientationName = "Landscape";
+            }
+            
+            setRequestedOrientation(targetOrientation);
+            hasLockedOrientation = true;
+            
+            // Show brief toast feedback
+            Toast.makeText(this, orientationName, Toast.LENGTH_SHORT).show();
+            logInfo("Manually toggled to " + orientationName + " orientation");
+            
+        } catch (Exception e) {
+            logWarn("Failed to toggle orientation: " + e.getMessage());
+        }
+    }
 
     private void showTopBar() {
         if (topBar != null) {
@@ -1450,6 +1481,17 @@ public class NativeVideoPlayerActivity extends Activity {
         );
         lockButton.setOnClickListener(v -> toggleControlsLock());
         rightButtons.addView(lockButton);
+        
+        // Rotation toggle button
+        ImageButton rotateButton = createPremiumIconButton(
+            android.R.drawable.ic_menu_rotate,
+            "Toggle orientation"
+        );
+        rotateButton.setOnClickListener(v -> {
+            performHapticFeedback();
+            toggleOrientation();
+        });
+        rightButtons.addView(rotateButton);
         
         // PiP button (Picture-in-Picture) - only on Android 8.0+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
