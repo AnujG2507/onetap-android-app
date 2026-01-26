@@ -244,9 +244,10 @@
   },
   "success": {
     "title": "ホーム画面に追加されました",
-    "ready": "「{name}」の準備ができました",
+    "ready": "「{{name}}」の準備ができました",
     "hint": "ホーム画面からワンタップで即座に開けます",
-    "addAnother": "もう一つ追加"
+    "addAnother": "もう一つ追加",
+    "autoClose": "{{seconds}}秒後に閉じます"
   },
   "addBookmark": {
     "title": "新しいブックマークを追加",

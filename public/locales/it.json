@@ -244,9 +244,10 @@
   },
   "success": {
     "title": "Aggiunto alla schermata home",
-    "ready": "\"{name}\" è pronto",
+    "ready": "\"{{name}}\" è pronto",
     "hint": "Un tocco dalla schermata home per aprire istantaneamente",
-    "addAnother": "Aggiungi un altro"
+    "addAnother": "Aggiungi un altro",
+    "autoClose": "Chiusura in {{seconds}} secondi"
   },
   "addBookmark": {
     "title": "Aggiungi nuovo preferito",

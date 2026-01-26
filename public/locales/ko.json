@@ -244,9 +244,10 @@
   },
   "success": {
     "title": "홈 화면에 추가됨",
-    "ready": "\"{name}\" 준비 완료",
+    "ready": "\"{{name}}\" 준비 완료",
     "hint": "홈 화면에서 한 번 탭으로 즉시 열기",
-    "addAnother": "하나 더 추가"
+    "addAnother": "하나 더 추가",
+    "autoClose": "{{seconds}}초 후 닫힘"
   },
   "addBookmark": {
     "title": "새 북마크 추가",

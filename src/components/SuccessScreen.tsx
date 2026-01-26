@@ -1,6 +1,9 @@
 import { useTranslation } from 'react-i18next';
+import { useEffect, useState, useCallback } from 'react';
 import { Check, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+
+const AUTO_CLOSE_SECONDS = 10;
 
 interface SuccessScreenProps {
   shortcutName: string;
@@ -9,6 +12,26 @@ interface SuccessScreenProps {
 
 export function SuccessScreen({ shortcutName, onDone }: SuccessScreenProps) {
   const { t } = useTranslation();
+  const [countdown, setCountdown] = useState(AUTO_CLOSE_SECONDS);
+  
+  const handleDone = useCallback(() => {
+    onDone();
+  }, [onDone]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          handleDone();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [handleDone]);
   
   return (
     <div className="flex flex-col items-center justify-center h-full p-8 text-center">
@@ -31,9 +54,13 @@ export function SuccessScreen({ shortcutName, onDone }: SuccessScreenProps) {
         </p>
       </div>
       
-      <Button onClick={onDone} variant="outline" className="w-full max-w-xs h-12">
+      <Button onClick={handleDone} variant="outline" className="w-full max-w-xs h-12">
         {t('success.addAnother')}
       </Button>
+      
+      <p className="text-xs text-muted-foreground mt-4">
+        {t('success.autoClose', { seconds: countdown })}
+      </p>
     </div>
   );
 }

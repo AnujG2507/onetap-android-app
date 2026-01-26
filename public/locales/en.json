@@ -512,7 +512,8 @@
     "title": "Added to Home Screen",
     "ready": "\"{{name}}\" is ready",
     "hint": "One tap from your home screen to open instantly",
-    "addAnother": "Add another"
+    "addAnother": "Add another",
+    "autoClose": "Closing in {{seconds}} seconds"
   },
   "usage": {
     "title": "Usage Insights",
