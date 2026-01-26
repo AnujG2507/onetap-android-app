@@ -176,28 +176,30 @@ function ActionModePicker({ onSelectAction, onClose }: ActionModePickerProps) {
   const { t } = useTranslation();
   
   return (
-    <div className="mt-3 rounded-xl bg-muted/30 p-3 animate-fade-in">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-medium text-muted-foreground">{t('access.chooseAction')}</span>
+    <div className="mt-4 rounded-2xl bg-gradient-to-br from-muted/50 to-muted/20 p-4 animate-fade-in border border-border/50 backdrop-blur-sm elevation-1">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-sm font-semibold text-foreground/80">{t('access.chooseAction')}</span>
         <button
           onClick={onClose}
-          className="p-1 rounded-full hover:bg-muted/50 transition-colors"
+          className="p-1.5 rounded-full bg-muted/50 hover:bg-muted transition-all duration-150 hover:scale-105 active:scale-95"
         >
           <X className="h-4 w-4 text-muted-foreground" />
         </button>
       </div>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-3">
         <ActionModeButton
-          icon={<Home className="h-4 w-4" />}
+          icon={<Home className="h-5 w-5" strokeWidth={1.5} />}
           label={t('access.shortcut')}
           description={t('access.shortcutDesc')}
           onClick={() => onSelectAction('shortcut')}
+          variant="primary"
         />
         <ActionModeButton
-          icon={<Bell className="h-4 w-4" />}
+          icon={<Bell className="h-5 w-5" strokeWidth={1.5} />}
           label={t('access.reminder')}
           description={t('access.reminderDesc')}
           onClick={() => onSelectAction('reminder')}
+          variant="secondary"
         />
       </div>
     </div>
@@ -221,58 +223,60 @@ function ContactActionPicker({
   const { t } = useTranslation();
   
   return (
-    <div className="mt-3 rounded-xl bg-muted/30 p-3 animate-fade-in">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-medium text-muted-foreground">{t('access.contactType')}</span>
+    <div className="mt-4 rounded-2xl bg-gradient-to-br from-muted/50 to-muted/20 p-4 animate-fade-in border border-border/50 backdrop-blur-sm elevation-1">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-sm font-semibold text-foreground/80">{t('access.contactType')}</span>
         <button
           onClick={onClose}
-          className="p-1 rounded-full hover:bg-muted/50 transition-colors"
+          className="p-1.5 rounded-full bg-muted/50 hover:bg-muted transition-all duration-150 hover:scale-105 active:scale-95"
         >
           <X className="h-4 w-4 text-muted-foreground" />
         </button>
       </div>
       
       {/* Contact Mode Toggle */}
-      <div className="flex gap-2 mb-3">
+      <div className="flex gap-2 mb-4">
         <button
           onClick={() => onSelectContactMode('dial')}
           className={cn(
-            "flex-1 flex items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium transition-all duration-150",
+            "flex-1 flex items-center justify-center gap-2.5 rounded-xl py-2.5 text-sm font-semibold transition-all duration-200",
             contactMode === 'dial' 
-              ? "bg-primary text-primary-foreground" 
-              : "bg-muted/50 text-muted-foreground hover:bg-muted hover:scale-[1.01]"
+              ? "bg-primary text-primary-foreground shadow-md scale-[1.02]" 
+              : "bg-card text-muted-foreground hover:bg-muted hover:scale-[1.01] border border-border/50"
           )}
         >
-          <Phone className="h-4 w-4" />
+          <Phone className="h-4.5 w-4.5" strokeWidth={contactMode === 'dial' ? 2 : 1.5} />
           {t('access.contactCall')}
         </button>
         <button
           onClick={() => onSelectContactMode('message')}
           className={cn(
-            "flex-1 flex items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium transition-all duration-150",
+            "flex-1 flex items-center justify-center gap-2.5 rounded-xl py-2.5 text-sm font-semibold transition-all duration-200",
             contactMode === 'message' 
-              ? "bg-primary text-primary-foreground" 
-              : "bg-muted/50 text-muted-foreground hover:bg-muted hover:scale-[1.01]"
+              ? "bg-primary text-primary-foreground shadow-md scale-[1.02]" 
+              : "bg-card text-muted-foreground hover:bg-muted hover:scale-[1.01] border border-border/50"
           )}
         >
-          <MessageCircle className="h-4 w-4" />
+          <MessageCircle className="h-4.5 w-4.5" strokeWidth={contactMode === 'message' ? 2 : 1.5} />
           {t('access.contactMessage')}
         </button>
       </div>
       
       {/* Action Mode Selection */}
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-3">
         <ActionModeButton
-          icon={<Home className="h-4 w-4" />}
+          icon={<Home className="h-5 w-5" strokeWidth={1.5} />}
           label={t('access.shortcut')}
           description={t('access.shortcutDesc')}
           onClick={() => onSelectAction('shortcut')}
+          variant="primary"
         />
         <ActionModeButton
-          icon={<Bell className="h-4 w-4" />}
+          icon={<Bell className="h-5 w-5" strokeWidth={1.5} />}
           label={t('access.reminder')}
           description={t('access.reminderDesc')}
           onClick={() => onSelectAction('reminder')}
+          variant="secondary"
         />
       </div>
     </div>
@@ -285,28 +289,35 @@ interface ActionModeButtonProps {
   label: string;
   description: string;
   onClick: () => void;
+  variant?: 'primary' | 'secondary';
 }
 
-function ActionModeButton({ icon, label, description, onClick }: ActionModeButtonProps) {
+function ActionModeButton({ icon, label, description, onClick, variant = 'primary' }: ActionModeButtonProps) {
+  const isPrimary = variant === 'primary';
+  
   return (
     <button
       onClick={onClick}
       className={cn(
-        "flex flex-col items-center rounded-lg bg-card p-3",
-        "hover:bg-card/80 hover:shadow-md hover:border-border",
-        "active:scale-[0.97] active:shadow-sm",
-        "transition-all duration-150",
-        "focus:outline-none focus:ring-2 focus:ring-ring",
-        "border border-border/50"
+        "flex flex-col items-center rounded-xl p-4 group",
+        "bg-card hover:shadow-lg",
+        "active:scale-[0.97]",
+        "transition-all duration-200 ease-out",
+        "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+        "border border-border/60 hover:border-primary/30"
       )}
     >
-      <div className="flex items-center gap-2 mb-1">
-        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-primary shrink-0">
-          {icon}
-        </div>
-        <span className="text-sm font-medium text-foreground">{label}</span>
+      <div className={cn(
+        "flex h-11 w-11 items-center justify-center rounded-xl mb-2.5 transition-all duration-200",
+        "group-hover:scale-110 group-hover:shadow-md",
+        isPrimary 
+          ? "bg-gradient-to-br from-primary/20 to-primary/10 text-primary group-hover:from-primary/30 group-hover:to-primary/15" 
+          : "bg-gradient-to-br from-accent to-accent/50 text-accent-foreground group-hover:from-accent group-hover:to-accent/70"
+      )}>
+        {icon}
       </div>
-      <span className="text-xs text-muted-foreground text-center">{description}</span>
+      <span className="text-sm font-semibold text-foreground mb-0.5">{label}</span>
+      <span className="text-[11px] text-muted-foreground text-center leading-tight">{description}</span>
     </button>
   );
 }
