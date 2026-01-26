@@ -110,6 +110,9 @@ public class NativeVideoPlayerActivity extends Activity {
     private int videoWidth = 16;
     private int videoHeight = 9;
     private static final String PIP_ACTION_PLAY_PAUSE = "app.onetap.shortcuts.PIP_PLAY_PAUSE";
+    private static final String PIP_ACTION_SEEK_BACK = "app.onetap.shortcuts.PIP_SEEK_BACK";
+    private static final String PIP_ACTION_SEEK_FORWARD = "app.onetap.shortcuts.PIP_SEEK_FORWARD";
+    private static final long PIP_SEEK_INCREMENT_MS = 10000; // 10 seconds
     private BroadcastReceiver pipActionReceiver;
 
     // Debug logging
@@ -1679,28 +1682,9 @@ public class NativeVideoPlayerActivity extends Activity {
             PictureInPictureParams.Builder pipBuilder = new PictureInPictureParams.Builder()
                 .setAspectRatio(aspectRatio);
             
-            // Add play/pause action for Android 8.0+
+            // Add remote actions for Android 8.0+
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                ArrayList<RemoteAction> actions = new ArrayList<>();
-                
-                boolean isPlaying = exoPlayer != null && exoPlayer.isPlaying();
-                int iconRes = isPlaying ? android.R.drawable.ic_media_pause : android.R.drawable.ic_media_play;
-                String title = isPlaying ? "Pause" : "Play";
-                
-                Intent actionIntent = new Intent(PIP_ACTION_PLAY_PAUSE);
-                PendingIntent pendingIntent = PendingIntent.getBroadcast(
-                    this, 0, actionIntent,
-                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
-                );
-                
-                RemoteAction playPauseAction = new RemoteAction(
-                    Icon.createWithResource(this, iconRes),
-                    title,
-                    title,
-                    pendingIntent
-                );
-                actions.add(playPauseAction);
-                
+                ArrayList<RemoteAction> actions = buildPipRemoteActions();
                 pipBuilder.setActions(actions);
             }
 
@@ -1729,24 +1713,7 @@ public class NativeVideoPlayerActivity extends Activity {
         try {
             Rational aspectRatio = new Rational(videoWidth, videoHeight);
             
-            ArrayList<RemoteAction> actions = new ArrayList<>();
-            boolean isPlaying = exoPlayer != null && exoPlayer.isPlaying();
-            int iconRes = isPlaying ? android.R.drawable.ic_media_pause : android.R.drawable.ic_media_play;
-            String title = isPlaying ? "Pause" : "Play";
-            
-            Intent actionIntent = new Intent(PIP_ACTION_PLAY_PAUSE);
-            PendingIntent pendingIntent = PendingIntent.getBroadcast(
-                this, 0, actionIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
-            );
-            
-            RemoteAction playPauseAction = new RemoteAction(
-                Icon.createWithResource(this, iconRes),
-                title,
-                title,
-                pendingIntent
-            );
-            actions.add(playPauseAction);
+            ArrayList<RemoteAction> actions = buildPipRemoteActions();
 
             PictureInPictureParams.Builder pipBuilder = new PictureInPictureParams.Builder()
                 .setAspectRatio(aspectRatio)
@@ -1759,7 +1726,64 @@ public class NativeVideoPlayerActivity extends Activity {
     }
 
     /**
-     * Register broadcast receiver for PiP remote actions (play/pause).
+     * Build the list of remote actions for PiP mode.
+     * Includes: Seek Back (-10s), Play/Pause, Seek Forward (+10s)
+     */
+    @RequiresApi(api = Build.VERSION_CODES.O)
+    private ArrayList<RemoteAction> buildPipRemoteActions() {
+        ArrayList<RemoteAction> actions = new ArrayList<>();
+        
+        // 1. Seek Back (-10s)
+        Intent seekBackIntent = new Intent(PIP_ACTION_SEEK_BACK);
+        PendingIntent seekBackPending = PendingIntent.getBroadcast(
+            this, 1, seekBackIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+        RemoteAction seekBackAction = new RemoteAction(
+            Icon.createWithResource(this, android.R.drawable.ic_media_rew),
+            "-10s",
+            "Seek back 10 seconds",
+            seekBackPending
+        );
+        actions.add(seekBackAction);
+        
+        // 2. Play/Pause
+        boolean isPlaying = exoPlayer != null && exoPlayer.isPlaying();
+        int iconRes = isPlaying ? android.R.drawable.ic_media_pause : android.R.drawable.ic_media_play;
+        String title = isPlaying ? "Pause" : "Play";
+        
+        Intent playPauseIntent = new Intent(PIP_ACTION_PLAY_PAUSE);
+        PendingIntent playPausePending = PendingIntent.getBroadcast(
+            this, 2, playPauseIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+        RemoteAction playPauseAction = new RemoteAction(
+            Icon.createWithResource(this, iconRes),
+            title,
+            title,
+            playPausePending
+        );
+        actions.add(playPauseAction);
+        
+        // 3. Seek Forward (+10s)
+        Intent seekForwardIntent = new Intent(PIP_ACTION_SEEK_FORWARD);
+        PendingIntent seekForwardPending = PendingIntent.getBroadcast(
+            this, 3, seekForwardIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+        RemoteAction seekForwardAction = new RemoteAction(
+            Icon.createWithResource(this, android.R.drawable.ic_media_ff),
+            "+10s",
+            "Seek forward 10 seconds",
+            seekForwardPending
+        );
+        actions.add(seekForwardAction);
+        
+        return actions;
+    }
+
+    /**
+     * Register broadcast receiver for PiP remote actions (play/pause, seek).
      */
     @RequiresApi(api = Build.VERSION_CODES.O)
     private void registerPipActionReceiver() {
@@ -1768,21 +1792,41 @@ public class NativeVideoPlayerActivity extends Activity {
         pipActionReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
-                if (PIP_ACTION_PLAY_PAUSE.equals(intent.getAction()) && exoPlayer != null) {
+                if (exoPlayer == null) return;
+                
+                String action = intent.getAction();
+                if (PIP_ACTION_PLAY_PAUSE.equals(action)) {
                     if (exoPlayer.isPlaying()) {
                         exoPlayer.pause();
                     } else {
                         exoPlayer.play();
                     }
-                    // Update PiP button icon
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        updatePipParams();
+                } else if (PIP_ACTION_SEEK_BACK.equals(action)) {
+                    long newPosition = Math.max(0, exoPlayer.getCurrentPosition() - PIP_SEEK_INCREMENT_MS);
+                    exoPlayer.seekTo(newPosition);
+                    logInfo("PiP seek back to: " + (newPosition / 1000) + "s");
+                } else if (PIP_ACTION_SEEK_FORWARD.equals(action)) {
+                    long duration = exoPlayer.getDuration();
+                    long newPosition = exoPlayer.getCurrentPosition() + PIP_SEEK_INCREMENT_MS;
+                    if (duration > 0) {
+                        newPosition = Math.min(duration, newPosition);
                     }
+                    exoPlayer.seekTo(newPosition);
+                    logInfo("PiP seek forward to: " + (newPosition / 1000) + "s");
+                }
+                
+                // Update PiP button icons
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    updatePipParams();
                 }
             }
         };
         
-        IntentFilter filter = new IntentFilter(PIP_ACTION_PLAY_PAUSE);
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(PIP_ACTION_PLAY_PAUSE);
+        filter.addAction(PIP_ACTION_SEEK_BACK);
+        filter.addAction(PIP_ACTION_SEEK_FORWARD);
+        
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(pipActionReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
         } else {
