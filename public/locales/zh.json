@@ -1,4 +1,36 @@
 {
+  "tutorial": {
+    "skip": "跳过教程",
+    "next": "下一步",
+    "previous": "返回",
+    "done": "明白了！",
+    "access": {
+      "step1Title": "创建快捷方式",
+      "step1Desc": "点击任意内容类型创建主屏幕快捷方式",
+      "step2Title": "快速链接",
+      "step2Desc": "添加网站快捷方式实现一键访问",
+      "step3Title": "从您的收藏库",
+      "step3Desc": "使用已保存的书签创建快捷方式"
+    },
+    "reminders": {
+      "step1Title": "安排提醒",
+      "step1Desc": "创建定时提醒以打开链接或拨打电话",
+      "step2Title": "筛选和整理",
+      "step2Desc": "按重复类型筛选快速查找提醒"
+    },
+    "library": {
+      "step1Title": "保存书签",
+      "step1Desc": "在此保存链接以便稍后快速访问",
+      "step2Title": "按您的方式整理",
+      "step2Desc": "在列表视图和文件夹视图之间切换"
+    },
+    "profile": {
+      "step1Title": "云同步",
+      "step1Desc": "登录以跨设备同步书签",
+      "step2Title": "自定义",
+      "step2Desc": "调整主题、语言和偏好设置"
+    }
+  },
   "emptyState": {
     "whyDifferent": "为什么选择 OneTap?",
     "valueProp1": "一键直达重要内容",

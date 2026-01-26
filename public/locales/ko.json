@@ -1,4 +1,36 @@
 {
+  "tutorial": {
+    "skip": "튜토리얼 건너뛰기",
+    "next": "다음",
+    "previous": "이전",
+    "done": "알겠어요!",
+    "access": {
+      "step1Title": "바로가기 만들기",
+      "step1Desc": "홈 화면 바로가기를 만들려면 콘텐츠 유형을 탭하세요",
+      "step2Title": "빠른 링크",
+      "step2Desc": "원탭 접근을 위한 웹사이트 바로가기 추가",
+      "step3Title": "라이브러리에서",
+      "step3Desc": "저장된 북마크를 사용하여 바로가기 만들기"
+    },
+    "reminders": {
+      "step1Title": "알림 예약",
+      "step1Desc": "링크 열기 또는 전화를 위한 타이머 알림 만들기",
+      "step2Title": "필터 및 정리",
+      "step2Desc": "반복 유형별로 필터링하여 알림을 빠르게 찾기"
+    },
+    "library": {
+      "step1Title": "북마크 저장",
+      "step1Desc": "나중에 빠른 접근을 위해 링크를 여기에 저장",
+      "step2Title": "나만의 방식으로 정리",
+      "step2Desc": "목록 보기와 폴더 보기 전환"
+    },
+    "profile": {
+      "step1Title": "클라우드 동기화",
+      "step1Desc": "로그인하여 기기 간 북마크 동기화",
+      "step2Title": "사용자 정의",
+      "step2Desc": "테마, 언어 및 환경설정 조정"
+    }
+  },
   "emptyState": {
     "whyDifferent": "왜 OneTap?",
     "valueProp1": "한 번의 탭으로 중요한 것에",

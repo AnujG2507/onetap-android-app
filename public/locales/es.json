@@ -1,4 +1,36 @@
 {
+  "tutorial": {
+    "skip": "Omitir tutorial",
+    "next": "Siguiente",
+    "previous": "Atrás",
+    "done": "¡Entendido!",
+    "access": {
+      "step1Title": "Crear Accesos Directos",
+      "step1Desc": "Toca cualquier tipo de contenido para crear un acceso directo",
+      "step2Title": "Enlaces Rápidos",
+      "step2Desc": "Añade accesos a sitios web con un solo toque",
+      "step3Title": "Desde Tu Biblioteca",
+      "step3Desc": "Usa marcadores guardados para crear accesos directos"
+    },
+    "reminders": {
+      "step1Title": "Programar Recordatorios",
+      "step1Desc": "Crea recordatorios para abrir enlaces o hacer llamadas",
+      "step2Title": "Filtrar y Organizar",
+      "step2Desc": "Filtra por tipo de recurrencia para encontrar recordatorios"
+    },
+    "library": {
+      "step1Title": "Guardar Marcadores",
+      "step1Desc": "Guarda enlaces aquí para acceso rápido",
+      "step2Title": "Organiza a Tu Manera",
+      "step2Desc": "Cambia entre vista de lista y carpetas"
+    },
+    "profile": {
+      "step1Title": "Sincronización en la Nube",
+      "step1Desc": "Inicia sesión para sincronizar marcadores entre dispositivos",
+      "step2Title": "Personalizar",
+      "step2Desc": "Ajusta tema, idioma y preferencias"
+    }
+  },
   "emptyState": {
     "whyDifferent": "¿Por qué OneTap?",
     "valueProp1": "Un toque a lo que importa",

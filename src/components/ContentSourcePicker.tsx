@@ -36,7 +36,7 @@ export function ContentSourcePicker({
         </h2>
         
         {/* Primary Grid: 3x2 layout */}
-        <div className="grid grid-cols-3 gap-3">
+        <div id="tutorial-content-grid" className="grid grid-cols-3 gap-3">
           <GridButton
             icon={<Image className="h-5 w-5" />}
             label={t('access.photo')}
@@ -67,6 +67,7 @@ export function ContentSourcePicker({
           )}
           {onEnterUrl && (
             <GridButton
+              id="tutorial-link-button"
               icon={<Link className="h-5 w-5" />}
               label={t('access.link')}
               onClick={onEnterUrl}
@@ -115,6 +116,7 @@ export function ContentSourcePicker({
           />
           {onSelectFromLibrary && (
             <SecondaryButton
+              id="tutorial-saved-bookmarks"
               icon={<Bookmark className="h-4 w-4" />}
               label={t('access.savedBookmarks')}
               onClick={onSelectFromLibrary}
@@ -127,15 +129,17 @@ export function ContentSourcePicker({
 }
 
 interface GridButtonProps {
+  id?: string;
   icon: React.ReactNode;
   label: string;
   onClick: () => void;
   isActive?: boolean;
 }
 
-function GridButton({ icon, label, onClick, isActive }: GridButtonProps) {
+function GridButton({ id, icon, label, onClick, isActive }: GridButtonProps) {
   return (
     <button
+      id={id}
       onClick={onClick}
       className={cn(
         "flex flex-col items-center gap-2 rounded-xl p-4",
@@ -187,14 +191,16 @@ function ContactModeButton({ icon, label, description, onClick }: ContactModeBut
 }
 
 interface SecondaryButtonProps {
+  id?: string;
   icon: React.ReactNode;
   label: string;
   onClick: () => void;
 }
 
-function SecondaryButton({ icon, label, onClick }: SecondaryButtonProps) {
+function SecondaryButton({ id, icon, label, onClick }: SecondaryButtonProps) {
   return (
     <button
+      id={id}
       onClick={onClick}
       className={cn(
         "flex items-center gap-2 rounded-xl bg-muted/20 px-3 py-2.5",

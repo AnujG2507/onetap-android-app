@@ -1,4 +1,36 @@
 {
+  "tutorial": {
+    "skip": "Salta tutorial",
+    "next": "Avanti",
+    "previous": "Indietro",
+    "done": "Capito!",
+    "access": {
+      "step1Title": "Crea Scorciatoie",
+      "step1Desc": "Tocca qualsiasi tipo di contenuto per creare una scorciatoia",
+      "step2Title": "Link Rapidi",
+      "step2Desc": "Aggiungi scorciatoie ai siti web per accesso rapido",
+      "step3Title": "Dalla Tua Libreria",
+      "step3Desc": "Usa i segnalibri salvati per creare scorciatoie"
+    },
+    "reminders": {
+      "step1Title": "Programma Promemoria",
+      "step1Desc": "Crea promemoria per aprire link o effettuare chiamate",
+      "step2Title": "Filtra e Organizza",
+      "step2Desc": "Filtra per tipo di ricorrenza per trovare rapidamente i promemoria"
+    },
+    "library": {
+      "step1Title": "Salva Segnalibri",
+      "step1Desc": "Salva i link qui per un accesso rapido in seguito",
+      "step2Title": "Organizza a Modo Tuo",
+      "step2Desc": "Passa dalla vista elenco a quella cartelle"
+    },
+    "profile": {
+      "step1Title": "Sincronizzazione Cloud",
+      "step1Desc": "Accedi per sincronizzare i segnalibri tra dispositivi",
+      "step2Title": "Personalizza",
+      "step2Desc": "Regola tema, lingua e preferenze"
+    }
+  },
   "emptyState": {
     "whyDifferent": "Perché OneTap?",
     "valueProp1": "Un tocco verso ciò che conta",

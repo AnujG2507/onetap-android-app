@@ -1,4 +1,36 @@
 {
+  "tutorial": {
+    "skip": "Tutorial überspringen",
+    "next": "Weiter",
+    "previous": "Zurück",
+    "done": "Verstanden!",
+    "access": {
+      "step1Title": "Verknüpfungen erstellen",
+      "step1Desc": "Tippe auf einen Inhaltstyp, um eine Startbildschirm-Verknüpfung zu erstellen",
+      "step2Title": "Schnelle Links",
+      "step2Desc": "Füge Website-Verknüpfungen für Ein-Tipp-Zugriff hinzu",
+      "step3Title": "Aus deiner Bibliothek",
+      "step3Desc": "Verwende gespeicherte Lesezeichen, um Verknüpfungen zu erstellen"
+    },
+    "reminders": {
+      "step1Title": "Erinnerungen planen",
+      "step1Desc": "Erstelle zeitgesteuerte Erinnerungen zum Öffnen von Links oder Anrufen",
+      "step2Title": "Filtern & Organisieren",
+      "step2Desc": "Filtere nach Wiederholungstyp, um Erinnerungen schnell zu finden"
+    },
+    "library": {
+      "step1Title": "Lesezeichen speichern",
+      "step1Desc": "Speichere Links hier für schnellen Zugriff später",
+      "step2Title": "Organisiere auf deine Weise",
+      "step2Desc": "Wechsle zwischen Listen- und Ordneransicht"
+    },
+    "profile": {
+      "step1Title": "Cloud-Sync",
+      "step1Desc": "Melde dich an, um Lesezeichen geräteübergreifend zu synchronisieren",
+      "step2Title": "Anpassen",
+      "step2Desc": "Passe Design, Sprache und Einstellungen an"
+    }
+  },
   "emptyState": {
     "whyDifferent": "Warum OneTap?",
     "valueProp1": "Ein Tipp zu dem, was zählt",

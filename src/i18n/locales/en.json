@@ -1,4 +1,36 @@
 {
+  "tutorial": {
+    "skip": "Skip tutorial",
+    "next": "Next",
+    "previous": "Back",
+    "done": "Got it!",
+    "access": {
+      "step1Title": "Create Shortcuts",
+      "step1Desc": "Tap any content type to create a home screen shortcut",
+      "step2Title": "Quick Links",
+      "step2Desc": "Add website shortcuts for one-tap access",
+      "step3Title": "From Your Library",
+      "step3Desc": "Use saved bookmarks to create shortcuts"
+    },
+    "reminders": {
+      "step1Title": "Schedule Reminders",
+      "step1Desc": "Create timed reminders to open links or make calls",
+      "step2Title": "Filter & Organize",
+      "step2Desc": "Filter by recurrence type to find reminders quickly"
+    },
+    "library": {
+      "step1Title": "Save Bookmarks",
+      "step1Desc": "Save links here for quick access later",
+      "step2Title": "Organize Your Way",
+      "step2Desc": "Switch between list and folder views"
+    },
+    "profile": {
+      "step1Title": "Cloud Sync",
+      "step1Desc": "Sign in to sync bookmarks across devices",
+      "step2Title": "Customize",
+      "step2Desc": "Adjust theme, language, and preferences"
+    }
+  },
   "emptyState": {
     "whyDifferent": "Why OneTap?",
     "valueProp1": "One tap to what matters",
@@ -369,7 +401,9 @@
     "privacy": "Privacy Policy",
     "about": "About",
     "resetOnboarding": "Reset Onboarding",
-    "resetOnboardingDescription": "Re-experience language selection and intro"
+    "resetOnboardingDescription": "Re-experience language selection and intro",
+    "resetTutorials": "Reset Tutorials",
+    "resetTutorialsDescription": "Re-experience feature tutorials on each tab"
   },
   "settingsPage": {
     "appearanceDesc": "Choose your preferred theme",

@@ -1,4 +1,36 @@
 {
+  "tutorial": {
+    "skip": "Bỏ qua hướng dẫn",
+    "next": "Tiếp theo",
+    "previous": "Quay lại",
+    "done": "Đã hiểu!",
+    "access": {
+      "step1Title": "Tạo Lối tắt",
+      "step1Desc": "Chạm vào bất kỳ loại nội dung nào để tạo lối tắt màn hình chính",
+      "step2Title": "Liên kết Nhanh",
+      "step2Desc": "Thêm lối tắt trang web để truy cập bằng một chạm",
+      "step3Title": "Từ Thư viện của Bạn",
+      "step3Desc": "Sử dụng dấu trang đã lưu để tạo lối tắt"
+    },
+    "reminders": {
+      "step1Title": "Lên lịch Nhắc nhở",
+      "step1Desc": "Tạo nhắc nhở theo thời gian để mở liên kết hoặc gọi điện",
+      "step2Title": "Lọc và Sắp xếp",
+      "step2Desc": "Lọc theo loại lặp lại để tìm nhắc nhở nhanh chóng"
+    },
+    "library": {
+      "step1Title": "Lưu Dấu trang",
+      "step1Desc": "Lưu liên kết ở đây để truy cập nhanh sau này",
+      "step2Title": "Sắp xếp Theo Cách của Bạn",
+      "step2Desc": "Chuyển đổi giữa chế độ xem danh sách và thư mục"
+    },
+    "profile": {
+      "step1Title": "Đồng bộ Cloud",
+      "step1Desc": "Đăng nhập để đồng bộ dấu trang trên các thiết bị",
+      "step2Title": "Tùy chỉnh",
+      "step2Desc": "Điều chỉnh chủ đề, ngôn ngữ và tùy chọn"
+    }
+  },
   "emptyState": {
     "whyDifferent": "Tại sao OneTap?",
     "valueProp1": "Một chạm đến điều quan trọng",

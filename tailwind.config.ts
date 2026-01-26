@@ -108,6 +108,14 @@ export default {
           "0%": { opacity: "0", transform: "translateX(-30px)" },
           "100%": { opacity: "1", transform: "translateX(0)" },
         },
+        "spotlight-pulse": {
+          "0%, 100%": { boxShadow: "0 0 0 4px hsl(var(--primary) / 0.4)" },
+          "50%": { boxShadow: "0 0 0 8px hsl(var(--primary) / 0.15)" },
+        },
+        "tooltip-enter": {
+          "0%": { opacity: "0", transform: "translateY(8px) scale(0.96)" },
+          "100%": { opacity: "1", transform: "translateY(0) scale(1)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -119,6 +127,8 @@ export default {
         "slide-in-from-right": "slide-in-from-right 0.25s ease-out",
         "slide-in-from-left": "slide-in-from-left 0.25s ease-out",
         "pulse-soft": "pulse-soft 2s ease-in-out infinite",
+        "spotlight-pulse": "spotlight-pulse 2s ease-in-out infinite",
+        "tooltip-enter": "tooltip-enter 0.2s ease-out",
       },
     },
   },

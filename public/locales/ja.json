@@ -1,4 +1,36 @@
 {
+  "tutorial": {
+    "skip": "チュートリアルをスキップ",
+    "next": "次へ",
+    "previous": "戻る",
+    "done": "わかりました！",
+    "access": {
+      "step1Title": "ショートカットを作成",
+      "step1Desc": "コンテンツタイプをタップしてホーム画面ショートカットを作成",
+      "step2Title": "クイックリンク",
+      "step2Desc": "ワンタップアクセス用のウェブサイトショートカットを追加",
+      "step3Title": "ライブラリから",
+      "step3Desc": "保存したブックマークを使用してショートカットを作成"
+    },
+    "reminders": {
+      "step1Title": "リマインダーをスケジュール",
+      "step1Desc": "リンクを開いたり電話をかけるためのリマインダーを作成",
+      "step2Title": "フィルタと整理",
+      "step2Desc": "繰り返しタイプでフィルタしてリマインダーをすばやく検索"
+    },
+    "library": {
+      "step1Title": "ブックマークを保存",
+      "step1Desc": "後で素早くアクセスするためにリンクをここに保存",
+      "step2Title": "自分流に整理",
+      "step2Desc": "リスト表示とフォルダ表示を切り替え"
+    },
+    "profile": {
+      "step1Title": "クラウド同期",
+      "step1Desc": "サインインしてデバイス間でブックマークを同期",
+      "step2Title": "カスタマイズ",
+      "step2Desc": "テーマ、言語、設定を調整"
+    }
+  },
   "emptyState": {
     "whyDifferent": "なぜOneTap?",
     "valueProp1": "ワンタップで大切なものへ",

@@ -1,4 +1,36 @@
 {
+  "tutorial": {
+    "skip": "Pular tutorial",
+    "next": "Próximo",
+    "previous": "Voltar",
+    "done": "Entendi!",
+    "access": {
+      "step1Title": "Criar Atalhos",
+      "step1Desc": "Toque em qualquer tipo de conteúdo para criar um atalho na tela inicial",
+      "step2Title": "Links Rápidos",
+      "step2Desc": "Adicione atalhos de sites para acesso com um toque",
+      "step3Title": "Da Sua Biblioteca",
+      "step3Desc": "Use favoritos salvos para criar atalhos"
+    },
+    "reminders": {
+      "step1Title": "Agendar Lembretes",
+      "step1Desc": "Crie lembretes para abrir links ou fazer chamadas",
+      "step2Title": "Filtrar e Organizar",
+      "step2Desc": "Filtre por tipo de recorrência para encontrar lembretes rapidamente"
+    },
+    "library": {
+      "step1Title": "Salvar Favoritos",
+      "step1Desc": "Salve links aqui para acesso rápido depois",
+      "step2Title": "Organize do Seu Jeito",
+      "step2Desc": "Alterne entre visualização de lista e pastas"
+    },
+    "profile": {
+      "step1Title": "Sincronização na Nuvem",
+      "step1Desc": "Faça login para sincronizar favoritos entre dispositivos",
+      "step2Title": "Personalizar",
+      "step2Desc": "Ajuste tema, idioma e preferências"
+    }
+  },
   "emptyState": {
     "whyDifferent": "Por que OneTap?",
     "valueProp1": "Um toque para o que importa",

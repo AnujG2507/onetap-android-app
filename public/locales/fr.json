@@ -1,4 +1,36 @@
 {
+  "tutorial": {
+    "skip": "Passer le tutoriel",
+    "next": "Suivant",
+    "previous": "Retour",
+    "done": "Compris !",
+    "access": {
+      "step1Title": "Créer des raccourcis",
+      "step1Desc": "Appuyez sur n'importe quel type de contenu pour créer un raccourci",
+      "step2Title": "Liens rapides",
+      "step2Desc": "Ajoutez des raccourcis vers des sites web d'un seul tap",
+      "step3Title": "Depuis votre bibliothèque",
+      "step3Desc": "Utilisez les favoris enregistrés pour créer des raccourcis"
+    },
+    "reminders": {
+      "step1Title": "Programmer des rappels",
+      "step1Desc": "Créez des rappels pour ouvrir des liens ou passer des appels",
+      "step2Title": "Filtrer et organiser",
+      "step2Desc": "Filtrez par type de récurrence pour trouver rapidement les rappels"
+    },
+    "library": {
+      "step1Title": "Enregistrer des favoris",
+      "step1Desc": "Enregistrez des liens ici pour un accès rapide plus tard",
+      "step2Title": "Organisez à votre façon",
+      "step2Desc": "Basculez entre la vue liste et dossiers"
+    },
+    "profile": {
+      "step1Title": "Synchronisation cloud",
+      "step1Desc": "Connectez-vous pour synchroniser les favoris entre appareils",
+      "step2Title": "Personnaliser",
+      "step2Desc": "Ajustez le thème, la langue et les préférences"
+    }
+  },
   "emptyState": {
     "whyDifferent": "Pourquoi OneTap?",
     "valueProp1": "Un tap vers l'essentiel",
