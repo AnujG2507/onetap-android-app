@@ -127,17 +127,38 @@ export function AccessFlow({
     setStep('customize');
   };
 
-  const handleSelectFromLibrary = () => {
+  const handleSelectFromLibrary = (actionMode: ActionMode) => {
+    setPendingActionMode(actionMode);
     setShowBookmarkPicker(true);
   };
 
   const handleBookmarkSelected = (url: string) => {
     setShowBookmarkPicker(false);
-    setContentSource({
-      type: 'url',
-      uri: url,
-    });
-    setStep('customize');
+    
+    if (pendingActionMode === 'reminder') {
+      // Create reminder destination and navigate to notifications
+      try {
+        const hostname = new URL(url).hostname.replace('www.', '');
+        const destination: ScheduledActionDestination = {
+          type: 'url',
+          uri: url,
+          name: hostname,
+        };
+        onCreateReminder?.(destination);
+      } catch {
+        onCreateReminder?.({
+          type: 'url',
+          uri: url,
+          name: 'Bookmark',
+        });
+      }
+    } else {
+      setContentSource({
+        type: 'url',
+        uri: url,
+      });
+      setStep('customize');
+    }
   };
 
   const handleEnterUrl = (actionMode: ActionMode) => {

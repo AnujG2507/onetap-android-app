@@ -10,13 +10,14 @@ export type ActionMode = 'shortcut' | 'reminder';
 interface ContentSourcePickerProps {
   onSelectFile: (filter: FileTypeFilter, actionMode: ActionMode) => void;
   onSelectContact?: (mode: ContactMode, actionMode: ActionMode) => void;
-  onSelectFromLibrary?: () => void;
+  onSelectFromLibrary?: (actionMode: ActionMode) => void;
   onEnterUrl?: (actionMode: ActionMode) => void;
   /** Called when the inline picker is opened or closed */
   onPickerOpenChange?: (isOpen: boolean) => void;
 }
 
 type ActivePicker = 'photo' | 'video' | 'audio' | 'document' | 'contact' | 'link' | null;
+type ActiveSecondaryPicker = 'browse' | 'library' | null;
 
 export function ContentSourcePicker({ 
   onSelectFile, 
@@ -27,11 +28,19 @@ export function ContentSourcePicker({
 }: ContentSourcePickerProps) {
   const { t } = useTranslation();
   const [activePicker, setActivePicker] = useState<ActivePicker>(null);
+  const [activeSecondaryPicker, setActiveSecondaryPicker] = useState<ActiveSecondaryPicker>(null);
   const [contactMode, setContactMode] = useState<ContactMode>('dial');
 
   // Notify parent when picker opens/closes
   const updateActivePicker = (picker: ActivePicker) => {
     setActivePicker(picker);
+    setActiveSecondaryPicker(null);
+    onPickerOpenChange?.(picker !== null);
+  };
+
+  const updateSecondaryPicker = (picker: ActiveSecondaryPicker) => {
+    setActiveSecondaryPicker(picker);
+    setActivePicker(null);
     onPickerOpenChange?.(picker !== null);
   };
 
@@ -67,6 +76,24 @@ export function ContentSourcePicker({
 
   const closePicker = () => {
     updateActivePicker(null);
+    updateSecondaryPicker(null);
+  };
+
+  const handleSecondaryAction = (picker: ActiveSecondaryPicker, action: ActionMode) => {
+    updateSecondaryPicker(null);
+    if (picker === 'browse') {
+      onSelectFile('all', action);
+    } else if (picker === 'library') {
+      onSelectFromLibrary?.(action);
+    }
+  };
+
+  const handleSecondaryButtonClick = (picker: ActiveSecondaryPicker) => {
+    if (activeSecondaryPicker === picker) {
+      updateSecondaryPicker(null);
+    } else {
+      updateSecondaryPicker(picker);
+    }
   };
 
   return (
@@ -155,21 +182,36 @@ export function ContentSourcePicker({
         <div className="h-px bg-border my-4" />
         
         {/* Secondary Actions */}
-        <div className="grid grid-cols-2 gap-3">
-          <SecondaryButton
-            icon={<FolderOpen className="h-4 w-4" />}
-            label={t('access.browseFiles')}
-            onClick={() => onSelectFile('all', 'shortcut')}
-          />
-          {onSelectFromLibrary && (
+        <div className={cn(
+          "grid gap-3 transition-all duration-200",
+          activeSecondaryPicker ? "grid-cols-1" : "grid-cols-2"
+        )}>
+          {(!activeSecondaryPicker || activeSecondaryPicker === 'browse') && (
+            <SecondaryButton
+              icon={<FolderOpen className="h-4 w-4" />}
+              label={t('access.browseFiles')}
+              onClick={() => handleSecondaryButtonClick('browse')}
+              isActive={activeSecondaryPicker === 'browse'}
+            />
+          )}
+          {onSelectFromLibrary && (!activeSecondaryPicker || activeSecondaryPicker === 'library') && (
             <SecondaryButton
               id="tutorial-saved-bookmarks"
               icon={<Bookmark className="h-4 w-4" />}
               label={t('access.savedBookmarks')}
-              onClick={onSelectFromLibrary}
+              onClick={() => handleSecondaryButtonClick('library')}
+              isActive={activeSecondaryPicker === 'library'}
             />
           )}
         </div>
+
+        {/* Secondary Action Picker */}
+        {activeSecondaryPicker && (
+          <ActionModePicker
+            onSelectAction={(action) => handleSecondaryAction(activeSecondaryPicker, action)}
+            onClose={closePicker}
+          />
+        )}
       </div>
     </div>
   );
@@ -362,22 +404,25 @@ interface SecondaryButtonProps {
   icon: React.ReactNode;
   label: string;
   onClick: () => void;
+  isActive?: boolean;
 }
 
-function SecondaryButton({ id, icon, label, onClick }: SecondaryButtonProps) {
+function SecondaryButton({ id, icon, label, onClick, isActive }: SecondaryButtonProps) {
   return (
     <button
       id={id}
       onClick={onClick}
       className={cn(
-        "flex items-center gap-2 rounded-xl bg-muted/20 px-3 py-2.5",
-        "hover:bg-muted/40 hover:text-foreground",
-        "active:scale-[0.97] transition-all duration-150",
-        "focus:outline-none focus:ring-2 focus:ring-ring"
+        "flex items-center gap-2 rounded-xl px-3 py-2.5",
+        "active:scale-[0.97] transition-all duration-200",
+        "focus:outline-none focus:ring-2 focus:ring-ring",
+        isActive 
+          ? "bg-primary/10 ring-2 ring-primary/30 scale-105 shadow-md" 
+          : "bg-muted/20 hover:bg-muted/40 hover:text-foreground"
       )}
     >
-      <span className="text-muted-foreground">{icon}</span>
-      <span className="text-sm text-muted-foreground">{label}</span>
+      <span className={cn(isActive ? "text-primary" : "text-muted-foreground")}>{icon}</span>
+      <span className={cn("text-sm", isActive ? "text-foreground font-medium" : "text-muted-foreground")}>{label}</span>
     </button>
   );
 }
