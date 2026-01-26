@@ -7,6 +7,7 @@ import android.content.ClipData;
 import android.content.ContentResolver;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.res.Configuration;
 import android.database.Cursor;
 import android.graphics.Color;
 import android.graphics.Typeface;
@@ -19,6 +20,7 @@ import android.os.Looper;
 import android.provider.OpenableColumns;
 import android.util.Log;
 import android.util.TypedValue;
+import android.view.Display;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
@@ -35,11 +37,17 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.OptIn;
+import androidx.media3.common.C;
+import androidx.media3.common.ColorInfo;
+import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
+import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.video.VideoFrameMetadataListener;
 import androidx.media3.ui.PlayerView;
 
 import java.util.ArrayList;
@@ -49,6 +57,7 @@ import java.util.Locale;
 /**
  * NativeVideoPlayerActivity
  * Native Android video playback using ExoPlayer (Media3) for broad codec support.
+ * Includes hardware-accelerated HDR playback (HDR10, HDR10+, HLG, Dolby Vision).
  * Falls back to external player apps if internal playback fails.
  * Includes debug overlay for diagnosing device-specific failures.
  */
@@ -70,6 +79,13 @@ public class NativeVideoPlayerActivity extends Activity {
     private String videoMimeType;
     private boolean hasTriedExternalFallback = false;
     private boolean isTopBarVisible = true;
+
+    // HDR state
+    private boolean isHdrContent = false;
+    private boolean isHdrDisplaySupported = false;
+    private String hdrType = "SDR";
+    private String colorSpace = "unknown";
+    private String colorTransfer = "unknown";
 
     // Debug logging
     private final List<String> debugLogs = new ArrayList<>();
@@ -122,7 +138,8 @@ public class NativeVideoPlayerActivity extends Activity {
             sb.append("DEVICE:\n");
             sb.append("  Model: ").append(Build.MODEL).append("\n");
             sb.append("  Android: ").append(Build.VERSION.RELEASE).append(" (API ").append(Build.VERSION.SDK_INT).append(")\n");
-            sb.append("  Manufacturer: ").append(Build.MANUFACTURER).append("\n\n");
+            sb.append("  Manufacturer: ").append(Build.MANUFACTURER).append("\n");
+            sb.append("  HDR Display: ").append(isHdrDisplaySupported ? "YES" : "NO").append("\n\n");
             
             // Video info
             sb.append("VIDEO:\n");
@@ -136,6 +153,13 @@ public class NativeVideoPlayerActivity extends Activity {
                 sb.append("  Position: ").append(exoPlayer.getCurrentPosition() / 1000).append("s\n");
             }
             sb.append("\n");
+            
+            // HDR info
+            sb.append("HDR:\n");
+            sb.append("  Content Type: ").append(hdrType).append("\n");
+            sb.append("  Color Space: ").append(colorSpace).append("\n");
+            sb.append("  Transfer: ").append(colorTransfer).append("\n");
+            sb.append("  HDR Active: ").append(isHdrContent && isHdrDisplaySupported ? "YES" : "NO").append("\n\n");
             
             // State
             sb.append("STATE:\n");
@@ -332,13 +356,24 @@ public class NativeVideoPlayerActivity extends Activity {
     }
 
     private void initializePlayer() {
-        logInfo("Initializing ExoPlayer...");
+        logInfo("Initializing ExoPlayer with HDR support...");
+        
+        // Check HDR display capability
+        checkHdrDisplaySupport();
         
         try {
-            exoPlayer = new ExoPlayer.Builder(this).build();
+            // Use DefaultRenderersFactory with extension decoder mode for broader HDR codec support
+            DefaultRenderersFactory renderersFactory = new DefaultRenderersFactory(this)
+                .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
+                .setEnableDecoderFallback(true);
+            
+            exoPlayer = new ExoPlayer.Builder(this, renderersFactory)
+                .setVideoScalingMode(C.VIDEO_SCALING_MODE_SCALE_TO_FIT)
+                .build();
+            
             playerView.setPlayer(exoPlayer);
             
-            logInfo("ExoPlayer created");
+            logInfo("ExoPlayer created with HDR-capable renderers");
             
             // Set up listener
             exoPlayer.addListener(new Player.Listener() {
@@ -350,6 +385,8 @@ public class NativeVideoPlayerActivity extends Activity {
                     if (playbackState == Player.STATE_READY) {
                         showTopBar();
                         scheduleHide();
+                        // Check video format for HDR info
+                        detectHdrFromCurrentTrack();
                     } else if (playbackState == Player.STATE_ENDED) {
                         logInfo("Playback completed");
                     }
@@ -370,6 +407,11 @@ public class NativeVideoPlayerActivity extends Activity {
                 public void onIsPlayingChanged(boolean isPlaying) {
                     logInfo("isPlaying: " + isPlaying);
                 }
+
+                @Override
+                public void onVideoSizeChanged(VideoSize videoSize) {
+                    logInfo("Video size: " + videoSize.width + "x" + videoSize.height);
+                }
             });
 
             // Create media item and start playback
@@ -385,6 +427,163 @@ public class NativeVideoPlayerActivity extends Activity {
         } catch (Exception e) {
             logError("Failed to initialize ExoPlayer: " + e.getMessage());
             showExternalPlayerDialog("Failed to initialize video player");
+        }
+    }
+
+    /**
+     * Check if the device display supports HDR content.
+     */
+    private void checkHdrDisplaySupport() {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                Display display = getWindowManager().getDefaultDisplay();
+                Display.HdrCapabilities hdrCaps = display.getHdrCapabilities();
+                
+                if (hdrCaps != null) {
+                    int[] supportedTypes = hdrCaps.getSupportedHdrTypes();
+                    isHdrDisplaySupported = supportedTypes != null && supportedTypes.length > 0;
+                    
+                    if (isHdrDisplaySupported) {
+                        StringBuilder sb = new StringBuilder();
+                        for (int type : supportedTypes) {
+                            if (sb.length() > 0) sb.append(", ");
+                            sb.append(getHdrTypeName(type));
+                        }
+                        logInfo("HDR display supported: " + sb.toString());
+                        logInfo("HDR max luminance: " + hdrCaps.getDesiredMaxLuminance() + " nits");
+                    } else {
+                        logInfo("HDR display: not supported");
+                    }
+                } else {
+                    logInfo("HDR capabilities: unavailable");
+                }
+            } else {
+                logInfo("HDR detection requires Android O+");
+            }
+        } catch (Exception e) {
+            logWarn("Failed to check HDR display support: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Detect HDR information from the currently playing video track.
+     */
+    private void detectHdrFromCurrentTrack() {
+        try {
+            if (exoPlayer == null) return;
+            
+            Format videoFormat = exoPlayer.getVideoFormat();
+            if (videoFormat == null) {
+                logInfo("Video format not available yet");
+                return;
+            }
+            
+            ColorInfo colorInfo = videoFormat.colorInfo;
+            if (colorInfo != null) {
+                // Detect HDR type from color transfer
+                int colorTransferVal = colorInfo.colorTransfer;
+                int colorSpaceVal = colorInfo.colorSpace;
+                
+                colorTransfer = getColorTransferName(colorTransferVal);
+                colorSpace = getColorSpaceName(colorSpaceVal);
+                
+                // Check for HDR content
+                if (colorTransferVal == C.COLOR_TRANSFER_ST2084) {
+                    // PQ (Perceptual Quantizer) - used by HDR10, HDR10+, Dolby Vision
+                    isHdrContent = true;
+                    if (videoFormat.codecs != null && videoFormat.codecs.contains("dvh")) {
+                        hdrType = "Dolby Vision";
+                    } else {
+                        hdrType = "HDR10/HDR10+";
+                    }
+                } else if (colorTransferVal == C.COLOR_TRANSFER_HLG) {
+                    // HLG (Hybrid Log-Gamma)
+                    isHdrContent = true;
+                    hdrType = "HLG";
+                } else {
+                    isHdrContent = false;
+                    hdrType = "SDR";
+                }
+                
+                logInfo("Color info - Transfer: " + colorTransfer + ", Space: " + colorSpace);
+                logInfo("HDR content: " + hdrType + (isHdrContent ? " ✓" : ""));
+                
+                // Log if HDR playback is actually happening
+                if (isHdrContent) {
+                    if (isHdrDisplaySupported) {
+                        logInfo("HDR playback: ACTIVE (device supports HDR)");
+                    } else {
+                        logWarn("HDR content detected but display doesn't support HDR - tonemapping to SDR");
+                    }
+                }
+            } else {
+                hdrType = "SDR";
+                colorSpace = "default";
+                colorTransfer = "default";
+                isHdrContent = false;
+                logInfo("No color info in video format (SDR content)");
+            }
+            
+            // Log codec info
+            if (videoFormat.codecs != null) {
+                logInfo("Codec: " + videoFormat.codecs);
+            }
+            if (videoFormat.sampleMimeType != null) {
+                logInfo("Sample MIME: " + videoFormat.sampleMimeType);
+            }
+            
+            updateDebugOverlay();
+            
+        } catch (Exception e) {
+            logWarn("Failed to detect HDR info: " + e.getMessage());
+        }
+    }
+
+    private String getHdrTypeName(int hdrType) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            switch (hdrType) {
+                case Display.HdrCapabilities.HDR_TYPE_DOLBY_VISION:
+                    return "Dolby Vision";
+                case Display.HdrCapabilities.HDR_TYPE_HDR10:
+                    return "HDR10";
+                case Display.HdrCapabilities.HDR_TYPE_HLG:
+                    return "HLG";
+                case Display.HdrCapabilities.HDR_TYPE_HDR10_PLUS:
+                    return "HDR10+";
+                default:
+                    return "Unknown(" + hdrType + ")";
+            }
+        }
+        return "Unknown";
+    }
+
+    private String getColorTransferName(int colorTransfer) {
+        switch (colorTransfer) {
+            case C.COLOR_TRANSFER_SDR:
+                return "SDR";
+            case C.COLOR_TRANSFER_ST2084:
+                return "PQ (ST2084)";
+            case C.COLOR_TRANSFER_HLG:
+                return "HLG";
+            case C.COLOR_TRANSFER_LINEAR:
+                return "Linear";
+            case C.COLOR_TRANSFER_GAMMA_2_2:
+                return "Gamma 2.2";
+            default:
+                return "Unknown(" + colorTransfer + ")";
+        }
+    }
+
+    private String getColorSpaceName(int colorSpace) {
+        switch (colorSpace) {
+            case C.COLOR_SPACE_BT709:
+                return "BT.709 (SDR)";
+            case C.COLOR_SPACE_BT601:
+                return "BT.601";
+            case C.COLOR_SPACE_BT2020:
+                return "BT.2020 (HDR)";
+            default:
+                return "Unknown(" + colorSpace + ")";
         }
     }
 
