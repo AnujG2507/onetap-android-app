@@ -27,6 +27,7 @@ import {
   Trash2,
   Link,
   Phone,
+  HelpCircle,
 } from 'lucide-react';
 import { useScheduledActions } from '@/hooks/useScheduledActions';
 import { useSheetBackHandler } from '@/hooks/useSheetBackHandler';
@@ -39,6 +40,7 @@ import { AppMenu } from './AppMenu';
 import { TrashSheet } from './TrashSheet';
 import { EmptyStateWithValueProp } from './EmptyStateWithValueProp';
 import { TutorialCoachMarks } from './TutorialCoachMarks';
+import { BatteryOptimizationHelp } from './BatteryOptimizationHelp';
 import type { ScheduledAction, RecurrenceType, ScheduledActionDestination } from '@/types/scheduledAction';
 import { 
   getSelectedIds, 
@@ -138,6 +140,9 @@ export function NotificationsPage({
   
   // Trash state
   const [isTrashOpen, setIsTrashOpen] = useState(false);
+  
+  // Battery help state
+  const [isBatteryHelpOpen, setIsBatteryHelpOpen] = useState(false);
   
   // Scroll state for hiding bottom button
   const [isScrolledDown, setIsScrolledDown] = useState(false);
@@ -514,6 +519,21 @@ export function NotificationsPage({
                   {allPermissionsGranted ? t('notificationsPage.allPermissionsGranted') : t('notificationsPage.grantPermissions')}
                 </TooltipContent>
               </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsBatteryHelpOpen(true)}
+                    className="text-xs gap-1.5 h-8"
+                  >
+                    <HelpCircle className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {t('batteryHelp.helpButton')}
+                </TooltipContent>
+              </Tooltip>
             </TooltipProvider>
             <AppMenu onOpenTrash={() => setIsTrashOpen(true)} />
           </div>
@@ -883,6 +903,12 @@ export function NotificationsPage({
           onDismiss={tutorial.skip}
         />
       )}
+      
+      {/* Battery Optimization Help */}
+      <BatteryOptimizationHelp
+        open={isBatteryHelpOpen}
+        onOpenChange={setIsBatteryHelpOpen}
+      />
     </div>
   );
 }
