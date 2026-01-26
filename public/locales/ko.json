@@ -1,4 +1,10 @@
 {
+  "emptyState": {
+    "whyDifferent": "왜 OneTap?",
+    "valueProp1": "한 번의 탭으로 중요한 것에",
+    "valueProp2": "피드 없음. 방해 없음.",
+    "valueProp3": "홈 화면 네이티브 바로가기"
+  },
   "app": {
     "name": "OneTap",
     "tagline": "한 번의 탭으로 중요한 것에"

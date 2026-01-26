@@ -36,6 +36,7 @@ import { ScheduledActionActionSheet } from './ScheduledActionActionSheet';
 import { ScheduledActionCreator } from './ScheduledActionCreator';
 import { AppMenu } from './AppMenu';
 import { TrashSheet } from './TrashSheet';
+import { EmptyStateWithValueProp } from './EmptyStateWithValueProp';
 import type { ScheduledAction, RecurrenceType } from '@/types/scheduledAction';
 import { 
   getSelectedIds, 
@@ -840,33 +841,14 @@ export function NotificationsPage({
 function EmptyState({ onCreateNew }: { onCreateNew: () => void }) {
   const { t } = useTranslation();
   return (
-    <div className="flex flex-col items-center justify-center py-16 px-4 text-center relative">
-      {/* Animated floating icons */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <Clock className="absolute top-8 left-8 h-6 w-6 text-primary/20 animate-float" />
-        <Calendar className="absolute top-12 right-12 h-5 w-5 text-primary/15 animate-float-delayed" />
-        <Bell className="absolute bottom-16 left-12 h-5 w-5 text-primary/20 animate-float" />
-        <Link className="absolute top-24 left-1/4 h-4 w-4 text-primary/10 animate-float-delayed" />
-        <Phone className="absolute bottom-24 right-16 h-4 w-4 text-primary/15 animate-float" />
-      </div>
-      
-      {/* Main icon with glow */}
-      <div className="relative mb-4">
-        <div className="absolute inset-0 bg-primary/20 rounded-2xl blur-xl scale-150" />
-        <div className="relative w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center">
-          <CalendarClock className="h-8 w-8 text-primary" />
-        </div>
-      </div>
-      
-      <h3 className="text-lg font-medium mb-2">{t('notificationsPage.emptyTitle')}</h3>
-      <p className="text-sm text-muted-foreground mb-6 max-w-[240px]">
-        {t('notificationsPage.emptyDesc')}
-      </p>
-      <Button onClick={onCreateNew} className="gap-2">
-        <Plus className="h-4 w-4" />
-        {t('notificationsPage.scheduleFirst')}
-      </Button>
-    </div>
+    <EmptyStateWithValueProp
+      variant="reminders"
+      icon={<CalendarClock className="h-8 w-8 text-primary" />}
+      title={t('notificationsPage.emptyTitle')}
+      description={t('notificationsPage.emptyDesc')}
+      ctaLabel={t('notificationsPage.scheduleFirst')}
+      onCtaClick={onCreateNew}
+    />
   );
 }
 

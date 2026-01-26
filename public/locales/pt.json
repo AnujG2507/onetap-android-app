@@ -1,4 +1,10 @@
 {
+  "emptyState": {
+    "whyDifferent": "Por que OneTap?",
+    "valueProp1": "Um toque para o que importa",
+    "valueProp2": "Sem feeds. Sem distrações.",
+    "valueProp3": "Atalhos nativos na tela inicial"
+  },
   "app": {
     "name": "OneTap",
     "tagline": "Um toque para o que importa"

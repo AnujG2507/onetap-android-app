@@ -1,4 +1,10 @@
 {
+  "emptyState": {
+    "whyDifferent": "Perché OneTap?",
+    "valueProp1": "Un tocco verso ciò che conta",
+    "valueProp2": "Nessun feed. Nessuna distrazione.",
+    "valueProp3": "Scorciatoie native sulla home"
+  },
   "app": {
     "name": "OneTap",
     "tagline": "Un tocco verso ciò che conta"

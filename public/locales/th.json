@@ -1,4 +1,10 @@
 {
+  "emptyState": {
+    "whyDifferent": "ทำไม OneTap?",
+    "valueProp1": "แตะครั้งเดียวถึงสิ่งสำคัญ",
+    "valueProp2": "ไม่มีฟีด ไม่มีสิ่งรบกวน",
+    "valueProp3": "ทางลัดหน้าจอหลักแบบเนทีฟ"
+  },
   "app": {
     "name": "OneTap",
     "tagline": "แตะครั้งเดียวถึงสิ่งสำคัญ"

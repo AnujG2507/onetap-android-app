@@ -49,6 +49,7 @@ import { AddBookmarkForm } from './AddBookmarkForm';
 import { BulkMoveDialog } from './BulkMoveDialog';
 import { AppMenu } from './AppMenu';
 import { TrashSheet } from './TrashSheet';
+import { EmptyStateWithValueProp } from './EmptyStateWithValueProp';
 import { useToast } from '@/hooks/use-toast';
 import { useSheetBackHandler } from '@/hooks/useSheetBackHandler';
 import { triggerHaptic } from '@/lib/haptics';
@@ -793,46 +794,17 @@ export function BookmarkLibrary({
       
       {/* Empty state with animated illustration */}
       {links.length === 0 && !showAddForm && (
-        <div className="flex flex-col items-center justify-center py-16 px-4 animate-fade-in">
-          {/* Animated illustration */}
-          <div className="relative mb-6">
-            {/* Floating decorative elements */}
-            <div className="absolute -top-2 -left-4 w-2 h-2 rounded-full bg-primary/30 animate-float-delayed" />
-            <div className="absolute -top-1 right-0 w-1.5 h-1.5 rounded-full bg-primary/20 animate-float" />
-            <div className="absolute bottom-0 -right-3 w-2.5 h-2.5 rounded-full bg-primary/25 animate-float-delayed" />
-            
-            {/* Main bookmark icon with glow */}
-            <div className="relative animate-float">
-              <div className="absolute inset-0 bg-primary/10 rounded-2xl blur-xl scale-150" />
-              <div className="relative bg-muted/50 rounded-2xl p-5 border border-border/50">
-                <Bookmark className="h-10 w-10 text-primary/60" strokeWidth={1.5} />
-              </div>
-            </div>
-            
-            {/* Small accent icon */}
-            <div className="absolute -bottom-1 -left-2 animate-float-delayed">
-              <Link2 className="h-4 w-4 text-muted-foreground/40" />
-            </div>
-          </div>
-          
-          {/* Text content */}
-          <h3 className="text-foreground font-medium mb-1">{t('library.empty')}</h3>
-          <p className="text-muted-foreground/70 text-sm text-center max-w-[240px] mb-6">
-            {t('library.emptyDescription')}
-          </p>
-          
-          {/* Add button */}
-          <button
-            onClick={() => {
-              setShowAddForm(true);
-              triggerHaptic('light');
-            }}
-            className="flex items-center justify-center gap-2 w-full max-w-xs py-4 border-2 border-dashed border-muted-foreground/30 rounded-xl text-muted-foreground hover:border-primary/50 hover:text-primary hover:scale-[1.02] transition-all duration-200"
-          >
-            <Plus className="h-5 w-5" />
-            <span className="text-sm font-medium">{t('library.addFirst')}</span>
-          </button>
-        </div>
+        <EmptyStateWithValueProp
+          variant="library"
+          icon={<Bookmark className="h-8 w-8 text-primary" strokeWidth={1.5} />}
+          title={t('library.empty')}
+          description={t('library.emptyDescription')}
+          ctaLabel={t('library.addFirst')}
+          onCtaClick={() => {
+            setShowAddForm(true);
+            triggerHaptic('light');
+          }}
+        />
       )}
 
       {/* Sort Controls - below Add Bookmark */}

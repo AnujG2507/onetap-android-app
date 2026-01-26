@@ -1,4 +1,10 @@
 {
+  "emptyState": {
+    "whyDifferent": "Warum OneTap?",
+    "valueProp1": "Ein Tipp zu dem, was zählt",
+    "valueProp2": "Keine Feeds. Keine Ablenkungen.",
+    "valueProp3": "Native Home-Screen-Verknüpfungen"
+  },
   "app": {
     "name": "OneTap",
     "tagline": "Ein Tipp zu dem, was zählt"

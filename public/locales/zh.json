@@ -1,4 +1,10 @@
 {
+  "emptyState": {
+    "whyDifferent": "为什么选择 OneTap?",
+    "valueProp1": "一键直达重要内容",
+    "valueProp2": "无信息流。无干扰。",
+    "valueProp3": "原生主屏幕快捷方式"
+  },
   "app": {
     "name": "OneTap",
     "tagline": "一键直达重要内容"

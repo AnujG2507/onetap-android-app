@@ -1,4 +1,10 @@
 {
+  "emptyState": {
+    "whyDifferent": "Почему OneTap?",
+    "valueProp1": "Одно касание к важному",
+    "valueProp2": "Без лент. Без отвлечений.",
+    "valueProp3": "Нативные ярлыки на главном экране"
+  },
   "app": {
     "name": "OneTap",
     "tagline": "Одно касание к важному"

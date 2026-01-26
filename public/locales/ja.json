@@ -1,4 +1,10 @@
 {
+  "emptyState": {
+    "whyDifferent": "なぜOneTap?",
+    "valueProp1": "ワンタップで大切なものへ",
+    "valueProp2": "フィードなし。気を散らすものなし。",
+    "valueProp3": "ホーム画面ネイティブショートカット"
+  },
   "app": {
     "name": "OneTap",
     "tagline": "ワンタップで大切なものへ"

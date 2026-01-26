@@ -72,6 +72,10 @@ export default {
             height: "var(--radix-accordion-content-height)",
           },
         },
+        "pulse-soft": {
+          "0%, 100%": { transform: "scale(1)", opacity: "1" },
+          "50%": { transform: "scale(1.08)", opacity: "0.7" },
+        },
         "accordion-up": {
           from: {
             height: "var(--radix-accordion-content-height)",
@@ -114,6 +118,7 @@ export default {
         "float-delayed": "float-delayed 4s ease-in-out infinite 0.5s",
         "slide-in-from-right": "slide-in-from-right 0.25s ease-out",
         "slide-in-from-left": "slide-in-from-left 0.25s ease-out",
+        "pulse-soft": "pulse-soft 2s ease-in-out infinite",
       },
     },
   },

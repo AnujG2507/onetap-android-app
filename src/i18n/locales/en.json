@@ -1,4 +1,10 @@
 {
+  "emptyState": {
+    "whyDifferent": "Why OneTap?",
+    "valueProp1": "One tap to what matters",
+    "valueProp2": "No feeds. No distractions.",
+    "valueProp3": "Native home screen shortcuts"
+  },
   "app": {
     "name": "OneTap",
     "tagline": "One tap to what matters",

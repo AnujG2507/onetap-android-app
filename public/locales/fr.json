@@ -1,4 +1,10 @@
 {
+  "emptyState": {
+    "whyDifferent": "Pourquoi OneTap?",
+    "valueProp1": "Un tap vers l'essentiel",
+    "valueProp2": "Pas de flux. Pas de distractions.",
+    "valueProp3": "Raccourcis natifs sur l'écran d'accueil"
+  },
   "app": {
     "name": "OneTap",
     "tagline": "Un tap vers l'essentiel"

@@ -1,4 +1,10 @@
 {
+  "emptyState": {
+    "whyDifferent": "لماذا OneTap؟",
+    "valueProp1": "لمسة واحدة لما يهم",
+    "valueProp2": "لا خلاصات. لا تشتيت.",
+    "valueProp3": "اختصارات أصلية على الشاشة الرئيسية"
+  },
   "app": {
     "name": "OneTap",
     "tagline": "لمسة واحدة لما يهم"

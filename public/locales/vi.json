@@ -1,4 +1,10 @@
 {
+  "emptyState": {
+    "whyDifferent": "Tại sao OneTap?",
+    "valueProp1": "Một chạm đến điều quan trọng",
+    "valueProp2": "Không nguồn cấp dữ liệu. Không phân tâm.",
+    "valueProp3": "Lối tắt gốc trên màn hình chính"
+  },
   "app": {
     "name": "OneTap",
     "tagline": "Một chạm đến điều quan trọng"

@@ -1,4 +1,10 @@
 {
+  "emptyState": {
+    "whyDifferent": "OneTap क्यों?",
+    "valueProp1": "एक टैप में जो मायने रखता है",
+    "valueProp2": "कोई फ़ीड नहीं। कोई विकर्षण नहीं।",
+    "valueProp3": "होम स्क्रीन पर मूल शॉर्टकट"
+  },
   "app": {
     "name": "OneTap",
     "tagline": "एक टैप में जो मायने रखता है"
