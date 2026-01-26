@@ -263,6 +263,61 @@ public class NativeVideoPlayerActivity extends Activity {
         );
     }
 
+    /**
+     * Apply immersive fullscreen safely.
+     *
+     * On some OEM builds, calling getWindow().getInsetsController() too early can crash
+     * because the decor view isn't created yet.
+     */
+    private void applyImmersiveModeSafely() {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                try {
+                    getWindow().setDecorFitsSystemWindows(false);
+                } catch (Throwable ignored) {}
+
+                View decor = null;
+                try {
+                    decor = getWindow().getDecorView();
+                } catch (Throwable ignored) {}
+
+                WindowInsetsController controller = null;
+                try {
+                    if (decor != null) controller = decor.getWindowInsetsController();
+                } catch (Throwable ignored) {}
+
+                if (controller != null) {
+                    controller.hide(WindowInsets.Type.statusBars() | WindowInsets.Type.navigationBars());
+                    controller.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+                } else if (decor != null) {
+                    // Fallback to legacy flags even on newer Android builds.
+                    decor.setSystemUiVisibility(
+                        View.SYSTEM_UI_FLAG_FULLSCREEN
+                            | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                            | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                            | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                            | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                            | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                    );
+                }
+            } else {
+                getWindow().getDecorView().setSystemUiVisibility(
+                    View.SYSTEM_UI_FLAG_FULLSCREEN
+                        | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                        | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                        | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                        | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                        | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                );
+            }
+        } catch (Throwable t) {
+            // Never crash the player because of fullscreen chrome.
+            try {
+                Log.w(TAG, "applyImmersiveModeSafely failed", t);
+            } catch (Throwable ignored) {}
+        }
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -275,28 +330,13 @@ public class NativeVideoPlayerActivity extends Activity {
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                getWindow().setDecorFitsSystemWindows(false);
-                WindowInsetsController controller = getWindow().getInsetsController();
-                if (controller != null) {
-                    controller.hide(WindowInsets.Type.statusBars() | WindowInsets.Type.navigationBars());
-                    controller.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
-                }
-            } else {
-                getWindow().getDecorView().setSystemUiVisibility(
-                    View.SYSTEM_UI_FLAG_FULLSCREEN
-                        | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                        | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-                        | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                        | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                        | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                );
-            }
-
             // Root
             root = new FrameLayout(this);
             root.setBackgroundColor(0xFF000000);
             setContentView(root);
+
+            // Apply immersive mode after decor view exists.
+            applyImmersiveModeSafely();
 
             // ExoPlayer view
             playerView = new PlayerView(this);
