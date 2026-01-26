@@ -143,7 +143,6 @@
     "reverse": "Reverse",
     "reversed": "Reversed",
     "manualOrderHint": "Manual ordering mode — drag items to reorder",
-    "dragToReorder": "Drag to reorder",
     "sortNewestTooltip": "Sort by newest first",
     "sortAZTooltip": "Sort alphabetically by title",
     "sortFolderTooltip": "Group by folder, then by date",
