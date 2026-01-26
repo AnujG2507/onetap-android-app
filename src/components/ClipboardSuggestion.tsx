@@ -1,13 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Clipboard, X, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { triggerSelectionFeedback } from '@/lib/haptics';
 
 interface ClipboardSuggestionProps {
   url: string;
   onUse: (url: string) => void;
   onDismiss: () => void;
 }
+
+const SWIPE_THRESHOLD = 80;
 
 function extractDomain(url: string): string {
   try {
@@ -22,6 +25,9 @@ export function ClipboardSuggestion({ url, onUse, onDismiss }: ClipboardSuggesti
   const { t } = useTranslation();
   const [isVisible, setIsVisible] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
+  const [swipeX, setSwipeX] = useState(0);
+  const [isSwiping, setIsSwiping] = useState(false);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const domain = extractDomain(url);
 
   // Animate in on mount
@@ -52,6 +58,41 @@ export function ClipboardSuggestion({ url, onUse, onDismiss }: ClipboardSuggesti
     }, 150);
   };
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartRef.current = {
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY,
+    };
+    setIsSwiping(false);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchStartRef.current) return;
+
+    const deltaX = e.touches[0].clientX - touchStartRef.current.x;
+    const deltaY = e.touches[0].clientY - touchStartRef.current.y;
+
+    // Only start swiping if horizontal movement is dominant
+    if (!isSwiping && Math.abs(deltaX) > 10 && Math.abs(deltaX) > Math.abs(deltaY)) {
+      setIsSwiping(true);
+    }
+
+    if (isSwiping) {
+      setSwipeX(deltaX);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (Math.abs(swipeX) > SWIPE_THRESHOLD) {
+      triggerSelectionFeedback();
+      handleDismiss();
+    } else {
+      setSwipeX(0);
+    }
+    touchStartRef.current = null;
+    setIsSwiping(false);
+  };
+
   return (
     <div
       className={cn(
@@ -62,7 +103,19 @@ export function ClipboardSuggestion({ url, onUse, onDismiss }: ClipboardSuggesti
           : "translate-y-4 opacity-0"
       )}
     >
-      <div className="bg-card border border-border rounded-2xl shadow-lg overflow-hidden">
+      <div 
+        className={cn(
+          "bg-card border border-border rounded-2xl shadow-lg overflow-hidden",
+          !isSwiping && "transition-transform duration-200"
+        )}
+        style={{ 
+          transform: `translateX(${swipeX}px)`,
+          opacity: Math.max(0.3, 1 - Math.abs(swipeX) / 150)
+        }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
         {/* Progress bar for auto-dismiss */}
         <div className="h-1 bg-muted overflow-hidden">
           <div 
