@@ -318,7 +318,13 @@
     "returnToLastPage": "마지막 페이지로 돌아가기",
     "openWhereYouLeftOff": "중단한 곳에서 열기",
     "adding": "추가 중...",
-    "addToHomeScreen": "홈 화면에 추가"
+    "addToHomeScreen": "홈 화면에 추가",
+    "videoFile": "동영상 파일",
+    "largeFileWarning": "대용량 파일",
+    "processingVideo": "동영상 처리 중",
+    "processingFile": "파일 처리 중",
+    "processingLargeVideo": "{{size}} MB 동영상을 앱 저장소로 복사 중...",
+    "processingLargeFile": "{{size}} MB 파일을 앱 저장소로 복사 중..."
   },
   "iconPicker": {
     "icon": "아이콘",

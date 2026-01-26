@@ -318,7 +318,13 @@
     "returnToLastPage": "अंतिम पृष्ठ पर वापस जाएं",
     "openWhereYouLeftOff": "जहां आपने छोड़ा था वहां खोलें",
     "adding": "जोड़ा जा रहा है...",
-    "addToHomeScreen": "होम स्क्रीन पर जोड़ें"
+    "addToHomeScreen": "होम स्क्रीन पर जोड़ें",
+    "videoFile": "वीडियो फाइल",
+    "largeFileWarning": "बड़ी फाइल",
+    "processingVideo": "वीडियो प्रोसेस हो रहा है",
+    "processingFile": "फाइल प्रोसेस हो रही है",
+    "processingLargeVideo": "{{size}} MB वीडियो को ऐप स्टोरेज में कॉपी किया जा रहा है...",
+    "processingLargeFile": "{{size}} MB फाइल को ऐप स्टोरेज में कॉपी किया जा रहा है..."
   },
   "iconPicker": {
     "icon": "आइकन",

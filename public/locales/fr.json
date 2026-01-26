@@ -320,6 +320,14 @@
     "addToHomeScreen": "Ajouter à l'Écran d'Accueil",
     "adding": "Ajout..."
   },
+  "shortcutCustomizer": {
+    "videoFile": "Fichier vidéo",
+    "largeFileWarning": "Fichier volumineux",
+    "processingVideo": "Traitement de la vidéo",
+    "processingFile": "Traitement du fichier",
+    "processingLargeVideo": "Copie de la vidéo de {{size}} Mo vers le stockage de l'app...",
+    "processingLargeFile": "Copie du fichier de {{size}} Mo vers le stockage de l'app..."
+  },
   "success": {
     "title": "Ajouté à l'Écran d'Accueil",
     "ready": "\"{{name}}\" est prêt",

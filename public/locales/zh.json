@@ -318,7 +318,13 @@
     "returnToLastPage": "返回上一页",
     "openWhereYouLeftOff": "从上次位置打开",
     "adding": "添加中...",
-    "addToHomeScreen": "添加到主屏幕"
+    "addToHomeScreen": "添加到主屏幕",
+    "videoFile": "视频文件",
+    "largeFileWarning": "大文件",
+    "processingVideo": "正在处理视频",
+    "processingFile": "正在处理文件",
+    "processingLargeVideo": "正在将 {{size}} MB 视频复制到应用存储...",
+    "processingLargeFile": "正在将 {{size}} MB 文件复制到应用存储..."
   },
   "iconPicker": {
     "icon": "图标",

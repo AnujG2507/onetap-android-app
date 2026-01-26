@@ -320,6 +320,14 @@
     "addToHomeScreen": "Adicionar à Tela Inicial",
     "adding": "Adicionando..."
   },
+  "shortcutCustomizer": {
+    "videoFile": "Arquivo de vídeo",
+    "largeFileWarning": "Arquivo grande",
+    "processingVideo": "Processando vídeo",
+    "processingFile": "Processando arquivo",
+    "processingLargeVideo": "Copiando vídeo de {{size}} MB para o armazenamento do app...",
+    "processingLargeFile": "Copiando arquivo de {{size}} MB para o armazenamento do app..."
+  },
   "success": {
     "title": "Adicionado à Tela Inicial",
     "ready": "\"{{name}}\" está pronto",

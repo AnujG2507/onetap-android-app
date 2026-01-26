@@ -320,6 +320,14 @@
     "addToHomeScreen": "Zum Startbildschirm Hinzufügen",
     "adding": "Hinzufügen..."
   },
+  "shortcutCustomizer": {
+    "videoFile": "Videodatei",
+    "largeFileWarning": "Große Datei",
+    "processingVideo": "Video wird verarbeitet",
+    "processingFile": "Datei wird verarbeitet",
+    "processingLargeVideo": "Kopiere {{size}} MB Video in den App-Speicher...",
+    "processingLargeFile": "Kopiere {{size}} MB Datei in den App-Speicher..."
+  },
   "success": {
     "title": "Zum Startbildschirm Hinzugefügt",
     "ready": "\"{{name}}\" ist bereit",
