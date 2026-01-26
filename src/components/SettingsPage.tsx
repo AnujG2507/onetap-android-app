@@ -8,16 +8,15 @@ import {
   Globe, 
   Clipboard, 
   Bell,
+  Trash2,
   RotateCcw,
   ChevronRight,
   Check,
   Loader2,
   BookOpen,
-  Settings2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
@@ -243,62 +242,77 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
             </CardContent>
           </Card>
 
-          {/* Advanced Section - Collapsible */}
+          {/* Trash Section */}
           <Card>
-            <Accordion type="single" collapsible>
-              <AccordionItem value="advanced" className="border-b-0">
-                <CardHeader className="pb-0 pt-3">
-                  <AccordionTrigger className="py-0 hover:no-underline">
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <Settings2 className="h-4 w-4 text-muted-foreground" />
-                      {t('settingsPage.advanced')}
-                    </CardTitle>
-                  </AccordionTrigger>
-                </CardHeader>
-                <AccordionContent>
-                  <CardContent className="pt-4 space-y-4">
-                    {/* Trash Retention */}
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-medium">{t('settingsPage.retentionPeriod')}</p>
-                      <Select
-                        value={String(settings.trashRetentionDays)}
-                        onValueChange={(value) => updateSettings({ trashRetentionDays: Number(value) as TrashRetentionDays })}
-                      >
-                        <SelectTrigger className="w-[120px]">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {retentionOptions.map((option) => (
-                            <SelectItem key={option.value} value={String(option.value)}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <Separator />
-                    {/* Reset Onboarding */}
-                    <Button
-                      variant="outline"
-                      className="w-full justify-start gap-2"
-                      onClick={handleResetOnboarding}
-                    >
-                      <RotateCcw className="h-4 w-4" />
-                      {t('settings.resetOnboarding')}
-                    </Button>
-                    {/* Reset Tutorials */}
-                    <Button
-                      variant="outline"
-                      className="w-full justify-start gap-2"
-                      onClick={handleResetTutorials}
-                    >
-                      <BookOpen className="h-4 w-4" />
-                      {t('settings.resetTutorials')}
-                    </Button>
-                  </CardContent>
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Trash2 className="h-4 w-4 text-muted-foreground" />
+                {t('settingsPage.trashSettings')}
+              </CardTitle>
+              <CardDescription>{t('settingsPage.trashSettingsDesc')}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <p className="text-sm font-medium">{t('settingsPage.retentionPeriod')}</p>
+                  <p className="text-xs text-muted-foreground">{t('settingsPage.retentionPeriodDesc')}</p>
+                </div>
+                <Select
+                  value={String(settings.trashRetentionDays)}
+                  onValueChange={(value) => updateSettings({ trashRetentionDays: Number(value) as TrashRetentionDays })}
+                >
+                  <SelectTrigger className="w-[120px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {retentionOptions.map((option) => (
+                      <SelectItem key={option.value} value={String(option.value)}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Advanced Section */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <RotateCcw className="h-4 w-4 text-muted-foreground" />
+                {t('settingsPage.advanced')}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start gap-2"
+                  onClick={handleResetOnboarding}
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  {t('settings.resetOnboarding')}
+                </Button>
+                <p className="text-xs text-muted-foreground mt-2">
+                  {t('settings.resetOnboardingDescription')}
+                </p>
+              </div>
+              <Separator />
+              <div>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start gap-2"
+                  onClick={handleResetTutorials}
+                >
+                  <BookOpen className="h-4 w-4" />
+                  {t('settings.resetTutorials')}
+                </Button>
+                <p className="text-xs text-muted-foreground mt-2">
+                  {t('settings.resetTutorialsDescription')}
+                </p>
+              </div>
+            </CardContent>
           </Card>
         </div>
       </ScrollArea>
