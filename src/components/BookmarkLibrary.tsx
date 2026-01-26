@@ -1200,7 +1200,7 @@ export function BookmarkLibrary({
                     aria-label={t('common.edit')}
                   >
                     <Edit2 className="h-4 w-4" />
-                    <span className="hidden sm:inline">{t('common.edit')}</span>
+                    {t('common.edit')}
                   </button>
                 </TooltipTrigger>
                 <TooltipContent>{t('library.editTooltip')}</TooltipContent>
@@ -1213,7 +1213,7 @@ export function BookmarkLibrary({
                     aria-label={t('library.shortcut')}
                   >
                     <Home className="h-4 w-4" />
-                    <span className="hidden sm:inline">{t('library.shortcut')}</span>
+                    {t('library.shortcut')}
                   </button>
                 </TooltipTrigger>
                 <TooltipContent>{t('library.shortcutTooltip')}</TooltipContent>
@@ -1229,7 +1229,7 @@ export function BookmarkLibrary({
                 aria-label={t('common.delete')}
               >
                 <Trash2 className="h-4 w-4" />
-                <span className="hidden sm:inline">{t('common.delete')}</span>
+                {t('common.delete')}
               </button>
             </TooltipTrigger>
             <TooltipContent>{t('library.deleteTooltip')}</TooltipContent>
@@ -1238,20 +1238,13 @@ export function BookmarkLibrary({
         
         <div className="h-5 w-px bg-border" />
         
-        <TooltipProvider delayDuration={0}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={handleClearShortlist}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-muted transition-colors text-sm text-muted-foreground"
-                aria-label={t('library.clearSelection')}
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent>{t('library.clearSelection')}</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <button
+          onClick={handleClearShortlist}
+          className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground"
+          aria-label={t('library.clearSelection')}
+        >
+          <X className="h-4 w-4" />
+        </button>
       </div>
       
       {/* Bulk Delete Confirmation Dialog */}

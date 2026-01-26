@@ -785,25 +785,21 @@ export function NotificationsPage({
                     className="gap-1.5"
                   >
                     <Trash2 className="h-4 w-4" />
-                    {selectedIds.size}
+                    {t('common.delete')}
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>{t('notificationsPage.deleteTooltip')}</TooltipContent>
               </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={handleClearSelection}
-                    className="h-8 w-8"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>{t('library.clearSelection')}</TooltipContent>
-              </Tooltip>
             </TooltipProvider>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleClearSelection}
+              className="h-8 w-8"
+              aria-label={t('library.clearSelection')}
+            >
+              <X className="h-4 w-4" />
+            </Button>
           </div>
         </div>
       )}
