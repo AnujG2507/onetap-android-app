@@ -86,9 +86,9 @@ import android.content.ComponentName;
 )
 public class ShortcutPlugin extends Plugin {
 
-    // Maximum video size allowed for shortcuts (50MB)
+    // Maximum video size allowed for shortcuts (100MB)
     // Videos larger than this cannot have shortcuts created
-    private static final long VIDEO_CACHE_THRESHOLD = 50 * 1024 * 1024;
+    private static final long VIDEO_CACHE_THRESHOLD = 100 * 1024 * 1024;
     
     // Legacy threshold for general file copying (5MB)
     private static final long FILE_SIZE_THRESHOLD = 5 * 1024 * 1024;
@@ -223,11 +223,11 @@ public class ShortcutPlugin extends Plugin {
 
                         boolean isVideo = finalIntentType.startsWith("video/");
 
-                        // Block videos larger than 50MB
+                        // Block videos larger than 100MB
                         if (isVideo && contentSize > VIDEO_CACHE_THRESHOLD) {
                             long sizeMB = contentSize / (1024 * 1024);
-                            android.util.Log.e("ShortcutPlugin", "Video too large (" + sizeMB + " MB). Video shortcuts are limited to 50 MB maximum.");
-                            resolveOnMainThread(call, false, "Video too large (" + sizeMB + " MB). Video shortcuts are limited to 50 MB maximum.");
+                            android.util.Log.e("ShortcutPlugin", "Video too large (" + sizeMB + " MB). Video shortcuts are limited to 100 MB maximum.");
+                            resolveOnMainThread(call, false, "Video too large (" + sizeMB + " MB). Video shortcuts are limited to 100 MB maximum.");
                             return;
                         }
 
