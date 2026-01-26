@@ -90,7 +90,12 @@
     "contactCallDesc": "Appel direct",
     "contactMessageDesc": "WhatsApp",
     "chooseAction": "Choisir le type d'action",
-    "offline": "Vous êtes hors ligne. Certaines fonctionnalités peuvent être limitées."
+    "offline": "Vous êtes hors ligne. Certaines fonctionnalités peuvent être limitées.",
+    "contactType": "Type de contact",
+    "shortcut": "Raccourci",
+    "shortcutDesc": "Ajouter à l'écran d'accueil",
+    "reminder": "Rappel",
+    "reminderDesc": "Programmer pour plus tard"
   },
   "library": {
     "title": "Bibliothèque",

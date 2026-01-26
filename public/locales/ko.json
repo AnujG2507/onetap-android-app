@@ -90,7 +90,12 @@
     "contactCallDesc": "바로 전화",
     "contactMessageDesc": "WhatsApp",
     "chooseAction": "동작 유형 선택",
-    "offlineMessage": "오프라인입니다. 일부 기능이 제한될 수 있습니다."
+    "offlineMessage": "오프라인입니다. 일부 기능이 제한될 수 있습니다.",
+    "contactType": "연락처 유형",
+    "shortcut": "바로가기",
+    "shortcutDesc": "홈 화면에 추가",
+    "reminder": "알림",
+    "reminderDesc": "나중에 예약"
   },
   "library": {
     "title": "라이브러리",

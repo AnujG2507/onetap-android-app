@@ -90,7 +90,12 @@
     "contactCallDesc": "โทรตรง",
     "contactMessageDesc": "WhatsApp",
     "chooseAction": "เลือกประเภทการกระทำ",
-    "offlineMessage": "คุณกำลังออฟไลน์ บางคุณสมบัติอาจถูกจำกัด"
+    "offlineMessage": "คุณกำลังออฟไลน์ บางคุณสมบัติอาจถูกจำกัด",
+    "contactType": "ประเภทผู้ติดต่อ",
+    "shortcut": "ทางลัด",
+    "shortcutDesc": "เพิ่มไปหน้าจอหลัก",
+    "reminder": "การเตือน",
+    "reminderDesc": "กำหนดเวลาภายหลัง"
   },
   "library": {
     "title": "คลัง",

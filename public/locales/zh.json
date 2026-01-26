@@ -90,7 +90,12 @@
     "contactCallDesc": "直接拨号",
     "contactMessageDesc": "WhatsApp",
     "chooseAction": "选择操作类型",
-    "offlineMessage": "您已离线。部分功能可能受限。"
+    "offlineMessage": "您已离线。部分功能可能受限。",
+    "contactType": "联系人类型",
+    "shortcut": "快捷方式",
+    "shortcutDesc": "添加到主屏幕",
+    "reminder": "提醒",
+    "reminderDesc": "安排稍后提醒"
   },
   "library": {
     "title": "收藏库",

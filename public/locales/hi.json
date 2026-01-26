@@ -90,7 +90,12 @@
     "contactCallDesc": "डायरेक्ट डायल",
     "contactMessageDesc": "व्हाट्सएप",
     "chooseAction": "एक्शन टाइप चुनें",
-    "offlineMessage": "आप ऑफ़लाइन हैं। कुछ सुविधाएं सीमित हो सकती हैं।"
+    "offlineMessage": "आप ऑफ़लाइन हैं। कुछ सुविधाएं सीमित हो सकती हैं।",
+    "contactType": "संपर्क प्रकार",
+    "shortcut": "शॉर्टकट",
+    "shortcutDesc": "होम स्क्रीन पर जोड़ें",
+    "reminder": "रिमाइंडर",
+    "reminderDesc": "बाद के लिए शेड्यूल करें"
   },
   "library": {
     "title": "लाइब्रेरी",

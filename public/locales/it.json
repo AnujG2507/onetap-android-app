@@ -90,7 +90,12 @@
     "contactCallDesc": "Chiamata diretta",
     "contactMessageDesc": "WhatsApp",
     "chooseAction": "Scegli tipo di azione",
-    "offlineMessage": "Sei offline. Alcune funzionalità potrebbero essere limitate."
+    "offlineMessage": "Sei offline. Alcune funzionalità potrebbero essere limitate.",
+    "contactType": "Tipo di contatto",
+    "shortcut": "Scorciatoia",
+    "shortcutDesc": "Aggiungi alla schermata home",
+    "reminder": "Promemoria",
+    "reminderDesc": "Programma per dopo"
   },
   "library": {
     "title": "Libreria",

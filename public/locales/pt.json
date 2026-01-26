@@ -90,7 +90,12 @@
     "contactCallDesc": "Ligação direta",
     "contactMessageDesc": "WhatsApp",
     "chooseAction": "Escolha o tipo de ação",
-    "offline": "Você está offline. Algumas funcionalidades podem estar limitadas."
+    "offline": "Você está offline. Algumas funcionalidades podem estar limitadas.",
+    "contactType": "Tipo de contato",
+    "shortcut": "Atalho",
+    "shortcutDesc": "Adicionar à tela inicial",
+    "reminder": "Lembrete",
+    "reminderDesc": "Agendar para depois"
   },
   "library": {
     "title": "Biblioteca",

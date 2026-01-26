@@ -90,7 +90,12 @@
     "contactCallDesc": "Direktwahl",
     "contactMessageDesc": "WhatsApp",
     "chooseAction": "Aktionstyp wählen",
-    "offline": "Du bist offline. Einige Funktionen können eingeschränkt sein."
+    "offline": "Du bist offline. Einige Funktionen können eingeschränkt sein.",
+    "contactType": "Kontakttyp",
+    "shortcut": "Verknüpfung",
+    "shortcutDesc": "Zum Startbildschirm hinzufügen",
+    "reminder": "Erinnerung",
+    "reminderDesc": "Für später planen"
   },
   "library": {
     "title": "Bibliothek",

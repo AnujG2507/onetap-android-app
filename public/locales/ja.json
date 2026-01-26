@@ -90,7 +90,12 @@
     "contactCallDesc": "直接発信",
     "contactMessageDesc": "WhatsApp",
     "chooseAction": "アクションタイプを選択",
-    "offlineMessage": "オフラインです。一部の機能が制限される場合があります。"
+    "offlineMessage": "オフラインです。一部の機能が制限される場合があります。",
+    "contactType": "連絡先タイプ",
+    "shortcut": "ショートカット",
+    "shortcutDesc": "ホーム画面に追加",
+    "reminder": "リマインダー",
+    "reminderDesc": "後でスケジュール"
   },
   "library": {
     "title": "ライブラリ",

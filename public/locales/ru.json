@@ -90,7 +90,12 @@
     "contactCallDesc": "Прямой вызов",
     "contactMessageDesc": "WhatsApp",
     "chooseAction": "Выберите тип действия",
-    "offlineMessage": "Вы не в сети. Некоторые функции могут быть ограничены."
+    "offlineMessage": "Вы не в сети. Некоторые функции могут быть ограничены.",
+    "contactType": "Тип контакта",
+    "shortcut": "Ярлык",
+    "shortcutDesc": "Добавить на главный экран",
+    "reminder": "Напоминание",
+    "reminderDesc": "Запланировать на потом"
   },
   "library": {
     "title": "Библиотека",

@@ -90,7 +90,12 @@
     "contactCallDesc": "Gọi trực tiếp",
     "contactMessageDesc": "WhatsApp",
     "chooseAction": "Chọn loại hành động",
-    "offlineMessage": "Bạn đang ngoại tuyến. Một số tính năng có thể bị hạn chế."
+    "offlineMessage": "Bạn đang ngoại tuyến. Một số tính năng có thể bị hạn chế.",
+    "contactType": "Loại liên hệ",
+    "shortcut": "Lối tắt",
+    "shortcutDesc": "Thêm vào màn hình chính",
+    "reminder": "Nhắc nhở",
+    "reminderDesc": "Lên lịch cho sau"
   },
   "library": {
     "title": "Thư viện",

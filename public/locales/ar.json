@@ -90,7 +90,12 @@
     "contactCallDesc": "اتصال مباشر",
     "contactMessageDesc": "واتساب",
     "chooseAction": "اختر نوع الإجراء",
-    "offline": "أنت غير متصل. بعض الميزات قد تكون محدودة."
+    "offline": "أنت غير متصل. بعض الميزات قد تكون محدودة.",
+    "contactType": "نوع جهة الاتصال",
+    "shortcut": "اختصار",
+    "shortcutDesc": "إضافة إلى الشاشة الرئيسية",
+    "reminder": "تذكير",
+    "reminderDesc": "جدولة لاحقاً"
   },
   "library": {
     "title": "المكتبة",
