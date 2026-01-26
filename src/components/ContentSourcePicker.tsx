@@ -226,10 +226,10 @@ function ContactActionPicker({
         <button
           onClick={() => onSelectContactMode('dial')}
           className={cn(
-            "flex-1 flex items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium transition-all",
+            "flex-1 flex items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium transition-all duration-150",
             contactMode === 'dial' 
               ? "bg-primary text-primary-foreground" 
-              : "bg-muted/50 text-muted-foreground hover:bg-muted"
+              : "bg-muted/50 text-muted-foreground hover:bg-muted hover:scale-[1.01]"
           )}
         >
           <Phone className="h-4 w-4" />
@@ -238,10 +238,10 @@ function ContactActionPicker({
         <button
           onClick={() => onSelectContactMode('message')}
           className={cn(
-            "flex-1 flex items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium transition-all",
+            "flex-1 flex items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium transition-all duration-150",
             contactMode === 'message' 
               ? "bg-primary text-primary-foreground" 
-              : "bg-muted/50 text-muted-foreground hover:bg-muted"
+              : "bg-muted/50 text-muted-foreground hover:bg-muted hover:scale-[1.01]"
           )}
         >
           <MessageCircle className="h-4 w-4" />
@@ -282,7 +282,9 @@ function ActionModeButton({ icon, label, description, onClick }: ActionModeButto
       onClick={onClick}
       className={cn(
         "flex flex-col items-start rounded-lg bg-card p-3",
-        "active:scale-[0.98] transition-transform",
+        "hover:bg-card/80 hover:shadow-md hover:border-border",
+        "active:scale-[0.97] active:shadow-sm",
+        "transition-all duration-150",
         "focus:outline-none focus:ring-2 focus:ring-ring",
         "border border-border/50"
       )}
@@ -313,11 +315,12 @@ function GridButton({ id, icon, label, onClick, isActive }: GridButtonProps) {
       onClick={onClick}
       className={cn(
         "flex flex-col items-center gap-2 rounded-xl p-4",
-        "shadow-sm active:scale-[0.96] transition-all",
+        "shadow-sm active:scale-[0.96] active:shadow-none",
+        "transition-all duration-150",
         "focus:outline-none focus:ring-2 focus:ring-ring",
         isActive 
           ? "bg-primary/10 ring-2 ring-primary/30" 
-          : "bg-muted/40"
+          : "bg-muted/40 hover:scale-[1.02] hover:shadow-md hover:bg-muted/60"
       )}
     >
       <div className={cn(
@@ -345,7 +348,8 @@ function SecondaryButton({ id, icon, label, onClick }: SecondaryButtonProps) {
       onClick={onClick}
       className={cn(
         "flex items-center gap-2 rounded-xl bg-muted/20 px-3 py-2.5",
-        "active:scale-[0.98] transition-all duration-150",
+        "hover:bg-muted/40 hover:text-foreground",
+        "active:scale-[0.97] transition-all duration-150",
         "focus:outline-none focus:ring-2 focus:ring-ring"
       )}
     >
