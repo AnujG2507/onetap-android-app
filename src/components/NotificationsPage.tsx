@@ -70,6 +70,8 @@ interface NotificationsPageProps {
   initialDestination?: ScheduledActionDestination | null;
   /** Called when the initial destination has been consumed */
   onInitialDestinationConsumed?: () => void;
+  /** Called when the creator form is opened or closed */
+  onCreatorOpenChange?: (isOpen: boolean) => void;
 }
 
 interface PermissionStatus {
@@ -91,6 +93,7 @@ export function NotificationsPage({
   clearSelectionSignal,
   initialDestination,
   onInitialDestinationConsumed,
+  onCreatorOpenChange,
 }: NotificationsPageProps) {
   const { t } = useTranslation();
   const { 
@@ -167,6 +170,11 @@ export function NotificationsPage({
   useEffect(() => {
     onSelectionModeChange?.(isSelectionMode);
   }, [isSelectionMode, onSelectionModeChange]);
+
+  // Notify parent when creator is opened/closed
+  useEffect(() => {
+    onCreatorOpenChange?.(showCreator);
+  }, [showCreator, onCreatorOpenChange]);
 
   // Exit selection mode when all items are deselected
   useEffect(() => {

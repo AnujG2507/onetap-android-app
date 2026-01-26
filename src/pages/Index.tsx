@@ -42,6 +42,8 @@ const Index = () => {
   const [contentSourceType, setContentSourceType] = useState<ContentSourceType>(null);
   const [isBookmarkSelectionMode, setIsBookmarkSelectionMode] = useState(false);
   const [isNotificationsSelectionMode, setIsNotificationsSelectionMode] = useState(false);
+  const [isRemindersCreatorOpen, setIsRemindersCreatorOpen] = useState(false);
+  const [isBookmarkFormOpen, setIsBookmarkFormOpen] = useState(false);
   const [bookmarkClearSignal, setBookmarkClearSignal] = useState(0);
   const [notificationsClearSignal, setNotificationsClearSignal] = useState(0);
   const [shortcutUrlFromBookmark, setShortcutUrlFromBookmark] = useState<string | null>(null);
@@ -293,8 +295,8 @@ const Index = () => {
   // Tab order for swipe navigation
   const tabOrder: TabType[] = useMemo(() => ['access', 'reminders', 'bookmarks', 'profile'], []);
   
-  // Swipe is only enabled on home screens (source step for access, or bookmarks/profile tabs without selection mode)
-  const swipeEnabled = showBottomNav && !isBookmarkSelectionMode && !isNotificationsSelectionMode;
+  // Swipe is only enabled on home screens (source step for access, or bookmarks/profile tabs without selection mode or open forms)
+  const swipeEnabled = showBottomNav && !isBookmarkSelectionMode && !isNotificationsSelectionMode && !isRemindersCreatorOpen && !isBookmarkFormOpen;
   
   // Track tab changes to determine slide direction
   const handleTabChange = useCallback((newTab: TabType) => {
@@ -392,6 +394,7 @@ const Index = () => {
             clearSelectionSignal={notificationsClearSignal}
             initialDestination={pendingReminderDestination}
             onInitialDestinationConsumed={() => setPendingReminderDestination(null)}
+            onCreatorOpenChange={setIsRemindersCreatorOpen}
           />
         </div>
       )}
@@ -407,6 +410,7 @@ const Index = () => {
             onCreateShortcut={handleCreateShortcutFromBookmark}
             onSelectionModeChange={setIsBookmarkSelectionMode}
             clearSelectionSignal={bookmarkClearSignal}
+            onAddFormOpenChange={setIsBookmarkFormOpen}
           />
         </div>
       )}
