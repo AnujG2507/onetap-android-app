@@ -71,9 +71,12 @@ public class NativeVideoPlayerActivity extends Activity {
     private PlayerView playerView;
     private LinearLayout topBar;
     private LinearLayout debugOverlay;
+    private LinearLayout intentDiagnosticsOverlay;
     private TextView debugTextView;
+    private TextView intentDiagnosticsTextView;
     private TextView speedButton;
     private boolean isDebugVisible = false;
+    private boolean isIntentDiagnosticsVisible = false;
 
     private ExoPlayer exoPlayer;
 
@@ -82,6 +85,9 @@ public class NativeVideoPlayerActivity extends Activity {
     private boolean hasTriedExternalFallback = false;
     private boolean isTopBarVisible = true;
     private int currentSpeedIndex = 2; // Default to 1.0x
+
+    // Store the raw intent for diagnostics
+    private Intent launchIntent;
 
     // HDR state
     private boolean isHdrContent = false;
@@ -355,13 +361,18 @@ public class NativeVideoPlayerActivity extends Activity {
             // Tap to toggle top bar (PlayerView handles its own controls)
             playerView.setOnClickListener(v -> toggleTopBar());
 
+            // Store intent for diagnostics
+            launchIntent = getIntent();
+            
             // Intent data
-            Intent intent = getIntent();
-            videoUri = intent != null ? intent.getData() : null;
-            videoMimeType = intent != null ? intent.getType() : "video/*";
+            videoUri = launchIntent != null ? launchIntent.getData() : null;
+            videoMimeType = launchIntent != null ? launchIntent.getType() : "video/*";
             if (videoMimeType == null || videoMimeType.isEmpty()) {
                 videoMimeType = "video/*";
             }
+            
+            // Log intent diagnostics
+            logIntentDiagnostics(launchIntent);
             
             logInfo("URI: " + (videoUri != null ? videoUri.toString() : "null"));
             logInfo("MIME type: " + videoMimeType);
@@ -374,7 +385,8 @@ public class NativeVideoPlayerActivity extends Activity {
 
             if (videoUri == null) {
                 logError("No video URI provided");
-                showErrorAndFinish("No video URI provided");
+                // Show diagnostics screen instead of just finishing
+                showIntentDiagnosticsOnError();
                 return;
             }
 
@@ -386,6 +398,9 @@ public class NativeVideoPlayerActivity extends Activity {
             
             // Create debug overlay
             createDebugOverlay();
+            
+            // Create intent diagnostics overlay
+            createIntentDiagnosticsOverlay();
 
             // Initialize ExoPlayer
             initializePlayer();
@@ -763,6 +778,19 @@ public class NativeVideoPlayerActivity extends Activity {
         speedParams.setMargins(dpToPx(8), 0, dpToPx(8), 0);
         topBar.addView(speedButton, speedParams);
 
+        // Intent diagnostics button (document icon)
+        ImageButton intentButton = createIconButton(
+            android.R.drawable.ic_menu_agenda,
+            "Show intent diagnostics"
+        );
+        intentButton.setOnClickListener(v -> toggleIntentDiagnostics());
+        
+        LinearLayout.LayoutParams intentParams = new LinearLayout.LayoutParams(
+            dpToPx(48), dpToPx(48)
+        );
+        intentParams.setMargins(dpToPx(8), 0, dpToPx(8), 0);
+        topBar.addView(intentButton, intentParams);
+
         // Debug button (info icon)
         ImageButton debugButton = createIconButton(
             android.R.drawable.ic_menu_info_details,
@@ -924,6 +952,298 @@ public class NativeVideoPlayerActivity extends Activity {
             }
         } catch (Exception e) {
             logWarn("Failed to copy to clipboard: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Create the Intent diagnostics overlay.
+     */
+    private void createIntentDiagnosticsOverlay() {
+        intentDiagnosticsOverlay = new LinearLayout(this);
+        intentDiagnosticsOverlay.setOrientation(LinearLayout.VERTICAL);
+        intentDiagnosticsOverlay.setBackgroundColor(0xEE1A1A2E);
+        intentDiagnosticsOverlay.setPadding(dpToPx(16), dpToPx(80), dpToPx(16), dpToPx(16));
+        intentDiagnosticsOverlay.setVisibility(View.GONE);
+        
+        FrameLayout.LayoutParams overlayParams = new FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        );
+        root.addView(intentDiagnosticsOverlay, overlayParams);
+        
+        // Title
+        TextView titleView = new TextView(this);
+        titleView.setText("📋 INTENT DIAGNOSTICS");
+        titleView.setTextColor(0xFFFFD700);
+        titleView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18);
+        titleView.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
+        titleView.setPadding(0, 0, 0, dpToPx(12));
+        intentDiagnosticsOverlay.addView(titleView);
+        
+        // Scrollable content
+        ScrollView scrollView = new ScrollView(this);
+        LinearLayout.LayoutParams scrollParams = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            0,
+            1.0f
+        );
+        intentDiagnosticsOverlay.addView(scrollView, scrollParams);
+        
+        intentDiagnosticsTextView = new TextView(this);
+        intentDiagnosticsTextView.setTextColor(0xFF00FFFF);
+        intentDiagnosticsTextView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        intentDiagnosticsTextView.setTypeface(Typeface.MONOSPACE);
+        intentDiagnosticsTextView.setLineSpacing(0, 1.3f);
+        scrollView.addView(intentDiagnosticsTextView);
+        
+        // Update content
+        updateIntentDiagnosticsContent();
+        
+        // Button row
+        LinearLayout buttonRow = new LinearLayout(this);
+        buttonRow.setOrientation(LinearLayout.HORIZONTAL);
+        buttonRow.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams buttonRowParams = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        buttonRowParams.topMargin = dpToPx(12);
+        intentDiagnosticsOverlay.addView(buttonRow, buttonRowParams);
+        
+        // Copy button
+        TextView copyButton = createTextButton("📋 Copy", 0xFF4CAF50);
+        copyButton.setOnClickListener(v -> {
+            copyToClipboard("Intent Diagnostics", intentDiagnosticsTextView.getText().toString());
+            Toast.makeText(this, "Copied!", Toast.LENGTH_SHORT).show();
+        });
+        buttonRow.addView(copyButton);
+        
+        // Close button
+        TextView closeButton = createTextButton("✕ Close", 0xFF666666);
+        closeButton.setOnClickListener(v -> toggleIntentDiagnostics());
+        buttonRow.addView(closeButton);
+        
+        // Open with button
+        TextView openWithButton = createTextButton("🎬 Open with...", 0xFF2196F3);
+        openWithButton.setOnClickListener(v -> openInExternalPlayer());
+        buttonRow.addView(openWithButton);
+    }
+
+    private TextView createTextButton(String text, int bgColor) {
+        TextView button = new TextView(this);
+        button.setText(text);
+        button.setTextColor(Color.WHITE);
+        button.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        button.setGravity(Gravity.CENTER);
+        button.setPadding(dpToPx(14), dpToPx(10), dpToPx(14), dpToPx(10));
+        
+        GradientDrawable bg = new GradientDrawable();
+        bg.setCornerRadius(dpToPx(6));
+        bg.setColor(bgColor);
+        button.setBackground(bg);
+        
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+            0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.0f
+        );
+        params.setMargins(dpToPx(4), 0, dpToPx(4), 0);
+        button.setLayoutParams(params);
+        
+        return button;
+    }
+
+    private void updateIntentDiagnosticsContent() {
+        if (intentDiagnosticsTextView == null) return;
+        
+        StringBuilder sb = new StringBuilder();
+        sb.append(buildIntentDiagnosticsString(launchIntent));
+        intentDiagnosticsTextView.setText(sb.toString());
+    }
+
+    private String buildIntentDiagnosticsString(Intent intent) {
+        StringBuilder sb = new StringBuilder();
+        
+        sb.append("═══════════════════════════════════\n");
+        sb.append("         LAUNCH INTENT DETAILS\n");
+        sb.append("═══════════════════════════════════\n\n");
+        
+        if (intent == null) {
+            sb.append("⚠️ Intent is NULL!\n\n");
+            sb.append("This means the Activity was launched\n");
+            sb.append("without any Intent data.\n\n");
+            sb.append("Possible causes:\n");
+            sb.append("• Shortcut was created incorrectly\n");
+            sb.append("• Intent extras were not set\n");
+            sb.append("• Activity was recreated after crash\n");
+            return sb.toString();
+        }
+        
+        // Action
+        sb.append("🎯 ACTION:\n");
+        String action = intent.getAction();
+        sb.append("   ").append(action != null ? action : "(null)").append("\n\n");
+        
+        // Data URI
+        sb.append("📁 DATA URI:\n");
+        Uri data = intent.getData();
+        if (data != null) {
+            sb.append("   ").append(data.toString()).append("\n");
+            sb.append("   Scheme: ").append(data.getScheme()).append("\n");
+            sb.append("   Host: ").append(data.getHost() != null ? data.getHost() : "(none)").append("\n");
+            sb.append("   Path: ").append(data.getPath() != null ? data.getPath() : "(none)").append("\n");
+        } else {
+            sb.append("   ⚠️ (null) - NO DATA URI!\n");
+        }
+        sb.append("\n");
+        
+        // MIME Type
+        sb.append("📝 MIME TYPE:\n");
+        String type = intent.getType();
+        sb.append("   ").append(type != null ? type : "(null)").append("\n\n");
+        
+        // Flags
+        sb.append("🚩 FLAGS:\n");
+        int flags = intent.getFlags();
+        sb.append("   Raw: 0x").append(Integer.toHexString(flags)).append("\n");
+        if ((flags & Intent.FLAG_GRANT_READ_URI_PERMISSION) != 0) {
+            sb.append("   ✓ FLAG_GRANT_READ_URI_PERMISSION\n");
+        }
+        if ((flags & Intent.FLAG_ACTIVITY_NEW_TASK) != 0) {
+            sb.append("   ✓ FLAG_ACTIVITY_NEW_TASK\n");
+        }
+        if ((flags & Intent.FLAG_ACTIVITY_CLEAR_TOP) != 0) {
+            sb.append("   ✓ FLAG_ACTIVITY_CLEAR_TOP\n");
+        }
+        sb.append("\n");
+        
+        // ClipData
+        sb.append("📎 CLIP DATA:\n");
+        ClipData clipData = intent.getClipData();
+        if (clipData != null) {
+            sb.append("   Items: ").append(clipData.getItemCount()).append("\n");
+            for (int i = 0; i < clipData.getItemCount(); i++) {
+                ClipData.Item item = clipData.getItemAt(i);
+                if (item.getUri() != null) {
+                    sb.append("   [").append(i).append("] URI: ").append(item.getUri()).append("\n");
+                }
+                if (item.getText() != null) {
+                    sb.append("   [").append(i).append("] Text: ").append(item.getText()).append("\n");
+                }
+            }
+        } else {
+            sb.append("   (none)\n");
+        }
+        sb.append("\n");
+        
+        // Extras
+        sb.append("📦 EXTRAS:\n");
+        Bundle extras = intent.getExtras();
+        if (extras != null && !extras.isEmpty()) {
+            for (String key : extras.keySet()) {
+                Object value = extras.get(key);
+                String valueStr = value != null ? value.toString() : "(null)";
+                // Truncate long values
+                if (valueStr.length() > 60) {
+                    valueStr = valueStr.substring(0, 57) + "...";
+                }
+                sb.append("   ").append(key).append(":\n");
+                sb.append("      ").append(valueStr).append("\n");
+            }
+        } else {
+            sb.append("   (none)\n");
+        }
+        sb.append("\n");
+        
+        // Component
+        sb.append("🧩 COMPONENT:\n");
+        if (intent.getComponent() != null) {
+            sb.append("   ").append(intent.getComponent().getClassName()).append("\n");
+        } else {
+            sb.append("   (implicit intent)\n");
+        }
+        sb.append("\n");
+        
+        // Categories
+        sb.append("📂 CATEGORIES:\n");
+        java.util.Set<String> categories = intent.getCategories();
+        if (categories != null && !categories.isEmpty()) {
+            for (String cat : categories) {
+                sb.append("   • ").append(cat).append("\n");
+            }
+        } else {
+            sb.append("   (none)\n");
+        }
+        sb.append("\n");
+        
+        sb.append("═══════════════════════════════════\n");
+        sb.append("           END OF DIAGNOSTICS\n");
+        sb.append("═══════════════════════════════════\n");
+        
+        return sb.toString();
+    }
+
+    private void logIntentDiagnostics(Intent intent) {
+        logInfo("=== INTENT DIAGNOSTICS ===");
+        if (intent == null) {
+            logError("Intent is NULL");
+            return;
+        }
+        logInfo("Action: " + (intent.getAction() != null ? intent.getAction() : "null"));
+        logInfo("Data: " + (intent.getData() != null ? intent.getData().toString() : "null"));
+        logInfo("Type: " + (intent.getType() != null ? intent.getType() : "null"));
+        logInfo("Flags: 0x" + Integer.toHexString(intent.getFlags()));
+        
+        ClipData clipData = intent.getClipData();
+        if (clipData != null) {
+            logInfo("ClipData items: " + clipData.getItemCount());
+        }
+        
+        Bundle extras = intent.getExtras();
+        if (extras != null) {
+            logInfo("Extras keys: " + extras.keySet().toString());
+        }
+    }
+
+    private void toggleIntentDiagnostics() {
+        if (intentDiagnosticsOverlay == null) return;
+        
+        isIntentDiagnosticsVisible = !isIntentDiagnosticsVisible;
+        intentDiagnosticsOverlay.setVisibility(isIntentDiagnosticsVisible ? View.VISIBLE : View.GONE);
+        
+        if (isIntentDiagnosticsVisible) {
+            updateIntentDiagnosticsContent();
+            hideHandler.removeCallbacks(hideRunnable);
+        }
+    }
+
+    /**
+     * Show diagnostics screen when there's no URI (for debugging shortcut issues).
+     */
+    private void showIntentDiagnosticsOnError() {
+        // Create minimal UI to show diagnostics
+        try {
+            // Ensure we have a root view
+            if (root == null) {
+                root = new FrameLayout(this);
+                root.setBackgroundColor(0xFF000000);
+                setContentView(root);
+            }
+            
+            // Create and show the diagnostics overlay directly
+            createIntentDiagnosticsOverlay();
+            isIntentDiagnosticsVisible = true;
+            intentDiagnosticsOverlay.setVisibility(View.VISIBLE);
+            
+            // Add a prominent error message at the top
+            if (intentDiagnosticsTextView != null) {
+                String errorHeader = "❌ ERROR: NO VIDEO URI PROVIDED\n\n" +
+                    "The shortcut did not pass a valid video URI.\n" +
+                    "See details below to diagnose the issue.\n\n" +
+                    "─────────────────────────────────\n\n";
+                intentDiagnosticsTextView.setText(errorHeader + buildIntentDiagnosticsString(launchIntent));
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to show diagnostics", e);
+            showErrorAndFinish("No video URI provided");
         }
     }
 
