@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 
 export type TutorialTab = 'access' | 'reminders' | 'library' | 'profile';
 
@@ -10,6 +10,7 @@ export interface TutorialStep {
 }
 
 const TUTORIAL_STORAGE_PREFIX = 'onetap_tutorial_completed_';
+const VISIT_COUNT_PREFIX = 'onetap_tab_visits_';
 
 // Check if a tutorial has been completed
 function hasCompletedTutorial(tab: TutorialTab): boolean {
@@ -21,9 +22,23 @@ function markTutorialCompleted(tab: TutorialTab): void {
   localStorage.setItem(`${TUTORIAL_STORAGE_PREFIX}${tab}`, 'true');
 }
 
+// Get visit count for a tab
+function getVisitCount(tab: TutorialTab): number {
+  const count = localStorage.getItem(`${VISIT_COUNT_PREFIX}${tab}`);
+  return count ? parseInt(count, 10) : 0;
+}
+
+// Increment and return visit count for a tab
+function incrementVisitCount(tab: TutorialTab): number {
+  const newCount = getVisitCount(tab) + 1;
+  localStorage.setItem(`${VISIT_COUNT_PREFIX}${tab}`, String(newCount));
+  return newCount;
+}
+
 // Reset a specific tutorial
 export function resetTutorial(tab: TutorialTab): void {
   localStorage.removeItem(`${TUTORIAL_STORAGE_PREFIX}${tab}`);
+  localStorage.removeItem(`${VISIT_COUNT_PREFIX}${tab}`);
 }
 
 // Reset all tutorials
@@ -31,6 +46,7 @@ export function resetAllTutorials(): void {
   const tabs: TutorialTab[] = ['access', 'reminders', 'library', 'profile'];
   tabs.forEach(tab => {
     localStorage.removeItem(`${TUTORIAL_STORAGE_PREFIX}${tab}`);
+    localStorage.removeItem(`${VISIT_COUNT_PREFIX}${tab}`);
   });
 }
 
@@ -116,18 +132,30 @@ export function useTutorial(tab: TutorialTab): UseTutorialReturn {
   const [isActive, setIsActive] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const steps = TUTORIAL_STEPS[tab];
+  const hasTrackedVisit = useRef(false);
 
-  // Check if tutorial should auto-start on first mount
+  // Track visits and trigger tutorial on second visit
   useEffect(() => {
-    // Small delay to ensure DOM is ready
-    const timer = setTimeout(() => {
-      if (!hasCompletedTutorial(tab)) {
+    // Only track visit once per mount
+    if (hasTrackedVisit.current) return;
+    hasTrackedVisit.current = true;
+
+    // Skip if already completed
+    if (hasCompletedTutorial(tab)) return;
+
+    // Increment visit count
+    const visitCount = incrementVisitCount(tab);
+
+    // Only start tutorial on second visit (visitCount >= 2)
+    if (visitCount >= 2) {
+      // Small delay to ensure DOM is ready
+      const timer = setTimeout(() => {
         setIsActive(true);
         setCurrentStep(0);
-      }
-    }, 500);
-    
-    return () => clearTimeout(timer);
+      }, 500);
+      
+      return () => clearTimeout(timer);
+    }
   }, [tab]);
 
   const next = useCallback(() => {
