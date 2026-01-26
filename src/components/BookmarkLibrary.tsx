@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Search, Plus, X, Bookmark, Trash2, Home, LayoutGrid, List, FolderInput, Clock, SortDesc, ArrowDownAZ, ArrowUpZA, Folder, ArrowDownUp, Edit2, GripVertical, Link2 } from 'lucide-react';
+import { Search, Plus, X, Bookmark, Trash2, Home, LayoutGrid, List, FolderInput, Clock, SortDesc, ArrowDownAZ, Folder, GripVertical, Link2, ChevronDown, Check, Edit2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ToastAction } from '@/components/ui/toast';
@@ -107,7 +107,7 @@ export function BookmarkLibrary({
   });
   const [sortMode, setSortMode] = useState<SortMode>(() => {
     const saved = localStorage.getItem('bookmark_sort_mode');
-    return (saved === 'manual' || saved === 'newest' || saved === 'alphabetical' || saved === 'folder') ? saved : 'manual';
+    return (saved === 'manual' || saved === 'newest' || saved === 'alphabetical' || saved === 'folder') ? saved : 'newest';
   });
   const [sortReversed, setSortReversed] = useState(() => {
     return localStorage.getItem('bookmark_sort_reversed') === 'true';
@@ -341,6 +341,10 @@ export function BookmarkLibrary({
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
     triggerHaptic('light');
+    // Auto-switch to manual mode when user starts dragging
+    if (sortMode !== 'manual') {
+      setSortMode('manual');
+    }
   };
 
   const handleDragOver = (event: DragOverEvent) => {
@@ -819,121 +823,36 @@ export function BookmarkLibrary({
         />
       )}
 
-      {/* Sort Controls - below Add Bookmark */}
+      {/* Sort Controls - simplified dropdown */}
       {links.length > 0 && (
         <div className="ps-5 pe-5 mb-4">
-          <TooltipProvider delayDuration={0}>
-            <div className="flex items-center gap-1.5 select-none">
-              <span className="text-xs text-muted-foreground shrink-0">
-                {sortMode === 'manual' ? t('library.sortManual') : t('library.sort')}
-              </span>
-              
-              {/* Newest First */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => handleSortToggle('newest')}
-                    onContextMenu={(e) => e.preventDefault()}
-                    className={cn(
-                      "flex items-center gap-1 px-2 py-1.5 rounded-md text-xs font-medium transition-colors select-none touch-manipulation",
-                      sortMode === 'newest'
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    <SortDesc className="h-3.5 w-3.5 pointer-events-none" />
-                    <span className="hidden xs:inline">{t('library.sortNewest')}</span>
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>{sortMode === 'newest' ? t('library.clickForManual') : t('library.sortNewestTooltip')}</p>
-                </TooltipContent>
-              </Tooltip>
-              
-              {/* Alphabetical A-Z */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => handleSortToggle('alphabetical')}
-                    onContextMenu={(e) => e.preventDefault()}
-                    className={cn(
-                      "flex items-center gap-1 px-2 py-1.5 rounded-md text-xs font-medium transition-colors select-none touch-manipulation",
-                      sortMode === 'alphabetical'
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    <ArrowDownAZ className="h-3.5 w-3.5 pointer-events-none" />
-                    {t('library.sortAZ')}
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>{sortMode === 'alphabetical' ? t('library.clickForManual') : t('library.sortAZTooltip')}</p>
-                </TooltipContent>
-              </Tooltip>
-              
-              {/* By Folder */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => handleSortToggle('folder')}
-                    onContextMenu={(e) => e.preventDefault()}
-                    className={cn(
-                      "flex items-center gap-1 px-2 py-1.5 rounded-md text-xs font-medium transition-colors select-none touch-manipulation",
-                      sortMode === 'folder'
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    <Folder className="h-3.5 w-3.5 pointer-events-none" />
-                    <span className="hidden xs:inline">{t('library.sortFolder')}</span>
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>{sortMode === 'folder' ? t('library.clickForManual') : t('library.sortFolderTooltip')}</p>
-                </TooltipContent>
-              </Tooltip>
-              
-              {/* Spacer */}
-              <div className="flex-1" />
-              
-              {/* Reverse Toggle */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => setSortReversed(!sortReversed)}
-                    onContextMenu={(e) => e.preventDefault()}
-                    className={cn(
-                      "flex items-center gap-1 px-2 py-1.5 rounded-md text-xs font-medium transition-all select-none touch-manipulation",
-                      sortReversed
-                        ? "bg-primary/15 text-primary border border-primary/30"
-                        : "bg-muted text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    <ArrowDownUp className={cn(
-                      "h-3.5 w-3.5 transition-transform pointer-events-none",
-                      sortReversed && "rotate-180"
-                    )} />
-                    <span className="hidden xs:inline">{sortReversed ? t('library.reversed') : t('library.reverse')}</span>
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>{sortReversed ? t('library.clickToRestore') : t('library.clickToReverse')}</p>
-                </TooltipContent>
-              </Tooltip>
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <select
+                value={sortMode}
+                onChange={(e) => setSortMode(e.target.value as SortMode)}
+                className={cn(
+                  "appearance-none bg-muted text-foreground text-xs font-medium",
+                  "pl-3 pr-8 py-1.5 rounded-lg border-0",
+                  "focus:outline-none focus:ring-2 focus:ring-primary/20",
+                  "cursor-pointer"
+                )}
+              >
+                <option value="newest">{t('library.sortNewest')}</option>
+                <option value="alphabetical">{t('library.sortAZ')}</option>
+                <option value="folder">{t('library.sortFolder')}</option>
+                {sortMode === 'manual' && (
+                  <option value="manual">{t('library.sortManual')}</option>
+                )}
+              </select>
+              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
             </div>
-          </TooltipProvider>
-        </div>
-      )}
-
-      {/* Manual Ordering Mode Banner */}
-      {sortMode === 'manual' && links.length > 1 && !searchQuery.trim() && !activeTagFilter && (
-        <div className="px-5 mb-3 animate-fade-in">
-          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/10 border border-primary/20">
-            <GripVertical className="h-4 w-4 text-primary/70" />
-            <span className="text-xs text-primary font-medium">
-              {t('library.manualOrderHint')}
-            </span>
+            
+            {sortMode === 'manual' && (
+              <span className="text-xs text-muted-foreground">
+                {t('library.dragToReorder')}
+              </span>
+            )}
           </div>
         </div>
       )}
