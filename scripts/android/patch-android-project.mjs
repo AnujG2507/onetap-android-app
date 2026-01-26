@@ -141,25 +141,34 @@ function patchAppDependencies() {
   const before = readFile(appBuildGradle);
   let after = before;
 
-  // Add SwipeRefreshLayout dependency for DesktopWebViewActivity
-  const swipeRefreshDep = 'implementation "androidx.swiperefreshlayout:swiperefreshlayout:1.2.0"';
-  
-  if (!after.includes("swiperefreshlayout")) {
-    // Find the dependencies block and add the dependency
-    const dependenciesMatch = after.match(/dependencies\s*\{/);
-    if (dependenciesMatch) {
-      const insertPos = dependenciesMatch.index + dependenciesMatch[0].length;
-      after = after.slice(0, insertPos) + 
-              `\n    ${swipeRefreshDep}` + 
-              after.slice(insertPos);
+  // Dependencies to add
+  const dependencies = [
+    // SwipeRefreshLayout for DesktopWebViewActivity
+    { name: "swiperefreshlayout", dep: 'implementation "androidx.swiperefreshlayout:swiperefreshlayout:1.2.0"' },
+    // ExoPlayer for NativeVideoPlayerActivity (Media3)
+    { name: "media3-exoplayer", dep: 'implementation "androidx.media3:media3-exoplayer:1.5.1"' },
+    { name: "media3-ui", dep: 'implementation "androidx.media3:media3-ui:1.5.1"' },
+    { name: "media3-common", dep: 'implementation "androidx.media3:media3-common:1.5.1"' },
+  ];
+
+  for (const { name, dep } of dependencies) {
+    if (!after.includes(name)) {
+      // Find the dependencies block and add the dependency
+      const dependenciesMatch = after.match(/dependencies\s*\{/);
+      if (dependenciesMatch) {
+        const insertPos = dependenciesMatch.index + dependenciesMatch[0].length;
+        after = after.slice(0, insertPos) + 
+                `\n    ${dep}` + 
+                after.slice(insertPos);
+      }
     }
   }
 
   if (after !== before) {
     writeFile(appBuildGradle, after);
-    console.log(`[patch-android] Added SwipeRefreshLayout dependency to app/build.gradle.`);
+    console.log(`[patch-android] Added dependencies to app/build.gradle (SwipeRefreshLayout, ExoPlayer/Media3).`);
   } else {
-    console.log(`[patch-android] SwipeRefreshLayout dependency already present.`);
+    console.log(`[patch-android] All dependencies already present.`);
   }
 }
 

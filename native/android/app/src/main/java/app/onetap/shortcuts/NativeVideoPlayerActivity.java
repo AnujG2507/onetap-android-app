@@ -9,12 +9,8 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.graphics.Color;
-import android.graphics.SurfaceTexture;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
-import android.media.AudioAttributes;
-import android.media.AudioManager;
-import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -25,8 +21,6 @@ import android.util.Log;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.KeyEvent;
-import android.view.Surface;
-import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowInsets;
@@ -36,44 +30,44 @@ import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.MediaController;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import java.io.IOException;
-import java.text.SimpleDateFormat;
+import androidx.annotation.OptIn;
+import androidx.media3.common.MediaItem;
+import androidx.media3.common.PlaybackException;
+import androidx.media3.common.Player;
+import androidx.media3.common.util.UnstableApi;
+import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.ui.PlayerView;
+
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
 /**
  * NativeVideoPlayerActivity
- * Native Android video playback using TextureView + MediaPlayer.
+ * Native Android video playback using ExoPlayer (Media3) for broad codec support.
  * Falls back to external player apps if internal playback fails.
  * Includes debug overlay for diagnosing device-specific failures.
  */
-public class NativeVideoPlayerActivity extends Activity implements TextureView.SurfaceTextureListener, MediaController.MediaPlayerControl {
+@OptIn(markerClass = UnstableApi.class)
+public class NativeVideoPlayerActivity extends Activity {
     private static final String TAG = "NativeVideoPlayer";
     private static final int AUTO_HIDE_DELAY_MS = 4000;
 
     private FrameLayout root;
-    private TextureView textureView;
+    private PlayerView playerView;
     private LinearLayout topBar;
     private LinearLayout debugOverlay;
     private TextView debugTextView;
     private boolean isDebugVisible = false;
 
-    private MediaPlayer mediaPlayer;
-    private MediaController mediaController;
-    private Surface surface;
+    private ExoPlayer exoPlayer;
 
     private Uri videoUri;
     private String videoMimeType;
-    private boolean isPrepared = false;
-    private int videoWidth = 0;
-    private int videoHeight = 0;
     private boolean hasTriedExternalFallback = false;
     private boolean isTopBarVisible = true;
 
@@ -82,10 +76,7 @@ public class NativeVideoPlayerActivity extends Activity implements TextureView.S
     private long startTimeMs;
 
     private final Handler hideHandler = new Handler(Looper.getMainLooper());
-    private final Runnable hideRunnable = () -> {
-        if (mediaController != null) mediaController.hide();
-        hideTopBar();
-    };
+    private final Runnable hideRunnable = this::hideTopBar;
 
     private void logDebug(String level, String message) {
         long elapsed = System.currentTimeMillis() - startTimeMs;
@@ -125,7 +116,7 @@ public class NativeVideoPlayerActivity extends Activity implements TextureView.S
         
         runOnUiThread(() -> {
             StringBuilder sb = new StringBuilder();
-            sb.append("=== VIDEO PLAYER DEBUG ===\n\n");
+            sb.append("=== VIDEO PLAYER DEBUG (ExoPlayer) ===\n\n");
             
             // Device info
             sb.append("DEVICE:\n");
@@ -138,15 +129,18 @@ public class NativeVideoPlayerActivity extends Activity implements TextureView.S
             sb.append("  URI: ").append(videoUri != null ? videoUri.toString() : "null").append("\n");
             sb.append("  Scheme: ").append(videoUri != null ? videoUri.getScheme() : "null").append("\n");
             sb.append("  MIME: ").append(videoMimeType).append("\n");
-            if (videoWidth > 0 && videoHeight > 0) {
-                sb.append("  Resolution: ").append(videoWidth).append("x").append(videoHeight).append("\n");
+            
+            // ExoPlayer state
+            if (exoPlayer != null) {
+                sb.append("  Duration: ").append(exoPlayer.getDuration() / 1000).append("s\n");
+                sb.append("  Position: ").append(exoPlayer.getCurrentPosition() / 1000).append("s\n");
             }
             sb.append("\n");
             
             // State
             sb.append("STATE:\n");
-            sb.append("  isPrepared: ").append(isPrepared).append("\n");
-            sb.append("  isPlaying: ").append(isPlaying()).append("\n");
+            sb.append("  isPlaying: ").append(exoPlayer != null && exoPlayer.isPlaying()).append("\n");
+            sb.append("  playbackState: ").append(getPlaybackStateString()).append("\n");
             sb.append("  hasTriedExternal: ").append(hasTriedExternalFallback).append("\n\n");
             
             // Timeline
@@ -157,6 +151,17 @@ public class NativeVideoPlayerActivity extends Activity implements TextureView.S
             
             debugTextView.setText(sb.toString());
         });
+    }
+
+    private String getPlaybackStateString() {
+        if (exoPlayer == null) return "null";
+        switch (exoPlayer.getPlaybackState()) {
+            case Player.STATE_IDLE: return "IDLE";
+            case Player.STATE_BUFFERING: return "BUFFERING";
+            case Player.STATE_READY: return "READY";
+            case Player.STATE_ENDED: return "ENDED";
+            default: return "UNKNOWN";
+        }
     }
 
     private void exitPlayerAndApp() {
@@ -172,30 +177,13 @@ public class NativeVideoPlayerActivity extends Activity implements TextureView.S
     private void releasePlayer() {
         hideHandler.removeCallbacks(hideRunnable);
 
-        if (mediaController != null) {
+        if (exoPlayer != null) {
             try {
-                mediaController.hide();
+                exoPlayer.stop();
+                exoPlayer.release();
             } catch (Exception ignored) {}
+            exoPlayer = null;
         }
-
-        if (mediaPlayer != null) {
-            try {
-                mediaPlayer.stop();
-            } catch (Exception ignored) {}
-            try {
-                mediaPlayer.release();
-            } catch (Exception ignored) {}
-            mediaPlayer = null;
-        }
-
-        if (surface != null) {
-            try {
-                surface.release();
-            } catch (Exception ignored) {}
-            surface = null;
-        }
-
-        isPrepared = false;
     }
 
     private void showTopBar() {
@@ -215,19 +203,18 @@ public class NativeVideoPlayerActivity extends Activity implements TextureView.S
         }
     }
 
-    private void toggleMediaControls() {
-        if (mediaController == null) return;
-
-        // Show/hide controls and top bar together
+    private void toggleTopBar() {
         if (isTopBarVisible) {
-            mediaController.hide();
             hideTopBar();
         } else {
-            mediaController.show(AUTO_HIDE_DELAY_MS);
             showTopBar();
-            hideHandler.removeCallbacks(hideRunnable);
-            hideHandler.postDelayed(hideRunnable, AUTO_HIDE_DELAY_MS);
+            scheduleHide();
         }
+    }
+
+    private void scheduleHide() {
+        hideHandler.removeCallbacks(hideRunnable);
+        hideHandler.postDelayed(hideRunnable, AUTO_HIDE_DELAY_MS);
     }
 
     private void toggleDebugOverlay() {
@@ -255,7 +242,7 @@ public class NativeVideoPlayerActivity extends Activity implements TextureView.S
         startTimeMs = System.currentTimeMillis();
 
         try {
-            logInfo("onCreate started");
+            logInfo("onCreate started (ExoPlayer)");
             
             // Fullscreen
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
@@ -284,18 +271,22 @@ public class NativeVideoPlayerActivity extends Activity implements TextureView.S
             root.setBackgroundColor(0xFF000000);
             setContentView(root);
 
-            // Video surface
-            textureView = new TextureView(this);
-            textureView.setSurfaceTextureListener(this);
-            FrameLayout.LayoutParams videoParams = new FrameLayout.LayoutParams(
+            // ExoPlayer view
+            playerView = new PlayerView(this);
+            playerView.setBackgroundColor(Color.BLACK);
+            playerView.setUseController(true);
+            playerView.setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING);
+            playerView.setControllerAutoShow(true);
+            playerView.setControllerShowTimeoutMs(AUTO_HIDE_DELAY_MS);
+            
+            FrameLayout.LayoutParams playerParams = new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                Gravity.CENTER
+                ViewGroup.LayoutParams.MATCH_PARENT
             );
-            root.addView(textureView, videoParams);
+            root.addView(playerView, playerParams);
 
-            // Tap toggles media controls
-            textureView.setOnClickListener(v -> toggleMediaControls());
+            // Tap to toggle top bar (PlayerView handles its own controls)
+            playerView.setOnClickListener(v -> toggleTopBar());
 
             // Intent data
             Intent intent = getIntent();
@@ -329,18 +320,102 @@ public class NativeVideoPlayerActivity extends Activity implements TextureView.S
             // Create debug overlay
             createDebugOverlay();
 
-            // MediaController
-            mediaController = new MediaController(this);
-            mediaController.setMediaPlayer(this);
-            mediaController.setAnchorView(root);
-            
-            logInfo("MediaController initialized");
+            // Initialize ExoPlayer
+            initializePlayer();
             
             // Schedule initial hide
-            hideHandler.postDelayed(hideRunnable, AUTO_HIDE_DELAY_MS);
+            scheduleHide();
         } catch (Exception e) {
             logError("onCreate error: " + e.getMessage());
             showErrorAndFinish("Failed to initialize video player");
+        }
+    }
+
+    private void initializePlayer() {
+        logInfo("Initializing ExoPlayer...");
+        
+        try {
+            exoPlayer = new ExoPlayer.Builder(this).build();
+            playerView.setPlayer(exoPlayer);
+            
+            logInfo("ExoPlayer created");
+            
+            // Set up listener
+            exoPlayer.addListener(new Player.Listener() {
+                @Override
+                public void onPlaybackStateChanged(int playbackState) {
+                    String state = getPlaybackStateString();
+                    logInfo("Playback state: " + state);
+                    
+                    if (playbackState == Player.STATE_READY) {
+                        showTopBar();
+                        scheduleHide();
+                    } else if (playbackState == Player.STATE_ENDED) {
+                        logInfo("Playback completed");
+                    }
+                    
+                    updateDebugOverlay();
+                }
+
+                @Override
+                public void onPlayerError(PlaybackException error) {
+                    String errorCode = getErrorCodeString(error.errorCode);
+                    String cause = error.getCause() != null ? error.getCause().getMessage() : "unknown";
+                    logError("Playback error: " + errorCode + " - " + error.getMessage() + " (cause: " + cause + ")");
+                    
+                    showExternalPlayerDialog("Unable to play video: " + error.getMessage());
+                }
+
+                @Override
+                public void onIsPlayingChanged(boolean isPlaying) {
+                    logInfo("isPlaying: " + isPlaying);
+                }
+            });
+
+            // Create media item and start playback
+            MediaItem mediaItem = MediaItem.fromUri(videoUri);
+            exoPlayer.setMediaItem(mediaItem);
+            
+            logInfo("Media item set, preparing...");
+            exoPlayer.prepare();
+            exoPlayer.setPlayWhenReady(true);
+            
+            logInfo("Playback started");
+            
+        } catch (Exception e) {
+            logError("Failed to initialize ExoPlayer: " + e.getMessage());
+            showExternalPlayerDialog("Failed to initialize video player");
+        }
+    }
+
+    private String getErrorCodeString(int errorCode) {
+        switch (errorCode) {
+            case PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED:
+                return "NETWORK_CONNECTION_FAILED";
+            case PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT:
+                return "NETWORK_TIMEOUT";
+            case PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND:
+                return "FILE_NOT_FOUND";
+            case PlaybackException.ERROR_CODE_IO_NO_PERMISSION:
+                return "NO_PERMISSION";
+            case PlaybackException.ERROR_CODE_IO_UNSPECIFIED:
+                return "IO_UNSPECIFIED";
+            case PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED:
+                return "CONTAINER_UNSUPPORTED";
+            case PlaybackException.ERROR_CODE_PARSING_MANIFEST_UNSUPPORTED:
+                return "MANIFEST_UNSUPPORTED";
+            case PlaybackException.ERROR_CODE_DECODER_INIT_FAILED:
+                return "DECODER_INIT_FAILED";
+            case PlaybackException.ERROR_CODE_DECODER_QUERY_FAILED:
+                return "DECODER_QUERY_FAILED";
+            case PlaybackException.ERROR_CODE_DECODING_FAILED:
+                return "DECODING_FAILED";
+            case PlaybackException.ERROR_CODE_AUDIO_TRACK_INIT_FAILED:
+                return "AUDIO_TRACK_INIT_FAILED";
+            case PlaybackException.ERROR_CODE_AUDIO_TRACK_WRITE_FAILED:
+                return "AUDIO_TRACK_WRITE_FAILED";
+            default:
+                return "ERROR_" + errorCode;
         }
     }
 
@@ -354,7 +429,7 @@ public class NativeVideoPlayerActivity extends Activity implements TextureView.S
                 String mimeFromResolver = resolver.getType(uri);
                 logInfo("ContentResolver MIME: " + (mimeFromResolver != null ? mimeFromResolver : "null"));
                 
-                try (Cursor cursor = resolver.query(uri, null, null, null, null)) {
+                try (android.database.Cursor cursor = resolver.query(uri, null, null, null, null)) {
                     if (cursor != null && cursor.moveToFirst()) {
                         // Get display name
                         int nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
@@ -437,7 +512,7 @@ public class NativeVideoPlayerActivity extends Activity implements TextureView.S
         );
         root.addView(topBar, topBarParams);
 
-        // Debug button (bug icon)
+        // Debug button (info icon)
         ImageButton debugButton = createIconButton(
             android.R.drawable.ic_menu_info_details,
             "Show debug info"
@@ -580,9 +655,9 @@ public class NativeVideoPlayerActivity extends Activity implements TextureView.S
         logInfo("Opening in external player (manual)");
         
         // Pause current playback
-        if (mediaPlayer != null && isPrepared) {
+        if (exoPlayer != null) {
             try {
-                if (mediaPlayer.isPlaying()) mediaPlayer.pause();
+                exoPlayer.pause();
             } catch (Exception ignored) {}
         }
         
@@ -707,274 +782,34 @@ public class NativeVideoPlayerActivity extends Activity implements TextureView.S
     }
 
     @Override
-    public void onSurfaceTextureAvailable(SurfaceTexture surfaceTexture, int width, int height) {
-        logInfo("Surface available (" + width + "x" + height + ")");
-        
-        try {
-            surface = new Surface(surfaceTexture);
-
-            mediaPlayer = new MediaPlayer();
-            mediaPlayer.setSurface(surface);
-            logInfo("MediaPlayer created");
-            
-            // Use AudioAttributes instead of deprecated setAudioStreamType
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                AudioAttributes audioAttributes = new AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_MEDIA)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_MOVIE)
-                    .build();
-                mediaPlayer.setAudioAttributes(audioAttributes);
-                logInfo("AudioAttributes set (USAGE_MEDIA)");
-            } else {
-                mediaPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
-                logInfo("AudioStreamType set (STREAM_MUSIC)");
-            }
-
-            mediaPlayer.setOnPreparedListener(mp -> {
-                try {
-                    isPrepared = true;
-                    videoWidth = mp.getVideoWidth();
-                    videoHeight = mp.getVideoHeight();
-                    int duration = mp.getDuration();
-                    
-                    logInfo("Prepared: " + videoWidth + "x" + videoHeight + ", " + (duration / 1000) + "s");
-                    
-                    adjustVideoSize();
-                    mp.start();
-                    logInfo("Playback started");
-                    
-                    showTopBar();
-                    if (mediaController != null) {
-                        mediaController.show(AUTO_HIDE_DELAY_MS);
-                    } else {
-                        logWarn("mediaController not initialized yet");
-                    }
-                    hideHandler.removeCallbacks(hideRunnable);
-                    hideHandler.postDelayed(hideRunnable, AUTO_HIDE_DELAY_MS);
-                } catch (Exception e) {
-                    logError("onPrepared error: " + e.getMessage());
-                    showExternalPlayerDialog("Failed to start playback");
-                }
-            });
-
-            mediaPlayer.setOnErrorListener((mp, what, extra) -> {
-                String whatStr = translateMediaPlayerError(what);
-                String extraStr = translateMediaPlayerExtra(extra);
-                logError("MediaPlayer error: " + whatStr + " (" + what + "), extra: " + extraStr + " (" + extra + ")");
-                showExternalPlayerDialog("Unable to play video (error: " + what + ")");
-                return true;
-            });
-            
-            mediaPlayer.setOnCompletionListener(mp -> {
-                logInfo("Playback completed");
-            });
-            
-            mediaPlayer.setOnInfoListener((mp, what, extra) -> {
-                String infoStr = translateMediaPlayerInfo(what);
-                logInfo("MediaPlayer info: " + infoStr + " (" + what + ")");
-                return false;
-            });
-            
-            mediaPlayer.setOnBufferingUpdateListener((mp, percent) -> {
-                if (percent % 25 == 0) { // Log at 0%, 25%, 50%, 75%, 100%
-                    logInfo("Buffering: " + percent + "%");
-                }
-            });
-
-            logInfo("Setting data source...");
-            try {
-                mediaPlayer.setDataSource(this, videoUri);
-                logInfo("Data source set, preparing...");
-                mediaPlayer.prepareAsync();
-            } catch (IOException e) {
-                logError("IOException: " + e.getMessage());
-                showExternalPlayerDialog("Cannot access video file");
-            } catch (IllegalArgumentException e) {
-                logError("IllegalArgumentException: " + e.getMessage());
-                showExternalPlayerDialog("Invalid video file");
-            } catch (SecurityException e) {
-                logError("SecurityException: " + e.getMessage());
-                showExternalPlayerDialog("Permission denied to access video");
-            }
-        } catch (Exception e) {
-            logError("Setup error: " + e.getMessage());
-            showExternalPlayerDialog("Failed to initialize video playback");
-        }
-    }
-
-    private String translateMediaPlayerError(int what) {
-        switch (what) {
-            case MediaPlayer.MEDIA_ERROR_UNKNOWN: return "UNKNOWN";
-            case MediaPlayer.MEDIA_ERROR_SERVER_DIED: return "SERVER_DIED";
-            default: return "CODE_" + what;
-        }
-    }
-
-    private String translateMediaPlayerExtra(int extra) {
-        switch (extra) {
-            case MediaPlayer.MEDIA_ERROR_IO: return "IO_ERROR";
-            case MediaPlayer.MEDIA_ERROR_MALFORMED: return "MALFORMED";
-            case MediaPlayer.MEDIA_ERROR_UNSUPPORTED: return "UNSUPPORTED";
-            case MediaPlayer.MEDIA_ERROR_TIMED_OUT: return "TIMED_OUT";
-            case -2147483648: return "LOW_LEVEL_ERROR";
-            default: return "CODE_" + extra;
-        }
-    }
-
-    private String translateMediaPlayerInfo(int what) {
-        switch (what) {
-            case MediaPlayer.MEDIA_INFO_UNKNOWN: return "UNKNOWN";
-            case MediaPlayer.MEDIA_INFO_VIDEO_RENDERING_START: return "VIDEO_RENDERING_START";
-            case MediaPlayer.MEDIA_INFO_BUFFERING_START: return "BUFFERING_START";
-            case MediaPlayer.MEDIA_INFO_BUFFERING_END: return "BUFFERING_END";
-            case MediaPlayer.MEDIA_INFO_VIDEO_TRACK_LAGGING: return "VIDEO_TRACK_LAGGING";
-            case MediaPlayer.MEDIA_INFO_BAD_INTERLEAVING: return "BAD_INTERLEAVING";
-            case MediaPlayer.MEDIA_INFO_NOT_SEEKABLE: return "NOT_SEEKABLE";
-            case MediaPlayer.MEDIA_INFO_METADATA_UPDATE: return "METADATA_UPDATE";
-            default: return "CODE_" + what;
-        }
-    }
-
-    private void adjustVideoSize() {
-        if (videoWidth == 0 || videoHeight == 0) return;
-
-        int screenWidth = root.getWidth();
-        int screenHeight = root.getHeight();
-        if (screenWidth == 0 || screenHeight == 0) return;
-
-        float videoAspect = (float) videoWidth / videoHeight;
-        float screenAspect = (float) screenWidth / screenHeight;
-
-        int newWidth;
-        int newHeight;
-
-        if (videoAspect > screenAspect) {
-            newWidth = screenWidth;
-            newHeight = (int) (screenWidth / videoAspect);
-        } else {
-            newHeight = screenHeight;
-            newWidth = (int) (screenHeight * videoAspect);
-        }
-
-        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(newWidth, newHeight, Gravity.CENTER);
-        textureView.setLayoutParams(params);
-    }
-
-    @Override
-    public void onSurfaceTextureSizeChanged(SurfaceTexture surfaceTexture, int width, int height) {
-        adjustVideoSize();
-    }
-
-    @Override
-    public boolean onSurfaceTextureDestroyed(SurfaceTexture surfaceTexture) {
-        releasePlayer();
-        return true;
-    }
-
-    @Override
-    public void onSurfaceTextureUpdated(SurfaceTexture surfaceTexture) {
-        // no-op
-    }
-
-    // MediaController.MediaPlayerControl
-    @Override
-    public void start() {
-        if (mediaPlayer != null && isPrepared) {
-            try {
-                mediaPlayer.start();
-            } catch (Exception e) {
-                logError("Error starting: " + e.getMessage());
-            }
+    protected void onStart() {
+        super.onStart();
+        if (exoPlayer != null) {
+            exoPlayer.setPlayWhenReady(true);
         }
     }
 
     @Override
-    public void pause() {
-        if (mediaPlayer != null && isPrepared) {
-            try {
-                if (mediaPlayer.isPlaying()) mediaPlayer.pause();
-            } catch (Exception e) {
-                logError("Error pausing: " + e.getMessage());
-            }
-        }
-    }
-
-    @Override
-    public int getDuration() {
-        try {
-            return (mediaPlayer != null && isPrepared) ? mediaPlayer.getDuration() : 0;
-        } catch (Exception e) {
-            return 0;
-        }
-    }
-
-    @Override
-    public int getCurrentPosition() {
-        try {
-            return (mediaPlayer != null && isPrepared) ? mediaPlayer.getCurrentPosition() : 0;
-        } catch (Exception e) {
-            return 0;
-        }
-    }
-
-    @Override
-    public void seekTo(int pos) {
-        if (mediaPlayer != null && isPrepared) {
-            try {
-                mediaPlayer.seekTo(pos);
-            } catch (Exception e) {
-                logError("Error seeking: " + e.getMessage());
-            }
-        }
-    }
-
-    @Override
-    public boolean isPlaying() {
-        try {
-            return mediaPlayer != null && isPrepared && mediaPlayer.isPlaying();
-        } catch (Exception e) {
-            return false;
-        }
-    }
-
-    @Override
-    public int getBufferPercentage() {
-        return 0;
-    }
-
-    @Override
-    public boolean canPause() {
-        return true;
-    }
-
-    @Override
-    public boolean canSeekBackward() {
-        return true;
-    }
-
-    @Override
-    public boolean canSeekForward() {
-        return true;
-    }
-
-    @Override
-    public int getAudioSessionId() {
-        try {
-            return mediaPlayer != null ? mediaPlayer.getAudioSessionId() : 0;
-        } catch (Exception e) {
-            return 0;
+    protected void onResume() {
+        super.onResume();
+        if (exoPlayer != null) {
+            exoPlayer.setPlayWhenReady(true);
         }
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-        if (mediaPlayer != null) {
-            try {
-                if (mediaPlayer.isPlaying()) mediaPlayer.pause();
-            } catch (Exception e) {
-                logError("Error pausing in onPause: " + e.getMessage());
-            }
+        if (exoPlayer != null) {
+            exoPlayer.setPlayWhenReady(false);
+        }
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        if (exoPlayer != null) {
+            exoPlayer.setPlayWhenReady(false);
         }
     }
 
