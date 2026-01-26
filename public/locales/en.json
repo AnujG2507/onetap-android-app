@@ -420,6 +420,9 @@
     "preview": "Preview",
     "access": "Access",
     "adding": "Adding...",
+    "addingVideo": "Processing video...",
+    "processingLargeVideo": "Processing {{size}} MB video...",
+    "processingLargeFile": "Processing {{size}} MB file...",
     "addToHomeScreen": "Add to Home Screen"
   },
   "iconPicker": {

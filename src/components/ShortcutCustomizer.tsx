@@ -4,16 +4,21 @@ import { ArrowLeft, Check, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
+import { Progress } from '@/components/ui/progress';
 import { IconPicker } from './IconPicker';
 import { ContentPreview } from './ContentPreview';
 import { getContentName, generateThumbnail, getPlatformEmoji, getFileTypeEmoji } from '@/lib/contentResolver';
 import type { ContentSource, ShortcutIcon } from '@/types/shortcut';
+import { FILE_SIZE_THRESHOLD } from '@/types/shortcut';
 
 interface ShortcutCustomizerProps {
   source: ContentSource;
   onConfirm: (name: string, icon: ShortcutIcon, resumeEnabled?: boolean) => void;
   onBack: () => void;
 }
+
+// Threshold for showing progress indicator (10MB)
+const LARGE_FILE_THRESHOLD = 10 * 1024 * 1024;
 
 export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustomizerProps) {
   const { t } = useTranslation();
@@ -27,6 +32,15 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
                 source.name?.toLowerCase().endsWith('.pdf') ||
                 source.uri?.toLowerCase().split('?')[0].endsWith('.pdf');
   
+  // Check if this is a video file
+  const isVideo = source.mimeType?.startsWith('video/') || 
+                  /\.(mp4|webm|mov|avi|mkv|3gp)$/i.test(source.name || '') ||
+                  /\.(mp4|webm|mov|avi|mkv|3gp)$/i.test(source.uri || '');
+  
+  // Check if this is a large file that needs progress indicator
+  const isLargeFile = (source.fileSize || 0) > LARGE_FILE_THRESHOLD;
+  const fileSizeMB = source.fileSize ? (source.fileSize / (1024 * 1024)).toFixed(1) : null;
+  
   // Get initial emoji based on source type - smart defaults
   const getInitialIcon = (): ShortcutIcon => {
     if (source.type === 'url' || source.type === 'share') {
@@ -39,6 +53,7 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
   const [icon, setIcon] = useState<ShortcutIcon>(getInitialIcon);
   const [isLoadingThumbnail, setIsLoadingThumbnail] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
+  const [creationProgress, setCreationProgress] = useState(0);
   
   useEffect(() => {
     setIsLoadingThumbnail(true);
@@ -54,13 +69,46 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
       });
   }, [source]);
   
+  // Simulate progress for large files during creation
+  useEffect(() => {
+    if (!isCreating || !isLargeFile) {
+      setCreationProgress(0);
+      return;
+    }
+    
+    // Animate progress from 0 to 90% over ~3 seconds for large files
+    const duration = isVideo ? 4000 : 2000;
+    const interval = 50;
+    const steps = duration / interval;
+    const increment = 90 / steps;
+    let currentProgress = 0;
+    
+    const timer = setInterval(() => {
+      currentProgress += increment;
+      if (currentProgress >= 90) {
+        currentProgress = 90;
+        clearInterval(timer);
+      }
+      setCreationProgress(currentProgress);
+    }, interval);
+    
+    return () => clearInterval(timer);
+  }, [isCreating, isLargeFile, isVideo]);
+  
   const handleConfirm = useCallback(async () => {
     if (name.trim() && !isCreating) {
       setIsCreating(true);
+      setCreationProgress(0);
       try {
         await onConfirm(name.trim(), icon, isPdf ? resumeEnabled : undefined);
+        // Complete the progress on success
+        setCreationProgress(100);
       } finally {
-        setIsCreating(false);
+        // Small delay before resetting to show 100%
+        setTimeout(() => {
+          setIsCreating(false);
+          setCreationProgress(0);
+        }, 300);
       }
     }
   }, [name, isCreating, onConfirm, icon, isPdf, resumeEnabled]);
@@ -175,7 +223,19 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
         </div>
       </div>
       
-      <div className="p-4 safe-bottom">
+      <div className="p-4 safe-bottom space-y-3">
+        {/* Progress indicator for large files */}
+        {isCreating && isLargeFile && (
+          <div className="space-y-2 animate-fade-in">
+            <Progress value={creationProgress} className="h-2" />
+            <p className="text-xs text-muted-foreground text-center">
+              {isVideo 
+                ? t('shortcutCustomizer.processingLargeVideo', { size: fileSizeMB })
+                : t('shortcutCustomizer.processingLargeFile', { size: fileSizeMB })}
+            </p>
+          </div>
+        )}
+        
         <Button
           onClick={handleConfirm}
           disabled={!name.trim() || isCreating}
@@ -184,7 +244,9 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
           {isCreating ? (
             <>
               <Loader2 className="me-2 h-5 w-5 animate-spin" />
-              {t('shortcutCustomizer.adding')}
+              {isLargeFile && isVideo 
+                ? t('shortcutCustomizer.addingVideo')
+                : t('shortcutCustomizer.adding')}
             </>
           ) : (
             <>
