@@ -44,7 +44,7 @@ import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.ScrollView;
+import android.widget.TextView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -83,13 +83,8 @@ public class NativeVideoPlayerActivity extends Activity {
     private FrameLayout root;
     private PlayerView playerView;
     private LinearLayout topBar;
-    private LinearLayout debugOverlay;
-    private LinearLayout intentDiagnosticsOverlay;
-    private TextView debugTextView;
-    private TextView intentDiagnosticsTextView;
     private TextView speedButton;
-    private boolean isDebugVisible = false;
-    private boolean isIntentDiagnosticsVisible = false;
+    private boolean isTopBarVisible = true;
 
     private ExoPlayer exoPlayer;
 
@@ -282,19 +277,6 @@ public class NativeVideoPlayerActivity extends Activity {
         hideHandler.postDelayed(hideRunnable, AUTO_HIDE_DELAY_MS);
     }
 
-    private void toggleDebugOverlay() {
-        if (debugOverlay == null) return;
-        
-        isDebugVisible = !isDebugVisible;
-        debugOverlay.setVisibility(isDebugVisible ? View.VISIBLE : View.GONE);
-        
-        if (isDebugVisible) {
-            updateDebugOverlay();
-            // Keep controls visible while debug is shown
-            hideHandler.removeCallbacks(hideRunnable);
-        }
-    }
-
     private int dpToPx(int dp) {
         return (int) TypedValue.applyDimension(
             TypedValue.COMPLEX_UNIT_DIP, dp, getResources().getDisplayMetrics()
@@ -414,22 +396,24 @@ public class NativeVideoPlayerActivity extends Activity {
     }
 
     /**
-     * Create a single seek indicator view.
+     * Create a premium seek indicator view with ripple effect.
      */
     private TextView createSeekIndicatorView(boolean isRewind) {
         TextView indicator = new TextView(this);
         indicator.setTextColor(Color.WHITE);
-        indicator.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
-        indicator.setTypeface(Typeface.DEFAULT_BOLD);
+        indicator.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+        indicator.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         indicator.setGravity(Gravity.CENTER);
         indicator.setVisibility(View.GONE);
         indicator.setAlpha(0f);
         
-        // Circular semi-transparent background
+        // Premium frosted glass circular background
         GradientDrawable bg = new GradientDrawable();
         bg.setShape(GradientDrawable.OVAL);
-        bg.setColor(0x80000000);
+        bg.setColor(0x66000000);
+        bg.setStroke(dpToPx(2), 0x33FFFFFF);
         indicator.setBackground(bg);
+        indicator.setElevation(dpToPx(4));
         
         return indicator;
     }
@@ -627,8 +611,8 @@ public class NativeVideoPlayerActivity extends Activity {
 
             if (videoUri == null) {
                 logError("No video URI provided");
-                // Show diagnostics screen instead of just finishing
-                showIntentDiagnosticsOnError();
+                Toast.makeText(this, "No video to play", Toast.LENGTH_SHORT).show();
+                finish();
                 return;
             }
 
@@ -637,12 +621,6 @@ public class NativeVideoPlayerActivity extends Activity {
 
             // Create top bar with buttons
             createTopBar();
-            
-            // Create debug overlay
-            createDebugOverlay();
-            
-            // Create intent diagnostics overlay
-            createIntentDiagnosticsOverlay();
 
             // Initialize ExoPlayer
             initializePlayer();
@@ -999,80 +977,93 @@ public class NativeVideoPlayerActivity extends Activity {
     }
 
     private void createTopBar() {
-        // Top bar container with gradient background
+        // Top bar container with premium gradient background
         topBar = new LinearLayout(this);
         topBar.setOrientation(LinearLayout.HORIZONTAL);
         topBar.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
-        topBar.setPadding(dpToPx(16), dpToPx(16), dpToPx(16), dpToPx(16));
+        topBar.setPadding(dpToPx(20), dpToPx(24), dpToPx(20), dpToPx(20));
         
-        // Gradient background (top to transparent)
+        // Smoother gradient background (darker, more cinematic)
         GradientDrawable gradient = new GradientDrawable(
             GradientDrawable.Orientation.TOP_BOTTOM,
-            new int[]{0x80000000, 0x00000000}
+            new int[]{0xCC000000, 0x66000000, 0x00000000}
         );
         topBar.setBackground(gradient);
 
         FrameLayout.LayoutParams topBarParams = new FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
-            dpToPx(72),
+            dpToPx(100),
             Gravity.TOP
         );
         root.addView(topBar, topBarParams);
 
-        // Speed button (text button showing current speed)
+        // Speed button (premium pill design)
         speedButton = createSpeedButton();
         speedButton.setOnClickListener(v -> cyclePlaybackSpeed());
         
         LinearLayout.LayoutParams speedParams = new LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.WRAP_CONTENT, dpToPx(40)
+            ViewGroup.LayoutParams.WRAP_CONTENT, dpToPx(36)
         );
-        speedParams.setMargins(dpToPx(8), 0, dpToPx(8), 0);
+        speedParams.setMargins(dpToPx(6), 0, dpToPx(6), 0);
         topBar.addView(speedButton, speedParams);
 
         // PiP button (Picture-in-Picture) - only on Android 8.0+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            ImageButton pipButton = createIconButton(
+            ImageButton pipButton = createPremiumIconButton(
                 android.R.drawable.ic_menu_crop,
                 "Picture-in-Picture"
             );
             pipButton.setOnClickListener(v -> enterPipMode());
-            
-            LinearLayout.LayoutParams pipParams = new LinearLayout.LayoutParams(
-                dpToPx(48), dpToPx(48)
-            );
-            pipParams.setMargins(dpToPx(8), 0, dpToPx(8), 0);
-            topBar.addView(pipButton, pipParams);
+            topBar.addView(pipButton);
         }
 
         // "Open with" button
-        ImageButton openWithButton = createIconButton(
+        ImageButton openWithButton = createPremiumIconButton(
             android.R.drawable.ic_menu_share,
             "Open with another app"
         );
         openWithButton.setOnClickListener(v -> openInExternalPlayerDirect());
-        
-        LinearLayout.LayoutParams buttonParams = new LinearLayout.LayoutParams(
-            dpToPx(48), dpToPx(48)
-        );
-        buttonParams.setMargins(dpToPx(8), 0, dpToPx(8), 0);
-        topBar.addView(openWithButton, buttonParams);
+        topBar.addView(openWithButton);
     }
 
     private TextView createSpeedButton() {
         TextView button = new TextView(this);
         button.setText(getSpeedLabel(PLAYBACK_SPEEDS[currentSpeedIndex]));
         button.setTextColor(Color.WHITE);
-        button.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-        button.setTypeface(Typeface.DEFAULT_BOLD);
+        button.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        button.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         button.setGravity(Gravity.CENTER);
-        button.setPadding(dpToPx(16), dpToPx(8), dpToPx(16), dpToPx(8));
+        button.setPadding(dpToPx(14), dpToPx(6), dpToPx(14), dpToPx(6));
         button.setContentDescription("Playback speed");
         
-        // Pill-shaped background
+        // Premium frosted glass pill
         GradientDrawable bg = new GradientDrawable();
-        bg.setCornerRadius(dpToPx(20));
-        bg.setColor(0x40FFFFFF);
+        bg.setCornerRadius(dpToPx(18));
+        bg.setColor(0x33FFFFFF);
+        bg.setStroke(dpToPx(1), 0x22FFFFFF);
         button.setBackground(bg);
+        
+        return button;
+    }
+
+    private ImageButton createPremiumIconButton(int iconResId, String contentDescription) {
+        ImageButton button = new ImageButton(this);
+        button.setImageResource(iconResId);
+        button.setContentDescription(contentDescription);
+        button.setColorFilter(Color.WHITE);
+        
+        // Premium frosted glass circle
+        GradientDrawable bg = new GradientDrawable();
+        bg.setShape(GradientDrawable.OVAL);
+        bg.setColor(0x33FFFFFF);
+        bg.setStroke(dpToPx(1), 0x22FFFFFF);
+        button.setBackground(bg);
+        button.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+        button.setPadding(dpToPx(10), dpToPx(10), dpToPx(10), dpToPx(10));
+        
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dpToPx(44), dpToPx(44));
+        params.setMargins(dpToPx(6), 0, dpToPx(6), 0);
+        button.setLayoutParams(params);
         
         return button;
     }
@@ -1116,311 +1107,6 @@ public class NativeVideoPlayerActivity extends Activity {
         scheduleHide();
     }
 
-    private void createDebugOverlay() {
-        // Semi-transparent overlay
-        debugOverlay = new LinearLayout(this);
-        debugOverlay.setOrientation(LinearLayout.VERTICAL);
-        debugOverlay.setBackgroundColor(0xDD000000);
-        debugOverlay.setPadding(dpToPx(16), dpToPx(80), dpToPx(16), dpToPx(16));
-        debugOverlay.setVisibility(View.GONE);
-        
-        FrameLayout.LayoutParams overlayParams = new FrameLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.MATCH_PARENT
-        );
-        root.addView(debugOverlay, overlayParams);
-        
-        // Title
-        TextView titleView = new TextView(this);
-        titleView.setText("Debug Info (tap ⓘ to close)");
-        titleView.setTextColor(Color.WHITE);
-        titleView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
-        titleView.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
-        titleView.setPadding(0, 0, 0, dpToPx(8));
-        debugOverlay.addView(titleView);
-        
-        // Scrollable debug text
-        ScrollView scrollView = new ScrollView(this);
-        LinearLayout.LayoutParams scrollParams = new LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            0,
-            1.0f
-        );
-        debugOverlay.addView(scrollView, scrollParams);
-        
-        debugTextView = new TextView(this);
-        debugTextView.setTextColor(0xFF00FF00); // Green terminal color
-        debugTextView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
-        debugTextView.setTypeface(Typeface.MONOSPACE);
-        debugTextView.setLineSpacing(0, 1.2f);
-        scrollView.addView(debugTextView);
-        
-        // Copy button
-        TextView copyButton = new TextView(this);
-        copyButton.setText("📋 Copy to Clipboard");
-        copyButton.setTextColor(Color.WHITE);
-        copyButton.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-        copyButton.setPadding(dpToPx(16), dpToPx(12), dpToPx(16), dpToPx(12));
-        copyButton.setGravity(Gravity.CENTER);
-        
-        GradientDrawable copyBg = new GradientDrawable();
-        copyBg.setCornerRadius(dpToPx(8));
-        copyBg.setColor(0xFF333333);
-        copyButton.setBackground(copyBg);
-        
-        LinearLayout.LayoutParams copyParams = new LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT
-        );
-        copyParams.topMargin = dpToPx(12);
-        debugOverlay.addView(copyButton, copyParams);
-        
-        copyButton.setOnClickListener(v -> copyDebugToClipboard());
-        
-        // Tap overlay to close
-        debugOverlay.setOnClickListener(v -> toggleDebugOverlay());
-    }
-
-    private void copyDebugToClipboard() {
-        try {
-            android.content.ClipboardManager clipboard = 
-                (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
-            if (clipboard != null && debugTextView != null) {
-                ClipData clip = ClipData.newPlainText("Video Debug Info", debugTextView.getText());
-                clipboard.setPrimaryClip(clip);
-                Toast.makeText(this, "Debug info copied!", Toast.LENGTH_SHORT).show();
-            }
-        } catch (Exception e) {
-            logWarn("Failed to copy to clipboard: " + e.getMessage());
-        }
-    }
-
-    /**
-     * Create the Intent diagnostics overlay.
-     */
-    private void createIntentDiagnosticsOverlay() {
-        intentDiagnosticsOverlay = new LinearLayout(this);
-        intentDiagnosticsOverlay.setOrientation(LinearLayout.VERTICAL);
-        intentDiagnosticsOverlay.setBackgroundColor(0xEE1A1A2E);
-        intentDiagnosticsOverlay.setPadding(dpToPx(16), dpToPx(80), dpToPx(16), dpToPx(16));
-        intentDiagnosticsOverlay.setVisibility(View.GONE);
-        
-        FrameLayout.LayoutParams overlayParams = new FrameLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.MATCH_PARENT
-        );
-        root.addView(intentDiagnosticsOverlay, overlayParams);
-        
-        // Title
-        TextView titleView = new TextView(this);
-        titleView.setText("📋 INTENT DIAGNOSTICS");
-        titleView.setTextColor(0xFFFFD700);
-        titleView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18);
-        titleView.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
-        titleView.setPadding(0, 0, 0, dpToPx(12));
-        intentDiagnosticsOverlay.addView(titleView);
-        
-        // Scrollable content
-        ScrollView scrollView = new ScrollView(this);
-        LinearLayout.LayoutParams scrollParams = new LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            0,
-            1.0f
-        );
-        intentDiagnosticsOverlay.addView(scrollView, scrollParams);
-        
-        intentDiagnosticsTextView = new TextView(this);
-        intentDiagnosticsTextView.setTextColor(0xFF00FFFF);
-        intentDiagnosticsTextView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-        intentDiagnosticsTextView.setTypeface(Typeface.MONOSPACE);
-        intentDiagnosticsTextView.setLineSpacing(0, 1.3f);
-        scrollView.addView(intentDiagnosticsTextView);
-        
-        // Update content
-        updateIntentDiagnosticsContent();
-        
-        // Button row
-        LinearLayout buttonRow = new LinearLayout(this);
-        buttonRow.setOrientation(LinearLayout.HORIZONTAL);
-        buttonRow.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams buttonRowParams = new LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT
-        );
-        buttonRowParams.topMargin = dpToPx(12);
-        intentDiagnosticsOverlay.addView(buttonRow, buttonRowParams);
-        
-        // Copy button
-        TextView copyButton = createTextButton("📋 Copy", 0xFF4CAF50);
-        copyButton.setOnClickListener(v -> {
-            copyToClipboard("Intent Diagnostics", intentDiagnosticsTextView.getText().toString());
-            Toast.makeText(this, "Copied!", Toast.LENGTH_SHORT).show();
-        });
-        buttonRow.addView(copyButton);
-        
-        // Close button
-        TextView closeButton = createTextButton("✕ Close", 0xFF666666);
-        closeButton.setOnClickListener(v -> toggleIntentDiagnostics());
-        buttonRow.addView(closeButton);
-        
-        // Open with button
-        TextView openWithButton = createTextButton("🎬 Open with...", 0xFF2196F3);
-        openWithButton.setOnClickListener(v -> openInExternalPlayer());
-        buttonRow.addView(openWithButton);
-    }
-
-    private TextView createTextButton(String text, int bgColor) {
-        TextView button = new TextView(this);
-        button.setText(text);
-        button.setTextColor(Color.WHITE);
-        button.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
-        button.setGravity(Gravity.CENTER);
-        button.setPadding(dpToPx(14), dpToPx(10), dpToPx(14), dpToPx(10));
-        
-        GradientDrawable bg = new GradientDrawable();
-        bg.setCornerRadius(dpToPx(6));
-        bg.setColor(bgColor);
-        button.setBackground(bg);
-        
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-            0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.0f
-        );
-        params.setMargins(dpToPx(4), 0, dpToPx(4), 0);
-        button.setLayoutParams(params);
-        
-        return button;
-    }
-
-    private void updateIntentDiagnosticsContent() {
-        if (intentDiagnosticsTextView == null) return;
-        
-        StringBuilder sb = new StringBuilder();
-        sb.append(buildIntentDiagnosticsString(launchIntent));
-        intentDiagnosticsTextView.setText(sb.toString());
-    }
-
-    private String buildIntentDiagnosticsString(Intent intent) {
-        StringBuilder sb = new StringBuilder();
-        
-        sb.append("═══════════════════════════════════\n");
-        sb.append("         LAUNCH INTENT DETAILS\n");
-        sb.append("═══════════════════════════════════\n\n");
-        
-        if (intent == null) {
-            sb.append("⚠️ Intent is NULL!\n\n");
-            sb.append("This means the Activity was launched\n");
-            sb.append("without any Intent data.\n\n");
-            sb.append("Possible causes:\n");
-            sb.append("• Shortcut was created incorrectly\n");
-            sb.append("• Intent extras were not set\n");
-            sb.append("• Activity was recreated after crash\n");
-            return sb.toString();
-        }
-        
-        // Action
-        sb.append("🎯 ACTION:\n");
-        String action = intent.getAction();
-        sb.append("   ").append(action != null ? action : "(null)").append("\n\n");
-        
-        // Data URI
-        sb.append("📁 DATA URI:\n");
-        Uri data = intent.getData();
-        if (data != null) {
-            sb.append("   ").append(data.toString()).append("\n");
-            sb.append("   Scheme: ").append(data.getScheme()).append("\n");
-            sb.append("   Host: ").append(data.getHost() != null ? data.getHost() : "(none)").append("\n");
-            sb.append("   Path: ").append(data.getPath() != null ? data.getPath() : "(none)").append("\n");
-        } else {
-            sb.append("   ⚠️ (null) - NO DATA URI!\n");
-        }
-        sb.append("\n");
-        
-        // MIME Type
-        sb.append("📝 MIME TYPE:\n");
-        String type = intent.getType();
-        sb.append("   ").append(type != null ? type : "(null)").append("\n\n");
-        
-        // Flags
-        sb.append("🚩 FLAGS:\n");
-        int flags = intent.getFlags();
-        sb.append("   Raw: 0x").append(Integer.toHexString(flags)).append("\n");
-        if ((flags & Intent.FLAG_GRANT_READ_URI_PERMISSION) != 0) {
-            sb.append("   ✓ FLAG_GRANT_READ_URI_PERMISSION\n");
-        }
-        if ((flags & Intent.FLAG_ACTIVITY_NEW_TASK) != 0) {
-            sb.append("   ✓ FLAG_ACTIVITY_NEW_TASK\n");
-        }
-        if ((flags & Intent.FLAG_ACTIVITY_CLEAR_TOP) != 0) {
-            sb.append("   ✓ FLAG_ACTIVITY_CLEAR_TOP\n");
-        }
-        sb.append("\n");
-        
-        // ClipData
-        sb.append("📎 CLIP DATA:\n");
-        ClipData clipData = intent.getClipData();
-        if (clipData != null) {
-            sb.append("   Items: ").append(clipData.getItemCount()).append("\n");
-            for (int i = 0; i < clipData.getItemCount(); i++) {
-                ClipData.Item item = clipData.getItemAt(i);
-                if (item.getUri() != null) {
-                    sb.append("   [").append(i).append("] URI: ").append(item.getUri()).append("\n");
-                }
-                if (item.getText() != null) {
-                    sb.append("   [").append(i).append("] Text: ").append(item.getText()).append("\n");
-                }
-            }
-        } else {
-            sb.append("   (none)\n");
-        }
-        sb.append("\n");
-        
-        // Extras
-        sb.append("📦 EXTRAS:\n");
-        Bundle extras = intent.getExtras();
-        if (extras != null && !extras.isEmpty()) {
-            for (String key : extras.keySet()) {
-                Object value = extras.get(key);
-                String valueStr = value != null ? value.toString() : "(null)";
-                // Truncate long values
-                if (valueStr.length() > 60) {
-                    valueStr = valueStr.substring(0, 57) + "...";
-                }
-                sb.append("   ").append(key).append(":\n");
-                sb.append("      ").append(valueStr).append("\n");
-            }
-        } else {
-            sb.append("   (none)\n");
-        }
-        sb.append("\n");
-        
-        // Component
-        sb.append("🧩 COMPONENT:\n");
-        if (intent.getComponent() != null) {
-            sb.append("   ").append(intent.getComponent().getClassName()).append("\n");
-        } else {
-            sb.append("   (implicit intent)\n");
-        }
-        sb.append("\n");
-        
-        // Categories
-        sb.append("📂 CATEGORIES:\n");
-        java.util.Set<String> categories = intent.getCategories();
-        if (categories != null && !categories.isEmpty()) {
-            for (String cat : categories) {
-                sb.append("   • ").append(cat).append("\n");
-            }
-        } else {
-            sb.append("   (none)\n");
-        }
-        sb.append("\n");
-        
-        sb.append("═══════════════════════════════════\n");
-        sb.append("           END OF DIAGNOSTICS\n");
-        sb.append("═══════════════════════════════════\n");
-        
-        return sb.toString();
-    }
-
     private void logIntentDiagnostics(Intent intent) {
         logInfo("=== INTENT DIAGNOSTICS ===");
         if (intent == null) {
@@ -1431,77 +1117,6 @@ public class NativeVideoPlayerActivity extends Activity {
         logInfo("Data: " + (intent.getData() != null ? intent.getData().toString() : "null"));
         logInfo("Type: " + (intent.getType() != null ? intent.getType() : "null"));
         logInfo("Flags: 0x" + Integer.toHexString(intent.getFlags()));
-        
-        ClipData clipData = intent.getClipData();
-        if (clipData != null) {
-            logInfo("ClipData items: " + clipData.getItemCount());
-        }
-        
-        Bundle extras = intent.getExtras();
-        if (extras != null) {
-            logInfo("Extras keys: " + extras.keySet().toString());
-        }
-    }
-
-    private void toggleIntentDiagnostics() {
-        if (intentDiagnosticsOverlay == null) return;
-        
-        isIntentDiagnosticsVisible = !isIntentDiagnosticsVisible;
-        intentDiagnosticsOverlay.setVisibility(isIntentDiagnosticsVisible ? View.VISIBLE : View.GONE);
-        
-        if (isIntentDiagnosticsVisible) {
-            updateIntentDiagnosticsContent();
-            hideHandler.removeCallbacks(hideRunnable);
-        }
-    }
-
-    /**
-     * Show diagnostics screen when there's no URI (for debugging shortcut issues).
-     */
-    private void showIntentDiagnosticsOnError() {
-        // Create minimal UI to show diagnostics
-        try {
-            // Ensure we have a root view
-            if (root == null) {
-                root = new FrameLayout(this);
-                root.setBackgroundColor(0xFF000000);
-                setContentView(root);
-            }
-            
-            // Create and show the diagnostics overlay directly
-            createIntentDiagnosticsOverlay();
-            isIntentDiagnosticsVisible = true;
-            intentDiagnosticsOverlay.setVisibility(View.VISIBLE);
-            
-            // Add a prominent error message at the top
-            if (intentDiagnosticsTextView != null) {
-                String errorHeader = "❌ ERROR: NO VIDEO URI PROVIDED\n\n" +
-                    "The shortcut did not pass a valid video URI.\n" +
-                    "See details below to diagnose the issue.\n\n" +
-                    "─────────────────────────────────\n\n";
-                intentDiagnosticsTextView.setText(errorHeader + buildIntentDiagnosticsString(launchIntent));
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to show diagnostics", e);
-            showErrorAndFinish("No video URI provided");
-        }
-    }
-
-    private ImageButton createIconButton(int iconResId, String contentDescription) {
-        ImageButton button = new ImageButton(this);
-        button.setImageResource(iconResId);
-        button.setContentDescription(contentDescription);
-        button.setColorFilter(Color.WHITE);
-        
-        // Circular background
-        GradientDrawable bg = new GradientDrawable();
-        bg.setShape(GradientDrawable.OVAL);
-        bg.setColor(0x40FFFFFF);
-        button.setBackground(bg);
-        button.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
-        button.setPadding(dpToPx(12), dpToPx(12), dpToPx(12), dpToPx(12));
-        
-        return button;
     }
 
     private void showErrorAndFinish(String message) {
@@ -1815,8 +1430,6 @@ public class NativeVideoPlayerActivity extends Activity {
         if (isInPipMode) {
             // Hide all UI controls in PiP mode
             if (topBar != null) topBar.setVisibility(View.GONE);
-            if (debugOverlay != null) debugOverlay.setVisibility(View.GONE);
-            if (intentDiagnosticsOverlay != null) intentDiagnosticsOverlay.setVisibility(View.GONE);
             if (playerView != null) playerView.setUseController(false);
             hideHandler.removeCallbacks(hideRunnable);
         } else {
