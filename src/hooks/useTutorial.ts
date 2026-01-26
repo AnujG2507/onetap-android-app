@@ -133,29 +133,43 @@ export function useTutorial(tab: TutorialTab): UseTutorialReturn {
   const [currentStep, setCurrentStep] = useState(0);
   const steps = TUTORIAL_STEPS[tab];
   const hasTrackedVisit = useRef(false);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Track visits and trigger tutorial on second visit
+  // Track visits and trigger tutorial on second visit OR after 5+ seconds on first visit
   useEffect(() => {
-    // Only track visit once per mount
-    if (hasTrackedVisit.current) return;
-    hasTrackedVisit.current = true;
-
     // Skip if already completed
     if (hasCompletedTutorial(tab)) return;
 
-    // Increment visit count
-    const visitCount = incrementVisitCount(tab);
+    // Track visit only once per mount
+    if (!hasTrackedVisit.current) {
+      hasTrackedVisit.current = true;
+      const visitCount = incrementVisitCount(tab);
 
-    // Only start tutorial on second visit (visitCount >= 2)
-    if (visitCount >= 2) {
-      // Small delay to ensure DOM is ready
-      const timer = setTimeout(() => {
+      // Second visit or later: trigger immediately (with small DOM delay)
+      if (visitCount >= 2) {
+        timeoutRef.current = setTimeout(() => {
+          if (!hasCompletedTutorial(tab)) {
+            setIsActive(true);
+            setCurrentStep(0);
+          }
+        }, 500);
+        return;
+      }
+    }
+
+    // First visit: trigger after 5 seconds of staying on the tab
+    timeoutRef.current = setTimeout(() => {
+      if (!hasCompletedTutorial(tab)) {
         setIsActive(true);
         setCurrentStep(0);
-      }, 500);
-      
-      return () => clearTimeout(timer);
-    }
+      }
+    }, 5000);
+
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
   }, [tab]);
 
   const next = useCallback(() => {
