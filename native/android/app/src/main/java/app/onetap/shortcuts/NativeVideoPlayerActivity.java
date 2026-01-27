@@ -2230,9 +2230,21 @@ public class NativeVideoPlayerActivity extends Activity {
             }
 
             logInfo("Entering PiP mode (aspect: " + videoWidth + ":" + videoHeight + ")");
-            enterPictureInPictureMode(pipBuilder.build());
+            
+            // CRITICAL: Set isInPipMode BEFORE calling enterPictureInPictureMode
+            // because onStop() is called before onPictureInPictureModeChanged(),
+            // and we need to prevent playback from being paused in onStop()
+            isInPipMode = true;
+            
+            boolean entered = enterPictureInPictureMode(pipBuilder.build());
+            if (!entered) {
+                // PiP failed, reset the flag
+                isInPipMode = false;
+                logWarn("enterPictureInPictureMode returned false");
+            }
             
         } catch (Exception e) {
+            isInPipMode = false; // Reset on failure
             logError("Failed to enter PiP: " + e.getMessage());
             Toast.makeText(this, "Unable to enter PiP mode", Toast.LENGTH_SHORT).show();
         }
