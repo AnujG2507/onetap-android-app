@@ -1,115 +1,190 @@
 
-# Add Settings Access to App Menu
+# Enhanced Clipboard URL Detection with Multiple Actions
 
-## Overview
-Add a "Settings" navigation button to the App Menu that allows users to access the full Settings page from anywhere in the app, not just from the Profile tab header.
+## Problem Statement
 
-## Current State
-- **App Menu** contains: Trash, Cloud Backup, and Theme selection
-- **Settings button** exists only in the Profile tab header
-- Settings page is only accessible from the Profile tab
+Currently, when a URL is detected from the clipboard, the `ClipboardSuggestion` component only offers a single action: **"Use this link"** which navigates directly to shortcut creation. 
 
-## Proposed Changes
+In contrast, when a URL is shared to the app (via Android Share Sheet), the `SharedUrlActionSheet` provides three options:
+1. **Quick Save** - Instantly save to library with auto-fetched metadata
+2. **Edit & Save** - Save to library with custom title, description, and folder
+3. **Create Shortcut** - Navigate to shortcut customization
 
-### 1. Update AppMenu Props
-Add an `onOpenSettings` callback to the `AppMenuProps` interface:
+The user expects the same flexibility for clipboard-detected URLs.
+
+## Solution Overview
+
+Enhance the `ClipboardSuggestion` component to provide multiple action options, similar to the `SharedUrlActionSheet` flow. Users will be able to:
+- **Quick Save** - One-tap save to bookmark library
+- **Edit & Save** - Save with custom metadata
+- **Create Shortcut** - Current behavior (navigate to customization)
+- **Schedule Reminder** - Create a timed reminder for this URL
+
+## Implementation Approach
+
+### Option A: Expand ClipboardSuggestion Inline (Recommended)
+
+Transform the `ClipboardSuggestion` component from a simple two-button UI into a multi-action picker with expandable edit form, similar to `SharedUrlActionSheet` but optimized for the floating suggestion format.
+
+**Pros:**
+- Keeps the interaction in context without opening a separate sheet
+- Maintains the swipe-to-dismiss gesture
+- Consistent with the premium "frictionless" philosophy
+
+**Cons:**
+- Slightly more complex component
+- May need to increase the auto-dismiss timer to give users time to choose
+
+### Option B: Replace with SharedUrlActionSheet
+
+When a clipboard URL is detected, show the `SharedUrlActionSheet` instead of `ClipboardSuggestion`.
+
+**Pros:**
+- Reuses existing component with all features
+- Consistent behavior between shared URLs and clipboard URLs
+
+**Cons:**
+- More intrusive (full-screen overlay vs. floating suggestion)
+- Loses the elegant swipe-to-dismiss gesture and auto-dismiss behavior
+
+## Recommended Approach: Enhanced ClipboardSuggestion (Option A)
+
+### UI Design
 
 ```text
-interface AppMenuProps {
-  onOpenTrash: () => void;
-  onOpenSettings: () => void;  // NEW
+CURRENT:
+┌─────────────────────────────────────┐
+│ [━━━━━ progress bar ━━━━━]          │
+│ 📋 URL DETECTED                   ✕ │
+│ youtube.com                         │
+│ [  Dismiss  ] [ Use this link → ]   │
+└─────────────────────────────────────┘
+
+PROPOSED (Choose Mode):
+┌─────────────────────────────────────┐
+│ [━━━━━ progress bar ━━━━━]          │
+│ 📋 URL DETECTED                   ✕ │
+│ ┌─────────────────────────────────┐ │
+│ │ 🎬 YouTube • youtube.com        │ │
+│ │ Video Title (loading...)        │ │
+│ └─────────────────────────────────┘ │
+│                                     │
+│ [ ⚡ Quick Save ]                   │
+│ [ ✏️ Edit & Save ] [ 📱 Shortcut ]  │
+│ [ 🔔 Remind Later ]                 │
+└─────────────────────────────────────┘
+
+PROPOSED (Edit Mode):
+┌─────────────────────────────────────┐
+│ ← Save to Library                 ✕ │
+│ ┌─────────────────────────────────┐ │
+│ │ Title                           │ │
+│ │ [___________________________] x │ │
+│ │ Description (optional)          │ │
+│ │ [___________________________]   │ │
+│ │ Folder: [None][Work][Personal]  │ │
+│ └─────────────────────────────────┘ │
+│ [ 📚 Save to Library ]              │
+└─────────────────────────────────────┘
+```
+
+### Technical Implementation
+
+#### 1. Update ClipboardSuggestion Props
+
+```typescript
+interface ClipboardSuggestionProps {
+  url: string;
+  onCreateShortcut: (url: string) => void;
+  onSaveToLibrary: (url: string, data?: { title?: string; description?: string; tag?: string | null }) => void;
+  onCreateReminder: (url: string) => void;
+  onDismiss: () => void;
 }
 ```
 
-### 2. Add Settings Button to AppMenu
-Add a Settings navigation item between Trash and Cloud Backup sections:
+#### 2. Add State Management
 
-```text
-┌─────────────────────┐
-│ Menu                │
-├─────────────────────┤
-│ 🗑️ Trash         [3] │
-│ ⚙️ Settings       → │
-│ ☁️ Cloud Backup      │
-├─────────────────────┤
-│ Appearance          │
-│ [Light][Dark][Sys]  │
-└─────────────────────┘
+```typescript
+// View modes
+const [viewMode, setViewMode] = useState<'choose' | 'edit'>('choose');
+const [showSuccess, setShowSuccess] = useState(false);
+
+// Edit form state
+const [editTitle, setEditTitle] = useState('');
+const [editDescription, setEditDescription] = useState('');
+const [editTag, setEditTag] = useState<string | null>(null);
+
+// Metadata fetching
+const { metadata, isLoading } = useUrlMetadata(url);
+const { thumbnailUrl, platform: videoPlatform } = useVideoThumbnail(url);
 ```
 
-The Settings button will:
-- Use a similar styling to the Trash button (icon in colored background, label, chevron indicator)
-- Trigger `onOpenSettings` callback when clicked
-- Close the menu first, then open settings (with delay for smooth transition)
+#### 3. Increase Auto-dismiss Timer
 
-### 3. Update All AppMenu Consumers
-Pass the `onOpenSettings` prop to AppMenu wherever it's used:
+Change from 8 seconds to 15 seconds to give users time to read options and make a choice.
 
-**Files to update:**
-- `src/components/ProfilePage.tsx` - Already has settings state, just pass callback
-- Any other components using AppMenu (need to verify)
+#### 4. Add Action Buttons
 
----
+- **Quick Save**: Call `onSaveToLibrary(url, { title: metadata?.title })` with success animation
+- **Edit & Save**: Switch to edit mode with form fields
+- **Shortcut**: Call `onCreateShortcut(url)`
+- **Remind Later**: Call `onCreateReminder(url)`
 
-## Technical Details
+### Files to Modify
 
-### AppMenu.tsx Changes
+| File | Changes |
+|------|---------|
+| `src/components/ClipboardSuggestion.tsx` | Complete redesign with multi-action UI, edit form, metadata fetching |
+| `src/components/AccessFlow.tsx` | Update `ClipboardSuggestion` usage with new callbacks |
+| `public/locales/en.json` | Add new translation keys for clipboard actions |
+| `public/locales/*.json` | Add translations for all supported languages |
 
-**Add import:**
-```typescript
-import { Settings, ChevronRight } from 'lucide-react';
-```
+### Detailed Changes
 
-**Update props interface:**
-```typescript
-interface AppMenuProps {
-  onOpenTrash: () => void;
-  onOpenSettings: () => void;
+#### ClipboardSuggestion.tsx
+
+1. **Add imports**: `useUrlMetadata`, `useVideoThumbnail`, `PlatformIcon`, `getAllFolders`, UI components
+2. **Add viewMode state**: 'choose' or 'edit' 
+3. **Add form state**: editTitle, editDescription, editTag
+4. **Integrate metadata fetching**: Show title/favicon/thumbnail while user considers actions
+5. **Implement Quick Save**: Success animation + callback
+6. **Implement Edit & Save**: Form UI with folder selection
+7. **Implement Remind Later**: New callback to AccessFlow
+8. **Increase auto-dismiss**: 8s → 15s (or pause timer on interaction)
+
+#### AccessFlow.tsx
+
+1. **Update handleClipboardUse** → rename to `handleClipboardCreateShortcut`
+2. **Add handleClipboardSaveToLibrary**: Save URL to library with optional metadata
+3. **Add handleClipboardCreateReminder**: Create reminder destination and navigate
+
+#### Translation Keys to Add
+
+```json
+"clipboard": {
+  "detected": "URL Detected",
+  "dismiss": "Dismiss",
+  "useLink": "Use this link",
+  "quickSave": "Quick Save",
+  "editSave": "Edit & Save",
+  "shortcut": "Shortcut",
+  "remindLater": "Remind Later",
+  "saveToLibrary": "Save to Library"
 }
 ```
 
-**Add Settings button after Trash (around line 153):**
-```tsx
-{/* Settings */}
-<Button
-  variant="ghost"
-  className="w-full justify-start h-12 ps-3 pe-3"
-  onClick={() => handleMenuItem(onOpenSettings)}
->
-  <div className="flex items-center gap-3 flex-1">
-    <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center">
-      <Settings className="h-4 w-4 text-muted-foreground" />
-    </div>
-    <span className="font-medium">{t('settings.title')}</span>
-  </div>
-  <ChevronRight className="h-4 w-4 text-muted-foreground rtl:rotate-180" />
-</Button>
-```
+### Edge Cases
 
-### ProfilePage.tsx Changes
+1. **Metadata loading**: Show skeleton while loading, enable Quick Save after load
+2. **Offline mode**: Allow all actions but show offline indicator
+3. **Edit mode back button**: Return to choose mode, don't dismiss
+4. **Success state**: Show checkmark animation, then auto-dismiss
 
-Update the AppMenu usage to pass settings callback:
-```tsx
-<AppMenu 
-  onOpenTrash={() => setIsTrashOpen(true)} 
-  onOpenSettings={() => setShowSettings(true)}
-/>
-```
+### Benefits
 
-This applies to both signed-in and signed-out states (lines ~263 and ~349).
+1. **Feature parity** with SharedUrlActionSheet
+2. **Consistent UX** across share and clipboard detection
+3. **More user control** over what happens with detected URLs
+4. **Maintains elegance** of floating suggestion format
+5. **Adds reminder scheduling** as a new pathway from detection
 
----
-
-## Files to Modify
-
-| File | Change |
-|------|--------|
-| `src/components/AppMenu.tsx` | Add Settings icon import, update props, add Settings button |
-| `src/components/ProfilePage.tsx` | Pass `onOpenSettings` callback to AppMenu |
-
-## Benefits
-
-1. **Consistent access** - Settings accessible from any tab via the menu
-2. **Quick settings remain** - Theme toggle stays in menu for convenience
-3. **Full settings available** - One tap to access all configuration options
-4. **Follows differentiated strategy** - Quick settings in menu, full settings via navigation
