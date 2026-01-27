@@ -293,7 +293,8 @@ export function ProfilePage() {
         {/* Trash Sheet */}
         <TrashSheet 
           open={isTrashOpen} 
-          onOpenChange={setIsTrashOpen} 
+          onOpenChange={setIsTrashOpen}
+          onOpenSettings={() => setShowSettings(true)}
         />
 
         {/* Tutorial Coach Marks */}
@@ -518,7 +519,8 @@ export function ProfilePage() {
       {/* Trash Sheet */}
       <TrashSheet 
         open={isTrashOpen} 
-        onOpenChange={setIsTrashOpen} 
+        onOpenChange={setIsTrashOpen}
+        onOpenSettings={() => setShowSettings(true)}
       />
 
       {/* Tutorial Coach Marks */}

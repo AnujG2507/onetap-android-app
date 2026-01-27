@@ -909,7 +909,8 @@ export function NotificationsPage({
       {/* Trash Sheet */}
       <TrashSheet 
         open={isTrashOpen} 
-        onOpenChange={setIsTrashOpen} 
+        onOpenChange={setIsTrashOpen}
+        onOpenSettings={() => setShowSettings(true)}
       />
 
       {/* Tutorial Coach Marks */}

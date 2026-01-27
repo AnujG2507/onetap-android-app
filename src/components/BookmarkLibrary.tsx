@@ -1290,7 +1290,8 @@ export function BookmarkLibrary({
       <TrashSheet 
         open={isTrashOpen} 
         onOpenChange={setIsTrashOpen} 
-        onRestored={refreshLinks} 
+        onRestored={refreshLinks}
+        onOpenSettings={() => setShowSettings(true)}
       />
 
       {/* Tutorial Coach Marks */}

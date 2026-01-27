@@ -489,7 +489,8 @@ export function AccessFlow({
       {/* Trash Sheet (controlled from menu) */}
       <TrashSheet 
         open={isTrashOpen} 
-        onOpenChange={setIsTrashOpen} 
+        onOpenChange={setIsTrashOpen}
+        onOpenSettings={() => setShowSettings(true)}
       />
 
       {/* Bookmark Picker Sheet */}
