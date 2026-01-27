@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 import { 
   Plus, 
   Clock, 
@@ -165,7 +166,7 @@ export function NotificationsPage({
   const [isBatteryHelpOpen, setIsBatteryHelpOpen] = useState(false);
   
   // Scroll state for hiding bottom button
-  const [isScrolledDown, setIsScrolledDown] = useState(false);
+  const [isBottomButtonVisible, setIsBottomButtonVisible] = useState(true);
   const lastScrollTop = useRef(0);
   
   const { toast } = useToast();
@@ -374,8 +375,21 @@ export function NotificationsPage({
   // Handlers
   const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     const scrollTop = e.currentTarget.scrollTop;
-    const isScrollingDown = scrollTop > lastScrollTop.current && scrollTop > 50;
-    setIsScrolledDown(isScrollingDown);
+    const scrollDelta = scrollTop - lastScrollTop.current;
+    
+    // Show button when at top
+    if (scrollTop <= 10) {
+      setIsBottomButtonVisible(true);
+    }
+    // Show button when scrolling up (any amount)
+    else if (scrollDelta < -2) {
+      setIsBottomButtonVisible(true);
+    }
+    // Hide button when scrolling down (any amount)
+    else if (scrollDelta > 2) {
+      setIsBottomButtonVisible(false);
+    }
+    
     lastScrollTop.current = scrollTop;
   }, []);
 
@@ -970,24 +984,31 @@ export function NotificationsPage({
       )}
 
       {/* Floating add button (when not in selection mode) */}
-      {!isSelectionMode && actions.length > 0 && !isScrolledDown && (
-        <div id="tutorial-add-reminder" className="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom)+1rem)] inset-x-0 px-5 z-10">
-          <TooltipProvider delayDuration={500}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  onClick={handleCreateNew}
-                  className="w-full h-12 rounded-2xl gap-2 shadow-lg"
-                >
+      <div 
+        className={cn(
+          "fixed inset-x-0 px-5 pb-3 transition-all duration-300 ease-out z-40",
+          "bottom-[calc(3.5rem+env(safe-area-inset-bottom))]",
+          isBottomButtonVisible && !isSelectionMode && actions.length > 0
+            ? "translate-y-0 opacity-100"
+            : "translate-y-full opacity-0 pointer-events-none"
+        )}
+      >
+        <TooltipProvider delayDuration={500}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                id="tutorial-add-reminder"
+                onClick={handleCreateNew}
+                className="w-full h-12 rounded-2xl gap-2 shadow-lg"
+              >
                 <Plus className="h-5 w-5" />
                 {t('notificationsPage.scheduleNew')}
               </Button>
             </TooltipTrigger>
             <TooltipContent>{t('notificationsPage.scheduleNewTooltip')}</TooltipContent>
           </Tooltip>
-          </TooltipProvider>
-        </div>
-      )}
+        </TooltipProvider>
+      </div>
 
       {/* Action sheet for individual item */}
       <ScheduledActionActionSheet

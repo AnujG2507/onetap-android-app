@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 import { 
   Plus, 
   Clock, 
@@ -119,7 +120,7 @@ export function ScheduledActionsList({
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
   
   // Scroll state for hiding bottom button
-  const [isScrolledDown, setIsScrolledDown] = useState(false);
+  const [isBottomButtonVisible, setIsBottomButtonVisible] = useState(true);
   const lastScrollTop = useRef(0);
   
   const { toast } = useToast();
@@ -271,8 +272,21 @@ export function ScheduledActionsList({
 
   const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     const scrollTop = e.currentTarget.scrollTop;
-    const isScrollingDown = scrollTop > lastScrollTop.current && scrollTop > 50;
-    setIsScrolledDown(isScrollingDown);
+    const scrollDelta = scrollTop - lastScrollTop.current;
+    
+    // Show button when at top
+    if (scrollTop <= 10) {
+      setIsBottomButtonVisible(true);
+    }
+    // Show button when scrolling up (any amount)
+    else if (scrollDelta < -2) {
+      setIsBottomButtonVisible(true);
+    }
+    // Hide button when scrolling down (any amount)
+    else if (scrollDelta > 2) {
+      setIsBottomButtonVisible(false);
+    }
+    
     lastScrollTop.current = scrollTop;
   }, []);
 
@@ -739,17 +753,23 @@ export function ScheduledActionsList({
         )}
 
         {/* Floating add button (when not in selection mode) */}
-        {!isSelectionMode && actions.length > 0 && !isScrolledDown && (
-          <div className="absolute bottom-6 inset-x-0 px-5 shrink-0">
-            <Button
-              onClick={onCreateNew}
-              className="w-full h-12 rounded-2xl gap-2 shadow-lg"
-            >
-              <Plus className="h-5 w-5" />
-              Schedule new action
-            </Button>
-          </div>
-        )}
+        <div 
+          className={cn(
+            "absolute inset-x-0 px-5 pb-4 transition-all duration-300 ease-out",
+            "bottom-0",
+            isBottomButtonVisible && !isSelectionMode && actions.length > 0
+              ? "translate-y-0 opacity-100"
+              : "translate-y-full opacity-0 pointer-events-none"
+          )}
+        >
+          <Button
+            onClick={onCreateNew}
+            className="w-full h-12 rounded-2xl gap-2 shadow-lg"
+          >
+            <Plus className="h-5 w-5" />
+            Schedule new action
+          </Button>
+        </div>
       </SheetContent>
 
       {/* Action sheet for individual item */}
