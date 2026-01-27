@@ -46,7 +46,7 @@ i18n
     // Only load the detected language (not all languages)
     load: 'languageOnly',
     // Supported languages - others will fall back to English
-    supportedLngs: ['en', 'es', 'pt', 'hi', 'de', 'ja', 'ar', 'fr', 'it', 'zh', 'ko', 'ru', 'th', 'vi'],
+    supportedLngs: ['en', 'zh', 'hi', 'es', 'ar', 'pt', 'fr', 'ru', 'bn', 'id'],
     // Don't load translations for languages not in supportedLngs
     nonExplicitSupportedLngs: false,
     // Disable Suspense to avoid race conditions with language switching
@@ -59,19 +59,15 @@ export default i18n;
 
 export const supportedLanguages: readonly LanguageConfig[] = [
   { code: 'en', name: 'English', nativeName: 'English', rtl: false },
-  { code: 'es', name: 'Spanish', nativeName: 'Español', rtl: false },
-  { code: 'pt', name: 'Portuguese', nativeName: 'Português', rtl: false },
-  { code: 'hi', name: 'Hindi', nativeName: 'हिन्दी', rtl: false },
-  { code: 'de', name: 'German', nativeName: 'Deutsch', rtl: false },
-  { code: 'ja', name: 'Japanese', nativeName: '日本語', rtl: false },
-  { code: 'ar', name: 'Arabic', nativeName: 'العربية', rtl: true },
-  { code: 'fr', name: 'French', nativeName: 'Français', rtl: false },
-  { code: 'it', name: 'Italian', nativeName: 'Italiano', rtl: false },
   { code: 'zh', name: 'Chinese', nativeName: '中文', rtl: false },
-  { code: 'ko', name: 'Korean', nativeName: '한국어', rtl: false },
+  { code: 'hi', name: 'Hindi', nativeName: 'हिन्दी', rtl: false },
+  { code: 'es', name: 'Spanish', nativeName: 'Español', rtl: false },
+  { code: 'ar', name: 'Arabic', nativeName: 'العربية', rtl: true },
+  { code: 'pt', name: 'Portuguese', nativeName: 'Português', rtl: false },
+  { code: 'fr', name: 'French', nativeName: 'Français', rtl: false },
   { code: 'ru', name: 'Russian', nativeName: 'Русский', rtl: false },
-  { code: 'th', name: 'Thai', nativeName: 'ไทย', rtl: false },
-  { code: 'vi', name: 'Vietnamese', nativeName: 'Tiếng Việt', rtl: false },
+  { code: 'bn', name: 'Bengali', nativeName: 'বাংলা', rtl: false },
+  { code: 'id', name: 'Indonesian', nativeName: 'Bahasa Indonesia', rtl: false },
 ];
 
 interface LanguageConfig {

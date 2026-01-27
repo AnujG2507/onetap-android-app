@@ -24,7 +24,7 @@ const ENGLISH_SOURCE = join(rootDir, 'src/i18n/locales/en.json');
 const LOCALES_DIR = join(rootDir, 'public/locales');
 
 // Supported languages (excluding English which is the source)
-const TARGET_LANGUAGES = ['es', 'pt', 'hi', 'de', 'ja', 'ar', 'fr', 'it', 'zh', 'ko', 'ru', 'th', 'vi'];
+const TARGET_LANGUAGES = ['zh', 'hi', 'es', 'ar', 'pt', 'fr', 'ru', 'bn', 'id'];
 
 /**
  * Recursively get all keys from an object with their paths
