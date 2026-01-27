@@ -823,6 +823,7 @@ export function ScheduledTimingPicker({
                   weekday: 'long',
                   month: 'long',
                   day: 'numeric',
+                  ...(selectedDate.getFullYear() !== new Date().getFullYear() && { year: 'numeric' }),
                 })}
               </p>
             </motion.div>
