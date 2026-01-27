@@ -350,7 +350,11 @@
   "clipboard": {
     "detected": "تم اكتشاف رابط",
     "dismiss": "تجاهل",
-    "useLink": "استخدم هذا الرابط"
+    "useLink": "استخدم هذا الرابط",
+    "quickSave": "حفظ سريع",
+    "editSave": "تعديل وحفظ",
+    "shortcut": "اختصار",
+    "remindLater": "تذكير لاحقاً"
   },
   "errors": {
     "generic": "حدث خطأ ما",

@@ -344,7 +344,11 @@
   "clipboard": {
     "detected": "URL पाया गया",
     "dismiss": "खारिज करें",
-    "useLink": "इस लिंक का उपयोग करें"
+    "useLink": "इस लिंक का उपयोग करें",
+    "quickSave": "त्वरित सेव",
+    "editSave": "संपादित करें और सेव करें",
+    "shortcut": "शॉर्टकट",
+    "remindLater": "बाद में याद दिलाएं"
   },
   "toasts": {
     "linkSaved": "लिंक लाइब्रेरी में सेव किया गया!",

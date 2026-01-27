@@ -344,7 +344,11 @@
   "clipboard": {
     "detected": "URL rilevato",
     "dismiss": "Ignora",
-    "useLink": "Usa questo link"
+    "useLink": "Usa questo link",
+    "quickSave": "Salvataggio Rapido",
+    "editSave": "Modifica e Salva",
+    "shortcut": "Scorciatoia",
+    "remindLater": "Ricordami Dopo"
   },
   "toasts": {
     "linkSaved": "Link salvato nella libreria!",

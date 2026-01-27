@@ -122,13 +122,50 @@ export function AccessFlow({
     }
   }, [initialUrlForShortcut, onInitialUrlConsumed]);
 
-  const handleClipboardUse = (url: string) => {
+  const handleClipboardCreateShortcut = (url: string) => {
     dismissDetection();
     setContentSource({
       type: 'url',
       uri: url,
     });
     setStep('customize');
+  };
+
+  const handleClipboardSaveToLibrary = (url: string, data?: { title?: string; description?: string; tag?: string | null }) => {
+    dismissDetection();
+    // Import and use addSavedLink from savedLinksManager
+    import('@/lib/savedLinksManager').then(({ addSavedLink }) => {
+      const result = addSavedLink(url, data?.title, data?.description, data?.tag);
+      if (result.status === 'added' || result.status === 'duplicate') {
+        toast({
+          title: result.status === 'added' ? t('toasts.linkSaved') : t('toasts.linkDuplicate'),
+        });
+      } else {
+        toast({
+          title: t('toasts.linkFailed'),
+          variant: 'destructive',
+        });
+      }
+    });
+  };
+
+  const handleClipboardCreateReminder = (url: string) => {
+    dismissDetection();
+    try {
+      const hostname = new URL(url).hostname.replace('www.', '');
+      const destination: ScheduledActionDestination = {
+        type: 'url',
+        uri: url,
+        name: hostname,
+      };
+      onCreateReminder?.(destination);
+    } catch {
+      onCreateReminder?.({
+        type: 'url',
+        uri: url,
+        name: 'Link',
+      });
+    }
   };
 
   const handleSelectFromLibrary = (actionMode: ActionMode) => {
@@ -399,7 +436,9 @@ export function AccessFlow({
           {detectedUrl && (
             <ClipboardSuggestion
               url={detectedUrl}
-              onUse={handleClipboardUse}
+              onCreateShortcut={handleClipboardCreateShortcut}
+              onSaveToLibrary={handleClipboardSaveToLibrary}
+              onCreateReminder={handleClipboardCreateReminder}
               onDismiss={dismissDetection}
             />
           )}

@@ -344,7 +344,11 @@
   "clipboard": {
     "detected": "URLを検出",
     "dismiss": "閉じる",
-    "useLink": "このリンクを使用"
+    "useLink": "このリンクを使用",
+    "quickSave": "クイック保存",
+    "editSave": "編集して保存",
+    "shortcut": "ショートカット",
+    "remindLater": "後でリマインド"
   },
   "toasts": {
     "linkSaved": "リンクがライブラリに保存されました！",

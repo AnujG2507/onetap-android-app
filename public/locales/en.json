@@ -470,7 +470,11 @@
   "clipboard": {
     "detected": "URL Detected",
     "dismiss": "Dismiss",
-    "useLink": "Use this link"
+    "useLink": "Use this link",
+    "quickSave": "Quick Save",
+    "editSave": "Edit & Save",
+    "shortcut": "Shortcut",
+    "remindLater": "Remind Later"
   },
   "errors": {
     "generic": "Something went wrong",

@@ -344,7 +344,11 @@
   "clipboard": {
     "detected": "Phát hiện URL",
     "dismiss": "Bỏ qua",
-    "useLink": "Sử dụng liên kết này"
+    "useLink": "Sử dụng liên kết này",
+    "quickSave": "Lưu nhanh",
+    "editSave": "Sửa và Lưu",
+    "shortcut": "Lối tắt",
+    "remindLater": "Nhắc sau"
   },
   "toasts": {
     "linkSaved": "Đã lưu liên kết vào thư viện!",

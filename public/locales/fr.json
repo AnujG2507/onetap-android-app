@@ -350,7 +350,11 @@
   "clipboard": {
     "detected": "URL Détectée",
     "dismiss": "Ignorer",
-    "useLink": "Utiliser ce lien"
+    "useLink": "Utiliser ce lien",
+    "quickSave": "Enregistrement Rapide",
+    "editSave": "Modifier & Enregistrer",
+    "shortcut": "Raccourci",
+    "remindLater": "Rappeler Plus Tard"
   },
   "errors": {
     "generic": "Une erreur s'est produite",

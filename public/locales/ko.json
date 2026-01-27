@@ -344,7 +344,11 @@
   "clipboard": {
     "detected": "URL 감지됨",
     "dismiss": "닫기",
-    "useLink": "이 링크 사용"
+    "useLink": "이 링크 사용",
+    "quickSave": "빠른 저장",
+    "editSave": "편집 후 저장",
+    "shortcut": "바로가기",
+    "remindLater": "나중에 알림"
   },
   "toasts": {
     "linkSaved": "링크가 라이브러리에 저장되었습니다!",

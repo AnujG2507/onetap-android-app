@@ -344,7 +344,11 @@
   "clipboard": {
     "detected": "检测到URL",
     "dismiss": "忽略",
-    "useLink": "使用此链接"
+    "useLink": "使用此链接",
+    "quickSave": "快速保存",
+    "editSave": "编辑并保存",
+    "shortcut": "快捷方式",
+    "remindLater": "稍后提醒"
   },
   "toasts": {
     "linkSaved": "链接已保存到收藏库！",
