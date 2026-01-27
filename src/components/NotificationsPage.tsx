@@ -699,10 +699,11 @@ export function NotificationsPage({
         </div>
       )}
 
-      {/* Recurrence Filter bar */}
+      {/* Combined Filter bar (Recurrence + Status) */}
       {actions.length > 0 && (
-        <div id="tutorial-filter-chips" className="px-5 pb-2 shrink-0">
+        <div id="tutorial-filter-chips" className="px-5 pb-3 shrink-0">
           <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+            {/* Recurrence filters */}
             {RECURRENCE_FILTERS.map(filter => {
               const count = filterCounts[filter.value];
               if (filter.value !== 'all' && count === 0) return null;
@@ -710,7 +711,7 @@ export function NotificationsPage({
               const isActive = recurrenceFilter === filter.value;
               return (
                 <button
-                  key={filter.value}
+                  key={`recurrence-${filter.value}`}
                   onClick={() => {
                     triggerHaptic('light');
                     setRecurrenceFilter(filter.value);
@@ -731,25 +732,24 @@ export function NotificationsPage({
                 </button>
               );
             })}
-          </div>
-        </div>
-      )}
-
-      {/* Status Filter bar */}
-      {actions.length > 0 && (
-        <div className="px-5 pb-3 shrink-0">
-          <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-            {STATUS_FILTERS.map(filter => {
+            
+            {/* Visual divider */}
+            <div className="flex items-center px-1">
+              <div className="w-1 h-1 rounded-full bg-muted-foreground/30" />
+            </div>
+            
+            {/* Status filters */}
+            {STATUS_FILTERS.filter(f => f.value !== 'all').map(filter => {
               const count = statusCounts[filter.value];
-              if (filter.value !== 'all' && count === 0) return null;
+              if (count === 0) return null;
               
               const isActive = statusFilter === filter.value;
               return (
                 <button
-                  key={filter.value}
+                  key={`status-${filter.value}`}
                   onClick={() => {
                     triggerHaptic('light');
-                    setStatusFilter(filter.value);
+                    setStatusFilter(isActive ? 'all' : filter.value);
                   }}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
                     isActive 
@@ -891,11 +891,8 @@ export function NotificationsPage({
       >
         <div className="pb-28">
           {filteredActions.length === 0 ? (
-            searchQuery || recurrenceFilter !== 'all' ? (
-              <NoResultsState onClearFilters={() => {
-                setSearchQuery('');
-                setRecurrenceFilter('all');
-              }} />
+            searchQuery || recurrenceFilter !== 'all' || statusFilter !== 'all' ? (
+              <NoResultsState onClearFilters={handleClearFilters} />
             ) : (
               <EmptyState onCreateNew={handleCreateNew} />
             )
