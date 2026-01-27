@@ -5,12 +5,12 @@
     "previous": "Back",
     "done": "Got it!",
     "access": {
-      "step1Title": "Create Shortcuts",
-      "step1Desc": "Tap any content type to create a home screen shortcut",
+      "step1Title": "Set Up One Tap Access",
+      "step1Desc": "Tap any content type to create home screen access",
       "step2Title": "Quick Links",
-      "step2Desc": "Add website shortcuts for one-tap access",
+      "step2Desc": "Add website links for one-tap access",
       "step3Title": "From Your Library",
-      "step3Desc": "Use saved bookmarks to create shortcuts"
+      "step3Desc": "Use saved bookmarks to set up one tap access"
     },
     "reminders": {
       "step1Title": "Schedule Reminders",
@@ -35,7 +35,7 @@
     "whyDifferent": "Why OneTap?",
     "valueProp1": "One tap to what matters",
     "valueProp2": "No feeds. No distractions.",
-    "valueProp3": "Native home screen shortcuts"
+    "valueProp3": "Native home screen access"
   },
   "app": {
     "name": "OneTap",
@@ -54,11 +54,11 @@
     "whatsapp": "WhatsApp",
     "callName": "Call {{name}}",
     "whatsappName": "WhatsApp {{name}}",
-    "callShortcut": "Call Shortcut",
-    "whatsappShortcut": "WhatsApp Shortcut",
+    "callShortcut": "Call Access",
+    "whatsappShortcut": "WhatsApp Access",
     "phoneNumber": "Phone Number",
     "phonePlaceholder": "+1 234 567 8900",
-    "shortcutName": "Shortcut Name",
+    "accessName": "Access Name",
     "callPlaceholder": "Call Mom",
     "whatsappPlaceholder": "WhatsApp Mom",
     "pickFromContacts": "Pick from contacts"
@@ -93,7 +93,7 @@
   },
   "access": {
     "title": "Access",
-    "createShortcut": "Create a Shortcut",
+    "createShortcut": "Set Up One Tap Access",
     "photo": "Photo",
     "video": "Video",
     "audio": "Audio",
@@ -108,7 +108,7 @@
     "contactMessageDesc": "WhatsApp",
     "chooseAction": "Choose action type",
     "contactType": "Contact type",
-    "shortcut": "Shortcut",
+    "shortcut": "One Tap Access",
     "shortcutDesc": "Add to home screen",
     "reminder": "Reminder",
     "reminderDesc": "Schedule for later",
@@ -164,14 +164,14 @@
     "bulkDeleted": "{{count}} bookmark(s) moved to trash",
     "bulkDeletedPermanent": "{{count}} bookmark(s) permanently deleted",
     "bulkMoved": "{{count}} bookmark(s) moved",
-    "creatingShortcuts": "Creating {{count}} shortcut(s)...",
+    "creatingShortcuts": "Setting up {{count}} access point(s)...",
     "movedTo": "Moved to {{folder}}",
     "selected": "{{count}} selected",
     "move": "Move",
     "moveToFolder": "Move to folder",
     "moveToFolderTooltip": "Move selected to folder",
-    "shortcut": "Shortcut",
-    "shortcutTooltip": "Add shortcut to home screen",
+    "shortcut": "One Tap Access",
+    "shortcutTooltip": "Add one tap access to home screen",
     "editTooltip": "Edit bookmark details",
     "deleteTooltip": "Delete selected bookmarks",
     "deleteConfirmTitle": "Delete {{count}} bookmark(s)?",
@@ -234,7 +234,7 @@
   },
   "bookmarkAction": {
     "openInBrowser": "Open in Browser",
-    "createShortcut": "Create Home Screen Shortcut",
+    "createShortcut": "Set Up Home Screen Access",
     "edit": "Edit",
     "delete": "Delete",
     "deleteConfirm": "Delete bookmark?",
@@ -462,7 +462,7 @@
     "linkReceived": "Link Received",
     "quickSave": "Quick Save",
     "editAndSave": "Edit & Save",
-    "shortcut": "Shortcut",
+    "shortcut": "One Tap Access",
     "remindLater": "Remind Later",
     "title": "Title",
     "descriptionOptional": "Description (optional)",
@@ -489,7 +489,7 @@
     "useLink": "Use this link",
     "quickSave": "Quick Save",
     "editSave": "Edit & Save",
-    "shortcut": "Shortcut",
+    "shortcut": "One Tap Access",
     "remindLater": "Remind Later",
     "offlineMode": "Offline - saving will use URL only"
   },
@@ -530,7 +530,7 @@
   "permissions": {
     "storage": {
       "title": "Access your files",
-      "description": "To create shortcuts for your photos, videos, and documents, we need permission to access your files."
+      "description": "To set up one tap access for your photos, videos, and documents, we need permission to access your files."
     },
     "notifications": {
       "title": "Stay on schedule",
@@ -549,7 +549,7 @@
     "updateLink": "Update Link",
     "saveLink": "Save Link",
     "noBookmarks": "No bookmarks yet",
-    "noBookmarksDesc": "Save links in your Bookmarks library first, then create shortcuts from them here.",
+    "noBookmarksDesc": "Save links in your Bookmarks library first, then set up one tap access from them here.",
     "goToBookmarks": "Go to Bookmarks",
     "noMatch": "No links match your filter"
   },
