@@ -96,6 +96,7 @@ public class NativeVideoPlayerActivity extends Activity {
     private TextView titleView;
     private ImageButton closeButton;
     private ImageButton lockButton;
+    private ImageButton floatingUnlockButton;
     private boolean isTopBarVisible = true;
     private boolean isControlsLocked = false;
 
@@ -892,7 +893,10 @@ public class NativeVideoPlayerActivity extends Activity {
 
             @Override
             public boolean onSingleTapConfirmed(MotionEvent e) {
-                if (!isControlsLocked) {
+                if (isControlsLocked) {
+                    // When locked, toggle the floating unlock button visibility
+                    toggleFloatingUnlockButton();
+                } else {
                     toggleTopBar();
                 }
                 return true;
@@ -1043,11 +1047,65 @@ public class NativeVideoPlayerActivity extends Activity {
         if (isControlsLocked) {
             hideTopBar();
             playerView.setUseController(false);
+            // Show floating unlock button briefly, then hide after delay
+            showFloatingUnlockButton();
+            hideHandler.postDelayed(this::hideFloatingUnlockButton, AUTO_HIDE_DELAY_MS);
         } else {
+            // Hide floating unlock button
+            hideFloatingUnlockButton();
             showTopBar();
             scheduleHide();
             playerView.setUseController(true);
         }
+    }
+    
+    /**
+     * Toggle floating unlock button visibility when screen is tapped while locked.
+     */
+    private void toggleFloatingUnlockButton() {
+        if (floatingUnlockButton == null) return;
+        
+        if (floatingUnlockButton.getVisibility() == View.VISIBLE && floatingUnlockButton.getAlpha() > 0) {
+            hideFloatingUnlockButton();
+        } else {
+            showFloatingUnlockButton();
+            // Auto-hide after delay
+            hideHandler.removeCallbacks(this::hideFloatingUnlockButton);
+            hideHandler.postDelayed(this::hideFloatingUnlockButton, AUTO_HIDE_DELAY_MS);
+        }
+    }
+    
+    /**
+     * Show the floating unlock button with animation.
+     */
+    private void showFloatingUnlockButton() {
+        if (floatingUnlockButton == null) return;
+        
+        floatingUnlockButton.setVisibility(View.VISIBLE);
+        floatingUnlockButton.animate()
+            .alpha(1f)
+            .scaleX(1f).scaleY(1f)
+            .setDuration(200)
+            .setInterpolator(new OvershootInterpolator())
+            .start();
+    }
+    
+    /**
+     * Hide the floating unlock button with animation.
+     */
+    private void hideFloatingUnlockButton() {
+        if (floatingUnlockButton == null) return;
+        
+        floatingUnlockButton.animate()
+            .alpha(0f)
+            .scaleX(0.8f).scaleY(0.8f)
+            .setDuration(200)
+            .withEndAction(() -> {
+                if (floatingUnlockButton != null) {
+                    floatingUnlockButton.setVisibility(View.GONE);
+                }
+            })
+            .start();
     }
 
     private void initializePlayer() {
@@ -1516,6 +1574,58 @@ public class NativeVideoPlayerActivity extends Activity {
             openInExternalPlayerDirect();
         });
         rightButtons.addView(openWithButton);
+        
+        // Create floating unlock button (hidden initially)
+        createFloatingUnlockButton();
+    }
+    
+    /**
+     * Create a floating unlock button that appears when controls are locked.
+     * This provides a way to unlock controls even when the top bar is hidden.
+     */
+    private void createFloatingUnlockButton() {
+        floatingUnlockButton = new ImageButton(this);
+        floatingUnlockButton.setImageResource(android.R.drawable.ic_lock_lock);
+        floatingUnlockButton.setContentDescription("Tap to unlock controls");
+        floatingUnlockButton.setColorFilter(Color.WHITE);
+        floatingUnlockButton.setVisibility(View.GONE);
+        floatingUnlockButton.setAlpha(0f);
+        
+        // Premium glassmorphism style with larger touch target
+        GradientDrawable bg = new GradientDrawable();
+        bg.setShape(GradientDrawable.OVAL);
+        bg.setColor(0x66000000);
+        bg.setStroke(dpToPx(2), 0x44FFFFFF);
+        floatingUnlockButton.setBackground(bg);
+        floatingUnlockButton.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+        floatingUnlockButton.setPadding(dpToPx(16), dpToPx(16), dpToPx(16), dpToPx(16));
+        floatingUnlockButton.setElevation(dpToPx(8));
+        
+        // Position at bottom center
+        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(dpToPx(64), dpToPx(64));
+        params.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
+        params.bottomMargin = dpToPx(80);
+        
+        floatingUnlockButton.setOnClickListener(v -> {
+            performHapticFeedback();
+            toggleControlsLock();
+        });
+        
+        // Add touch feedback animation
+        floatingUnlockButton.setOnTouchListener((v, event) -> {
+            switch (event.getAction()) {
+                case MotionEvent.ACTION_DOWN:
+                    v.animate().scaleX(0.9f).scaleY(0.9f).setDuration(80).start();
+                    break;
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_CANCEL:
+                    v.animate().scaleX(1f).scaleY(1f).setDuration(80).start();
+                    break;
+            }
+            return false;
+        });
+        
+        root.addView(floatingUnlockButton, params);
     }
 
     private TextView createSpeedButton() {
