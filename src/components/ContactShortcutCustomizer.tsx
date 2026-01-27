@@ -180,7 +180,7 @@ export function ContactShortcutCustomizer({
 
         {/* Shortcut Name */}
         <div className="space-y-2">
-          <Label htmlFor="name">{t('contact.shortcutName')}</Label>
+          <Label htmlFor="name">{t('contact.accessName')}</Label>
           <div className="relative">
             <Input
               id="name"
