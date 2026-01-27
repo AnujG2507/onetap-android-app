@@ -844,6 +844,7 @@ export function ScheduledTimingPicker({
           <div className="px-4 pb-6">
             <div className="rounded-2xl bg-gradient-to-br from-muted/30 to-muted/10 border border-border/50 p-2 shadow-inner">
               <CalendarComponent
+                key={showFullCalendar ? selectedDate.toISOString() : 'closed'}
                 mode="single"
                 selected={selectedDate}
                 defaultMonth={selectedDate}
