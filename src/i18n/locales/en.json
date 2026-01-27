@@ -600,7 +600,8 @@
     "selectDate": "Select date",
     "selectTime": "Select time",
     "scheduledFor": "Scheduled for",
-    "pickDate": "Pick date"
+    "pickDate": "Pick date",
+    "swipeToNavigate": "Swipe to navigate"
   },
   "scheduledEditor": {
     "editAction": "Edit Action",

@@ -71,7 +71,7 @@ function QuickPreset({ icon, label, sublabel, onClick, selected }: QuickPresetPr
   );
 }
 
-// Week calendar picker component
+// Week calendar picker component with swipe support
 interface WeekCalendarProps {
   selectedDate: Date;
   onDateSelect: (date: Date) => void;
@@ -81,6 +81,38 @@ interface WeekCalendarProps {
 function WeekCalendar({ selectedDate, onDateSelect, onOpenFullCalendar }: WeekCalendarProps) {
   const { t } = useTranslation();
   const [weekOffset, setWeekOffset] = useState(0);
+  const [direction, setDirection] = useState(0); // -1 = left, 1 = right
+  
+  // Swipe gesture handling
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
+  const minSwipeDistance = 50;
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+    
+    if (isLeftSwipe && weekOffset < 4) {
+      triggerHaptic('light');
+      setDirection(1);
+      setWeekOffset(w => w + 1);
+    } else if (isRightSwipe && weekOffset > 0) {
+      triggerHaptic('light');
+      setDirection(-1);
+      setWeekOffset(w => w - 1);
+    }
+  };
   
   const weekDates = useMemo(() => {
     const dates: Date[] = [];
@@ -115,159 +147,230 @@ function WeekCalendar({ selectedDate, onDateSelect, onOpenFullCalendar }: WeekCa
     return date.toLocaleDateString(undefined, { weekday: 'short' });
   };
 
+  // Slide variants for week transitions
+  const slideVariants = {
+    enter: (dir: number) => ({
+      x: dir > 0 ? 80 : -80,
+      opacity: 0,
+    }),
+    center: {
+      x: 0,
+      opacity: 1,
+    },
+    exit: (dir: number) => ({
+      x: dir > 0 ? -80 : 80,
+      opacity: 0,
+    }),
+  };
+
   return (
-    <div className="rounded-2xl bg-gradient-to-br from-muted/40 to-muted/20 border border-border/50 p-4 space-y-4">
-      {/* Month header with navigation */}
-      <div className="flex items-center justify-between">
-        <motion.button
-          whileTap={{ scale: 0.9 }}
-          onClick={() => {
-            triggerHaptic('light');
-            setWeekOffset(w => w - 1);
-          }}
-          disabled={weekOffset <= 0}
-          className={cn(
-            "p-2.5 rounded-xl transition-all",
-            "bg-background/60 hover:bg-background border border-border/50 shadow-sm",
-            "disabled:opacity-30 disabled:pointer-events-none"
-          )}
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </motion.button>
-        <motion.span 
-          key={monthLabel}
-          initial={{ opacity: 0, y: -5 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-sm font-semibold text-foreground"
-        >
-          {monthLabel}
-        </motion.span>
-        <motion.button
-          whileTap={{ scale: 0.9 }}
-          onClick={() => {
-            triggerHaptic('light');
-            setWeekOffset(w => w + 1);
-          }}
-          disabled={weekOffset >= 4}
-          className={cn(
-            "p-2.5 rounded-xl transition-all",
-            "bg-background/60 hover:bg-background border border-border/50 shadow-sm",
-            "disabled:opacity-30 disabled:pointer-events-none"
-          )}
-        >
-          <ChevronRight className="h-4 w-4" />
-        </motion.button>
-      </div>
+    <div 
+      className="rounded-3xl overflow-hidden relative"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* Glassmorphism background */}
+      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-primary/10 backdrop-blur-xl" />
+      <div className="absolute inset-0 bg-gradient-to-t from-muted/30 to-transparent" />
       
-      {/* Days grid - larger touch targets */}
-      <div className="grid grid-cols-7 gap-2">
-        <AnimatePresence mode="popLayout">
-          {weekDates.map((date, index) => {
-            const isSelected = date.toDateString() === selectedDate.toDateString();
-            const isToday = date.toDateString() === today.toDateString();
-            const isPast = date < today && !isToday;
-            
-            return (
-              <motion.button
-                key={date.toISOString()}
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: index * 0.02 }}
-                whileTap={{ scale: 0.92 }}
-                onClick={() => {
-                  if (!isPast) {
-                    triggerHaptic('light');
-                    onDateSelect(date);
-                  }
-                }}
-                disabled={isPast}
-                className={cn(
-                  "flex flex-col items-center justify-center gap-1 rounded-2xl py-3 transition-all relative aspect-square",
-                  isPast && "opacity-30 pointer-events-none",
-                  isSelected
-                    ? "bg-gradient-to-br from-primary to-primary/80 text-primary-foreground shadow-lg shadow-primary/30"
-                    : isToday
-                      ? "bg-background border-2 border-primary/40 shadow-sm"
-                      : "bg-background/60 border border-border/30 hover:bg-background hover:border-border/50 hover:shadow-sm"
-                )}
-              >
-                {/* Day label */}
-                <span className={cn(
-                  "text-[9px] font-semibold uppercase tracking-wide",
-                  isSelected 
-                    ? "text-primary-foreground/90" 
-                    : isToday 
-                      ? "text-primary"
-                      : "text-muted-foreground"
-                )}>
-                  {getDateLabel(date).slice(0, 3)}
-                </span>
-                {/* Date number */}
-                <span className={cn(
-                  "text-xl font-bold tabular-nums leading-none",
-                  isSelected 
-                    ? "text-primary-foreground" 
-                    : isToday
-                      ? "text-primary"
-                      : "text-foreground"
-                )}>
-                  {date.getDate()}
-                </span>
-                {/* Today indicator */}
-                {isToday && !isSelected && (
-                  <motion.div 
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    className="absolute -bottom-0.5 w-1.5 h-1.5 rounded-full bg-primary"
-                  />
-                )}
-                {/* Selected checkmark glow effect */}
-                {isSelected && (
-                  <motion.div
-                    layoutId="date-selection"
-                    className="absolute inset-0 rounded-2xl bg-gradient-to-br from-primary to-primary/80"
-                    style={{ zIndex: -1 }}
-                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                  />
-                )}
-              </motion.button>
-            );
-          })}
-        </AnimatePresence>
-      </div>
-      
-      {/* Footer: dots + pick specific date */}
-      <div className="flex items-center justify-between pt-1">
-        {/* Week navigation dots */}
-        <div className="flex items-center gap-1.5">
-          {[0, 1, 2, 3, 4].map((i) => (
-            <button
-              key={i}
-              onClick={() => {
-                triggerHaptic('light');
-                setWeekOffset(i);
-              }}
-              className={cn(
-                "w-1.5 h-1.5 rounded-full transition-all",
-                weekOffset === i 
-                  ? "bg-primary w-4" 
-                  : "bg-muted-foreground/30 hover:bg-muted-foreground/50"
-              )}
-            />
-          ))}
+      {/* Content */}
+      <div className="relative p-5 space-y-5">
+        {/* Month header with navigation */}
+        <div className="flex items-center justify-between">
+          <motion.button
+            whileTap={{ scale: 0.85 }}
+            whileHover={{ scale: 1.05 }}
+            onClick={() => {
+              triggerHaptic('light');
+              setDirection(-1);
+              setWeekOffset(w => w - 1);
+            }}
+            disabled={weekOffset <= 0}
+            className={cn(
+              "p-3 rounded-2xl transition-all",
+              "bg-background/80 hover:bg-background border border-border/40",
+              "shadow-sm hover:shadow-md hover:border-primary/30",
+              "disabled:opacity-30 disabled:pointer-events-none disabled:hover:shadow-none"
+            )}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </motion.button>
+          
+          <motion.div 
+            key={monthLabel}
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: "spring", stiffness: 400, damping: 25 }}
+            className="flex flex-col items-center"
+          >
+            <span className="text-sm font-bold text-foreground tracking-wide">
+              {monthLabel}
+            </span>
+            <span className="text-[10px] text-muted-foreground mt-0.5">
+              {t('scheduledTiming.swipeToNavigate', 'Swipe to navigate')}
+            </span>
+          </motion.div>
+          
+          <motion.button
+            whileTap={{ scale: 0.85 }}
+            whileHover={{ scale: 1.05 }}
+            onClick={() => {
+              triggerHaptic('light');
+              setDirection(1);
+              setWeekOffset(w => w + 1);
+            }}
+            disabled={weekOffset >= 4}
+            className={cn(
+              "p-3 rounded-2xl transition-all",
+              "bg-background/80 hover:bg-background border border-border/40",
+              "shadow-sm hover:shadow-md hover:border-primary/30",
+              "disabled:opacity-30 disabled:pointer-events-none disabled:hover:shadow-none"
+            )}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </motion.button>
         </div>
         
-        {/* Pick specific date button */}
-        <button
-          onClick={() => {
-            triggerHaptic('light');
-            onOpenFullCalendar();
-          }}
-          className="flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
-        >
-          <CalendarDays className="h-3.5 w-3.5" />
-          <span>{t('scheduledTiming.pickDate')}</span>
-        </button>
+        {/* Days grid with slide animation */}
+        <div className="overflow-hidden">
+          <AnimatePresence mode="wait" custom={direction}>
+            <motion.div
+              key={weekOffset}
+              custom={direction}
+              variants={slideVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{ type: "spring", stiffness: 300, damping: 30, duration: 0.25 }}
+              className="grid grid-cols-7 gap-2"
+            >
+              {weekDates.map((date, index) => {
+                const isSelected = date.toDateString() === selectedDate.toDateString();
+                const isToday = date.toDateString() === today.toDateString();
+                const isPast = date < today && !isToday;
+                
+                return (
+                  <motion.button
+                    key={date.toISOString()}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.03, type: "spring", stiffness: 400 }}
+                    whileTap={{ scale: 0.92 }}
+                    onClick={() => {
+                      if (!isPast) {
+                        triggerHaptic('light');
+                        onDateSelect(date);
+                      }
+                    }}
+                    disabled={isPast}
+                    className={cn(
+                      "flex flex-col items-center justify-center gap-1.5 rounded-2xl py-3.5 transition-all relative aspect-square",
+                      "backdrop-blur-sm",
+                      isPast && "opacity-30 pointer-events-none",
+                      isSelected
+                        ? "bg-gradient-to-br from-primary via-primary to-primary/80 text-primary-foreground shadow-xl shadow-primary/40 scale-105 border-2 border-primary-foreground/20"
+                        : isToday
+                          ? "bg-background/90 border-2 border-primary/50 shadow-md shadow-primary/10"
+                          : "bg-background/70 border border-border/40 hover:bg-background/90 hover:border-primary/30 hover:shadow-md hover:scale-[1.02]"
+                    )}
+                  >
+                    {/* Day label */}
+                    <span className={cn(
+                      "text-[9px] font-bold uppercase tracking-wider",
+                      isSelected 
+                        ? "text-primary-foreground/90" 
+                        : isToday 
+                          ? "text-primary"
+                          : "text-muted-foreground"
+                    )}>
+                      {getDateLabel(date).slice(0, 3)}
+                    </span>
+                    {/* Date number */}
+                    <span className={cn(
+                      "text-xl font-bold tabular-nums leading-none",
+                      isSelected 
+                        ? "text-primary-foreground" 
+                        : isToday
+                          ? "text-primary"
+                          : "text-foreground"
+                    )}>
+                      {date.getDate()}
+                    </span>
+                    {/* Today indicator dot */}
+                    {isToday && !isSelected && (
+                      <motion.div 
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ type: "spring", stiffness: 500 }}
+                        className="absolute -bottom-0.5 w-2 h-2 rounded-full bg-primary shadow-lg shadow-primary/50"
+                      />
+                    )}
+                    {/* Selected glow effect */}
+                    {isSelected && (
+                      <>
+                        <motion.div
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          className="absolute inset-0 rounded-2xl bg-gradient-to-t from-white/10 to-transparent"
+                        />
+                        <motion.div
+                          initial={{ scale: 0.8, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 0.3 }}
+                          className="absolute inset-0 rounded-2xl bg-primary blur-xl -z-10"
+                        />
+                      </>
+                    )}
+                  </motion.button>
+                );
+              })}
+            </motion.div>
+          </AnimatePresence>
+        </div>
+        
+        {/* Footer: dots + pick specific date */}
+        <div className="flex items-center justify-between pt-2">
+          {/* Week navigation dots with progress bar style */}
+          <div className="flex items-center gap-2 bg-muted/50 rounded-full p-1.5">
+            {[0, 1, 2, 3, 4].map((i) => (
+              <motion.button
+                key={i}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => {
+                  triggerHaptic('light');
+                  setDirection(i > weekOffset ? 1 : -1);
+                  setWeekOffset(i);
+                }}
+                className={cn(
+                  "h-2 rounded-full transition-all duration-300",
+                  weekOffset === i 
+                    ? "bg-primary w-6 shadow-sm shadow-primary/50" 
+                    : "bg-muted-foreground/25 w-2 hover:bg-muted-foreground/40"
+                )}
+              />
+            ))}
+          </div>
+          
+          {/* Pick specific date button - premium styling */}
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            whileHover={{ scale: 1.02 }}
+            onClick={() => {
+              triggerHaptic('light');
+              onOpenFullCalendar();
+            }}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-full",
+              "bg-gradient-to-r from-primary/10 to-primary/5",
+              "border border-primary/30 hover:border-primary/50",
+              "text-xs font-semibold text-primary hover:text-primary/90",
+              "shadow-sm hover:shadow-md transition-all"
+            )}
+          >
+            <CalendarDays className="h-3.5 w-3.5" />
+            <span>{t('scheduledTiming.pickDate')}</span>
+          </motion.button>
+        </div>
       </div>
     </div>
   );
