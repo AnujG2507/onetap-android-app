@@ -262,9 +262,6 @@ function WeekCalendar({ selectedDate, onDateSelect, onOpenFullCalendar }: WeekCa
             <span className="text-sm font-bold text-foreground tracking-wide">
               {monthLabel}
             </span>
-            <span className="text-[10px] text-muted-foreground mt-0.5">
-              {t('scheduledTiming.swipeToNavigate', 'Swipe to navigate')}
-            </span>
           </motion.div>
           
           <motion.button
@@ -840,9 +837,6 @@ export function ScheduledTimingPicker({
               <DialogTitle className="text-center text-lg font-bold">
                 {t('scheduledTiming.pickDate')}
               </DialogTitle>
-              <p className="text-center text-xs text-muted-foreground mt-1">
-                {t('scheduledTiming.swipeToNavigate')}
-              </p>
             </DialogHeader>
           </div>
           
