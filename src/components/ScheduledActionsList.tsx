@@ -680,40 +680,59 @@ export function ScheduledActionsList({
         {isSelectionMode && selectedIds.size > 0 && (
           <div className="absolute bottom-6 inset-x-0 px-5 shrink-0 z-10">
             <div className="bg-card border rounded-2xl shadow-lg p-3 flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleBulkEnable}
-                className="flex-1 gap-1.5"
-              >
-                <ToggleRight className="h-4 w-4" />
-                Enable
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleBulkDisable}
-                className="flex-1 gap-1.5"
-              >
-                <ToggleLeft className="h-4 w-4" />
-                Disable
-              </Button>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => setShowBulkDeleteConfirm(true)}
-                className="gap-1.5"
-              >
-                <Trash2 className="h-4 w-4" />
-                {selectedIds.size}
-              </Button>
+              <span className="text-sm font-medium text-foreground me-2">
+                {selectedIds.size} selected
+              </span>
+              <div className="h-5 w-px bg-border" />
+              <TooltipProvider delayDuration={0}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleBulkEnable}
+                      className="h-9 w-9"
+                    >
+                      <ToggleRight className="h-5 w-5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Enable selected</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleBulkDisable}
+                      className="h-9 w-9"
+                    >
+                      <ToggleLeft className="h-5 w-5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Disable selected</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setShowBulkDeleteConfirm(true)}
+                      className="h-9 w-9 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    >
+                      <Trash2 className="h-5 w-5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Delete selected</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <div className="h-5 w-px bg-border" />
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={handleClearSelection}
-                className="h-8 w-8"
+                className="h-9 w-9 text-muted-foreground"
               >
-                <X className="h-4 w-4" />
+                <X className="h-5 w-5" />
               </Button>
             </div>
           </div>

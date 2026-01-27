@@ -773,17 +773,20 @@ export function NotificationsPage({
       {isSelectionMode && selectedIds.size > 0 && (
         <div className="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom)+1rem)] inset-x-0 px-5 z-10">
           <div className="bg-card border rounded-2xl shadow-lg p-3 flex items-center gap-2">
+            <span className="text-sm font-medium text-foreground me-2">
+              {selectedIds.size} {t('library.selectedLabel')}
+            </span>
+            <div className="h-5 w-px bg-border" />
             <TooltipProvider delayDuration={0}>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
-                    variant="outline"
-                    size="sm"
+                    variant="ghost"
+                    size="icon"
                     onClick={handleBulkEnable}
-                    className="flex-1 gap-1.5"
+                    className="h-9 w-9"
                   >
-                    <ToggleRight className="h-4 w-4" />
-                    {t('notificationsPage.enable')}
+                    <ToggleRight className="h-5 w-5" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>{t('notificationsPage.enableTooltip')}</TooltipContent>
@@ -791,13 +794,12 @@ export function NotificationsPage({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
-                    variant="outline"
-                    size="sm"
+                    variant="ghost"
+                    size="icon"
                     onClick={handleBulkDisable}
-                    className="flex-1 gap-1.5"
+                    className="h-9 w-9"
                   >
-                    <ToggleLeft className="h-4 w-4" />
-                    {t('notificationsPage.disable')}
+                    <ToggleLeft className="h-5 w-5" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>{t('notificationsPage.disableTooltip')}</TooltipContent>
@@ -805,26 +807,26 @@ export function NotificationsPage({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
-                    variant="destructive"
-                    size="sm"
+                    variant="ghost"
+                    size="icon"
                     onClick={() => setShowBulkDeleteConfirm(true)}
-                    className="gap-1.5"
+                    className="h-9 w-9 text-destructive hover:text-destructive hover:bg-destructive/10"
                   >
-                    <Trash2 className="h-4 w-4" />
-                    {t('common.delete')}
+                    <Trash2 className="h-5 w-5" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>{t('notificationsPage.deleteTooltip')}</TooltipContent>
               </Tooltip>
             </TooltipProvider>
+            <div className="h-5 w-px bg-border" />
             <Button
               variant="ghost"
               size="icon"
               onClick={handleClearSelection}
-              className="h-8 w-8"
+              className="h-9 w-9 text-muted-foreground"
               aria-label={t('library.clearSelection')}
             >
-              <X className="h-4 w-4" />
+              <X className="h-5 w-5" />
             </Button>
           </div>
         </div>

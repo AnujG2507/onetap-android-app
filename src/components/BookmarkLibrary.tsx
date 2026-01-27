@@ -1176,11 +1176,10 @@ export function BookmarkLibrary({
             <TooltipTrigger asChild>
               <button
                 onClick={() => setShowBulkMoveDialog(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-muted transition-colors text-sm font-medium"
+                className="p-2 rounded-lg hover:bg-muted transition-colors"
                 aria-label={t('library.moveToFolder')}
               >
-                <FolderInput className="h-4 w-4" />
-                <span className="hidden sm:inline">{t('library.move')}</span>
+                <FolderInput className="h-5 w-5" />
               </button>
             </TooltipTrigger>
             <TooltipContent>{t('library.moveToFolderTooltip')}</TooltipContent>
@@ -1196,11 +1195,10 @@ export function BookmarkLibrary({
                       setStartInEditMode(true);
                       setShowActionSheet(true);
                     }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-muted transition-colors text-sm font-medium"
+                    className="p-2 rounded-lg hover:bg-muted transition-colors"
                     aria-label={t('common.edit')}
                   >
-                    <Edit2 className="h-4 w-4" />
-                    {t('common.edit')}
+                    <Edit2 className="h-5 w-5" />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent>{t('library.editTooltip')}</TooltipContent>
@@ -1209,11 +1207,10 @@ export function BookmarkLibrary({
                 <TooltipTrigger asChild>
                   <button
                     onClick={handleBulkCreateShortcuts}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-muted transition-colors text-sm font-medium"
+                    className="p-2 rounded-lg hover:bg-muted transition-colors"
                     aria-label={t('library.shortcut')}
                   >
-                    <Home className="h-4 w-4" />
-                    {t('library.shortcut')}
+                    <Home className="h-5 w-5" />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent>{t('library.shortcutTooltip')}</TooltipContent>
@@ -1225,11 +1222,10 @@ export function BookmarkLibrary({
             <TooltipTrigger asChild>
               <button
                 onClick={() => setShowBulkDeleteConfirm(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-destructive/10 text-destructive transition-colors text-sm font-medium"
+                className="p-2 rounded-lg hover:bg-destructive/10 text-destructive transition-colors"
                 aria-label={t('common.delete')}
               >
-                <Trash2 className="h-4 w-4" />
-                {t('common.delete')}
+                <Trash2 className="h-5 w-5" />
               </button>
             </TooltipTrigger>
             <TooltipContent>{t('library.deleteTooltip')}</TooltipContent>
@@ -1240,10 +1236,10 @@ export function BookmarkLibrary({
         
         <button
           onClick={handleClearShortlist}
-          className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground"
+          className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground"
           aria-label={t('library.clearSelection')}
         >
-          <X className="h-4 w-4" />
+          <X className="h-5 w-5" />
         </button>
       </div>
       
