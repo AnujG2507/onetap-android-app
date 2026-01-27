@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
 import { Trash2, AlertTriangle, ArrowLeftRight, X, RotateCcw, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -39,11 +38,11 @@ interface TrashSheetProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   onRestored?: () => void;
+  onOpenSettings?: () => void;
 }
 
-export function TrashSheet({ open: controlledOpen, onOpenChange, onRestored }: TrashSheetProps) {
+export function TrashSheet({ open: controlledOpen, onOpenChange, onRestored, onOpenSettings }: TrashSheetProps) {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const [internalOpen, setInternalOpen] = useState(false);
   
   // Support both controlled and uncontrolled modes
@@ -60,7 +59,7 @@ export function TrashSheet({ open: controlledOpen, onOpenChange, onRestored }: T
   
   const handleOpenSettings = () => {
     setOpen(false);
-    navigate('/settings');
+    onOpenSettings?.();
   };
 
   // Swipe-to-close gesture tracking
