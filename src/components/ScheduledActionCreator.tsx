@@ -288,7 +288,7 @@ export function ScheduledActionCreator({
     if (urlSubStep === 'input') {
       return (
         <div className="flex flex-col h-full animate-fade-in">
-          <div className="flex items-center gap-3 px-5 py-4 border-b border-border">
+          <div className="flex items-center gap-3 px-5 pt-header-safe-compact pb-4 border-b border-border">
             <button
               onClick={handleBack}
               className="p-2 -ms-2 rounded-full hover:bg-muted active:scale-95 transition-transform"
@@ -346,7 +346,7 @@ export function ScheduledActionCreator({
     if (urlSubStep === 'choose') {
       return (
         <div className="flex flex-col h-full animate-fade-in">
-          <div className="flex items-center gap-3 px-5 py-4 border-b border-border">
+          <div className="flex items-center gap-3 px-5 pt-header-safe-compact pb-4 border-b border-border">
             <button
               onClick={handleBack}
               className="p-2 -ms-2 rounded-full hover:bg-muted active:scale-95 transition-transform"
@@ -385,7 +385,7 @@ export function ScheduledActionCreator({
     // Main destination selection
     return (
       <div className="flex flex-col h-full animate-fade-in">
-        <div className="flex items-center gap-3 px-5 py-4 border-b border-border">
+        <div className="flex items-center gap-3 px-5 pt-header-safe-compact pb-4 border-b border-border">
           <button
             onClick={handleBack}
             className="p-2 -ms-2 rounded-full hover:bg-muted active:scale-95 transition-transform"
@@ -441,7 +441,7 @@ export function ScheduledActionCreator({
   // Step: Confirm and name
   return (
     <div className="flex flex-col h-full animate-fade-in">
-      <div className="flex items-center gap-3 px-5 py-4 border-b border-border">
+      <div className="flex items-center gap-3 px-5 pt-header-safe-compact pb-4 border-b border-border">
         <button
           onClick={handleBack}
           className="p-2 -ms-2 rounded-full hover:bg-muted active:scale-95 transition-transform"
