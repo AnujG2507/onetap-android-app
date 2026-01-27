@@ -6,13 +6,9 @@ import {
   Sun, 
   Moon, 
   Monitor, 
-  Clipboard, 
   AlertTriangle,
-  RotateCcw,
 } from 'lucide-react';
-import { LanguagePicker } from './LanguagePicker';
 import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
 import {
   Sheet,
   SheetContent,
@@ -26,8 +22,6 @@ import { getTrashCount, getTrashLinks, getDaysRemaining } from '@/lib/savedLinks
 import { useTheme } from 'next-themes';
 import { useSheetBackHandler } from '@/hooks/useSheetBackHandler';
 import { CloudBackupSection } from './CloudBackupSection';
-import { useSettings } from '@/hooks/useSettings';
-import { useOnboarding } from '@/hooks/useOnboarding';
 import { useRTL } from '@/hooks/useRTL';
 
 type ThemeOption = 'light' | 'dark' | 'system';
@@ -44,10 +38,7 @@ export function AppMenu({ onOpenTrash }: AppMenuProps) {
   const [open, setOpen] = useState(false);
   const [trashCount, setTrashCount] = useState(getTrashCount());
   const [expiringCount, setExpiringCount] = useState(0);
-  const [languagePickerOpen, setLanguagePickerOpen] = useState(false);
   const { theme, setTheme } = useTheme();
-  const { settings, updateSettings } = useSettings();
-  const { resetOnboarding } = useOnboarding();
   
   // Swipe gesture tracking
   const touchStartX = useRef<number | null>(null);
@@ -165,14 +156,13 @@ export function AppMenu({ onOpenTrash }: AppMenuProps) {
           <CloudBackupSection />
         </div>
 
-        {/* Settings Section - at bottom */}
+        {/* Quick Settings - Theme only */}
         <div className="mt-auto pt-4">
           <Separator className="mb-4" />
-          <p className="text-xs text-muted-foreground ps-3 mb-3">{t('settings.title')}</p>
+          <p className="text-xs text-muted-foreground ps-3 mb-3">{t('settings.appearance')}</p>
           
           {/* Theme Selection */}
-          <div className="ps-3 pe-3 mb-4">
-            <p className="text-sm font-medium mb-2">{t('settings.appearance')}</p>
+          <div className="ps-3 pe-3 mb-2">
             <div className="flex gap-1">
               {themeOptions.map((option) => (
                 <Button
@@ -191,53 +181,6 @@ export function AppMenu({ onOpenTrash }: AppMenuProps) {
               ))}
             </div>
           </div>
-
-          {/* Language Selection */}
-          <div className="ps-3 pe-3 mb-2">
-            <LanguagePicker 
-              open={languagePickerOpen} 
-              onOpenChange={setLanguagePickerOpen} 
-            />
-          </div>
-          
-          {/* Clipboard Detection Toggle */}
-          <div className="flex items-center justify-between ps-3 pe-3 py-2">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <Clipboard className="h-4 w-4 text-muted-foreground shrink-0" />
-                <span className="text-sm">{t('settings.clipboardDetection')}</span>
-              </div>
-              <p className="text-xs text-muted-foreground mt-0.5 ps-6">
-                {t('settings.clipboardDescription')}
-              </p>
-            </div>
-            <Switch
-              checked={settings.clipboardDetectionEnabled}
-              onCheckedChange={(checked) => updateSettings({ clipboardDetectionEnabled: checked })}
-            />
-          </div>
-
-          {/* Reset Onboarding */}
-          <Button
-            variant="ghost"
-            className="w-full justify-start h-auto ps-3 pe-3 py-2 whitespace-normal"
-            onClick={() => handleMenuItem(() => {
-              resetOnboarding();
-              // Reload to trigger the onboarding flow with fresh state
-              window.location.reload();
-            })}
-          >
-            <div className="flex-1 min-w-0 text-start overflow-hidden">
-              <div className="flex items-center gap-2">
-                <RotateCcw className="h-4 w-4 text-muted-foreground shrink-0" />
-                <span className="text-sm truncate">{t('settings.resetOnboarding')}</span>
-              </div>
-              <p className="text-xs text-muted-foreground mt-0.5 ps-6 break-words">
-                {t('settings.resetOnboardingDescription')}
-              </p>
-            </div>
-          </Button>
-          
         </div>
       </SheetContent>
     </Sheet>
