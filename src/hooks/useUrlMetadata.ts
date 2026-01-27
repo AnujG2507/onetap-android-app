@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 
 export interface UrlMetadata {
   title: string | null;
@@ -11,6 +12,7 @@ interface UseUrlMetadataResult {
   metadata: UrlMetadata | null;
   isLoading: boolean;
   error: string | null;
+  isOffline: boolean;
 }
 
 const FAVICON_CACHE_KEY = 'onetap_favicon_cache';
@@ -65,6 +67,7 @@ export function useUrlMetadata(url: string | null): UseUrlMetadataResult {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const { isOnline } = useNetworkStatus();
 
   useEffect(() => {
     if (!url) {
@@ -73,6 +76,8 @@ export function useUrlMetadata(url: string | null): UseUrlMetadataResult {
       setError(null);
       return;
     }
+
+    const domain = extractDomain(url);
 
     // Check cache first
     const cached = metadataCache.get(url);
@@ -84,12 +89,18 @@ export function useUrlMetadata(url: string | null): UseUrlMetadataResult {
     }
 
     // Set initial domain-based metadata immediately for fast UI
-    const domain = extractDomain(url);
     setMetadata({
       title: null,
       favicon: `https://www.google.com/s2/favicons?domain=${domain}&sz=64`,
       domain,
     });
+
+    // Skip network fetch if offline - use domain fallback
+    if (!isOnline) {
+      setIsLoading(false);
+      setError(null);
+      return;
+    }
 
     // Abort any previous request
     if (abortControllerRef.current) {
@@ -142,7 +153,7 @@ export function useUrlMetadata(url: string | null): UseUrlMetadataResult {
     return () => {
       controller.abort();
     };
-  }, [url]);
+  }, [url, isOnline]);
 
-  return { metadata, isLoading, error };
+  return { metadata, isLoading, error, isOffline: !isOnline };
 }

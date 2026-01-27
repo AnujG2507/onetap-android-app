@@ -348,7 +348,11 @@
     "quickSave": "快速保存",
     "editSave": "编辑并保存",
     "shortcut": "快捷方式",
-    "remindLater": "稍后提醒"
+    "remindLater": "稍后提醒",
+    "offlineMode": "离线模式 - 仅保存URL"
+  },
+  "sharedUrl": {
+    "offlineMode": "离线模式 - 仅保存URL"
   },
   "toasts": {
     "linkSaved": "链接已保存到收藏库！",

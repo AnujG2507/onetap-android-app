@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 
 interface UseVideoThumbnailResult {
   thumbnailUrl: string | null;
   platform: 'youtube' | 'vimeo' | null;
   isLoading: boolean;
+  isOffline: boolean;
 }
 
 // YouTube URL patterns
@@ -30,6 +32,7 @@ export function useVideoThumbnail(url: string | null): UseVideoThumbnailResult {
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const [platform, setPlatform] = useState<'youtube' | 'vimeo' | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const { isOnline } = useNetworkStatus();
 
   useEffect(() => {
     if (!url) {
@@ -38,19 +41,28 @@ export function useVideoThumbnail(url: string | null): UseVideoThumbnailResult {
       return;
     }
 
-    // Check YouTube first (synchronous)
+    // Check YouTube first (synchronous - thumbnail URL is static)
     const youtubeId = extractYouTubeVideoId(url);
     if (youtubeId) {
+      // YouTube thumbnails are static URLs that work offline if cached
       setThumbnailUrl(getYouTubeThumbnailUrl(youtubeId));
       setPlatform('youtube');
       setIsLoading(false);
       return;
     }
 
-    // Check Vimeo (requires async fetch)
+    // Check Vimeo (requires async fetch - skip if offline)
     const vimeoId = extractVimeoVideoId(url);
     if (vimeoId) {
       setPlatform('vimeo');
+      
+      // Skip Vimeo API call if offline
+      if (!isOnline) {
+        setThumbnailUrl(null);
+        setIsLoading(false);
+        return;
+      }
+
       setIsLoading(true);
 
       const controller = new AbortController();
@@ -82,7 +94,7 @@ export function useVideoThumbnail(url: string | null): UseVideoThumbnailResult {
     setThumbnailUrl(null);
     setPlatform(null);
     setIsLoading(false);
-  }, [url]);
+  }, [url, isOnline]);
 
-  return { thumbnailUrl, platform, isLoading };
+  return { thumbnailUrl, platform, isLoading, isOffline: !isOnline };
 }
