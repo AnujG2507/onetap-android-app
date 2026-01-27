@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { ChevronLeft, ChevronRight, ChevronDown, Calendar as CalendarIcon } from "lucide-react";
 import { DayPicker } from "react-day-picker";
 import { motion, AnimatePresence } from "framer-motion";
@@ -26,12 +26,38 @@ function Calendar({
   enableSwipe = true,
   showYearPicker = true,
   month: controlledMonth,
+  defaultMonth,
   onMonthChange,
+  selected,
   ...props 
 }: CalendarProps) {
-  const [internalMonth, setInternalMonth] = useState(controlledMonth || new Date());
+  // Determine initial month: controlled > defaultMonth > selected date > today
+  const getInitialMonth = useCallback(() => {
+    if (controlledMonth) return controlledMonth;
+    if (defaultMonth) return defaultMonth;
+    if (selected && selected instanceof Date) return selected;
+    return new Date();
+  }, [controlledMonth, defaultMonth, selected]);
+
+  const [internalMonth, setInternalMonth] = useState(getInitialMonth);
   const [direction, setDirection] = useState(0);
   const [showMonthPicker, setShowMonthPicker] = useState(false);
+  
+  // Sync internal month when defaultMonth or selected changes (for dialog reopening)
+  useEffect(() => {
+    if (!controlledMonth) {
+      const targetMonth = defaultMonth || (selected instanceof Date ? selected : null);
+      if (targetMonth) {
+        // Only update if the month/year actually differs
+        if (
+          targetMonth.getMonth() !== internalMonth.getMonth() ||
+          targetMonth.getFullYear() !== internalMonth.getFullYear()
+        ) {
+          setInternalMonth(targetMonth);
+        }
+      }
+    }
+  }, [defaultMonth, selected, controlledMonth]);
   
   // Swipe gesture handling
   const [touchStart, setTouchStart] = useState<number | null>(null);
