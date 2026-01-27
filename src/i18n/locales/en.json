@@ -534,7 +534,7 @@
     },
     "notifications": {
       "title": "Stay on schedule",
-      "description": "Enable notifications to receive reminders when your scheduled shortcuts are ready to open."
+      "description": "Enable notifications to receive your one tap reminders when they're ready."
     }
   },
   "savedLinks": {
