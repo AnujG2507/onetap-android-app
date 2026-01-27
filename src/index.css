@@ -104,6 +104,20 @@ All colors MUST be HSL.
   .safe-bottom {
     padding-bottom: env(safe-area-inset-bottom, 16px);
   }
+
+  /* Safe area for Android status bar */
+  .safe-top {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  /* Header-safe utilities: combines safe area + visual padding */
+  .pt-header-safe {
+    padding-top: calc(env(safe-area-inset-top, 0px) + 2rem);
+  }
+
+  .pt-header-safe-compact {
+    padding-top: calc(env(safe-area-inset-top, 0px) + 1.5rem);
+  }
 }
 
 /* Material Design elevation shadows */

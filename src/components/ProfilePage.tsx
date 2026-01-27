@@ -241,9 +241,9 @@ export function ProfilePage() {
   // Not signed in state
   if (!user) {
     return (
-      <div className="flex-1 flex flex-col p-4 pb-20 safe-top overflow-y-auto">
+      <div className="flex-1 flex flex-col p-4 pb-20 overflow-y-auto">
         {/* Header with Menu */}
-        <header className="flex items-center justify-between mb-4">
+        <header className="flex items-center justify-between pt-header-safe-compact mb-4">
         <div className="flex items-center gap-3">
             <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
               <User className="h-4 w-4 text-primary-foreground" />
@@ -317,9 +317,9 @@ export function ProfilePage() {
   const email = user.email || '';
 
   return (
-    <div className="flex-1 flex flex-col p-4 pb-20 safe-top overflow-y-auto">
+    <div className="flex-1 flex flex-col p-4 pb-20 overflow-y-auto">
       {/* Header with Menu */}
-      <header className="flex items-center justify-between mb-4">
+      <header className="flex items-center justify-between pt-header-safe-compact mb-4">
         <div className="flex items-center gap-3">
           <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
             <User className="h-4 w-4 text-primary-foreground" />

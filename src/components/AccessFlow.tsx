@@ -415,7 +415,7 @@ export function AccessFlow({
             </div>
           )}
 
-          <header className="ps-5 pe-5 pt-8 pb-4">
+          <header className="ps-5 pe-5 pt-header-safe pb-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Zap className="h-5 w-5 text-primary" />
