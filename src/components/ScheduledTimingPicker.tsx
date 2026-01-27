@@ -112,71 +112,143 @@ function WeekCalendar({ selectedDate, onDateSelect }: WeekCalendarProps) {
   };
 
   return (
-    <div className="space-y-3">
+    <div className="rounded-2xl bg-gradient-to-br from-muted/40 to-muted/20 border border-border/50 p-4 space-y-4">
       {/* Month header with navigation */}
-      <div className="flex items-center justify-between px-1">
-        <button
-          onClick={() => setWeekOffset(w => w - 1)}
+      <div className="flex items-center justify-between">
+        <motion.button
+          whileTap={{ scale: 0.9 }}
+          onClick={() => {
+            triggerHaptic('light');
+            setWeekOffset(w => w - 1);
+          }}
           disabled={weekOffset <= 0}
-          className="p-1.5 rounded-lg hover:bg-muted disabled:opacity-30 disabled:pointer-events-none"
+          className={cn(
+            "p-2.5 rounded-xl transition-all",
+            "bg-background/60 hover:bg-background border border-border/50 shadow-sm",
+            "disabled:opacity-30 disabled:pointer-events-none"
+          )}
         >
           <ChevronLeft className="h-4 w-4" />
-        </button>
-        <span className="text-sm font-medium text-muted-foreground">{monthLabel}</span>
-        <button
-          onClick={() => setWeekOffset(w => w + 1)}
-          disabled={weekOffset >= 3}
-          className="p-1.5 rounded-lg hover:bg-muted disabled:opacity-30 disabled:pointer-events-none"
+        </motion.button>
+        <motion.span 
+          key={monthLabel}
+          initial={{ opacity: 0, y: -5 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-sm font-semibold text-foreground"
+        >
+          {monthLabel}
+        </motion.span>
+        <motion.button
+          whileTap={{ scale: 0.9 }}
+          onClick={() => {
+            triggerHaptic('light');
+            setWeekOffset(w => w + 1);
+          }}
+          disabled={weekOffset >= 4}
+          className={cn(
+            "p-2.5 rounded-xl transition-all",
+            "bg-background/60 hover:bg-background border border-border/50 shadow-sm",
+            "disabled:opacity-30 disabled:pointer-events-none"
+          )}
         >
           <ChevronRight className="h-4 w-4" />
-        </button>
+        </motion.button>
       </div>
       
-      {/* Days grid */}
-      <div className="grid grid-cols-7 gap-1.5">
-        {weekDates.map((date) => {
-          const isSelected = date.toDateString() === selectedDate.toDateString();
-          const isToday = date.toDateString() === today.toDateString();
-          const isPast = date < today && !isToday;
-          
-          return (
-            <motion.button
-              key={date.toISOString()}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => {
-                if (!isPast) {
-                  triggerHaptic('light');
-                  onDateSelect(date);
-                }
-              }}
-              disabled={isPast}
-              className={cn(
-                "flex flex-col items-center gap-0.5 rounded-xl py-2 px-1 transition-all relative",
-                isPast && "opacity-40 pointer-events-none",
-                isSelected
-                  ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25"
-                  : "hover:bg-muted"
-              )}
-            >
-              <span className={cn(
-                "text-[10px] font-medium uppercase",
-                isSelected ? "text-primary-foreground/80" : "text-muted-foreground"
-              )}>
-                {getDateLabel(date)}
-              </span>
-              <span className={cn(
-                "text-lg font-semibold tabular-nums",
-                isSelected ? "text-primary-foreground" : "text-foreground"
-              )}>
-                {date.getDate()}
-              </span>
-              {/* Today indicator dot */}
-              {isToday && !isSelected && (
-                <div className="absolute bottom-1 w-1 h-1 rounded-full bg-primary" />
-              )}
-            </motion.button>
-          );
-        })}
+      {/* Days grid - larger touch targets */}
+      <div className="grid grid-cols-7 gap-2">
+        <AnimatePresence mode="popLayout">
+          {weekDates.map((date, index) => {
+            const isSelected = date.toDateString() === selectedDate.toDateString();
+            const isToday = date.toDateString() === today.toDateString();
+            const isPast = date < today && !isToday;
+            
+            return (
+              <motion.button
+                key={date.toISOString()}
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: index * 0.02 }}
+                whileTap={{ scale: 0.92 }}
+                onClick={() => {
+                  if (!isPast) {
+                    triggerHaptic('light');
+                    onDateSelect(date);
+                  }
+                }}
+                disabled={isPast}
+                className={cn(
+                  "flex flex-col items-center justify-center gap-1 rounded-2xl py-3 transition-all relative aspect-square",
+                  isPast && "opacity-30 pointer-events-none",
+                  isSelected
+                    ? "bg-gradient-to-br from-primary to-primary/80 text-primary-foreground shadow-lg shadow-primary/30"
+                    : isToday
+                      ? "bg-background border-2 border-primary/40 shadow-sm"
+                      : "bg-background/60 border border-border/30 hover:bg-background hover:border-border/50 hover:shadow-sm"
+                )}
+              >
+                {/* Day label */}
+                <span className={cn(
+                  "text-[9px] font-semibold uppercase tracking-wide",
+                  isSelected 
+                    ? "text-primary-foreground/90" 
+                    : isToday 
+                      ? "text-primary"
+                      : "text-muted-foreground"
+                )}>
+                  {getDateLabel(date).slice(0, 3)}
+                </span>
+                {/* Date number */}
+                <span className={cn(
+                  "text-xl font-bold tabular-nums leading-none",
+                  isSelected 
+                    ? "text-primary-foreground" 
+                    : isToday
+                      ? "text-primary"
+                      : "text-foreground"
+                )}>
+                  {date.getDate()}
+                </span>
+                {/* Today indicator */}
+                {isToday && !isSelected && (
+                  <motion.div 
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="absolute -bottom-0.5 w-1.5 h-1.5 rounded-full bg-primary"
+                  />
+                )}
+                {/* Selected checkmark glow effect */}
+                {isSelected && (
+                  <motion.div
+                    layoutId="date-selection"
+                    className="absolute inset-0 rounded-2xl bg-gradient-to-br from-primary to-primary/80"
+                    style={{ zIndex: -1 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                  />
+                )}
+              </motion.button>
+            );
+          })}
+        </AnimatePresence>
+      </div>
+      
+      {/* Week navigation hint */}
+      <div className="flex items-center justify-center gap-1.5 pt-1">
+        {[0, 1, 2, 3, 4].map((i) => (
+          <button
+            key={i}
+            onClick={() => {
+              triggerHaptic('light');
+              setWeekOffset(i);
+            }}
+            className={cn(
+              "w-1.5 h-1.5 rounded-full transition-all",
+              weekOffset === i 
+                ? "bg-primary w-4" 
+                : "bg-muted-foreground/30 hover:bg-muted-foreground/50"
+            )}
+          />
+        ))}
       </div>
     </div>
   );
