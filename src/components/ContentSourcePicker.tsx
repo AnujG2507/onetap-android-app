@@ -448,7 +448,7 @@ function SecondaryButton({ id, icon, label, onClick, isActive }: SecondaryButton
       id={id}
       onClick={onClick}
       className={cn(
-        "flex items-center gap-3 rounded-xl px-4 py-3",
+        "flex items-center gap-3 rounded-xl px-3 py-2.5",
         "border border-border/60",
         "active:scale-[0.97] transition-all duration-200",
         "focus:outline-none focus:ring-2 focus:ring-ring",
@@ -459,7 +459,7 @@ function SecondaryButton({ id, icon, label, onClick, isActive }: SecondaryButton
       )}
     >
       <div className={cn(
-        "flex h-8 w-8 items-center justify-center rounded-lg transition-colors",
+        "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors",
         isActive ? "bg-primary/20 text-primary" : "bg-primary/10 text-primary"
       )}>
         {icon}
