@@ -340,4 +340,12 @@ export class ShortcutPluginWeb implements ShortcutPluginInterface {
     const quickCreate = url.searchParams.get('quickCreate') === 'true';
     return { quickCreate };
   }
+
+  // ========== Settings Sync (Web Fallback) ==========
+
+  async syncSettings(options: { settings: string }): Promise<{ success: boolean; error?: string }> {
+    console.log('[ShortcutPluginWeb] syncSettings called (web fallback)');
+    // No-op on web - settings sync is for native components
+    return { success: true };
+  }
 }

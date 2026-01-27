@@ -2375,4 +2375,48 @@ public class ShortcutPlugin extends Plugin {
             call.resolve(result);
         }
     }
+
+    /**
+     * Sync app settings to SharedPreferences for native components (video player, etc.).
+     */
+    @PluginMethod
+    public void syncSettings(PluginCall call) {
+        android.util.Log.d("ShortcutPlugin", "syncSettings called");
+
+        try {
+            Context context = getContext();
+            if (context == null) {
+                JSObject result = new JSObject();
+                result.put("success", false);
+                result.put("error", "Context is null");
+                call.resolve(result);
+                return;
+            }
+
+            String settingsJson = call.getString("settings");
+            if (settingsJson == null || settingsJson.isEmpty()) {
+                JSObject result = new JSObject();
+                result.put("success", false);
+                result.put("error", "Missing settings JSON");
+                call.resolve(result);
+                return;
+            }
+
+            // Store in SharedPreferences for native component access
+            SharedPreferences prefs = context.getSharedPreferences("app_settings", Context.MODE_PRIVATE);
+            prefs.edit().putString("settings", settingsJson).apply();
+
+            android.util.Log.d("ShortcutPlugin", "Settings synced successfully: " + settingsJson);
+
+            JSObject result = new JSObject();
+            result.put("success", true);
+            call.resolve(result);
+        } catch (Exception e) {
+            android.util.Log.e("ShortcutPlugin", "Error syncing settings: " + e.getMessage());
+            JSObject result = new JSObject();
+            result.put("success", false);
+            result.put("error", e.getMessage());
+            call.resolve(result);
+        }
+    }
 }

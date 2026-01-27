@@ -448,7 +448,11 @@
     "retention30": "30 days",
     "retention60": "60 days",
     "advanced": "Advanced",
-    "openSettings": "Open Settings"
+    "openSettings": "Open Settings",
+    "videoPlayer": "Video Player",
+    "videoPlayerDesc": "Configure video playback behavior",
+    "pipMode": "Picture-in-Picture",
+    "pipModeDesc": "Continue watching in a floating window when leaving the player"
   },
   "shortcutCustomizer": {
     "setUpAccess": "Set up access",

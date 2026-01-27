@@ -14,6 +14,7 @@ import {
   Check,
   Loader2,
   BookOpen,
+  Play,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -272,6 +273,29 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Video Player Section */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Play className="h-4 w-4 text-muted-foreground" />
+                {t('settingsPage.videoPlayer')}
+              </CardTitle>
+              <CardDescription>{t('settingsPage.videoPlayerDesc')}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <p className="text-sm font-medium">{t('settingsPage.pipMode')}</p>
+                  <p className="text-xs text-muted-foreground">{t('settingsPage.pipModeDesc')}</p>
+                </div>
+                <Switch
+                  checked={settings.pipModeEnabled !== false}
+                  onCheckedChange={(checked) => updateSettings({ pipModeEnabled: checked })}
+                />
               </div>
             </CardContent>
           </Card>

@@ -9,6 +9,8 @@ export interface AppSettings {
   // Notification settings
   scheduledRemindersEnabled: boolean;
   reminderSoundEnabled: boolean;
+  // Video player settings
+  pipModeEnabled: boolean;
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -17,6 +19,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   autoSyncEnabled: true,
   scheduledRemindersEnabled: true,
   reminderSoundEnabled: true,
+  pipModeEnabled: true,
 };
 
 export function getSettings(): AppSettings {

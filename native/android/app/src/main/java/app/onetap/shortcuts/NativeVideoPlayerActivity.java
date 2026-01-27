@@ -123,6 +123,7 @@ public class NativeVideoPlayerActivity extends Activity {
 
     // Picture-in-Picture state
     private boolean isInPipMode = false;
+    private boolean isPipEnabled = true; // User preference from settings
     private int videoWidth = 16;
     private int videoHeight = 9;
     private static final String PIP_ACTION_PLAY_PAUSE = "app.onetap.shortcuts.PIP_PLAY_PAUSE";
@@ -256,6 +257,35 @@ public class NativeVideoPlayerActivity extends Activity {
             case Player.STATE_READY: return "READY";
             case Player.STATE_ENDED: return "ENDED";
             default: return "UNKNOWN";
+        }
+    }
+    
+    /**
+     * Load user settings from SharedPreferences (synced from WebView localStorage).
+     * The WebView app stores settings in 'onetap_settings' which we read here.
+     */
+    private void loadUserSettings() {
+        try {
+            // Read from app_settings SharedPreferences (synced from WebView via ShortcutPlugin.syncSettings)
+            android.content.SharedPreferences prefs = getSharedPreferences(
+                "app_settings", Context.MODE_PRIVATE
+            );
+            
+            String settingsJson = prefs.getString("settings", null);
+            
+            if (settingsJson != null && !settingsJson.isEmpty()) {
+                // Parse JSON to extract pipModeEnabled
+                org.json.JSONObject settings = new org.json.JSONObject(settingsJson);
+                isPipEnabled = settings.optBoolean("pipModeEnabled", true);
+                logInfo("Loaded PiP setting from synced prefs: " + (isPipEnabled ? "enabled" : "disabled"));
+            } else {
+                // No settings synced yet, default to enabled
+                isPipEnabled = true;
+                logInfo("No synced settings found, PiP defaulting to enabled");
+            }
+        } catch (Exception e) {
+            logWarn("Failed to load user settings: " + e.getMessage());
+            isPipEnabled = true; // Default to enabled on error
         }
     }
 
@@ -637,6 +667,9 @@ public class NativeVideoPlayerActivity extends Activity {
 
         try {
             logInfo("onCreate started (Premium ExoPlayer)");
+            
+            // Load user settings
+            loadUserSettings();
             
             // Initialize audio manager for volume gestures
             audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
@@ -1621,8 +1654,8 @@ public class NativeVideoPlayerActivity extends Activity {
         });
         rightButtons.addView(rotateButton);
         
-        // PiP button (Picture-in-Picture) - only on Android 8.0+
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        // PiP button (Picture-in-Picture) - only on Android 8.0+ and if enabled in settings
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && isPipEnabled) {
             ImageButton pipButton = createPremiumIconButton(
                 android.R.drawable.ic_menu_crop,
                 "Picture-in-Picture"
@@ -2165,15 +2198,16 @@ public class NativeVideoPlayerActivity extends Activity {
     protected void onUserLeaveHint() {
         super.onUserLeaveHint();
         // Auto-enter PiP when user navigates away while playing
-        // On Android 12+, this is handled automatically via setAutoEnterEnabled(true)
+        // On Android 12+, this is handled automatically via setAutoEnterEnabled(true) if PiP is enabled
         // On Android 8-11, we need to manually enter PiP mode
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O 
+        if (isPipEnabled
+            && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O 
             && Build.VERSION.SDK_INT < Build.VERSION_CODES.S
             && exoPlayer != null 
             && exoPlayer.isPlaying()) {
             enterPipMode();
         }
-        // On Android 12+, PiP is entered automatically due to setupAutoEnterPip()
+        // On Android 12+ with PiP enabled, PiP is entered automatically due to setupAutoEnterPip()
     }
 
     @Override
@@ -2206,6 +2240,12 @@ public class NativeVideoPlayerActivity extends Activity {
      */
     @RequiresApi(api = Build.VERSION_CODES.O)
     private void enterPipMode() {
+        // Check if PiP is enabled in user settings
+        if (!isPipEnabled) {
+            logInfo("PiP mode is disabled in settings");
+            return;
+        }
+        
         if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)) {
             Toast.makeText(this, "PiP not supported on this device", Toast.LENGTH_SHORT).show();
             return;
@@ -2265,6 +2305,12 @@ public class NativeVideoPlayerActivity extends Activity {
      * without needing to call enterPictureInPictureMode() manually.
      */
     private void setupAutoEnterPip() {
+        // Check if PiP is enabled in user settings
+        if (!isPipEnabled) {
+            logInfo("PiP mode is disabled in settings, skipping auto-enter setup");
+            return;
+        }
+        
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
             // Auto-enter not available before Android 12
             return;

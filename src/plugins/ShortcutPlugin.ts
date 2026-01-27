@@ -163,6 +163,11 @@ export interface ShortcutPluginInterface {
 
   // Check if app was launched from Quick Create widget
   checkQuickCreateIntent(): Promise<{ quickCreate: boolean }>;
+
+  // ========== Settings Sync ==========
+
+  // Sync app settings to native SharedPreferences for native components (video player, etc.)
+  syncSettings(options: { settings: string }): Promise<{ success: boolean; error?: string }>;
 }
 
 // This plugin bridges to native Android code
