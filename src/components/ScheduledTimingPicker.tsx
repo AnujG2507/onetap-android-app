@@ -774,7 +774,12 @@ export function ScheduledTimingPicker({
                       {t('scheduledTiming.time')}
                     </span>
                   </div>
-                  <div className="bg-muted/30 rounded-2xl p-4 border border-border/50">
+                  <motion.div 
+                    className="bg-muted/30 rounded-2xl p-4 border border-border/50"
+                    initial={{ scale: 0.95, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ duration: 0.2, ease: "easeOut" }}
+                  >
                     <TimeWheelPicker
                       hour={hour}
                       minute={minute}
@@ -783,7 +788,7 @@ export function ScheduledTimingPicker({
                       onMinuteChange={setMinute}
                       onPeriodChange={setPeriod}
                     />
-                  </div>
+                  </motion.div>
                 </div>
               </motion.div>
             </CollapsibleContent>
