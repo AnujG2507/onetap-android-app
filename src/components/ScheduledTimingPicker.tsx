@@ -757,6 +757,7 @@ export function ScheduledTimingPicker({
               hour: 'numeric',
               minute: '2-digit',
               hour12: true,
+              ...(new Date(triggerTime).getFullYear() !== new Date().getFullYear() && { year: 'numeric' }),
             })}
           </p>
           {recurrence !== 'once' && (
