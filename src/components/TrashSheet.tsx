@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Trash2, AlertTriangle, ArrowLeftRight, X, RotateCcw } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Trash2, AlertTriangle, ArrowLeftRight, X, RotateCcw, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
@@ -42,6 +43,7 @@ interface TrashSheetProps {
 
 export function TrashSheet({ open: controlledOpen, onOpenChange, onRestored }: TrashSheetProps) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [internalOpen, setInternalOpen] = useState(false);
   
   // Support both controlled and uncontrolled modes
@@ -55,6 +57,11 @@ export function TrashSheet({ open: controlledOpen, onOpenChange, onRestored }: T
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showHint, setShowHint] = useState(false);
   const { toast } = useToast();
+  
+  const handleOpenSettings = () => {
+    setOpen(false);
+    navigate('/settings');
+  };
 
   // Swipe-to-close gesture tracking
   const touchStartY = useRef<number | null>(null);
@@ -172,19 +179,30 @@ export function TrashSheet({ open: controlledOpen, onOpenChange, onRestored }: T
             <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
           </div>
           <SheetHeader className="pb-4">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-xl bg-destructive/10 flex items-center justify-center">
-                <Trash2 className="h-5 w-5 text-destructive" />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl bg-destructive/10 flex items-center justify-center">
+                  <Trash2 className="h-5 w-5 text-destructive" />
+                </div>
+                <div>
+                  <SheetTitle className="text-start">{t('trash.title')}</SheetTitle>
+                  <p className="text-xs text-muted-foreground">
+                    {trashLinks.length === 0 
+                      ? t('trash.noItems')
+                      : t('trash.itemCount', { count: trashLinks.length })
+                    }
+                  </p>
+                </div>
               </div>
-              <div>
-                <SheetTitle className="text-start">{t('trash.title')}</SheetTitle>
-                <p className="text-xs text-muted-foreground">
-                  {trashLinks.length === 0 
-                    ? t('trash.noItems')
-                    : t('trash.itemCount', { count: trashLinks.length })
-                  }
-                </p>
-              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 gap-1.5 text-xs text-muted-foreground"
+                onClick={handleOpenSettings}
+              >
+                <Settings className="h-3.5 w-3.5" />
+                {t('settingsPage.trashRetention')}
+              </Button>
             </div>
             {trashLinks.length > 0 && (
               <div className="flex items-center gap-2 mt-3">
