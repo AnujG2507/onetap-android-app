@@ -45,7 +45,7 @@ export function LanguageSelectionStep({ onContinue }: LanguageSelectionStepProps
   return (
     <div className="fixed inset-0 z-50 bg-background flex flex-col">
       {/* Header with icon */}
-      <div className="flex flex-col items-center pt-12 pb-6 px-8">
+      <div className="flex flex-col items-center pt-header-safe pb-6 px-8">
         <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-primary/20 to-primary/5">
           <Globe className="h-10 w-10 text-primary" />
         </div>

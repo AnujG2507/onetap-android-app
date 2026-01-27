@@ -143,7 +143,7 @@ export function UrlInput({ onSubmit, onBack, initialUrl }: UrlInputProps) {
 
   return (
     <div className="flex flex-col h-full">
-      <header className="flex items-center gap-3 p-4 border-b">
+      <header className="flex items-center gap-3 p-4 pt-header-safe-compact border-b">
         <button
           onClick={onBack}
           className="p-2 -ms-2 rounded-full hover:bg-muted active:bg-muted/80"

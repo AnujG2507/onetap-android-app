@@ -583,7 +583,7 @@ export function NotificationsPage({
   return (
     <div className="flex-1 flex flex-col pb-20">
       {/* Header */}
-      <header className="px-5 pt-8 pb-4 shrink-0">
+      <header className="px-5 pt-header-safe pb-4 shrink-0">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-3">
             <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">

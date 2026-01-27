@@ -53,7 +53,7 @@ export function OnboardingFlow({ currentStep, onNext, onSkip, onComplete }: Onbo
   return (
     <div className="fixed inset-0 z-50 bg-background flex flex-col">
       {/* Skip button */}
-      <div className="flex justify-end p-4">
+      <div className="flex justify-end p-4 pt-header-safe-compact">
         <button
           onClick={onSkip}
           className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
