@@ -185,46 +185,45 @@ export function ContentSourcePicker({
           )}
         </AnimatePresence>
         
-        {/* Divider */}
-        <div className="h-px bg-border my-4" />
-        
-        {/* Secondary Actions */}
-        <h3 className="text-xs font-medium text-muted-foreground mb-3">
-          {t('access.moreOptions')}
-        </h3>
-        <div className={cn(
-          "grid gap-3 transition-all duration-200",
-          activeSecondaryPicker ? "grid-cols-1" : "grid-cols-2"
-        )}>
-          {(!activeSecondaryPicker || activeSecondaryPicker === 'browse') && (
-            <SecondaryButton
-              icon={<FolderOpen className="h-4 w-4" />}
-              label={t('access.browseFiles')}
-              onClick={() => handleSecondaryButtonClick('browse')}
-              isActive={activeSecondaryPicker === 'browse'}
-            />
-          )}
-          {onSelectFromLibrary && (!activeSecondaryPicker || activeSecondaryPicker === 'library') && (
-            <SecondaryButton
-              id="tutorial-saved-bookmarks"
-              icon={<Bookmark className="h-4 w-4" />}
-              label={t('access.savedBookmarks')}
-              onClick={() => handleSecondaryButtonClick('library')}
-              isActive={activeSecondaryPicker === 'library'}
-            />
-          )}
-        </div>
+        {/* Secondary Actions Section */}
+        <div className="mt-4 -mx-4 -mb-4 px-4 pb-4 pt-3 bg-muted/20 rounded-b-2xl border-t border-border/50">
+          <h3 className="text-xs font-medium text-muted-foreground mb-3">
+            {t('access.moreOptions')}
+          </h3>
+          <div className={cn(
+            "grid gap-3 transition-all duration-200",
+            activeSecondaryPicker ? "grid-cols-1" : "grid-cols-2"
+          )}>
+            {(!activeSecondaryPicker || activeSecondaryPicker === 'browse') && (
+              <SecondaryButton
+                icon={<FolderOpen className="h-4 w-4" />}
+                label={t('access.browseFiles')}
+                onClick={() => handleSecondaryButtonClick('browse')}
+                isActive={activeSecondaryPicker === 'browse'}
+              />
+            )}
+            {onSelectFromLibrary && (!activeSecondaryPicker || activeSecondaryPicker === 'library') && (
+              <SecondaryButton
+                id="tutorial-saved-bookmarks"
+                icon={<Bookmark className="h-4 w-4" />}
+                label={t('access.savedBookmarks')}
+                onClick={() => handleSecondaryButtonClick('library')}
+                isActive={activeSecondaryPicker === 'library'}
+              />
+            )}
+          </div>
 
-        {/* Secondary Action Picker */}
-        <AnimatePresence>
-          {activeSecondaryPicker && (
-            <ActionModePicker
-              key="secondary-picker"
-              onSelectAction={(action) => handleSecondaryAction(activeSecondaryPicker, action)}
-              onClose={closePicker}
-            />
-          )}
-        </AnimatePresence>
+          {/* Secondary Action Picker */}
+          <AnimatePresence>
+            {activeSecondaryPicker && (
+              <ActionModePicker
+                key="secondary-picker"
+                onSelectAction={(action) => handleSecondaryAction(activeSecondaryPicker, action)}
+                onClose={closePicker}
+              />
+            )}
+          </AnimatePresence>
+        </div>
       </div>
     </div>
   );
