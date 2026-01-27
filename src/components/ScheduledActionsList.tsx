@@ -547,7 +547,7 @@ export function ScheduledActionsList({
         {actions.length > 0 && (
           <div className="px-5 pb-3 shrink-0">
             <div className="flex items-center gap-2">
-              <TooltipProvider delayDuration={0}>
+              <TooltipProvider delayDuration={500}>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
@@ -684,7 +684,7 @@ export function ScheduledActionsList({
                 {selectedIds.size} selected
               </span>
               <div className="h-5 w-px bg-border" />
-              <TooltipProvider delayDuration={0}>
+              <TooltipProvider delayDuration={500}>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button

@@ -648,7 +648,7 @@ export function BookmarkLibrary({
         {/* View Mode Toggle */}
         {links.length > 0 && (
           <div id="tutorial-view-toggle" className="flex items-center gap-2 mt-3">
-            <TooltipProvider delayDuration={0}>
+          <TooltipProvider delayDuration={500}>
               <div className="flex items-center gap-1 p-1 bg-muted rounded-lg">
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -701,7 +701,7 @@ export function BookmarkLibrary({
             className="ps-10 pe-10"
           />
           {searchQuery && (
-            <TooltipProvider delayDuration={0}>
+            <TooltipProvider delayDuration={500}>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
@@ -822,7 +822,7 @@ export function BookmarkLibrary({
       {/* Sort Controls - below Add Bookmark */}
       {links.length > 0 && (
         <div className="ps-5 pe-5 mb-4">
-          <TooltipProvider delayDuration={0}>
+          <TooltipProvider delayDuration={500}>
             <div className="flex items-center gap-1.5 select-none">
               <span className="text-xs text-muted-foreground shrink-0">
                 {sortMode === 'manual' ? t('library.sortManual') : t('library.sort')}
@@ -981,7 +981,7 @@ export function BookmarkLibrary({
                       : `${t('library.selectAll')} (${filteredLinks.length})`}
                   </span>
                 </div>
-                <TooltipProvider delayDuration={0}>
+                <TooltipProvider delayDuration={500}>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
@@ -1171,7 +1171,7 @@ export function BookmarkLibrary({
         
         <div className="h-5 w-px bg-border" />
         
-        <TooltipProvider delayDuration={0}>
+        <TooltipProvider delayDuration={500}>
           <Tooltip>
             <TooltipTrigger asChild>
               <button

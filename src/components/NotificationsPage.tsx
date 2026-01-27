@@ -502,7 +502,7 @@ export function NotificationsPage({
             <h1 className="text-xl font-semibold text-foreground">{t('notificationsPage.title')}</h1>
           </div>
           <div className="flex gap-2">
-            <TooltipProvider delayDuration={0}>
+            <TooltipProvider delayDuration={500}>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -575,7 +575,7 @@ export function NotificationsPage({
               className="ps-9 pe-9 h-10"
             />
             {searchQuery && (
-              <TooltipProvider delayDuration={0}>
+              <TooltipProvider delayDuration={500}>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
@@ -633,7 +633,7 @@ export function NotificationsPage({
       {actions.length > 0 && (
         <div className="px-5 pb-3 shrink-0">
           <div className="flex items-center gap-2">
-            <TooltipProvider delayDuration={0}>
+            <TooltipProvider delayDuration={500}>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -715,7 +715,7 @@ export function NotificationsPage({
                 {t('notificationsPage.selected', { count: selectedIds.size })}
               </span>
             </div>
-            <TooltipProvider delayDuration={0}>
+            <TooltipProvider delayDuration={500}>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -835,7 +835,7 @@ export function NotificationsPage({
       {/* Floating add button (when not in selection mode) */}
       {!isSelectionMode && actions.length > 0 && !isScrolledDown && (
         <div id="tutorial-add-reminder" className="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom)+1rem)] inset-x-0 px-5 z-10">
-          <TooltipProvider delayDuration={0}>
+          <TooltipProvider delayDuration={500}>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
