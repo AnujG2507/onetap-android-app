@@ -348,6 +348,8 @@ export function formatTriggerTime(timestamp: number): string {
   const tomorrow = new Date(now);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
+  const isDifferentYear = date.getFullYear() !== now.getFullYear();
+
   const timeStr = date.toLocaleTimeString(undefined, { 
     hour: 'numeric', 
     minute: '2-digit',
@@ -364,17 +366,18 @@ export function formatTriggerTime(timestamp: number): string {
     return `Tomorrow at ${timeStr}`;
   }
 
-  // Check if it's within this week
+  // Check if it's within this week (and same year)
   const daysUntil = Math.floor((date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-  if (daysUntil < 7) {
+  if (daysUntil < 7 && !isDifferentYear) {
     const dayName = date.toLocaleDateString(undefined, { weekday: 'long' });
     return `${dayName} at ${timeStr}`;
   }
 
-  // Otherwise show full date
+  // Otherwise show full date (include year if different)
   const dateStr = date.toLocaleDateString(undefined, { 
     month: 'short', 
-    day: 'numeric' 
+    day: 'numeric',
+    ...(isDifferentYear && { year: 'numeric' }),
   });
   return `${dateStr} at ${timeStr}`;
 }
