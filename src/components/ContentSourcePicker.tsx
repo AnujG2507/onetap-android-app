@@ -237,15 +237,15 @@ function ActionModePicker({ onSelectAction, onClose }: ActionModePickerProps) {
           <X className="h-4 w-4 text-muted-foreground" />
         </button>
       </div>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="flex flex-col gap-2">
         <ActionModeButton
-          icon={<Home className="h-4 w-4" />}
+          icon={<Home className="h-5 w-5" />}
           label={t('access.shortcut')}
           description={t('access.shortcutDesc')}
           onClick={() => onSelectAction('shortcut')}
         />
         <ActionModeButton
-          icon={<Bell className="h-4 w-4" />}
+          icon={<Bell className="h-5 w-5" />}
           label={t('access.reminder')}
           description={t('access.reminderDesc')}
           onClick={() => onSelectAction('reminder')}
@@ -312,15 +312,15 @@ function ContactActionPicker({
       </div>
       
       {/* Action Mode Selection */}
-      <div className="grid grid-cols-2 gap-2">
+      <div className="flex flex-col gap-2">
         <ActionModeButton
-          icon={<Home className="h-4 w-4" />}
+          icon={<Home className="h-5 w-5" />}
           label={t('access.shortcut')}
           description={t('access.shortcutDesc')}
           onClick={() => onSelectAction('shortcut')}
         />
         <ActionModeButton
-          icon={<Bell className="h-4 w-4" />}
+          icon={<Bell className="h-5 w-5" />}
           label={t('access.reminder')}
           description={t('access.reminderDesc')}
           onClick={() => onSelectAction('reminder')}
@@ -343,21 +343,22 @@ function ActionModeButton({ icon, label, description, onClick }: ActionModeButto
     <button
       onClick={onClick}
       className={cn(
-        "flex flex-col items-center rounded-lg bg-card p-3",
-        "hover:bg-card/80 hover:shadow-md hover:border-border",
-        "active:scale-[0.97] active:shadow-sm",
-        "transition-all duration-150",
-        "focus:outline-none focus:ring-2 focus:ring-ring",
-        "border border-border/50"
+        "flex items-center gap-3 rounded-xl p-3",
+        "bg-gradient-to-br from-card to-card/90",
+        "border border-border/60 shadow-sm",
+        "hover:shadow-md hover:border-primary/30 hover:scale-[1.01]",
+        "active:scale-[0.98] active:shadow-sm",
+        "transition-all duration-200 ease-out",
+        "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1"
       )}
     >
-      <div className="flex items-center gap-2 mb-1">
-        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-primary shrink-0">
-          {icon}
-        </div>
-        <span className="text-sm font-medium text-foreground">{label}</span>
+      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary/15 to-primary/5 text-primary shrink-0 shadow-sm">
+        {icon}
       </div>
-      <span className="text-xs text-muted-foreground text-center">{description}</span>
+      <div className="flex flex-col items-start flex-1 min-w-0">
+        <span className="text-sm font-semibold text-foreground">{label}</span>
+        <span className="text-xs text-muted-foreground">{description}</span>
+      </div>
     </button>
   );
 }
