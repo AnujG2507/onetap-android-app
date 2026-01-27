@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Trash2, AlertTriangle, ArrowLeftRight, X, RotateCcw, Clock } from 'lucide-react';
+import { Trash2, AlertTriangle, ArrowLeftRight, X, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
@@ -27,22 +27,12 @@ import {
   restoreAllFromTrash,
   permanentlyDelete,
   emptyTrash,
-  getTrashCount,
   type TrashedLink,
 } from '@/lib/savedLinksManager';
-import { getSettings, type TrashRetentionDays } from '@/lib/settingsManager';
-import { useSettings } from '@/hooks/useSettings';
+import { getSettings } from '@/lib/settingsManager';
 import { TrashItem } from './TrashItem';
-import { cn } from '@/lib/utils';
 
 const HINT_DISMISSED_KEY = 'trash_hint_dismissed';
-
-const retentionOptions: { value: TrashRetentionDays; label: string }[] = [
-  { value: 7, label: '7d' },
-  { value: 14, label: '14d' },
-  { value: 30, label: '30d' },
-  { value: 60, label: '60d' },
-];
 
 interface TrashSheetProps {
   open?: boolean;
@@ -65,7 +55,6 @@ export function TrashSheet({ open: controlledOpen, onOpenChange, onRestored }: T
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showHint, setShowHint] = useState(false);
   const { toast } = useToast();
-  const { settings, updateSettings } = useSettings();
 
   // Swipe-to-close gesture tracking
   const touchStartY = useRef<number | null>(null);
@@ -183,40 +172,18 @@ export function TrashSheet({ open: controlledOpen, onOpenChange, onRestored }: T
             <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
           </div>
           <SheetHeader className="pb-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-destructive/10 flex items-center justify-center">
-                  <Trash2 className="h-5 w-5 text-destructive" />
-                </div>
-                <div>
-                  <SheetTitle className="text-start">{t('trash.title')}</SheetTitle>
-                  <p className="text-xs text-muted-foreground">
-                    {trashLinks.length === 0 
-                      ? t('trash.noItems')
-                      : t('trash.itemCount', { count: trashLinks.length })
-                    }
-                  </p>
-                </div>
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-destructive/10 flex items-center justify-center">
+                <Trash2 className="h-5 w-5 text-destructive" />
               </div>
-              {/* Auto-delete setting */}
-              <div className="flex items-center gap-1">
-                <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                {retentionOptions.map((option) => (
-                  <Button
-                    key={option.value}
-                    variant="ghost"
-                    size="sm"
-                    className={cn(
-                      "h-7 px-2 text-xs",
-                      settings.trashRetentionDays === option.value 
-                        ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground" 
-                        : "text-muted-foreground"
-                    )}
-                    onClick={() => updateSettings({ trashRetentionDays: option.value })}
-                  >
-                    {option.label}
-                  </Button>
-                ))}
+              <div>
+                <SheetTitle className="text-start">{t('trash.title')}</SheetTitle>
+                <p className="text-xs text-muted-foreground">
+                  {trashLinks.length === 0 
+                    ? t('trash.noItems')
+                    : t('trash.itemCount', { count: trashLinks.length })
+                  }
+                </p>
               </div>
             </div>
             {trashLinks.length > 0 && (
