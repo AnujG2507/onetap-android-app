@@ -192,6 +192,16 @@ const Index = () => {
     setPendingSharedUrl(null);
   }, [pendingSharedUrl]);
 
+  // Handle shared URL action: Create Reminder
+  const handleCreateSharedReminder = useCallback(() => {
+    if (!pendingSharedUrl) return;
+    
+    // Switch to reminders tab and set destination for reminder creation
+    setPendingReminderDestination({ type: 'url', uri: pendingSharedUrl, name: pendingSharedUrl });
+    setActiveTab('reminders');
+    setPendingSharedUrl(null);
+  }, [pendingSharedUrl]);
+
   // Handle dismissing the shared URL action sheet
   const handleDismissSharedUrl = useCallback(() => {
     setPendingSharedUrl(null);
@@ -462,6 +472,7 @@ const Index = () => {
           url={pendingSharedUrl}
           onSaveToLibrary={handleSaveSharedToLibrary}
           onCreateShortcut={handleCreateSharedShortcut}
+          onCreateReminder={handleCreateSharedReminder}
           onDismiss={handleDismissSharedUrl}
         />
       )}

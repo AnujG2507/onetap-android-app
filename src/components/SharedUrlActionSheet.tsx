@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { X, Bookmark, Smartphone, Share2, ChevronLeft, Play, Zap, Pencil, Check, WifiOff } from 'lucide-react';
+import { X, Bookmark, Smartphone, Share2, ChevronLeft, Play, Zap, Pencil, Check, WifiOff, Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -20,6 +20,7 @@ interface SharedUrlActionSheetProps {
   url: string;
   onSaveToLibrary: (data?: { title?: string; description?: string; tag?: string | null }) => void;
   onCreateShortcut: () => void;
+  onCreateReminder: () => void;
   onDismiss: () => void;
 }
 
@@ -36,6 +37,7 @@ export function SharedUrlActionSheet({
   url,
   onSaveToLibrary,
   onCreateShortcut,
+  onCreateReminder,
   onDismiss,
 }: SharedUrlActionSheetProps) {
   const { t } = useTranslation();
@@ -139,6 +141,11 @@ export function SharedUrlActionSheet({
   const handleCreateShortcut = () => {
     setIsExiting(true);
     setTimeout(onCreateShortcut, 200);
+  };
+
+  const handleCreateReminder = () => {
+    setIsExiting(true);
+    setTimeout(onCreateReminder, 200);
   };
 
   return (
@@ -294,20 +301,21 @@ export function SharedUrlActionSheet({
         </div>
 
         {viewMode === 'choose' ? (
-          /* Action Buttons */
+          /* Action Buttons - 2x2 grid matching ClipboardSuggestion */
           <div className="px-4 py-4 space-y-3">
-            {/* Primary action: Quick Save */}
-            <Button
-              className="w-full gap-2"
-              onClick={handleQuickSave}
-              disabled={isLoading}
-            >
-              <Zap className="h-4 w-4" />
-              {isLoading ? t('common.loading') : t('sharedUrl.quickSave')}
-            </Button>
-            
-            {/* Secondary actions row */}
+            {/* Primary action row */}
             <div className="flex gap-3">
+              {/* Quick Save */}
+              <Button
+                className="flex-1 gap-2"
+                onClick={handleQuickSave}
+                disabled={isLoading}
+              >
+                <Zap className="h-4 w-4" />
+                {isLoading ? t('common.loading') : t('sharedUrl.quickSave')}
+              </Button>
+              
+              {/* Edit & Save */}
               <Button
                 variant="outline"
                 className="flex-1 gap-2"
@@ -316,6 +324,10 @@ export function SharedUrlActionSheet({
                 <Pencil className="h-4 w-4" />
                 {t('sharedUrl.editAndSave')}
               </Button>
+            </div>
+            
+            {/* Secondary actions row */}
+            <div className="flex gap-3">
               <Button
                 variant="outline"
                 className="flex-1 gap-2"
@@ -323,6 +335,14 @@ export function SharedUrlActionSheet({
               >
                 <Smartphone className="h-4 w-4" />
                 {t('sharedUrl.shortcut')}
+              </Button>
+              <Button
+                variant="outline"
+                className="flex-1 gap-2"
+                onClick={handleCreateReminder}
+              >
+                <Bell className="h-4 w-4" />
+                {t('sharedUrl.remindLater')}
               </Button>
             </div>
           </div>
