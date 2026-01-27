@@ -488,34 +488,43 @@ export function ScheduledTimingPicker({
 
       <div className="flex-1 overflow-y-auto">
         <div className="px-5 py-6 space-y-6">
-          {/* Quick presets */}
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <Sparkles className="h-4 w-4 text-primary" />
-              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                {t('scheduledTiming.quickOptions')}
-              </span>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              {quickPresets.map((preset) => (
-                <QuickPreset
-                  key={preset.id}
-                  icon={preset.icon}
-                  label={preset.label}
-                  sublabel={preset.sublabel}
-                  selected={selectedPreset === preset.id}
-                  onClick={() => handlePresetSelect(preset)}
-                />
-              ))}
-            </div>
-          </div>
+          {/* Quick presets - collapse when custom is open */}
+          <AnimatePresence mode="wait">
+            {!showCustom && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    {t('scheduledTiming.quickOptions')}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {quickPresets.map((preset) => (
+                    <QuickPreset
+                      key={preset.id}
+                      icon={preset.icon}
+                      label={preset.label}
+                      sublabel={preset.sublabel}
+                      selected={selectedPreset === preset.id}
+                      onClick={() => handlePresetSelect(preset)}
+                    />
+                  ))}
+                </div>
 
-          {/* Divider */}
-          <div className="flex items-center gap-3">
-            <div className="flex-1 h-px bg-border" />
-            <span className="text-xs text-muted-foreground">{t('scheduledTiming.orCustom')}</span>
-            <div className="flex-1 h-px bg-border" />
-          </div>
+                {/* Divider */}
+                <div className="flex items-center gap-3 mt-6">
+                  <div className="flex-1 h-px bg-border" />
+                  <span className="text-xs text-muted-foreground">{t('scheduledTiming.orCustom')}</span>
+                  <div className="flex-1 h-px bg-border" />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Custom time section */}
           <Collapsible open={showCustom} onOpenChange={handleCustomToggle}>
