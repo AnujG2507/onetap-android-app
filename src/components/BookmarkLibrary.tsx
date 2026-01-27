@@ -954,18 +954,22 @@ export function BookmarkLibrary({
           const scrollTop = container.scrollTop;
           const scrollDelta = scrollTop - lastScrollTop.current;
           
-          // Show button when at top or scrolling up
-          if (scrollTop <= 10 || scrollDelta < -5) {
+          // Show button when at top
+          if (scrollTop <= 10) {
             setIsBottomButtonVisible(true);
           }
-          // Hide button when scrolling down
-          else if (scrollDelta > 5) {
+          // Show button when scrolling up (any amount)
+          else if (scrollDelta < -2) {
+            setIsBottomButtonVisible(true);
+          }
+          // Hide button when scrolling down (any amount)
+          else if (scrollDelta > 2) {
             setIsBottomButtonVisible(false);
           }
           
           lastScrollTop.current = scrollTop;
         }}
-        className="flex-1 overflow-y-auto ps-5 pe-5 pb-16"
+        className="flex-1 overflow-y-auto ps-5 pe-5 pb-16 overscroll-contain touch-pan-y"
       >
         {filteredLinks.length === 0 && (searchQuery || activeTagFilter) ? (
           <div className="text-center py-12 text-muted-foreground">
