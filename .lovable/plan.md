@@ -1,200 +1,175 @@
 
-# Video Player UI Premium Enhancement Plan
+# Safe Area Top Padding - System-Wide Fix Plan
 
-## Overview
-This plan addresses visual clarity, button design, and overall premium experience improvements for both the **Native Android Video Player** (NativeVideoPlayerActivity.java) and the **WebView Fallback Player** (VideoPlayer.tsx).
+## Problem Summary
+Content in various screens is getting too close to or hidden under the Android notification/status bar because:
+1. **Missing CSS utility**: The `safe-top` class is used in `SettingsPage.tsx` and `ProfilePage.tsx` but is NOT defined in the CSS
+2. **Inconsistent application**: Many screens don't apply any top safe area padding at all
+3. **Header padding inconsistency**: Different screens use different top padding values (`pt-6`, `pt-8`, `pt-12`) without accounting for the system status bar
 
----
+## Affected Screens
 
-## Current Issues Identified
+### Screens Using Undefined `safe-top` Class (Broken)
+- `SettingsPage.tsx` (line 120)
+- `ProfilePage.tsx` (lines 244, 320)
 
-### Native Android Player (NativeVideoPlayerActivity.java)
-1. **Low-contrast icon buttons** - Using default Android system icons which are small and lack visual clarity
-2. **Button touch targets** - 46dp buttons with 11dp padding are on the smaller side for reliable tapping
-3. **Floating unlock button** - Uses system lock icon which may not be immediately recognizable as an "unlock" action
-4. **Inconsistent button styling** - Some buttons use `0x40FFFFFF` (25% white) background while floating unlock uses `0x66000000`
-5. **No visual distinction for active states** - Lock button icon swap is subtle
-6. **Missing tooltips/labels** - Users rely only on content descriptions which aren't visible
+### Screens Missing Safe Area Padding Entirely
+| Screen | Current Header Padding | Issue |
+|--------|----------------------|-------|
+| `AccessFlow.tsx` (source step) | `pt-8` | No safe area consideration |
+| `BookmarkLibrary.tsx` | `pt-8` | No safe area consideration |
+| `NotificationsPage.tsx` | `pt-8` | No safe area consideration |
+| `UrlInput.tsx` | No padding (border-b header) | Too close to status bar |
+| `ShortcutCustomizer.tsx` | No padding (border-b header) | Too close to status bar |
+| `ContactShortcutCustomizer.tsx` | `pt-6` | Insufficient padding |
+| `OnboardingFlow.tsx` | `p-4` (skip button area) | May overlap status bar |
+| `LanguageSelectionStep.tsx` | `pt-12` | May be okay but inconsistent |
+| `SuccessScreen.tsx` | No specific top handling | Center-aligned, may be fine |
+| `VideoPlayer.tsx` | Uses `pt-safe` (inline style) | Already handled |
 
-### WebView Fallback Player (VideoPlayer.tsx)
-1. **Basic button styling** - Using default shadcn ghost buttons without video player context
-2. **No visual hierarchy** - All header buttons look identical
-3. **Loading state lacks polish** - Simple spinner without contextual feedback
-4. **Error state could be more helpful** - Debug info shown to all users
+## Solution
 
----
+### Phase 1: Define the Missing `safe-top` CSS Utility
 
-## Proposed Improvements
+Add the `safe-top` class to `src/index.css` alongside the existing `safe-bottom`:
 
-### Phase 1: Native Android Player Button Enhancements
+```css
+/* Safe area for Android status bar */
+.safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
 
-#### 1.1 Larger, Clearer Button Touch Targets
-- Increase button size from 46dp to **52dp**
-- Increase internal padding from 11dp to **14dp**
-- Clearer hit zones for reliable tapping
+/* Combined safe area padding for headers */
+.pt-safe {
+  padding-top: max(env(safe-area-inset-top, 0px), 0.5rem);
+}
+```
 
-#### 1.2 Improved Button Visual Design
-- Add **subtle gradient backgrounds** instead of flat semi-transparent fills
-- Use **2px border stroke** for better definition against dark backgrounds
-- Add **pressed state with scale animation** (already exists, enhance to 0.85x scale)
-- Implement **subtle glow/shadow** for floating elements
+### Phase 2: Apply Safe Area Padding to All Main Screens
 
-#### 1.3 Replace System Icons with Custom/Improved Icons
-- Close button: Replace `ic_menu_close_clear_cancel` with a cleaner X icon using custom drawable or unicode character
-- Lock button: Use clearer locked/unlocked states with distinct visual difference
-- Rotate button: Keep `ic_menu_rotate` or create custom
-- PiP button: Use a proper PiP icon instead of `ic_menu_crop`
-- Share button: Keep `ic_menu_share`
+#### Main Tab Containers (already in Index.tsx wrapper)
+The main tabs render inside a flex container. Each tab's top-level component needs safe area padding.
 
-#### 1.4 Floating Unlock Button Improvements
-- Increase size from 64dp to **72dp** for easier tapping
-- Add **pulsing animation** to draw attention when visible
-- Add **text label** "Tap to unlock" below the icon
-- Use a clearer unlock icon (open lock) instead of locked icon
-- Increase bottom margin for better visibility above bottom controls
+#### Files to Update
 
-#### 1.5 Add Visual Lock State Indicator
-- When controls are locked, show a **brief centered lock icon animation** that fades out
-- Add a **persistent small lock indicator** in the corner during locked state
+**1. AccessFlow.tsx (source step header)**
+- Change: `pt-8` -> `pt-safe-header` (combined utility) or add safe-top to container
 
-### Phase 2: WebView Player UI Improvements
+**2. BookmarkLibrary.tsx**
+- Change: `pt-8` -> include safe area padding
 
-#### 2.1 Enhanced Button Styling
-- Add **frosted glass pill backgrounds** to header buttons (matching native player)
-- Increase button size for better touch targets
-- Add **hover/active state animations**
+**3. NotificationsPage.tsx**
+- Change: `pt-8` -> include safe area padding
 
-#### 2.2 Improved Loading State
-- Add **pulsing text animation** (like native player)
-- Show video file info during loading when available
-- Add **subtle background animation** for premium feel
+**4. UrlInput.tsx**
+- Add safe area padding to the container or header
 
-#### 2.3 Better Error Handling UI
-- Hide debug info behind a "Show Details" toggle (not shown by default)
-- Improve error message clarity
-- Add **Open in External Player** option on error screen
+**5. ShortcutCustomizer.tsx**
+- Add safe area padding to the container or header
 
-#### 2.4 Header Bar Improvements
-- Match the **4-stop gradient** from native player
-- Add **safe area padding** for notched devices
-- Improve button spacing and alignment
+**6. ContactShortcutCustomizer.tsx**
+- Change: `pt-6` -> include safe area padding
+
+**7. OnboardingFlow.tsx**
+- Add safe area padding to the skip button container
+
+**8. LanguageSelectionStep.tsx**
+- Verify and add safe area if needed
+
+**9. ScheduledActionCreator.tsx** (if exists)
+- Check and add safe area padding
+
+**10. ScheduledActionEditor.tsx** (if exists)
+- Check and add safe area padding
+
+### Phase 3: Create Consistent Header Padding Strategy
+
+Create a reusable approach using CSS custom property:
+
+```css
+/* Header-safe utility: combines safe area + visual padding */
+.pt-header-safe {
+  padding-top: calc(env(safe-area-inset-top, 0px) + 1.5rem); /* safe + 24px visual */
+}
+
+.pt-header-safe-sm {
+  padding-top: calc(env(safe-area-inset-top, 0px) + 1rem); /* safe + 16px visual */
+}
+```
 
 ---
 
 ## Technical Implementation Details
 
-### Native Android Changes (NativeVideoPlayerActivity.java)
+### CSS Changes (src/index.css)
 
-```text
-File: native/android/app/src/main/java/app/onetap/shortcuts/NativeVideoPlayerActivity.java
+Add within `@layer base` (after `.safe-bottom`):
 
-1. createPremiumIconButton() method:
-   - Change size from 46dp to 52dp
-   - Change padding from 11dp to 14dp
-   - Update background color from 0x40FFFFFF to gradient: 0x33FFFFFF center, 0x20FFFFFF edges
-   - Increase border stroke from 1dp to 2dp
+```css
+/* Safe area for Android status bar */
+.safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
 
-2. createFloatingUnlockButton() method:
-   - Increase size from 64dp to 72dp
-   - Add label TextView below icon
-   - Add pulsing glow animation
-   - Change icon from ic_lock_lock to ic_lock_idle_lock (open lock visual)
-   - Increase bottomMargin from 80dp to 100dp
+/* Header-safe utilities: combines safe area + visual padding */
+.pt-header-safe {
+  padding-top: calc(env(safe-area-inset-top, 0px) + 2rem);
+}
 
-3. toggleControlsLock() method:
-   - Add brief centered lock/unlock indicator animation
-   - Show persistent small lock icon in corner when locked
-
-4. New createLockStateIndicator() method:
-   - Small lock icon in top-right corner (visible only when locked)
-   - Semi-transparent background pill
-
-5. showFloatingUnlockButton() method:
-   - Add pulsing animation loop
-   - Scale up slightly on each pulse (1.0 -> 1.05 -> 1.0)
+.pt-header-safe-compact {
+  padding-top: calc(env(safe-area-inset-top, 0px) + 1.5rem);
+}
 ```
 
-### WebView Player Changes (VideoPlayer.tsx)
+### Component Updates
 
-```text
-File: src/pages/VideoPlayer.tsx
+| File | Current | Change To |
+|------|---------|-----------|
+| `AccessFlow.tsx` header | `pt-8` | `pt-header-safe` |
+| `BookmarkLibrary.tsx` header | `pt-8` | `pt-header-safe` |
+| `NotificationsPage.tsx` header | `pt-8` | `pt-header-safe` |
+| `SettingsPage.tsx` container | `safe-top` + `pt-6` | `pt-header-safe-compact` on header |
+| `ProfilePage.tsx` container | `p-4 safe-top` | Keep `p-4`, add `pt-header-safe` on header |
+| `UrlInput.tsx` header | `p-4 border-b` | `p-4 pt-header-safe-compact border-b` |
+| `ShortcutCustomizer.tsx` header | `p-4 border-b` | `p-4 pt-header-safe-compact border-b` |
+| `ContactShortcutCustomizer.tsx` header | `pt-6` | `pt-header-safe-compact` |
+| `OnboardingFlow.tsx` skip button | `p-4` | `p-4 pt-header-safe-compact` |
+| `LanguageSelectionStep.tsx` header | `pt-12` | `pt-header-safe` |
 
-1. Header buttons:
-   - Add backdrop blur effect with CSS: backdrop-blur-sm
-   - Use rounded-full with bg-black/40 border border-white/20
-   - Increase size to h-11 w-11
-
-2. Loading state:
-   - Add pulse animation to "Loading video..." text
-   - Add file size/name info display
-
-3. Error state:
-   - Add collapsible debug info (hidden by default)
-   - Add "Open with Other App" button
-
-4. Header gradient:
-   - Change from "from-black/80 to-transparent" to 4-stop gradient matching native
-```
-
----
-
-## Visual Design Specifications
-
-### Button Specifications
-| Property | Current | New |
-|----------|---------|-----|
-| Size | 46dp / h-10 | 52dp / h-11 |
-| Padding | 11dp | 14dp |
-| Background | 25% white | Gradient 20-33% white |
-| Border | 1dp 20% white | 2dp 30% white |
-| Touch feedback | 0.9x scale | 0.85x scale |
-
-### Floating Unlock Button
-| Property | Current | New |
-|----------|---------|-----|
-| Size | 64dp | 72dp |
-| Bottom margin | 80dp | 100dp |
-| Icon | Locked | Open lock |
-| Animation | Scale only | Scale + pulse glow |
-| Label | None | "Tap to unlock" |
-
-### Color Palette (consistent across both players)
-- Button background: `rgba(255,255,255,0.25)` / `0x40FFFFFF`
-- Button border: `rgba(255,255,255,0.3)` / `0x4DFFFFFF`
-- Floating elements: `rgba(0,0,0,0.5)` / `0x80000000`
-- Active/pressed: Scale to 85% with slight brightness increase
+### VideoPlayer.tsx
+Already uses inline `pt-safe` class - verify this is properly defined or update to use the new utility.
 
 ---
 
 ## Files to Modify
 
-1. **native/android/app/src/main/java/app/onetap/shortcuts/NativeVideoPlayerActivity.java**
-   - `createPremiumIconButton()` - Button size and styling
-   - `createFloatingUnlockButton()` - Size, label, animation
-   - `toggleControlsLock()` - Lock state indicator
-   - `showFloatingUnlockButton()` - Pulsing animation
-   - Add `createLockStateIndicator()` - Persistent lock indicator
-
-2. **src/pages/VideoPlayer.tsx**
-   - Header component styling
-   - Button styling classes
-   - Loading state UI
-   - Error state UI with collapsible debug info
+1. **src/index.css** - Add `safe-top`, `pt-header-safe`, `pt-header-safe-compact` utilities
+2. **src/components/AccessFlow.tsx** - Update header padding
+3. **src/components/BookmarkLibrary.tsx** - Update header padding
+4. **src/components/NotificationsPage.tsx** - Update header padding
+5. **src/components/SettingsPage.tsx** - Fix safe-top usage, update header
+6. **src/components/ProfilePage.tsx** - Fix safe-top usage, update header
+7. **src/components/UrlInput.tsx** - Add safe area to header
+8. **src/components/ShortcutCustomizer.tsx** - Add safe area to header
+9. **src/components/ContactShortcutCustomizer.tsx** - Update header padding
+10. **src/components/OnboardingFlow.tsx** - Add safe area to skip button area
+11. **src/components/LanguageSelectionStep.tsx** - Verify/update header padding
+12. **src/pages/VideoPlayer.tsx** - Verify `pt-safe` is properly applied
 
 ---
 
-## Expected Outcomes
+## Expected Outcome
 
-1. **Improved button visibility** - Larger touch targets and clearer visual definition
-2. **Clearer lock/unlock UX** - Users can easily see locked state and find unlock button
-3. **Premium, consistent feel** - Both native and WebView players share visual language
-4. **Reduced tap errors** - Larger buttons mean fewer mis-taps
-5. **Better accessibility** - Larger targets and clearer icons help all users
+- All screens will respect the Android status bar / notch area
+- Content will no longer be hidden or too close to the notification bar
+- Consistent visual padding across all headers (32px visual + safe area)
+- Proper handling on devices with and without notches/cutouts
 
 ---
 
 ## Risk Assessment
 
-- **Low risk**: All changes are visual/UI only, no logic changes
-- **Backward compatible**: No API or behavior changes
-- **Tested patterns**: Using animation patterns already present in the codebase
+- **Low risk**: Changes are CSS utilities and class name updates only
+- **No logic changes**: Pure visual/layout modifications
+- **Backward compatible**: New utilities don't affect existing styles
+- **Easy to test**: Visual verification on device or emulator
