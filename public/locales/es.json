@@ -354,7 +354,11 @@
     "quickSave": "Guardado Rápido",
     "editSave": "Editar y Guardar",
     "shortcut": "Acceso Directo",
-    "remindLater": "Recordar Luego"
+    "remindLater": "Recordar Luego",
+    "offlineMode": "Sin conexión - se guardará solo la URL"
+  },
+  "sharedUrl": {
+    "offlineMode": "Sin conexión - se guardará solo la URL"
   },
   "errors": {
     "generic": "Algo salió mal",

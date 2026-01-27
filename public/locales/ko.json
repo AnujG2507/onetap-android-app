@@ -348,7 +348,11 @@
     "quickSave": "빠른 저장",
     "editSave": "편집 후 저장",
     "shortcut": "바로가기",
-    "remindLater": "나중에 알림"
+    "remindLater": "나중에 알림",
+    "offlineMode": "오프라인 - URL만 저장됩니다"
+  },
+  "sharedUrl": {
+    "offlineMode": "오프라인 - URL만 저장됩니다"
   },
   "toasts": {
     "linkSaved": "링크가 라이브러리에 저장되었습니다!",

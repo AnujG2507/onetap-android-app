@@ -348,7 +348,11 @@
     "quickSave": "クイック保存",
     "editSave": "編集して保存",
     "shortcut": "ショートカット",
-    "remindLater": "後でリマインド"
+    "remindLater": "後でリマインド",
+    "offlineMode": "オフライン - URLのみ保存されます"
+  },
+  "sharedUrl": {
+    "offlineMode": "オフライン - URLのみ保存されます"
   },
   "toasts": {
     "linkSaved": "リンクがライブラリに保存されました！",

@@ -453,7 +453,8 @@
     "descriptionOptional": "Description (optional)",
     "addNote": "Add a note...",
     "folderOptional": "Folder (optional)",
-    "none": "None"
+    "none": "None",
+    "offlineMode": "Offline - saving will use URL only"
   },
   "urlInput": {
     "title": "Enter link",
@@ -474,7 +475,8 @@
     "quickSave": "Quick Save",
     "editSave": "Edit & Save",
     "shortcut": "Shortcut",
-    "remindLater": "Remind Later"
+    "remindLater": "Remind Later",
+    "offlineMode": "Offline - saving will use URL only"
   },
   "errors": {
     "generic": "Something went wrong",

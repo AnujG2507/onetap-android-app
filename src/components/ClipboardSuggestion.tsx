@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Clipboard, X, ChevronLeft, Check, Zap, BookmarkPlus, Bell, Edit3, Link } from 'lucide-react';
+import { Clipboard, X, ChevronLeft, Check, Zap, BookmarkPlus, Bell, Edit3, Link, WifiOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { triggerSelectionFeedback, triggerHaptic } from '@/lib/haptics';
 import { useUrlMetadata } from '@/hooks/useUrlMetadata';
@@ -12,6 +12,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { getAllFolders, getFolderIcon } from '@/lib/savedLinksManager';
 import { getIconByName } from '@/components/FolderIconPicker';
 import { detectPlatform } from '@/lib/platformIcons';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 
 interface ClipboardSuggestionProps {
   url: string;
@@ -60,6 +61,9 @@ export function ClipboardSuggestion({
   
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const domain = extractDomain(url);
+  
+  // Network status
+  const { isOnline } = useNetworkStatus();
   
   // Fetch metadata
   const { metadata, isLoading: isMetadataLoading } = useUrlMetadata(url);
@@ -382,6 +386,14 @@ export function ClipboardSuggestion({
         </div>
         
         <div className="p-4">
+          {/* Offline indicator */}
+          {!isOnline && (
+            <div className="flex items-center gap-2 px-3 py-2 mb-3 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
+              <WifiOff className="h-3.5 w-3.5 flex-shrink-0" />
+              <span className="text-xs">{t('clipboard.offlineMode')}</span>
+            </div>
+          )}
+          
           {/* Header row */}
           <div className="flex items-start justify-between gap-3 mb-3">
             <div className="flex items-center gap-2 text-muted-foreground">

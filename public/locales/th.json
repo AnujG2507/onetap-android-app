@@ -348,7 +348,11 @@
     "quickSave": "บันทึกด่วน",
     "editSave": "แก้ไขและบันทึก",
     "shortcut": "ทางลัด",
-    "remindLater": "เตือนทีหลัง"
+    "remindLater": "เตือนทีหลัง",
+    "offlineMode": "ออฟไลน์ - จะบันทึกเฉพาะ URL"
+  },
+  "sharedUrl": {
+    "offlineMode": "ออฟไลน์ - จะบันทึกเฉพาะ URL"
   },
   "toasts": {
     "linkSaved": "บันทึกลิงก์ไปยังคลังแล้ว!",

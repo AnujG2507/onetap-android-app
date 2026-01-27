@@ -354,7 +354,11 @@
     "quickSave": "حفظ سريع",
     "editSave": "تعديل وحفظ",
     "shortcut": "اختصار",
-    "remindLater": "تذكير لاحقاً"
+    "remindLater": "تذكير لاحقاً",
+    "offlineMode": "غير متصل - سيتم حفظ الرابط فقط"
+  },
+  "sharedUrl": {
+    "offlineMode": "غير متصل - سيتم حفظ الرابط فقط"
   },
   "errors": {
     "generic": "حدث خطأ ما",

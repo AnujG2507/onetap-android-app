@@ -348,7 +348,11 @@
     "quickSave": "Salvataggio Rapido",
     "editSave": "Modifica e Salva",
     "shortcut": "Scorciatoia",
-    "remindLater": "Ricordami Dopo"
+    "remindLater": "Ricordami Dopo",
+    "offlineMode": "Offline - verrà salvato solo l'URL"
+  },
+  "sharedUrl": {
+    "offlineMode": "Offline - verrà salvato solo l'URL"
   },
   "toasts": {
     "linkSaved": "Link salvato nella libreria!",

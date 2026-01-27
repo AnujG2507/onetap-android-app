@@ -348,7 +348,11 @@
     "quickSave": "Lưu nhanh",
     "editSave": "Sửa và Lưu",
     "shortcut": "Lối tắt",
-    "remindLater": "Nhắc sau"
+    "remindLater": "Nhắc sau",
+    "offlineMode": "Ngoại tuyến - chỉ lưu URL"
+  },
+  "sharedUrl": {
+    "offlineMode": "Ngoại tuyến - chỉ lưu URL"
   },
   "toasts": {
     "linkSaved": "Đã lưu liên kết vào thư viện!",

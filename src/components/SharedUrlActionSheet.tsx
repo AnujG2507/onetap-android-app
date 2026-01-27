@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { X, Bookmark, Smartphone, Share2, ChevronLeft, Play, Zap, Pencil, Check } from 'lucide-react';
+import { X, Bookmark, Smartphone, Share2, ChevronLeft, Play, Zap, Pencil, Check, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import { useUrlMetadata } from '@/hooks/useUrlMetadata';
 import { useVideoThumbnail } from '@/hooks/useVideoThumbnail';
 import { useSheetBackHandler } from '@/hooks/useSheetBackHandler';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { getAllFolders } from '@/lib/savedLinksManager';
 import { detectPlatform } from '@/lib/platformIcons';
 import { PlatformIcon } from '@/components/PlatformIcon';
@@ -48,6 +49,7 @@ export function SharedUrlActionSheet({
   const [editTag, setEditTag] = useState<string | null>(null);
   
   const domain = extractDomain(url);
+  const { isOnline } = useNetworkStatus();
   const { metadata, isLoading } = useUrlMetadata(url);
   const { thumbnailUrl, platform: videoPlatform, isLoading: thumbnailLoading } = useVideoThumbnail(url);
   const detectedPlatform = useMemo(() => detectPlatform(url), [url]);
@@ -196,6 +198,14 @@ export function SharedUrlActionSheet({
                 <X className="h-4 w-4 text-muted-foreground" />
               </button>
             </div>
+
+            {/* Offline indicator */}
+            {!isOnline && (
+              <div className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 border-b border-border">
+                <WifiOff className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+                <span className="text-xs text-amber-600 dark:text-amber-400">{t('sharedUrl.offlineMode')}</span>
+              </div>
+            )}
 
         {/* URL Preview Card */}
         <div className="px-4 py-4 border-b border-border">

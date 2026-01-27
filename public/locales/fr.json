@@ -354,7 +354,11 @@
     "quickSave": "Enregistrement Rapide",
     "editSave": "Modifier & Enregistrer",
     "shortcut": "Raccourci",
-    "remindLater": "Rappeler Plus Tard"
+    "remindLater": "Rappeler Plus Tard",
+    "offlineMode": "Hors ligne - seule l'URL sera enregistrée"
+  },
+  "sharedUrl": {
+    "offlineMode": "Hors ligne - seule l'URL sera enregistrée"
   },
   "errors": {
     "generic": "Une erreur s'est produite",

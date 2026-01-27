@@ -348,7 +348,11 @@
     "quickSave": "त्वरित सेव",
     "editSave": "संपादित करें और सेव करें",
     "shortcut": "शॉर्टकट",
-    "remindLater": "बाद में याद दिलाएं"
+    "remindLater": "बाद में याद दिलाएं",
+    "offlineMode": "ऑफ़लाइन - केवल URL सेव होगा"
+  },
+  "sharedUrl": {
+    "offlineMode": "ऑफ़लाइन - केवल URL सेव होगा"
   },
   "toasts": {
     "linkSaved": "लिंक लाइब्रेरी में सेव किया गया!",
