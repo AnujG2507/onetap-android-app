@@ -282,6 +282,46 @@
     "recurrenceWeekly": "weekly",
     "recurrenceYearly": "yearly"
   },
+  "scheduledActionSheet": {
+    "enabled": "Enabled",
+    "editAction": "Edit action",
+    "deleteAction": "Delete action",
+    "expired": "Expired",
+    "deleteTitle": "Delete scheduled action?",
+    "deleteDesc": "\"{{name}}\" will be permanently deleted and any scheduled alarms will be cancelled."
+  },
+  "scheduledActionItem": {
+    "expired": "Expired",
+    "deleteTitle": "Delete scheduled action?",
+    "deleteDesc": "\"{{name}}\" will be permanently deleted. This action cannot be undone."
+  },
+  "scheduledActionsList": {
+    "title": "Scheduled Actions",
+    "searchPlaceholder": "Search actions...",
+    "noMatch": "No actions match your filter",
+    "noMatchDesc": "Try adjusting your search or filter.",
+    "clearFilters": "Clear filters",
+    "emptyTitle": "No scheduled actions",
+    "emptyDesc": "Schedule a file, link, or contact to open at a specific time.",
+    "scheduleFirst": "Schedule your first action",
+    "scheduleNewAction": "Schedule new action",
+    "selected": "{{count}} selected",
+    "selectionCleared": "Selection cleared",
+    "bulkEnabled": "Enabled {{count}} action(s)",
+    "bulkDisabled": "Disabled {{count}} action(s)",
+    "bulkDeleted": "Deleted {{count}} action(s)",
+    "deleteConfirmTitle": "Delete {{count}} action(s)?",
+    "deleteConfirmDesc": "This will permanently delete the selected scheduled actions and cancel any scheduled alarms.",
+    "sortByTrigger": "Sort by next trigger",
+    "sortAlpha": "Sort alphabetically",
+    "sortRecurrence": "Group by recurrence",
+    "reversedOrder": "Reversed order",
+    "normalOrder": "Normal order",
+    "enableSelected": "Enable selected",
+    "disableSelected": "Disable selected",
+    "deleteSelected": "Delete selected",
+    "clear": "Clear"
+  },
   "notifications": {
     "title": "Reminders",
     "alarms": "Alarms",

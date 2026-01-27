@@ -1,5 +1,6 @@
 // Individual scheduled action item with selection mode and swipe-to-delete
 import { useState, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { 
   FileText, 
   Link, 
@@ -55,6 +56,7 @@ export function ScheduledActionItem({
   onToggleSelection,
   onEnterSelectionMode,
 }: ScheduledActionItemProps) {
+  const { t } = useTranslation();
   const { isRTL, isDeleteSwipe, getSwipeTransform } = useRTL();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   
@@ -286,7 +288,7 @@ export function ScheduledActionItem({
                 "text-xs mt-0.5",
                 isExpired ? "text-destructive" : "text-muted-foreground"
               )}>
-                {isExpired ? 'Expired — ' : ''}{formatTriggerTime(action.triggerTime)}
+                {isExpired ? t('scheduledActionItem.expired') + ' — ' : ''}{formatTriggerTime(action.triggerTime)}
               </p>
               <div className="flex items-center gap-1.5 mt-1.5 text-xs text-muted-foreground">
                 {getRecurrenceIcon(action.recurrence)}
@@ -315,18 +317,18 @@ export function ScheduledActionItem({
       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete scheduled action?</AlertDialogTitle>
+            <AlertDialogTitle>{t('scheduledActionItem.deleteTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              "{action.name}" will be permanently deleted. This action cannot be undone.
+              {t('scheduledActionItem.deleteDesc', { name: action.name })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction 
               onClick={handleConfirmDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Delete
+              {t('common.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

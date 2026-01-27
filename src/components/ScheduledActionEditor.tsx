@@ -248,7 +248,7 @@ export function ScheduledActionEditor({
     triggerHaptic('success');
   };
 
-  // Save changes
+  // Save changes - safe update pattern: create new, then delete old
   const handleSave = async () => {
     if (!name.trim()) {
       toast({
@@ -263,10 +263,7 @@ export function ScheduledActionEditor({
     triggerHaptic('medium');
 
     try {
-      // Delete old action and create new one with updated values
-      // This ensures native scheduling is properly updated
-      await deleteScheduledAction(action.id);
-      
+      // Create new action first (safe pattern - old action preserved if creation fails)
       const newAction = await createScheduledAction({
         name: name.trim(),
         destination,
@@ -276,6 +273,9 @@ export function ScheduledActionEditor({
       });
 
       if (newAction) {
+        // Only delete old action after new one is successfully created
+        await deleteScheduledAction(action.id);
+        
         triggerHaptic('success');
         toast({
           title: t('scheduledEditor.actionUpdated'),

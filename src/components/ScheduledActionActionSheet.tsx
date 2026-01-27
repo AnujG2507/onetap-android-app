@@ -1,5 +1,6 @@
 // Action sheet for a single scheduled action - similar to BookmarkActionSheet
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -52,6 +53,7 @@ export function ScheduledActionActionSheet({
   onDelete,
   startInEditMode = false,
 }: ScheduledActionActionSheetProps) {
+  const { t } = useTranslation();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   
   // Swipe-to-close gesture
@@ -178,7 +180,7 @@ export function ScheduledActionActionSheet({
                 <p className="text-sm text-muted-foreground truncate">{getDestinationName()}</p>
                 <div className="flex items-center gap-2 mt-1">
                   <span className={`text-xs ${isExpired ? 'text-muted-foreground' : 'text-primary'}`}>
-                    {isExpired ? 'Expired' : formatTriggerTime(action.triggerTime)}
+                    {isExpired ? t('scheduledActionSheet.expired') : formatTriggerTime(action.triggerTime)}
                   </span>
                   <span className="text-xs text-muted-foreground flex items-center gap-1">
                     {getRecurrenceIcon(action.recurrence)}
@@ -195,7 +197,7 @@ export function ScheduledActionActionSheet({
             <div className="flex items-center justify-between py-3 px-4 rounded-xl bg-muted/50">
               <div className="flex items-center gap-3">
                 <Clock className="h-5 w-5 text-muted-foreground" />
-                <span className="font-medium">Enabled</span>
+                <span className="font-medium">{t('scheduledActionSheet.enabled')}</span>
               </div>
               <Switch
                 checked={action.enabled}
@@ -210,7 +212,7 @@ export function ScheduledActionActionSheet({
               onClick={handleEditAction}
             >
               <Edit2 className="h-5 w-5" />
-              Edit action
+              {t('scheduledActionSheet.editAction')}
             </Button>
 
             {/* Delete button */}
@@ -220,7 +222,7 @@ export function ScheduledActionActionSheet({
               onClick={handleDeleteAction}
             >
               <Trash2 className="h-5 w-5" />
-              Delete action
+              {t('scheduledActionSheet.deleteAction')}
             </Button>
           </div>
         </SheetContent>
@@ -230,18 +232,18 @@ export function ScheduledActionActionSheet({
       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete scheduled action?</AlertDialogTitle>
+            <AlertDialogTitle>{t('scheduledActionSheet.deleteTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete "{action.name}" and cancel any scheduled alarms.
+              {t('scheduledActionSheet.deleteDesc', { name: action.name })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Delete
+              {t('common.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

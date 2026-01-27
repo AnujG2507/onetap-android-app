@@ -1,6 +1,7 @@
 // Scheduled Actions List - displays all scheduled actions in a sheet
 // With search, filter, sort, selection mode, and bulk actions
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
@@ -30,6 +31,9 @@ import {
   Link,
   Phone,
   ArrowRight,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
 } from 'lucide-react';
 import { useScheduledActions } from '@/hooks/useScheduledActions';
 import { useSheetBackHandler } from '@/hooks/useSheetBackHandler';
@@ -45,6 +49,8 @@ import {
   onSelectionChange,
   getSortPreferences,
   saveSortPreferences,
+  formatTriggerTime,
+  formatRecurrence,
   type SortMode,
 } from '@/lib/scheduledActionsManager';
 import { triggerHaptic } from '@/lib/haptics';
@@ -73,12 +79,21 @@ interface PermissionStatus {
   checked: boolean;
 }
 
-const RECURRENCE_FILTERS: { value: RecurrenceType | 'all'; label: string; icon: React.ReactNode }[] = [
-  { value: 'all', label: 'All', icon: null },
-  { value: 'once', label: 'Once', icon: <Clock className="h-3 w-3" /> },
-  { value: 'daily', label: 'Daily', icon: <RefreshCw className="h-3 w-3" /> },
-  { value: 'weekly', label: 'Weekly', icon: <CalendarDays className="h-3 w-3" /> },
-  { value: 'yearly', label: 'Yearly', icon: <Calendar className="h-3 w-3" /> },
+type StatusFilter = 'all' | 'active' | 'disabled' | 'expired';
+
+const RECURRENCE_FILTERS: { value: RecurrenceType | 'all'; labelKey: string; icon: React.ReactNode }[] = [
+  { value: 'all', labelKey: 'notificationsPage.filterAll', icon: null },
+  { value: 'once', labelKey: 'notificationsPage.filterOnce', icon: <Clock className="h-3 w-3" /> },
+  { value: 'daily', labelKey: 'notificationsPage.filterDaily', icon: <RefreshCw className="h-3 w-3" /> },
+  { value: 'weekly', labelKey: 'notificationsPage.filterWeekly', icon: <CalendarDays className="h-3 w-3" /> },
+  { value: 'yearly', labelKey: 'notificationsPage.filterYearly', icon: <Calendar className="h-3 w-3" /> },
+];
+
+const STATUS_FILTERS: { value: StatusFilter; labelKey: string; icon: React.ReactNode }[] = [
+  { value: 'all', labelKey: 'notificationsPage.statusAll', icon: null },
+  { value: 'active', labelKey: 'notificationsPage.statusActive', icon: <CheckCircle2 className="h-3 w-3" /> },
+  { value: 'disabled', labelKey: 'notificationsPage.statusDisabled', icon: <XCircle className="h-3 w-3" /> },
+  { value: 'expired', labelKey: 'notificationsPage.statusExpired', icon: <AlertCircle className="h-3 w-3" /> },
 ];
 
 export function ScheduledActionsList({ 
@@ -87,6 +102,7 @@ export function ScheduledActionsList({
   onCreateNew,
   onGoToNotifications,
 }: ScheduledActionsListProps) {
+  const { t } = useTranslation();
   const { 
     actions, 
     toggleAction, 
@@ -109,6 +125,7 @@ export function ScheduledActionsList({
   // Search and filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [recurrenceFilter, setRecurrenceFilter] = useState<RecurrenceType | 'all'>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   
   // Sort state
   const [sortMode, setSortMode] = useState<SortMode>(() => getSortPreferences().mode);
@@ -161,6 +178,7 @@ export function ScheduledActionsList({
     if (!isOpen) {
       setSearchQuery('');
       setRecurrenceFilter('all');
+      setStatusFilter('all');
       setIsSelectionMode(false);
       clearSelection();
     }
@@ -179,6 +197,14 @@ export function ScheduledActionsList({
     }
   }, [isOpen, permissionStatus.checked, checkPermissions]);
 
+  // Helper to determine action status
+  const getActionStatus = useCallback((action: ScheduledAction): 'active' | 'disabled' | 'expired' => {
+    const isPast = action.triggerTime < Date.now() && action.recurrence === 'once';
+    if (!action.enabled) return 'disabled';
+    if (isPast) return 'expired';
+    return 'active';
+  }, []);
+
   // Computed: filter counts
   const filterCounts = useMemo(() => {
     const counts: Record<RecurrenceType | 'all', number> = {
@@ -194,24 +220,56 @@ export function ScheduledActionsList({
     return counts;
   }, [actions]);
 
+  // Computed: status counts
+  const statusCounts = useMemo(() => {
+    const counts: Record<StatusFilter, number> = {
+      all: actions.length,
+      active: 0,
+      disabled: 0,
+      expired: 0,
+    };
+    actions.forEach(a => {
+      counts[getActionStatus(a)]++;
+    });
+    return counts;
+  }, [actions, getActionStatus]);
+
   // Computed: filtered and sorted actions
   const filteredActions = useMemo(() => {
     let result = [...actions];
     
-    // Apply search filter
+    // Apply search filter (includes name, destination, and time description)
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      result = result.filter(a => 
-        a.name.toLowerCase().includes(query) ||
-        (a.destination.type === 'url' && a.destination.uri.toLowerCase().includes(query)) ||
-        (a.destination.type === 'file' && a.destination.name.toLowerCase().includes(query)) ||
-        (a.destination.type === 'contact' && a.destination.contactName.toLowerCase().includes(query))
-      );
+      result = result.filter(a => {
+        // Search by name
+        if (a.name.toLowerCase().includes(query)) return true;
+        
+        // Search by destination
+        if (a.destination.type === 'url' && a.destination.uri.toLowerCase().includes(query)) return true;
+        if (a.destination.type === 'file' && a.destination.name.toLowerCase().includes(query)) return true;
+        if (a.destination.type === 'contact' && a.destination.contactName.toLowerCase().includes(query)) return true;
+        
+        // Search by time description (Today, Tomorrow, day names, dates)
+        const timeDesc = formatTriggerTime(a.triggerTime).toLowerCase();
+        if (timeDesc.includes(query)) return true;
+        
+        // Search by recurrence type
+        const recurrenceDesc = formatRecurrence(a.recurrence).toLowerCase();
+        if (recurrenceDesc.includes(query)) return true;
+        
+        return false;
+      });
     }
     
     // Apply recurrence filter
     if (recurrenceFilter !== 'all') {
       result = result.filter(a => a.recurrence === recurrenceFilter);
+    }
+    
+    // Apply status filter
+    if (statusFilter !== 'all') {
+      result = result.filter(a => getActionStatus(a) === statusFilter);
     }
     
     // Apply sorting
@@ -245,7 +303,18 @@ export function ScheduledActionsList({
     });
     
     return result;
-  }, [actions, searchQuery, recurrenceFilter, sortMode, sortReversed]);
+  }, [actions, searchQuery, recurrenceFilter, statusFilter, sortMode, sortReversed, getActionStatus]);
+
+  // Check if any filters are active
+  const hasActiveFilters = searchQuery.trim() || recurrenceFilter !== 'all' || statusFilter !== 'all';
+
+  // Clear all filters
+  const handleClearFilters = useCallback(() => {
+    setSearchQuery('');
+    setRecurrenceFilter('all');
+    setStatusFilter('all');
+    triggerHaptic('light');
+  }, []);
 
   // Handlers
   const handleGrabHandleTouchStart = useCallback((e: React.TouchEvent) => {
@@ -338,7 +407,7 @@ export function ScheduledActionsList({
     triggerHaptic('light');
     clearSelection();
     setIsSelectionMode(false);
-    toast({ description: 'Selection cleared' });
+    toast({ description: t('scheduledActionsList.selectionCleared') });
   };
 
   const handleBulkEnable = async () => {
@@ -352,7 +421,7 @@ export function ScheduledActionsList({
       await toggleAction(id);
     }
     
-    toast({ description: `Enabled ${idsToEnable.length} action${idsToEnable.length !== 1 ? 's' : ''}` });
+    toast({ description: t('scheduledActionsList.bulkEnabled', { count: idsToEnable.length }) });
     clearSelection();
     setIsSelectionMode(false);
   };
@@ -368,7 +437,7 @@ export function ScheduledActionsList({
       await toggleAction(id);
     }
     
-    toast({ description: `Disabled ${idsToDisable.length} action${idsToDisable.length !== 1 ? 's' : ''}` });
+    toast({ description: t('scheduledActionsList.bulkDisabled', { count: idsToDisable.length }) });
     clearSelection();
     setIsSelectionMode(false);
   };
@@ -381,7 +450,7 @@ export function ScheduledActionsList({
       await deleteScheduledAction(id);
     }
     
-    toast({ description: `Deleted ${count} action${count !== 1 ? 's' : ''}` });
+    toast({ description: t('scheduledActionsList.bulkDeleted', { count }) });
     clearSelection();
     setIsSelectionMode(false);
     setShowBulkDeleteConfirm(false);
@@ -465,7 +534,7 @@ export function ScheduledActionsList({
 
         <SheetHeader className="px-5 pb-3 shrink-0">
           <div className="flex items-center justify-between">
-            <SheetTitle className="text-lg font-semibold">Scheduled Actions</SheetTitle>
+            <SheetTitle className="text-lg font-semibold">{t('scheduledActionsList.title')}</SheetTitle>
             <div className="flex gap-2">
               <Button
                 variant={allPermissionsGranted ? "outline" : "default"}
@@ -475,7 +544,7 @@ export function ScheduledActionsList({
                 className="text-xs gap-1.5 h-8"
               >
                 <Shield className="h-3.5 w-3.5" />
-                {isRequestingPermissions ? 'Requesting...' : allPermissionsGranted ? 'OK' : 'Permissions'}
+                {isRequestingPermissions ? t('notificationsPage.requesting') : allPermissionsGranted ? t('notificationsPage.ok') : t('notificationsPage.permissions')}
               </Button>
             </div>
           </div>
@@ -485,12 +554,12 @@ export function ScheduledActionsList({
             <div className="flex gap-3 mt-2 text-xs">
               <div className={`flex items-center gap-1 ${permissionStatus.notifications ? 'text-green-600' : 'text-destructive'}`}>
                 <Bell className="h-3 w-3" />
-                <span>Notifications</span>
+                <span>{t('notificationsPage.notificationsLabel')}</span>
                 {permissionStatus.notifications ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
               </div>
               <div className={`flex items-center gap-1 ${permissionStatus.alarms ? 'text-green-600' : 'text-destructive'}`}>
                 <Clock className="h-3 w-3" />
-                <span>Alarms</span>
+                <span>{t('notificationsPage.alarmsLabel')}</span>
                 {permissionStatus.alarms ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
               </div>
             </div>
@@ -504,7 +573,7 @@ export function ScheduledActionsList({
               <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 type="text"
-                placeholder="Search actions..."
+                placeholder={t('notificationsPage.searchPlaceholder')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="ps-9 pe-9 h-10"
@@ -518,13 +587,28 @@ export function ScheduledActionsList({
                 </button>
               )}
             </div>
+            {/* Search result count */}
+            {hasActiveFilters && (
+              <div className="flex items-center justify-between mt-2">
+                <span className="text-xs text-muted-foreground">
+                  {t('notificationsPage.searchResults', { count: filteredActions.length })}
+                </span>
+                <button
+                  onClick={handleClearFilters}
+                  className="text-xs text-primary hover:underline"
+                >
+                  {t('notificationsPage.clearFilters')}
+                </button>
+              </div>
+            )}
           </div>
         )}
 
-        {/* Filter bar */}
+        {/* Combined Filter bar (Recurrence + Status) */}
         {actions.length > 0 && (
           <div className="px-5 pb-3 shrink-0">
             <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+              {/* Recurrence filters */}
               {RECURRENCE_FILTERS.map(filter => {
                 const count = filterCounts[filter.value];
                 if (filter.value !== 'all' && count === 0) return null;
@@ -532,7 +616,7 @@ export function ScheduledActionsList({
                 const isActive = recurrenceFilter === filter.value;
                 return (
                   <button
-                    key={filter.value}
+                    key={`recurrence-${filter.value}`}
                     onClick={() => {
                       triggerHaptic('light');
                       setRecurrenceFilter(filter.value);
@@ -544,9 +628,53 @@ export function ScheduledActionsList({
                     }`}
                   >
                     {filter.icon}
-                    {filter.label}
+                    {t(filter.labelKey)}
                     {count > 0 && (
                       <Badge variant={isActive ? "secondary" : "outline"} className="h-4 px-1 text-[10px]">
+                        {count}
+                      </Badge>
+                    )}
+                  </button>
+                );
+              })}
+              
+              {/* Visual divider */}
+              <div className="flex items-center px-1">
+                <div className="w-1 h-1 rounded-full bg-muted-foreground/30" />
+              </div>
+              
+              {/* Status filters */}
+              {STATUS_FILTERS.filter(f => f.value !== 'all').map(filter => {
+                const count = statusCounts[filter.value];
+                if (count === 0) return null;
+                
+                const isActive = statusFilter === filter.value;
+                return (
+                  <button
+                    key={`status-${filter.value}`}
+                    onClick={() => {
+                      triggerHaptic('light');
+                      setStatusFilter(isActive ? 'all' : filter.value);
+                    }}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
+                      isActive 
+                        ? filter.value === 'expired' 
+                          ? 'bg-destructive text-destructive-foreground'
+                          : filter.value === 'disabled'
+                            ? 'bg-muted-foreground text-background'
+                            : 'bg-primary text-primary-foreground'
+                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                    }`}
+                  >
+                    {filter.icon}
+                    {t(filter.labelKey)}
+                    {count > 0 && (
+                      <Badge 
+                        variant={isActive ? "secondary" : "outline"} 
+                        className={`h-4 px-1 text-[10px] ${
+                          isActive && filter.value === 'expired' ? 'bg-destructive-foreground/20' : ''
+                        }`}
+                      >
                         {count}
                       </Badge>
                     )}
@@ -573,7 +701,7 @@ export function ScheduledActionsList({
                       <CalendarClock className="h-3.5 w-3.5" />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>Sort by next trigger</TooltipContent>
+                  <TooltipContent>{t('scheduledActionsList.sortByTrigger')}</TooltipContent>
                 </Tooltip>
 
                 <Tooltip>
@@ -587,7 +715,7 @@ export function ScheduledActionsList({
                       <ArrowDownAZ className="h-3.5 w-3.5" />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>Sort alphabetically</TooltipContent>
+                  <TooltipContent>{t('scheduledActionsList.sortAlpha')}</TooltipContent>
                 </Tooltip>
 
                 <Tooltip>
@@ -601,7 +729,7 @@ export function ScheduledActionsList({
                       <RefreshCw className="h-3.5 w-3.5" />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>Group by recurrence</TooltipContent>
+                  <TooltipContent>{t('scheduledActionsList.sortRecurrence')}</TooltipContent>
                 </Tooltip>
 
                 <div className="flex-1" />
@@ -617,7 +745,7 @@ export function ScheduledActionsList({
                       {sortReversed ? <ArrowUpAZ className="h-3.5 w-3.5" /> : <ArrowDownAZ className="h-3.5 w-3.5" />}
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>{sortReversed ? 'Reversed order' : 'Normal order'}</TooltipContent>
+                  <TooltipContent>{sortReversed ? t('scheduledActionsList.reversedOrder') : t('scheduledActionsList.normalOrder')}</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             </div>
@@ -640,7 +768,7 @@ export function ScheduledActionsList({
                   }}
                 />
                 <span className="text-sm font-medium">
-                  {selectedIds.size} selected
+                  {t('scheduledActionsList.selected', { count: selectedIds.size })}
                 </span>
               </div>
               <Button
@@ -649,7 +777,7 @@ export function ScheduledActionsList({
                 onClick={handleClearSelection}
                 className="text-xs"
               >
-                Clear
+                {t('scheduledActionsList.clear')}
               </Button>
             </div>
           </div>
@@ -661,11 +789,8 @@ export function ScheduledActionsList({
         >
           <div className="pb-28">
             {filteredActions.length === 0 ? (
-              searchQuery || recurrenceFilter !== 'all' ? (
-                <NoResultsState onClearFilters={() => {
-                  setSearchQuery('');
-                  setRecurrenceFilter('all');
-                }} />
+              searchQuery || recurrenceFilter !== 'all' || statusFilter !== 'all' ? (
+                <NoResultsState onClearFilters={handleClearFilters} />
               ) : (
                 <EmptyState onCreateNew={onCreateNew} />
               )
@@ -695,7 +820,7 @@ export function ScheduledActionsList({
           <div className="absolute bottom-6 inset-x-0 px-5 shrink-0 z-10">
             <div className="bg-card border rounded-2xl shadow-lg p-3 flex items-center gap-2">
               <span className="text-sm font-medium text-foreground me-2">
-                {selectedIds.size} selected
+                {t('scheduledActionsList.selected', { count: selectedIds.size })}
               </span>
               <div className="h-5 w-px bg-border" />
               <TooltipProvider delayDuration={500}>
@@ -710,7 +835,7 @@ export function ScheduledActionsList({
                       <ToggleRight className="h-5 w-5" />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>Enable selected</TooltipContent>
+                  <TooltipContent>{t('scheduledActionsList.enableSelected')}</TooltipContent>
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -723,7 +848,7 @@ export function ScheduledActionsList({
                       <ToggleLeft className="h-5 w-5" />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>Disable selected</TooltipContent>
+                  <TooltipContent>{t('scheduledActionsList.disableSelected')}</TooltipContent>
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -736,7 +861,7 @@ export function ScheduledActionsList({
                       <Trash2 className="h-5 w-5" />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>Delete selected</TooltipContent>
+                  <TooltipContent>{t('scheduledActionsList.deleteSelected')}</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
               <div className="h-5 w-px bg-border" />
@@ -767,7 +892,7 @@ export function ScheduledActionsList({
             className="w-full h-12 rounded-2xl gap-2 shadow-lg"
           >
             <Plus className="h-5 w-5" />
-            Schedule new action
+            {t('scheduledActionsList.scheduleNewAction')}
           </Button>
         </div>
       </SheetContent>
@@ -799,18 +924,18 @@ export function ScheduledActionsList({
       <AlertDialog open={showBulkDeleteConfirm} onOpenChange={setShowBulkDeleteConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete {selectedIds.size} action{selectedIds.size !== 1 ? 's' : ''}?</AlertDialogTitle>
+            <AlertDialogTitle>{t('scheduledActionsList.deleteConfirmTitle', { count: selectedIds.size })}</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the selected scheduled actions and cancel any scheduled alarms.
+              {t('scheduledActionsList.deleteConfirmDesc')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleBulkDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Delete
+              {t('common.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -823,6 +948,7 @@ export function ScheduledActionsList({
 function EmptyState({ onCreateNew }: { 
   onCreateNew: () => void; 
 }) {
+  const { t } = useTranslation();
   return (
     <div className="flex flex-col items-center justify-center py-16 px-4 text-center relative">
       {/* Animated floating icons */}
@@ -842,13 +968,13 @@ function EmptyState({ onCreateNew }: {
         </div>
       </div>
       
-      <h3 className="text-lg font-medium mb-2">No scheduled actions</h3>
+      <h3 className="text-lg font-medium mb-2">{t('scheduledActionsList.emptyTitle')}</h3>
       <p className="text-sm text-muted-foreground mb-6 max-w-[240px]">
-        Schedule a file, link, or contact to open at a specific time.
+        {t('scheduledActionsList.emptyDesc')}
       </p>
       <Button onClick={onCreateNew} className="gap-2">
         <Plus className="h-4 w-4" />
-        Schedule your first action
+        {t('scheduledActionsList.scheduleFirst')}
       </Button>
     </div>
   );
@@ -856,17 +982,18 @@ function EmptyState({ onCreateNew }: {
 
 // No results state
 function NoResultsState({ onClearFilters }: { onClearFilters: () => void }) {
+  const { t } = useTranslation();
   return (
     <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
       <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center mb-4">
         <Search className="h-6 w-6 text-muted-foreground" />
       </div>
-      <h3 className="text-base font-medium mb-2">No actions match your filter</h3>
+      <h3 className="text-base font-medium mb-2">{t('scheduledActionsList.noMatch')}</h3>
       <p className="text-sm text-muted-foreground mb-4">
-        Try adjusting your search or filter.
+        {t('scheduledActionsList.noMatchDesc')}
       </p>
       <Button variant="outline" size="sm" onClick={onClearFilters}>
-        Clear filters
+        {t('scheduledActionsList.clearFilters')}
       </Button>
     </div>
   );
