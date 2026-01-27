@@ -59,7 +59,10 @@ export function TrashSheet({ open: controlledOpen, onOpenChange, onRestored, onO
   
   const handleOpenSettings = () => {
     setOpen(false);
-    onOpenSettings?.();
+    // Small delay to allow sheet close animation to complete
+    setTimeout(() => {
+      onOpenSettings?.();
+    }, 150);
   };
 
   // Swipe-to-close gesture tracking
