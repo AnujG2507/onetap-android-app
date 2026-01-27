@@ -1246,6 +1246,9 @@ public class NativeVideoPlayerActivity extends Activity {
                         
                         // Auto-rotate: lock orientation based on video aspect ratio
                         lockOrientationBasedOnAspectRatio(videoSize.width, videoSize.height);
+                        
+                        // Enable auto-enter PiP on Android 12+ now that we have video dimensions
+                        setupAutoEnterPip();
                     }
                 }
             });
@@ -2161,10 +2164,16 @@ public class NativeVideoPlayerActivity extends Activity {
     @Override
     protected void onUserLeaveHint() {
         super.onUserLeaveHint();
-        // Auto-enter PiP when user presses home button while playing
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && exoPlayer != null && exoPlayer.isPlaying()) {
+        // Auto-enter PiP when user navigates away while playing
+        // On Android 12+, this is handled automatically via setAutoEnterEnabled(true)
+        // On Android 8-11, we need to manually enter PiP mode
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O 
+            && Build.VERSION.SDK_INT < Build.VERSION_CODES.S
+            && exoPlayer != null 
+            && exoPlayer.isPlaying()) {
             enterPipMode();
         }
+        // On Android 12+, PiP is entered automatically due to setupAutoEnterPip()
     }
 
     @Override
@@ -2247,6 +2256,61 @@ public class NativeVideoPlayerActivity extends Activity {
             isInPipMode = false; // Reset on failure
             logError("Failed to enter PiP: " + e.getMessage());
             Toast.makeText(this, "Unable to enter PiP mode", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    /**
+     * Set up auto-enter PiP mode for Android 12+.
+     * This configures the activity to automatically enter PiP when the user navigates away,
+     * without needing to call enterPictureInPictureMode() manually.
+     */
+    private void setupAutoEnterPip() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            // Auto-enter not available before Android 12
+            return;
+        }
+        
+        if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)) {
+            return;
+        }
+        
+        try {
+            // Calculate aspect ratio from video dimensions
+            Rational aspectRatio = new Rational(videoWidth, videoHeight);
+            
+            // Clamp to allowed PiP aspect ratios (between 1:2.39 and 2.39:1)
+            float ratio = (float) videoWidth / videoHeight;
+            if (ratio < 0.418f) {
+                aspectRatio = new Rational(1, 239);
+            } else if (ratio > 2.39f) {
+                aspectRatio = new Rational(239, 100);
+            }
+            
+            // Build PiP params with auto-enter enabled
+            PictureInPictureParams.Builder pipBuilder = new PictureInPictureParams.Builder()
+                .setAspectRatio(aspectRatio)
+                .setAutoEnterEnabled(true)
+                .setSeamlessResizeEnabled(true);
+            
+            // Add remote actions
+            ArrayList<RemoteAction> actions = buildPipRemoteActions();
+            pipBuilder.setActions(actions);
+            
+            // Set the source rect hint for smooth transition (use playerView bounds)
+            if (playerView != null) {
+                android.graphics.Rect sourceRect = new android.graphics.Rect();
+                playerView.getGlobalVisibleRect(sourceRect);
+                if (sourceRect.width() > 0 && sourceRect.height() > 0) {
+                    pipBuilder.setSourceRectHint(sourceRect);
+                }
+            }
+            
+            // Apply the PiP params to the activity
+            setPictureInPictureParams(pipBuilder.build());
+            logInfo("Auto-enter PiP configured (Android 12+)");
+            
+        } catch (Exception e) {
+            logWarn("Failed to setup auto-enter PiP: " + e.getMessage());
         }
     }
 
