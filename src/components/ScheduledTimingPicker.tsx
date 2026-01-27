@@ -797,6 +797,7 @@ export function ScheduledTimingPicker({
               <CalendarComponent
                 mode="single"
                 selected={selectedDate}
+                defaultMonth={selectedDate}
                 onSelect={(date) => {
                   if (date) {
                     triggerHaptic('light');
