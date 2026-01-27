@@ -154,29 +154,31 @@ export function SavedLinksSheet({ open, onOpenChange, onSelectLink, onGoToBookma
           </SheetTitle>
         </SheetHeader>
 
-        {/* Search */}
-        <div className="relative mb-3">
-          <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={t('savedLinks.searchPlaceholder')}
-            className="ps-10 pe-10"
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => setSearchQuery('')}
-              className="absolute end-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
-              aria-label={t('library.clearSearch')}
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
-        </div>
+        {/* Search - hidden in empty state */}
+        {links.length > 0 && (
+          <div className="relative mb-3">
+            <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={t('savedLinks.searchPlaceholder')}
+              className="ps-10 pe-10"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute end-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
+                aria-label={t('library.clearSearch')}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        )}
 
-        {/* Tag Filter Bar */}
-        {availableTags.length > 0 && (
+        {/* Tag Filter Bar - hidden in empty state */}
+        {links.length > 0 && availableTags.length > 0 && (
           <div className="flex gap-2 overflow-x-auto pb-3 -mx-6 px-6 scrollbar-hide">
             <button
               onClick={() => setActiveTagFilter(null)}
