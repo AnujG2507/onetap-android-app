@@ -187,7 +187,7 @@ export function ContentSourcePicker({
         
         {/* Secondary Actions Section */}
         <div className="mt-4 -mx-4 -mb-4 px-4 pb-4 pt-3 bg-muted/20 rounded-b-2xl border-t border-border/50">
-          <h3 className="text-xs font-medium text-muted-foreground mb-3">
+          <h3 className="text-sm font-medium text-muted-foreground mb-3">
             {t('access.moreOptions')}
           </h3>
           <div className={cn(
