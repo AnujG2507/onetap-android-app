@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { User, Cloud, Upload, Download, RefreshCw, LogOut, HardDrive, Clock, Trash2, Settings } from 'lucide-react';
+import { User, Cloud, Upload, Download, RefreshCw, LogOut, HardDrive, Clock, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
@@ -244,24 +244,13 @@ export function ProfilePage() {
       <div className="flex-1 flex flex-col p-4 pb-20 safe-top overflow-y-auto">
         {/* Header with Menu */}
         <header className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3">
             <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
               <User className="h-4 w-4 text-primary-foreground" />
             </div>
             <h1 className="text-xl font-semibold text-foreground">{t('tabs.profile')}</h1>
           </div>
-          <div className="flex items-center gap-1">
-            <Button
-              id="tutorial-settings-button"
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9"
-              onClick={() => setShowSettings(true)}
-            >
-              <Settings className="h-5 w-5" />
-            </Button>
-            <AppMenu onOpenTrash={() => setIsTrashOpen(true)} onOpenSettings={() => setShowSettings(true)} />
-          </div>
+          <AppMenu onOpenTrash={() => setIsTrashOpen(true)} onOpenSettings={() => setShowSettings(true)} />
         </header>
 
         <div id="tutorial-user-card" className="flex-1 flex flex-col items-center justify-center gap-6 max-w-sm mx-auto text-center mb-6">
@@ -336,18 +325,7 @@ export function ProfilePage() {
           </div>
           <h1 className="text-xl font-semibold text-foreground">{t('tabs.profile')}</h1>
         </div>
-        <div className="flex items-center gap-1">
-          <Button
-            id="tutorial-settings-button"
-            variant="ghost"
-            size="icon"
-            className="h-9 w-9"
-            onClick={() => setShowSettings(true)}
-          >
-            <Settings className="h-5 w-5" />
-          </Button>
-            <AppMenu onOpenTrash={() => setIsTrashOpen(true)} onOpenSettings={() => setShowSettings(true)} />
-          </div>
+        <AppMenu onOpenTrash={() => setIsTrashOpen(true)} onOpenSettings={() => setShowSettings(true)} />
       </header>
 
       {/* User Info Card */}
