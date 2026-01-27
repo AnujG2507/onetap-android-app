@@ -21,6 +21,18 @@ i18n
     interpolation: {
       escapeValue: false,
     },
+    // Show friendly fallback instead of raw keys like "clipboard.quickSave"
+    saveMissing: false,
+    parseMissingKeyHandler: (key: string) => {
+      // Extract the last part of the key and humanize it
+      // e.g., "clipboard.quickSave" → "Quick Save"
+      const lastPart = key.split('.').pop() || key;
+      // Convert camelCase/snake_case to Title Case with spaces
+      return lastPart
+        .replace(/([a-z])([A-Z])/g, '$1 $2') // camelCase → camel Case
+        .replace(/_/g, ' ') // snake_case → snake case
+        .replace(/\b\w/g, (char) => char.toUpperCase()); // Capitalize first letter of each word
+    },
     detection: {
       // Prioritize user's manual choice (localStorage) over browser default
       order: ['localStorage', 'navigator'],
