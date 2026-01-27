@@ -189,6 +189,9 @@ export function ContentSourcePicker({
         <div className="h-px bg-border my-4" />
         
         {/* Secondary Actions */}
+        <h3 className="text-xs font-medium text-muted-foreground mb-3">
+          {t('access.moreOptions')}
+        </h3>
         <div className={cn(
           "grid gap-3 transition-all duration-200",
           activeSecondaryPicker ? "grid-cols-1" : "grid-cols-2"
