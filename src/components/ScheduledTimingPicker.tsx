@@ -21,7 +21,7 @@ import { triggerHaptic } from '@/lib/haptics';
 import { TimeWheelPicker } from '@/components/ui/time-wheel-picker';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import type { RecurrenceType, RecurrenceAnchor } from '@/types/scheduledAction';
-import { computeNextTrigger } from '@/lib/scheduledActionsManager';
+// computeNextTrigger is used for advancing recurring actions, not for initial creation
 
 interface ScheduledTimingPickerProps {
   onConfirm: (triggerTime: number, recurrence: RecurrenceType, anchor: RecurrenceAnchor) => void;
@@ -375,17 +375,37 @@ export function ScheduledTimingPicker({
     return h;
   };
 
-  // Calculate trigger time
+  // Calculate trigger time directly from selectedDate (not using computeNextTrigger which ignores the date)
   const triggerTime = useMemo(() => {
     const hour24 = get24Hour(hour, period);
-    const anchor: RecurrenceAnchor = {
-      hour: hour24,
-      minute,
-      dayOfWeek: selectedDate.getDay(),
-      month: selectedDate.getMonth(),
-      dayOfMonth: selectedDate.getDate(),
-    };
-    return computeNextTrigger(recurrence, anchor);
+    const result = new Date(selectedDate);
+    result.setHours(hour24, minute, 0, 0);
+    
+    // For daily recurrence, we don't have a specific date - use today/tomorrow
+    if (recurrence === 'daily') {
+      const todayWithTime = new Date();
+      todayWithTime.setHours(hour24, minute, 0, 0);
+      if (todayWithTime.getTime() <= Date.now()) {
+        todayWithTime.setDate(todayWithTime.getDate() + 1);
+      }
+      return todayWithTime.getTime();
+    }
+    
+    // For one-time/weekly/yearly, if the exact datetime is in the past, handle it
+    if (result.getTime() <= Date.now()) {
+      if (recurrence === 'once') {
+        // If the selected date+time is in the past, add 1 day as fallback
+        result.setDate(result.getDate() + 1);
+      } else if (recurrence === 'weekly') {
+        // Move to next week
+        result.setDate(result.getDate() + 7);
+      } else if (recurrence === 'yearly') {
+        // Move to next year
+        result.setFullYear(result.getFullYear() + 1);
+      }
+    }
+    
+    return result.getTime();
   }, [hour, minute, period, selectedDate, recurrence]);
 
   const handleConfirm = () => {
