@@ -91,34 +91,41 @@ function WeekCalendar({ selectedDate, onDateSelect, onOpenFullCalendar }: WeekCa
   const [direction, setDirection] = useState(0);
   
   // Check if we need to recenter the week range when selectedDate changes
+  // Only navigate if the selected date is OUTSIDE the currently visible week
   useEffect(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const selected = new Date(selectedDate);
     selected.setHours(0, 0, 0, 0);
     
+    // Calculate the current visible week's start date
+    const visibleWeekStart = new Date(baseDate);
+    visibleWeekStart.setDate(baseDate.getDate() + weekOffset * 7);
+    visibleWeekStart.setHours(0, 0, 0, 0);
+    
+    const visibleWeekEnd = new Date(visibleWeekStart);
+    visibleWeekEnd.setDate(visibleWeekStart.getDate() + 6);
+    visibleWeekEnd.setHours(23, 59, 59, 999);
+    
+    // If selected date is within currently visible week, do nothing
+    if (selected >= visibleWeekStart && selected <= visibleWeekEnd) {
+      return;
+    }
+    
     // Calculate days from base date
     const daysFromBase = Math.floor((selected.getTime() - baseDate.getTime()) / (1000 * 60 * 60 * 24));
     
-    // Current visible range: weeks -2 to +2 from base (weekOffset 0-4)
-    const rangeStart = -14; // 2 weeks before base
-    const rangeEnd = 34;    // ~5 weeks after base
-    
-    // Check if selected date is within current 5-week range
-    const currentWeekStart = (weekOffset - 2) * 7;
-    const currentWeekEnd = currentWeekStart + 6;
+    // Current 5-week range: weeks 0-4 from base
+    const rangeStart = 0;
+    const rangeEnd = 34; // ~5 weeks after base
     
     if (daysFromBase >= rangeStart && daysFromBase <= rangeEnd) {
-      // Within 5-week range, just navigate to correct week
-      const targetWeekOffset = Math.max(0, Math.min(4, Math.floor((daysFromBase + 14) / 7)));
-      
-      if (daysFromBase < currentWeekStart || daysFromBase > currentWeekEnd) {
-        setDirection(targetWeekOffset > weekOffset ? 1 : -1);
-        setWeekOffset(targetWeekOffset);
-      }
+      // Within 5-week range, navigate to correct week
+      const targetWeekOffset = Math.max(0, Math.min(4, Math.floor(daysFromBase / 7)));
+      setDirection(targetWeekOffset > weekOffset ? 1 : -1);
+      setWeekOffset(targetWeekOffset);
     } else {
       // Outside range - recenter the base date around selected date
-      // New base = selected date, with selected in the middle week (offset 2)
       const newBase = new Date(selected);
       newBase.setDate(newBase.getDate() - 14); // 2 weeks before selected
       newBase.setHours(0, 0, 0, 0);
@@ -126,7 +133,6 @@ function WeekCalendar({ selectedDate, onDateSelect, onOpenFullCalendar }: WeekCa
       // Don't go before today
       if (newBase.getTime() < today.getTime()) {
         setBaseDate(today);
-        // Calculate offset so selected date is visible
         const daysFromToday = Math.floor((selected.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
         const newOffset = Math.max(0, Math.min(4, Math.floor(daysFromToday / 7)));
         setWeekOffset(newOffset);
@@ -136,7 +142,7 @@ function WeekCalendar({ selectedDate, onDateSelect, onOpenFullCalendar }: WeekCa
       }
       setDirection(1);
     }
-  }, [selectedDate]);
+  }, [selectedDate, baseDate, weekOffset]);
   
   // Swipe gesture handling
   const [touchStart, setTouchStart] = useState<number | null>(null);
