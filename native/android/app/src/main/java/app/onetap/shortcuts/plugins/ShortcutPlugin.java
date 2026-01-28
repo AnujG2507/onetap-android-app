@@ -719,6 +719,42 @@ public class ShortcutPlugin extends Plugin {
         ret.put("phoneNumber", phoneNumber);
         if (photoUri != null) {
             ret.put("photoUri", photoUri);
+            
+            // Convert contact photo to base64 for immediate use as icon
+            try {
+                Context ctx = getContext();
+                if (ctx != null) {
+                    ContentResolver resolver = ctx.getContentResolver();
+                    InputStream photoStream = resolver.openInputStream(Uri.parse(photoUri));
+                    if (photoStream != null) {
+                        Bitmap photoBitmap = BitmapFactory.decodeStream(photoStream);
+                        photoStream.close();
+                        
+                        if (photoBitmap != null) {
+                            // Scale to max 200x200 for icon use
+                            int maxSize = 200;
+                            int width = photoBitmap.getWidth();
+                            int height = photoBitmap.getHeight();
+                            float scale = Math.min((float) maxSize / width, (float) maxSize / height);
+                            
+                            if (scale < 1) {
+                                int scaledW = Math.round(width * scale);
+                                int scaledH = Math.round(height * scale);
+                                photoBitmap = Bitmap.createScaledBitmap(photoBitmap, scaledW, scaledH, true);
+                            }
+                            
+                            // Encode to base64 JPEG
+                            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+                            photoBitmap.compress(Bitmap.CompressFormat.JPEG, 85, outputStream);
+                            String base64 = Base64.encodeToString(outputStream.toByteArray(), Base64.NO_WRAP);
+                            ret.put("photoBase64", "data:image/jpeg;base64," + base64);
+                            android.util.Log.d("ShortcutPlugin", "Contact photo converted to base64, size: " + base64.length());
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                android.util.Log.w("ShortcutPlugin", "Could not load contact photo: " + e.getMessage());
+            }
         }
 
         call.resolve(ret);
