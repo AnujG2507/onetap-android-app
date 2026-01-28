@@ -1,142 +1,313 @@
 
-# Fix: Date Selection Not Updating Trigger Time Correctly
 
-## Problem Identified
+# Add Optional Description to Scheduled Reminders
 
-The core issue is in the `computeNextTrigger` function in `scheduledActionsManager.ts`. For `once` recurrence, it **ignores the selected date** and only uses "today" or "tomorrow" based on whether the time has passed.
+## Overview
 
-**Current Behavior (Broken):**
-1. User selects February 15th at 9:00 AM
-2. `anchor` is created with `{ dayOfMonth: 15, month: 1, hour: 9, minute: 0 }`
-3. `computeNextTrigger` for `once` starts with `new Date(now)` (today, January 27)
-4. Sets hours to 9:00 AM
-5. If 9:00 AM has passed today → adds 1 day → **January 28th at 9:00 AM**
-6. The selected date of February 15th is completely ignored
-
-**Expected Behavior:**
-- User selects February 15th at 9:00 AM → Trigger time should be February 15th at 9:00 AM
+This feature adds an optional "description" field to scheduled reminders, allowing users to save their intent, notes, or any additional context alongside the reminder. The description will be visible in the reminder list and can optionally appear in the notification when triggered.
 
 ---
 
-## Solution
+## What This Changes
 
-Modify the `triggerTime` computation in `ScheduledTimingPicker.tsx` to **directly construct the timestamp from `selectedDate`** rather than relying on `computeNextTrigger`, which is designed for recurring action advancement (not initial creation).
+### For Users
+- A new "Description" text field appears on the confirmation screen when creating or editing a reminder
+- The description is shown in the reminder list below the trigger time
+- When the notification appears, users can see their saved intent/notes
+- The field is completely optional - reminders work exactly as before if left empty
 
-### Approach: Compute trigger time directly in the component
+### Technical Summary
+- Add `description?: string` to the ScheduledAction type
+- Update the creation and editing flows to include a textarea for description
+- Modify the reminder list item to display description when present
+- Pass description through to native Android notification
 
-Instead of calling `computeNextTrigger`, we build the timestamp directly:
+---
+
+## Implementation Details
+
+### 1. Type Definitions
+
+**File: `src/types/scheduledAction.ts`**
+
+Add optional description field to both interfaces:
 
 ```typescript
-const triggerTime = useMemo(() => {
-  const hour24 = get24Hour(hour, period);
-  const result = new Date(selectedDate);
-  result.setHours(hour24, minute, 0, 0);
-  
-  // If selecting today and the time has passed, bump to tomorrow
-  if (recurrence === 'once' && result.getTime() <= Date.now()) {
-    result.setDate(result.getDate() + 1);
-  }
-  
-  return result.getTime();
-}, [hour, minute, period, selectedDate, recurrence]);
+export interface ScheduledAction {
+  id: string;
+  name: string;
+  description?: string;  // NEW: Optional description/intent
+  destination: ScheduledActionDestination;
+  triggerTime: number;
+  recurrence: RecurrenceType;
+  enabled: boolean;
+  createdAt: number;
+  recurrenceAnchor?: RecurrenceAnchor;
+}
+
+export interface CreateScheduledActionInput {
+  name: string;
+  description?: string;  // NEW
+  destination: ScheduledActionDestination;
+  triggerTime: number;
+  recurrence: RecurrenceType;
+  recurrenceAnchor?: RecurrenceAnchor;
+}
 ```
 
-This ensures:
-- **Week calendar selection** → Correctly updates preview and trigger time
-- **Full calendar selection** → Correctly updates preview and trigger time  
-- **Quick presets** → Already work (they set `selectedDate` directly)
-- **Daily recurrence** → Uses today's date with selected time
+### 2. Manager Updates
 
----
+**File: `src/lib/scheduledActionsManager.ts`**
 
-## File Changes
-
-### 1. `src/components/ScheduledTimingPicker.tsx`
-
-**Lines 379-389** - Replace the `triggerTime` computation:
+Update `createScheduledAction` to include description:
 
 ```typescript
-// Before (broken):
-const triggerTime = useMemo(() => {
-  const hour24 = get24Hour(hour, period);
-  const anchor: RecurrenceAnchor = {
-    hour: hour24,
-    minute,
-    dayOfWeek: selectedDate.getDay(),
-    month: selectedDate.getMonth(),
-    dayOfMonth: selectedDate.getDate(),
+export function createScheduledAction(input: CreateScheduledActionInput): ScheduledAction {
+  const action: ScheduledAction = {
+    id: generateId(),
+    name: input.name,
+    description: input.description,  // NEW
+    destination: input.destination,
+    triggerTime: input.triggerTime,
+    recurrence: input.recurrence,
+    enabled: true,
+    createdAt: Date.now(),
+    recurrenceAnchor: input.recurrenceAnchor,
   };
-  return computeNextTrigger(recurrence, anchor);
-}, [hour, minute, period, selectedDate, recurrence]);
-
-// After (fixed):
-const triggerTime = useMemo(() => {
-  const hour24 = get24Hour(hour, period);
-  const result = new Date(selectedDate);
-  result.setHours(hour24, minute, 0, 0);
-  
-  // For daily recurrence, we don't have a specific date - use today/tomorrow
-  if (recurrence === 'daily') {
-    const now = new Date();
-    now.setHours(hour24, minute, 0, 0);
-    if (now.getTime() <= Date.now()) {
-      now.setDate(now.getDate() + 1);
-    }
-    return now.getTime();
-  }
-  
-  // For one-time/weekly/yearly, if the exact datetime is in the past, handle it
-  if (result.getTime() <= Date.now()) {
-    if (recurrence === 'once') {
-      // If the selected date+time is in the past, add 1 day as fallback
-      result.setDate(result.getDate() + 1);
-    } else if (recurrence === 'weekly') {
-      // Move to next week
-      result.setDate(result.getDate() + 7);
-    } else if (recurrence === 'yearly') {
-      // Move to next year
-      result.setFullYear(result.getFullYear() + 1);
-    }
-  }
-  
-  return result.getTime();
-}, [hour, minute, period, selectedDate, recurrence]);
+  // ...
+}
 ```
 
-**Remove unused import:**
-- Remove `computeNextTrigger` from imports if no longer needed in this file
+### 3. Creator Component Updates
+
+**File: `src/components/ScheduledActionCreator.tsx`**
+
+Add description state and input field on the confirmation step:
+
+```typescript
+// Add state
+const [description, setDescription] = useState('');
+
+// In handleCreate, include description
+const input: CreateScheduledActionInput = {
+  name: name.trim() || getSuggestedName(destination),
+  description: description.trim() || undefined,  // NEW
+  destination,
+  triggerTime: timing.triggerTime,
+  recurrence: timing.recurrence,
+  recurrenceAnchor: timing.anchor,
+};
+
+// Add Textarea below name input in confirmation step
+<div>
+  <Label htmlFor="action-description" className="text-sm font-medium mb-2 block">
+    Description (optional)
+  </Label>
+  <Textarea
+    id="action-description"
+    value={description}
+    onChange={(e) => setDescription(e.target.value)}
+    placeholder="Add a note about this reminder..."
+    className="rounded-xl text-base resize-none"
+    rows={2}
+  />
+  <p className="text-xs text-muted-foreground mt-2">
+    Save your intent or any notes for this reminder.
+  </p>
+</div>
+```
+
+### 4. Editor Component Updates
+
+**File: `src/components/ScheduledActionEditor.tsx`**
+
+Add description state and input field:
+
+```typescript
+// Add state
+const [description, setDescription] = useState(action.description || '');
+
+// Update resetState
+const resetState = useCallback(() => {
+  // ...existing resets
+  setDescription(action.description || '');
+}, [action]);
+
+// In handleSave, include description
+const newAction = await createScheduledAction({
+  name: name.trim(),
+  description: description.trim() || undefined,  // NEW
+  destination,
+  triggerTime,
+  recurrence,
+  recurrenceAnchor,
+});
+
+// Update hasChanges check
+const hasChanges = 
+  name !== action.name ||
+  description !== (action.description || '') ||  // NEW
+  JSON.stringify(destination) !== JSON.stringify(action.destination) ||
+  triggerTime !== action.triggerTime ||
+  recurrence !== action.recurrence;
+
+// Add Textarea in main editor view after name input
+```
+
+### 5. List Item Updates
+
+**File: `src/components/ScheduledActionItem.tsx`**
+
+Display description when present:
+
+```typescript
+{/* Content section - after name */}
+<div className="flex-1 min-w-0">
+  <h4 className="font-medium text-sm truncate">{action.name}</h4>
+  {action.description && (
+    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
+      {action.description}
+    </p>
+  )}
+  <p className={cn(
+    "text-xs mt-0.5",
+    isExpired ? "text-destructive" : "text-muted-foreground"
+  )}>
+    {isExpired ? t('scheduledActionItem.expired') + ' — ' : ''}{formatTriggerTime(action.triggerTime)}
+  </p>
+  {/* ...recurrence info */}
+</div>
+```
+
+### 6. Native Bridge Updates
+
+**File: `src/plugins/ShortcutPlugin.ts`**
+
+Add description to scheduleAction interface:
+
+```typescript
+scheduleAction(options: {
+  id: string;
+  name: string;
+  description?: string;  // NEW
+  destinationType: 'file' | 'url' | 'contact';
+  destinationData: string;
+  triggerTime: number;
+  recurrence: 'once' | 'daily' | 'weekly' | 'yearly';
+}): Promise<{ success: boolean; error?: string }>;
+```
+
+### 7. Hook Updates
+
+**File: `src/hooks/useScheduledActions.ts`**
+
+Pass description through to native plugin:
+
+```typescript
+const result = await ShortcutPlugin.scheduleAction({
+  id: action.id,
+  name: action.name,
+  description: input.description,  // NEW
+  destinationType: input.destination.type,
+  destinationData,
+  triggerTime: input.triggerTime,
+  recurrence: input.recurrence,
+});
+```
+
+### 8. Android Native Updates
+
+**File: `native/android/.../ScheduledActionReceiver.java`**
+
+Add description extra constant and pass to notification:
+
+```java
+public static final String EXTRA_DESCRIPTION = "action_description";
+
+// In onReceive:
+String description = intent.getStringExtra(EXTRA_DESCRIPTION);
+NotificationHelper.showActionNotification(
+  context, actionId, actionName, description,
+  destinationType, destinationData
+);
+
+// Update createActionIntent to include description
+intent.putExtra(EXTRA_DESCRIPTION, description);
+```
+
+**File: `native/android/.../NotificationHelper.java`**
+
+Update notification to show description:
+
+```java
+public static void showActionNotification(
+  Context context, String actionId, String actionName, 
+  String description,  // NEW
+  String destinationType, String destinationData
+) {
+  // Use description as content text if present
+  String contentText = (description != null && !description.isEmpty()) 
+    ? description 
+    : getContentText(destinationType);
+  
+  NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID)
+    .setContentTitle(actionName)
+    .setContentText(contentText)  // Shows description or default
+    // ...
+}
+```
+
+**File: `native/android/.../ShortcutPlugin.java`**
+
+Pass description from JS to native scheduling:
+
+```java
+@PluginMethod
+public void scheduleAction(PluginCall call) {
+  String description = call.getString("description", "");
+  // Include in intent and storage
+}
+```
+
+### 9. Translation Updates
+
+**File: `src/i18n/locales/en.json`**
+
+Add new translation keys:
+
+```json
+{
+  "scheduledActions": {
+    "descriptionLabel": "Description (optional)",
+    "descriptionPlaceholder": "Add a note about this reminder...",
+    "descriptionHint": "Save your intent or any notes for this reminder."
+  }
+}
+```
 
 ---
 
-## Edge Cases Handled
+## Files Changed Summary
 
-| Scenario | Behavior |
-|----------|----------|
-| Select today, time in future | Uses exact date+time |
-| Select today, time in past | Bumps to tomorrow (for `once`) |
-| Select future date | Uses exact date+time |
-| Full calendar picks March 1 | Uses March 1 + selected time |
-| Daily recurrence | Ignores date picker, uses today/tomorrow |
-| Weekly recurrence, past day | Bumps to next week |
-| Yearly recurrence, past date | Bumps to next year |
-
----
-
-## Verification Points
-
-After implementation, verify:
-1. Quick preset "In 1 hour" → Preview shows correct time ~1 hour from now ✓
-2. Week calendar: tap a future day → Preview updates to that day ✓
-3. Full calendar: pick a date 2 weeks away → Preview shows that exact date ✓
-4. Change time via wheel picker → Preview updates with same selected date ✓
-5. Change recurrence → Preview adjusts appropriately ✓
+| File | Change |
+|------|--------|
+| `src/types/scheduledAction.ts` | Add `description?: string` to types |
+| `src/lib/scheduledActionsManager.ts` | Include description in create function |
+| `src/components/ScheduledActionCreator.tsx` | Add description state and textarea |
+| `src/components/ScheduledActionEditor.tsx` | Add description state, textarea, and change detection |
+| `src/components/ScheduledActionItem.tsx` | Display description in list item |
+| `src/plugins/ShortcutPlugin.ts` | Add description to interface |
+| `src/hooks/useScheduledActions.ts` | Pass description to native plugin |
+| `native/android/.../ScheduledActionReceiver.java` | Handle description extra |
+| `native/android/.../NotificationHelper.java` | Show description in notification |
+| `native/android/.../ShortcutPlugin.java` | Accept description from JS |
+| `src/i18n/locales/en.json` | Add translation keys |
 
 ---
 
-## Summary
+## Backward Compatibility
 
-| Change | File | Lines |
-|--------|------|-------|
-| Fix `triggerTime` computation | `ScheduledTimingPicker.tsx` | 379-389 |
+- Existing reminders without description will continue to work (field is optional)
+- localStorage data is automatically compatible since new field is optional
+- Notifications fall back to default text if no description is provided
 
-This is a focused fix that ensures all date selection modes (quick presets, week calendar, full calendar dialog) properly update the preview and trigger time logic.
