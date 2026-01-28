@@ -129,7 +129,13 @@ export function NotificationsPage({
   
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [editingAction, setEditingAction] = useState<ScheduledAction | null>(null);
-  const [actionSheetAction, setActionSheetAction] = useState<ScheduledAction | null>(null);
+  const [actionSheetActionId, setActionSheetActionId] = useState<string | null>(null);
+  
+  // Derive fresh action from actions array to keep sheet in sync with state changes
+  const actionSheetAction = useMemo(() => 
+    actions.find(a => a.id === actionSheetActionId) ?? null,
+    [actions, actionSheetActionId]
+  );
   const [isRequestingPermissions, setIsRequestingPermissions] = useState(false);
   const [permissionStatus, setPermissionStatus] = useState<PermissionStatus>({
     notifications: false,
@@ -173,7 +179,7 @@ export function NotificationsPage({
   const tutorial = useTutorial('reminders');
 
   // Register sheets with back button handler
-  const handleCloseActionSheet = useCallback(() => setActionSheetAction(null), []);
+  const handleCloseActionSheet = useCallback(() => setActionSheetActionId(null), []);
   const handleCloseEditor = useCallback(() => setEditingAction(null), []);
   const handleCloseBulkDeleteConfirm = useCallback(() => setShowBulkDeleteConfirm(false), []);
   const handleCloseCreator = useCallback(() => setShowCreator(false), []);
@@ -403,11 +409,11 @@ export function NotificationsPage({
     setDeletingId(id);
     await deleteScheduledAction(id);
     setDeletingId(null);
-    setActionSheetAction(null);
+    setActionSheetActionId(null);
   };
 
   const handleItemTap = (action: ScheduledAction) => {
-    setActionSheetAction(action);
+    setActionSheetActionId(action.id);
   };
 
   const handleEdit = (action: ScheduledAction) => {
@@ -1011,10 +1017,10 @@ export function NotificationsPage({
       <ScheduledActionActionSheet
         action={actionSheetAction}
         open={!!actionSheetAction}
-        onOpenChange={(open) => !open && setActionSheetAction(null)}
+        onOpenChange={(open) => !open && setActionSheetActionId(null)}
         onToggle={(id) => handleToggle(id)}
         onEdit={(action) => {
-          setActionSheetAction(null);
+          setActionSheetActionId(null);
           handleEdit(action);
         }}
         onDelete={(id) => handleDelete(id)}
