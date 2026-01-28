@@ -117,11 +117,22 @@ export function ScheduledActionEditor({
     onClose();
   };
 
-  const getDestinationIcon = (type: 'file' | 'url' | 'contact') => {
+  const getDestinationIcon = (type: 'file' | 'url' | 'contact', dest?: ScheduledActionDestination) => {
     switch (type) {
       case 'file': return <FileText className="h-5 w-5" />;
       case 'url': return <Link className="h-5 w-5" />;
-      case 'contact': return <Phone className="h-5 w-5" />;
+      case 'contact': 
+        // Show contact photo if available
+        if (dest?.type === 'contact' && dest.photoUri) {
+          return (
+            <img 
+              src={dest.photoUri} 
+              alt="" 
+              className="h-full w-full object-cover rounded-xl"
+            />
+          );
+        }
+        return <Phone className="h-5 w-5" />;
     }
   };
 
@@ -196,6 +207,8 @@ export function ScheduledActionEditor({
           type: 'contact',
           phoneNumber: result.phoneNumber,
           contactName: result.name || 'Contact',
+          // Store photo for display - prefer base64 for immediate use
+          photoUri: result.photoBase64 || result.photoUri,
         });
       }
     } catch (error) {
@@ -573,8 +586,8 @@ export function ScheduledActionEditor({
                   "focus:outline-none focus:ring-2 focus:ring-ring"
                 )}
               >
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary shrink-0">
-                  {getDestinationIcon(destination.type)}
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary shrink-0 overflow-hidden">
+                  {getDestinationIcon(destination.type, destination)}
                 </div>
                 <div className="flex-1 min-w-0 text-start">
                   <p className="text-sm font-medium truncate">
