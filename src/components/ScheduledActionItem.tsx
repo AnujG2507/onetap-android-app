@@ -89,7 +89,7 @@ export function ScheduledActionItem({
             <img 
               src={action.destination.photoUri} 
               alt="" 
-              className="h-full w-full object-cover rounded-xl"
+              className="h-full w-full object-cover"
             />
           );
         }

@@ -171,6 +171,9 @@ export function ContactShortcutCustomizer({
                   onClick={() => {
                     setPhoneNumber('');
                     setPickedContact(null);
+                    setContactPhoto(null);
+                    // Reset icon to default
+                    setIcon({ type: 'emoji', value: mode === 'dial' ? '📞' : '💬' });
                   }}
                   className="absolute end-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
                   aria-label={t('common.clearText')}
