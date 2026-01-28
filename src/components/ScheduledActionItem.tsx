@@ -83,6 +83,16 @@ export function ScheduledActionItem({
       case 'url':
         return <Link className="h-5 w-5" />;
       case 'contact':
+        // Show contact photo if available
+        if (action.destination.photoUri) {
+          return (
+            <img 
+              src={action.destination.photoUri} 
+              alt="" 
+              className="h-full w-full object-cover rounded-xl"
+            />
+          );
+        }
         return <Phone className="h-5 w-5" />;
     }
   };
@@ -286,7 +296,7 @@ export function ScheduledActionItem({
 
             {/* Destination icon */}
             <div className={cn(
-              "flex h-10 w-10 items-center justify-center rounded-xl shrink-0",
+              "flex h-10 w-10 items-center justify-center rounded-xl shrink-0 overflow-hidden",
               action.enabled && !isExpired ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
             )}>
               {getDestinationIcon()}
