@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 import { formatTriggerTime, formatRecurrence } from '@/lib/scheduledActionsManager';
+import { ContactAvatar } from '@/components/ContactAvatar';
 import type { ScheduledAction, RecurrenceType } from '@/types/scheduledAction';
 import { triggerHaptic } from '@/lib/haptics';
 import { useRTL } from '@/hooks/useRTL';
@@ -83,17 +84,15 @@ export function ScheduledActionItem({
       case 'url':
         return <Link className="h-5 w-5" />;
       case 'contact':
-        // Show contact photo if available
-        if (action.destination.photoUri) {
-          return (
-            <img 
-              src={action.destination.photoUri} 
-              alt="" 
-              className="h-full w-full object-cover"
-            />
-          );
-        }
-        return <Phone className="h-5 w-5" />;
+        // Show contact avatar with photo or initials fallback
+        return (
+          <ContactAvatar
+            photoUri={action.destination.photoUri}
+            name={action.destination.contactName}
+            className="h-full w-full text-sm"
+            fallbackIcon={<Phone className="h-5 w-5" />}
+          />
+        );
     }
   };
 

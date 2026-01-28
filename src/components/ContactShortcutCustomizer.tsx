@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { IconPicker } from '@/components/IconPicker';
+import { ContactAvatar } from '@/components/ContactAvatar';
 import ShortcutPlugin from '@/plugins/ShortcutPlugin';
 import type { ShortcutIcon } from '@/types/shortcut';
 
@@ -136,14 +137,16 @@ export function ContactShortcutCustomizer({
         {/* Contact Info Display */}
         {pickedContact?.name && (
           <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/30">
-            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-2xl overflow-hidden">
-              {contactPhoto ? (
-                <img src={contactPhoto} alt="" className="h-full w-full object-cover" />
-              ) : mode === 'dial' ? (
-                <Phone className="h-6 w-6 text-primary" />
-              ) : (
-                <WhatsAppIcon className="h-6 w-6 text-primary" />
-              )}
+            <div className="h-12 w-12 rounded-full flex items-center justify-center text-2xl overflow-hidden">
+              <ContactAvatar
+                photoUri={contactPhoto}
+                name={pickedContact.name}
+                className="h-full w-full rounded-full text-base"
+                fallbackIcon={mode === 'dial' 
+                  ? <Phone className="h-6 w-6 text-primary" /> 
+                  : <WhatsAppIcon className="h-6 w-6 text-primary" />
+                }
+              />
             </div>
             <div>
               <p className="font-medium text-foreground">{pickedContact.name}</p>

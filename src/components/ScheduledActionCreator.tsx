@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { ChevronLeft, FileText, Link, Phone, Check, Clipboard, Globe, Bookmark } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScheduledTimingPicker } from './ScheduledTimingPicker';
+import { ContactAvatar } from '@/components/ContactAvatar';
 import { useScheduledActions } from '@/hooks/useScheduledActions';
 import { useSheetBackHandler } from '@/hooks/useSheetBackHandler';
 import { triggerHaptic } from '@/lib/haptics';
@@ -310,11 +311,22 @@ export function ScheduledActionCreator({
     }
   };
 
-  const getDestinationIcon = (type: 'file' | 'url' | 'contact') => {
+  const getDestinationIcon = (type: 'file' | 'url' | 'contact', dest?: ScheduledActionDestination) => {
     switch (type) {
       case 'file': return <FileText className="h-5 w-5" />;
       case 'url': return <Link className="h-5 w-5" />;
-      case 'contact': return <Phone className="h-5 w-5" />;
+      case 'contact': 
+        // Show contact avatar with photo or initials fallback
+        const contactName = dest?.type === 'contact' ? dest.contactName : undefined;
+        const photoUri = dest?.type === 'contact' ? dest.photoUri : undefined;
+        return (
+          <ContactAvatar
+            photoUri={photoUri}
+            name={contactName}
+            className="h-full w-full text-sm"
+            fallbackIcon={<Phone className="h-5 w-5" />}
+          />
+        );
     }
   };
 
@@ -528,8 +540,8 @@ export function ScheduledActionCreator({
         {destination && timing && (
           <div className="rounded-2xl bg-card border border-border p-4">
             <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary shrink-0">
-                {getDestinationIcon(destination.type)}
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary shrink-0 overflow-hidden">
+                {getDestinationIcon(destination.type, destination)}
               </div>
               <div className="flex-1 min-w-0">
                 <h4 className="font-medium text-sm truncate">

@@ -21,6 +21,7 @@ import {
   Repeat,
 } from 'lucide-react';
 import { triggerHaptic } from '@/lib/haptics';
+import { ContactAvatar } from '@/components/ContactAvatar';
 import type { ScheduledAction, RecurrenceType } from '@/types/scheduledAction';
 import { formatTriggerTime, formatRecurrence } from '@/lib/scheduledActionsManager';
 import {
@@ -126,17 +127,15 @@ export function ScheduledActionActionSheet({
       case 'file': return <FileText className="h-5 w-5" />;
       case 'url': return <Link className="h-5 w-5" />;
       case 'contact': 
-        // Show contact photo if available
-        if (action.destination.photoUri) {
-          return (
-            <img 
-              src={action.destination.photoUri} 
-              alt="" 
-              className="h-full w-full object-cover"
-            />
-          );
-        }
-        return <Phone className="h-5 w-5" />;
+        // Show contact avatar with photo or initials fallback
+        return (
+          <ContactAvatar
+            photoUri={action.destination.photoUri}
+            name={action.destination.contactName}
+            className="h-full w-full text-sm"
+            fallbackIcon={<Phone className="h-5 w-5" />}
+          />
+        );
     }
   };
 
