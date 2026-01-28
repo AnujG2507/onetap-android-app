@@ -11,7 +11,7 @@ interface ContactAvatarProps {
 
 /**
  * Extract initials from a name (max 2 characters)
- * Examples: "John Doe" → "JD", "Alice" → "A", "María García" → "MG"
+ * Examples: "John Doe" → "JD", "Alice" → "AL", "María García" → "MG"
  */
 export function getInitials(name: string | undefined | null): string {
   if (!name) return '';
@@ -20,7 +20,7 @@ export function getInitials(name: string | undefined | null): string {
   if (words.length === 0) return '';
   
   if (words.length === 1) {
-    // Single word: use first 1-2 characters
+    // Single word: use first 2 characters
     return words[0].slice(0, 2).toUpperCase();
   }
   
@@ -32,10 +32,10 @@ export function getInitials(name: string | undefined | null): string {
 
 /**
  * Generate a consistent background color from a name
- * Returns HSL color values for consistent theming
+ * Returns HSL color string
  */
 function getColorFromName(name: string | undefined | null): string {
-  if (!name) return 'bg-primary/10';
+  if (!name) return 'hsl(220, 45%, 88%)';
   
   // Simple hash function
   let hash = 0;
@@ -51,7 +51,7 @@ function getColorFromName(name: string | undefined | null): string {
 }
 
 function getTextColorFromName(name: string | undefined | null): string {
-  if (!name) return 'text-primary';
+  if (!name) return 'hsl(220, 55%, 35%)';
   
   let hash = 0;
   for (let i = 0; i < name.length; i++) {
@@ -71,17 +71,23 @@ export function ContactAvatar({
 }: ContactAvatarProps) {
   const initials = getInitials(name);
   
-  // If photo available, show it
+  // If photo available, show it with solid background to hide parent bg
   if (photoUri) {
     return (
-      <div className={cn(
-        "flex items-center justify-center overflow-hidden",
-        className
-      )}>
+      <div 
+        className={cn(
+          "flex items-center justify-center overflow-hidden bg-muted",
+          className
+        )}
+      >
         <img 
           src={photoUri} 
           alt="" 
           className="h-full w-full object-cover"
+          onError={(e) => {
+            // If image fails to load, hide it so fallback shows
+            (e.target as HTMLImageElement).style.display = 'none';
+          }}
         />
       </div>
     );
@@ -95,7 +101,7 @@ export function ContactAvatar({
     return (
       <div 
         className={cn(
-          "flex items-center justify-center font-semibold",
+          "flex items-center justify-center font-semibold select-none",
           className
         )}
         style={{ 

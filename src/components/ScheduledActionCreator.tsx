@@ -316,19 +316,23 @@ export function ScheduledActionCreator({
       case 'file': return <FileText className="h-5 w-5" />;
       case 'url': return <Link className="h-5 w-5" />;
       case 'contact': 
-        // Show contact avatar with photo or initials fallback
+        // Contact avatar handles its own background
         const contactName = dest?.type === 'contact' ? dest.contactName : undefined;
         const photoUri = dest?.type === 'contact' ? dest.photoUri : undefined;
         return (
           <ContactAvatar
             photoUri={photoUri}
             name={contactName}
-            className="h-full w-full text-sm"
+            className="h-full w-full rounded-xl text-sm"
             fallbackIcon={<Phone className="h-5 w-5" />}
           />
         );
     }
   };
+  
+  // Helper to check if destination has contact avatar
+  const hasContactAvatar = (dest?: ScheduledActionDestination) => 
+    dest?.type === 'contact' && (dest.photoUri || dest.contactName);
 
   // Step: Select destination type
   if (step === 'destination') {
@@ -540,7 +544,10 @@ export function ScheduledActionCreator({
         {destination && timing && (
           <div className="rounded-2xl bg-card border border-border p-4">
             <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary shrink-0 overflow-hidden">
+              <div className={cn(
+                "flex h-10 w-10 items-center justify-center rounded-xl shrink-0 overflow-hidden",
+                !hasContactAvatar(destination) && "bg-primary/10 text-primary"
+              )}>
                 {getDestinationIcon(destination.type, destination)}
               </div>
               <div className="flex-1 min-w-0">
