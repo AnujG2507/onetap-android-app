@@ -166,6 +166,14 @@
             android:exported="false"
             android:configChanges="orientation|screenSize|keyboard|keyboardHidden" />
 
+        <!-- Notification Click Activity - tracks notification clicks before executing action -->
+        <activity
+            android:name=".NotificationClickActivity"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:exported="false"
+            android:noHistory="true"
+            android:excludeFromRecents="true" />
+
         <!-- Scheduled Actions: Alarm Receiver -->
         <receiver
             android:name=".ScheduledActionReceiver"

@@ -1,155 +1,71 @@
 
 
-## Missed Notifications System Enhancement Plan
+## Missed Notifications System Enhancement - COMPLETED
 
-This plan addresses three issues: adding missing translation keys, implementing notification click tracking, and improving the logic to distinguish between clicked and missed notifications.
-
----
-
-### Overview
-
-The missed notifications system currently cannot distinguish between notifications that were clicked vs. those that were truly missed. This enhancement will add proper tracking to provide accurate "missed" notifications and add the missing translation keys.
+This enhancement adds proper tracking to distinguish between clicked and missed notifications.
 
 ---
 
-### Part 1: Add Missing Translation Keys
+### Implementation Summary
 
-Add the `missedNotifications` section to the English bundle.
+#### Part 1: Translation Keys ✅
+Added `missedNotifications` section to `src/i18n/locales/en.json` with:
+- `title_one`, `title_other` - Pluralized titles
+- `subtitle`, `missed`, `reschedule`, `dismissAll` - UI labels
 
-**File: `src/i18n/locales/en.json`**
+#### Part 2: Data Model Extension ✅
+Extended `ScheduledAction` interface in `src/types/scheduledAction.ts`:
+- `lastNotificationTime?: number` - When notification was shown
+- `notificationClicked?: boolean` - Whether user clicked it
 
-Add after the `notificationsPage` section:
+#### Part 3: Web Plugin Click Tracking ✅
+Updated `src/plugins/shortcutPluginWeb.ts`:
+- Added `markNotificationShown()` call when notification is displayed
+- Added `markNotificationClicked()` call when notification is clicked
 
-```json
-"missedNotifications": {
-  "title": "{{count}} Missed Reminder(s)",
-  "title_one": "1 Missed Reminder",
-  "title_other": "{{count}} Missed Reminders",
-  "subtitle": "Tap to open or dismiss",
-  "missed": "Missed",
-  "reschedule": "Skip to next occurrence",
-  "dismissAll": "Dismiss All"
-}
-```
+#### Part 4: Manager Functions ✅
+Added to `src/lib/scheduledActionsManager.ts`:
+- `markNotificationClicked(id)` - Marks an action's notification as clicked
+- `markNotificationShown(id)` - Marks notification as shown, resets clicked flag
+- Updated `advanceToNextTrigger()` to reset tracking fields for recurring actions
 
----
+#### Part 5: Missed Notifications Logic ✅
+Updated `src/hooks/useMissedNotifications.ts`:
+- Filters out actions where `notificationClicked === true`
+- Changed from `sessionStorage` to `localStorage` for persistent dismissed IDs
+- Added `syncNativeClickedIds()` to sync click data from Android on startup
 
-### Part 2: Add Notification Status Tracking to Data Model
+#### Part 6: Native Android Click Tracking ✅
+**New files:**
+- `NotificationClickActivity.java` - Transparent activity that intercepts notification clicks:
+  - Records clicked IDs in SharedPreferences
+  - Executes the action after recording
+  - Provides `getAndClearClickedIds()` for JS bridge
 
-Extend the `ScheduledAction` type to track notification interactions.
-
-**File: `src/types/scheduledAction.ts`**
-
-Add new optional field to the `ScheduledAction` interface:
-
-```typescript
-export interface ScheduledAction {
-  // ... existing fields
-  
-  // Notification tracking (added)
-  lastNotificationTime?: number;   // When the notification was shown
-  notificationClicked?: boolean;   // Whether user clicked it
-}
-```
-
----
-
-### Part 3: Implement Click Tracking in Web Plugin
-
-Update the web plugin to mark notifications as clicked when the user interacts with them.
-
-**File: `src/plugins/shortcutPluginWeb.ts`**
-
-In the `notification.onclick` handler, call a new function to mark the action as clicked:
-
-```typescript
-notification.onclick = () => {
-  console.log('[ShortcutPluginWeb] Notification clicked, executing action');
-  notification.close();
-  // Mark as clicked before executing
-  markNotificationClicked(actionId);
-  this.executeWebAction(destinationType, destinationData);
-};
-```
-
-**File: `src/lib/scheduledActionsManager.ts`**
-
-Add function to mark notification as clicked:
-
-```typescript
-export function markNotificationClicked(id: string): void {
-  updateScheduledAction(id, { notificationClicked: true });
-}
-
-export function markNotificationShown(id: string): void {
-  updateScheduledAction(id, { 
-    lastNotificationTime: Date.now(),
-    notificationClicked: false 
-  });
-}
-```
+**Updated files:**
+- `NotificationHelper.java` - Routes notification clicks through `NotificationClickActivity`
+- `AndroidManifest.xml` - Registered `NotificationClickActivity`
+- `ShortcutPlugin.java` - Added `getClickedNotificationIds()` plugin method
+- `ShortcutPlugin.ts` - Added TypeScript interface for the new method
+- `shortcutPluginWeb.ts` - Added web fallback (returns empty array)
 
 ---
 
-### Part 4: Update Missed Notifications Logic
+### How It Works
 
-Improve the hook to use the new tracking fields.
+1. **When notification is shown:**
+   - Web: `markNotificationShown(id)` is called
+   - Android: Notification is displayed with `NotificationClickActivity` as the click handler
 
-**File: `src/hooks/useMissedNotifications.ts`**
+2. **When notification is clicked:**
+   - Web: `markNotificationClicked(id)` is called, then action executes
+   - Android: `NotificationClickActivity` records the click in SharedPreferences, then executes the action
 
-Update the `checkForMissedActions` function to only show actions where:
-1. `triggerTime` has passed
-2. `notificationClicked` is NOT true (meaning it wasn't acted upon)
+3. **When app opens:**
+   - `useMissedNotifications` hook calls `getClickedNotificationIds()` to sync native data
+   - Clicked IDs are marked in local storage via `markNotificationClicked()`
+   - Past-due actions with `notificationClicked === true` are filtered out of the missed list
 
-```typescript
-const pastDue = allActions.filter(action => {
-  // Must be enabled and past-due
-  if (!isPastDue(action)) return false;
-  if (dismissedIds.has(action.id)) return false;
-  
-  // Skip if notification was clicked (user already acted on it)
-  if (action.notificationClicked === true) return false;
-  
-  // Time window checks (existing logic)
-  // ...
-});
-```
-
-Also use `localStorage` instead of `sessionStorage` for dismissed IDs so they persist across app restarts.
-
----
-
-### Part 5: Native Android Integration (for full solution)
-
-For complete tracking on native Android, the notification click handler should communicate back to the JS layer.
-
-**File: `native/android/app/src/main/java/app/onetap/shortcuts/NotificationHelper.java`**
-
-When notification is clicked:
-1. Update the action's `notificationClicked` flag in SharedPreferences
-2. When the app opens, sync this data back to the JS layer
-
-This requires:
-- Modifying `buildActionIntent()` to include a flag indicating "launched from notification"
-- Adding a new Capacitor plugin method like `getClickedNotificationIds()` that the JS can call on startup
-
----
-
-### Implementation Sequence
-
-1. Add translation keys (immediate fix for UI)
-2. Extend `ScheduledAction` type with tracking fields
-3. Update `scheduledActionsManager.ts` with mark functions
-4. Update web plugin to mark notifications as clicked
-5. Update `useMissedNotifications` to use new tracking logic
-6. (Future) Implement native Android click tracking bridge
-
----
-
-### Technical Notes
-
-- **Backward compatibility**: The new fields are optional, so existing actions will continue to work
-- **Storage change**: Consider using `localStorage` for dismissed IDs to persist across sessions, but keep them separate from the action's `notificationClicked` flag
-- **One-time actions**: When clicked, they should be marked as clicked AND disabled
-- **Recurring actions**: When clicked, mark as clicked, then reset `notificationClicked` to `false` when advancing to next trigger
-
+4. **Result:**
+   - Only truly missed notifications appear in the banner
+   - Clicked notifications are correctly tracked and excluded

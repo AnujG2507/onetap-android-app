@@ -354,4 +354,13 @@ export class ShortcutPluginWeb implements ShortcutPluginInterface {
     // No-op on web - settings sync is for native components
     return { success: true };
   }
+
+  // ========== Notification Click Tracking (Web Fallback) ==========
+
+  async getClickedNotificationIds(): Promise<{ success: boolean; ids: string[]; error?: string }> {
+    console.log('[ShortcutPluginWeb] getClickedNotificationIds called (web fallback)');
+    // On web, click tracking is handled directly in the web plugin via markNotificationClicked
+    // Return empty array since web doesn't need this bridge
+    return { success: true, ids: [] };
+  }
 }

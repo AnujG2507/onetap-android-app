@@ -1,8 +1,9 @@
 // Hook to detect and manage missed scheduled notifications
 // Checks for past-due actions when the app opens and provides a way to display them
 // Only shows actions that were NOT clicked by the user
+// Syncs native Android click data on startup
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { ScheduledAction } from '@/types/scheduledAction';
 import { 
   getScheduledActions, 
@@ -11,6 +12,7 @@ import {
   onScheduledActionsChange,
   markNotificationClicked,
 } from '@/lib/scheduledActionsManager';
+import ShortcutPlugin from '@/plugins/ShortcutPlugin';
 
 const DISMISSED_KEY = 'missed_notifications_dismissed';
 const CHECK_INTERVAL = 60000; // Re-check every minute
@@ -49,9 +51,26 @@ function isPastDue(action: ScheduledAction): boolean {
   return action.enabled && action.triggerTime < Date.now();
 }
 
+// Sync clicked notification IDs from native Android
+async function syncNativeClickedIds(): Promise<void> {
+  try {
+    const result = await ShortcutPlugin.getClickedNotificationIds();
+    if (result.success && result.ids.length > 0) {
+      console.log('[useMissedNotifications] Syncing', result.ids.length, 'clicked IDs from native');
+      // Mark each ID as clicked in our local storage
+      for (const id of result.ids) {
+        markNotificationClicked(id);
+      }
+    }
+  } catch (error) {
+    console.warn('[useMissedNotifications] Failed to sync native clicked IDs:', error);
+  }
+}
+
 export function useMissedNotifications(): UseMissedNotificationsReturn {
   const [missedActions, setMissedActions] = useState<ScheduledAction[]>([]);
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => getDismissedIds());
+  const nativeSyncDone = useRef(false);
 
   // Find all past-due actions that haven't been dismissed or clicked
   const checkForMissedActions = useCallback(() => {
@@ -83,6 +102,17 @@ export function useMissedNotifications(): UseMissedNotificationsReturn {
     
     setMissedActions(pastDue);
   }, [dismissedIds]);
+
+  // Sync native clicked IDs on mount (once)
+  useEffect(() => {
+    if (!nativeSyncDone.current) {
+      nativeSyncDone.current = true;
+      syncNativeClickedIds().then(() => {
+        // Re-check after syncing native data
+        checkForMissedActions();
+      });
+    }
+  }, [checkForMissedActions]);
 
   // Initial check and subscribe to changes
   useEffect(() => {

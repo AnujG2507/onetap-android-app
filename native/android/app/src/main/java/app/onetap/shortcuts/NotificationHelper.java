@@ -54,7 +54,7 @@ public class NotificationHelper {
     
     /**
      * Show a notification for a scheduled action.
-     * Tapping the notification will directly execute the action (one-tap access).
+     * Tapping the notification will track the click and then execute the action.
      */
     public static void showActionNotification(
         Context context,
@@ -66,19 +66,18 @@ public class NotificationHelper {
     ) {
         createNotificationChannel(context);
         
-        // Build the intent that will execute the action
-        Intent actionIntent = buildActionIntent(context, destinationType, destinationData);
+        // Build the intent that routes through NotificationClickActivity to track the click
+        Intent clickIntent = new Intent(context, NotificationClickActivity.class);
+        clickIntent.putExtra(NotificationClickActivity.EXTRA_ACTION_ID, actionId);
+        clickIntent.putExtra(NotificationClickActivity.EXTRA_DESTINATION_TYPE, destinationType);
+        clickIntent.putExtra(NotificationClickActivity.EXTRA_DESTINATION_DATA, destinationData);
+        clickIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         
-        if (actionIntent == null) {
-            Log.e(TAG, "Failed to build action intent for: " + destinationType);
-            return;
-        }
-        
-        // Create pending intent for notification tap - this executes the action directly
+        // Create pending intent for notification tap
         PendingIntent pendingIntent = PendingIntent.getActivity(
             context,
             actionId.hashCode(),
-            actionIntent,
+            clickIntent,
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
         
@@ -107,7 +106,7 @@ public class NotificationHelper {
         try {
             NotificationManagerCompat manager = NotificationManagerCompat.from(context);
             manager.notify(actionId.hashCode(), builder.build());
-            Log.d(TAG, "Notification shown for action: " + actionName + " (one-tap access enabled)");
+            Log.d(TAG, "Notification shown for action: " + actionName + " (click tracking enabled)");
         } catch (SecurityException e) {
             Log.e(TAG, "No notification permission", e);
         }

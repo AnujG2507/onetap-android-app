@@ -58,6 +58,7 @@ import app.onetap.shortcuts.PDFProxyActivity;
 import app.onetap.shortcuts.VideoProxyActivity;
 import app.onetap.shortcuts.ScheduledActionReceiver;
 import app.onetap.shortcuts.NotificationHelper;
+import app.onetap.shortcuts.NotificationClickActivity;
 import app.onetap.shortcuts.FavoritesWidget;
 import app.onetap.shortcuts.MainActivity;
 import android.content.SharedPreferences;
@@ -2419,6 +2420,51 @@ public class ShortcutPlugin extends Plugin {
             android.util.Log.e("ShortcutPlugin", "Error syncing settings: " + e.getMessage());
             JSObject result = new JSObject();
             result.put("success", false);
+            result.put("error", e.getMessage());
+            call.resolve(result);
+        }
+    }
+
+    // ========== Notification Click Tracking ==========
+
+    /**
+     * Get clicked notification IDs from SharedPreferences and clear the list.
+     * Called by JS layer on app startup to sync click data.
+     */
+    @PluginMethod
+    public void getClickedNotificationIds(PluginCall call) {
+        android.util.Log.d("ShortcutPlugin", "getClickedNotificationIds called");
+
+        try {
+            Context context = getContext();
+            if (context == null) {
+                JSObject result = new JSObject();
+                result.put("success", false);
+                result.put("ids", new JSArray());
+                result.put("error", "Context is null");
+                call.resolve(result);
+                return;
+            }
+
+            // Get and clear clicked IDs
+            String[] clickedIds = NotificationClickActivity.getAndClearClickedIds(context);
+            
+            JSArray idsArray = new JSArray();
+            for (String id : clickedIds) {
+                idsArray.put(id);
+            }
+
+            android.util.Log.d("ShortcutPlugin", "Retrieved " + clickedIds.length + " clicked notification IDs");
+
+            JSObject result = new JSObject();
+            result.put("success", true);
+            result.put("ids", idsArray);
+            call.resolve(result);
+        } catch (Exception e) {
+            android.util.Log.e("ShortcutPlugin", "Error getting clicked notification IDs: " + e.getMessage());
+            JSObject result = new JSObject();
+            result.put("success", false);
+            result.put("ids", new JSArray());
             result.put("error", e.getMessage());
             call.resolve(result);
         }
