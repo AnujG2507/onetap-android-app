@@ -20,6 +20,7 @@ import {
 import { cn } from '@/lib/utils';
 import { ScheduledTimingPicker } from './ScheduledTimingPicker';
 import { SavedLinksSheet } from './SavedLinksSheet';
+import { ContactAvatar } from '@/components/ContactAvatar';
 import { useScheduledActions } from '@/hooks/useScheduledActions';
 import { useSheetBackHandler } from '@/hooks/useSheetBackHandler';
 import { triggerHaptic } from '@/lib/haptics';
@@ -122,17 +123,17 @@ export function ScheduledActionEditor({
       case 'file': return <FileText className="h-5 w-5" />;
       case 'url': return <Link className="h-5 w-5" />;
       case 'contact': 
-        // Show contact photo if available
-        if (dest?.type === 'contact' && dest.photoUri) {
-          return (
-            <img 
-              src={dest.photoUri} 
-              alt="" 
-              className="h-full w-full object-cover"
-            />
-          );
-        }
-        return <Phone className="h-5 w-5" />;
+        // Show contact avatar with photo or initials fallback
+        const contactName = dest?.type === 'contact' ? dest.contactName : undefined;
+        const photoUri = dest?.type === 'contact' ? dest.photoUri : undefined;
+        return (
+          <ContactAvatar
+            photoUri={photoUri}
+            name={contactName}
+            className="h-full w-full text-sm"
+            fallbackIcon={<Phone className="h-5 w-5" />}
+          />
+        );
     }
   };
 
