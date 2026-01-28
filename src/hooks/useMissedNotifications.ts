@@ -1,14 +1,15 @@
 // Hook to detect and manage missed scheduled notifications
 // Checks for past-due actions when the app opens and provides a way to display them
+// Only shows actions that were NOT clicked by the user
 
 import { useState, useEffect, useCallback } from 'react';
 import type { ScheduledAction } from '@/types/scheduledAction';
 import { 
   getScheduledActions, 
   updateScheduledAction,
-  deleteScheduledAction,
   advanceToNextTrigger,
   onScheduledActionsChange,
+  markNotificationClicked,
 } from '@/lib/scheduledActionsManager';
 
 const DISMISSED_KEY = 'missed_notifications_dismissed';
@@ -23,10 +24,10 @@ interface UseMissedNotificationsReturn {
   rescheduleAction: (id: string) => Promise<void>;
 }
 
-// Get IDs that have been dismissed in this session
+// Get IDs that have been dismissed (persisted in localStorage)
 function getDismissedIds(): Set<string> {
   try {
-    const stored = sessionStorage.getItem(DISMISSED_KEY);
+    const stored = localStorage.getItem(DISMISSED_KEY);
     if (!stored) return new Set();
     return new Set(JSON.parse(stored) as string[]);
   } catch {
@@ -34,10 +35,10 @@ function getDismissedIds(): Set<string> {
   }
 }
 
-// Save dismissed IDs to session storage
+// Save dismissed IDs to localStorage (persists across sessions)
 function saveDismissedIds(ids: Set<string>): void {
   try {
-    sessionStorage.setItem(DISMISSED_KEY, JSON.stringify([...ids]));
+    localStorage.setItem(DISMISSED_KEY, JSON.stringify([...ids]));
   } catch (error) {
     console.error('Failed to save dismissed IDs:', error);
   }
@@ -52,13 +53,16 @@ export function useMissedNotifications(): UseMissedNotificationsReturn {
   const [missedActions, setMissedActions] = useState<ScheduledAction[]>([]);
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => getDismissedIds());
 
-  // Find all past-due actions that haven't been dismissed
+  // Find all past-due actions that haven't been dismissed or clicked
   const checkForMissedActions = useCallback(() => {
     const allActions = getScheduledActions();
     const pastDue = allActions.filter(action => {
       // Must be past-due and not dismissed
       if (!isPastDue(action)) return false;
       if (dismissedIds.has(action.id)) return false;
+      
+      // Skip if notification was clicked (user already acted on it)
+      if (action.notificationClicked === true) return false;
       
       // For one-time actions, only show if within the last 24 hours
       if (action.recurrence === 'once') {
@@ -130,7 +134,10 @@ export function useMissedNotifications(): UseMissedNotificationsReturn {
         break;
     }
     
-    // After executing, dismiss from missed list
+    // Mark as clicked so it won't appear in missed again
+    markNotificationClicked(action.id);
+    
+    // Dismiss from missed list
     dismissAction(action.id);
     
     // For recurring actions, advance to next trigger
@@ -138,7 +145,7 @@ export function useMissedNotifications(): UseMissedNotificationsReturn {
       advanceToNextTrigger(action.id);
     } else {
       // For one-time actions that have been executed, disable them
-      updateScheduledAction(action.id, { enabled: false });
+      updateScheduledAction(action.id, { enabled: false, notificationClicked: true });
     }
   }, [dismissAction]);
 

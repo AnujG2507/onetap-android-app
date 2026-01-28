@@ -48,6 +48,9 @@ export interface ScheduledAction {
   enabled: boolean;
   createdAt: number;
   recurrenceAnchor?: RecurrenceAnchor;       // For computing next trigger of recurring actions
+  // Notification tracking
+  lastNotificationTime?: number;             // When the notification was shown
+  notificationClicked?: boolean;             // Whether user clicked it
 }
 
 // Utility type for creating new scheduled actions

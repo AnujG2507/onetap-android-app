@@ -1,4 +1,5 @@
 import type { ShortcutPluginInterface } from './ShortcutPlugin';
+import { markNotificationClicked, markNotificationShown } from '@/lib/scheduledActionsManager';
 
 // Web fallback implementation for the ShortcutPlugin
 // This is used in browser environments for testing
@@ -216,6 +217,9 @@ export class ShortcutPluginWeb implements ShortcutPluginInterface {
     
     // Show browser notification
     try {
+      // Mark the notification as shown for tracking
+      markNotificationShown(actionId);
+      
       const notification = new Notification(actionName, {
         body: this.getNotificationBody(destinationType),
         icon: '/favicon.ico',
@@ -226,6 +230,8 @@ export class ShortcutPluginWeb implements ShortcutPluginInterface {
       notification.onclick = () => {
         console.log('[ShortcutPluginWeb] Notification clicked, executing action');
         notification.close();
+        // Mark as clicked before executing
+        markNotificationClicked(actionId);
         this.executeWebAction(destinationType, destinationData);
       };
       

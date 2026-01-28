@@ -362,6 +362,14 @@
     "notificationDeniedDesc": "Scheduled actions will not trigger notifications",
     "permissionsFailed": "Permission request failed"
   },
+  "missedNotifications": {
+    "title_one": "1 Missed Reminder",
+    "title_other": "{{count}} Missed Reminders",
+    "subtitle": "Tap to open or dismiss",
+    "missed": "Missed",
+    "reschedule": "Skip to next occurrence",
+    "dismissAll": "Dismiss All"
+  },
   "profile": {
     "title": "Profile",
     "signIn": "Sign in",

@@ -337,7 +337,27 @@ export function advanceToNextTrigger(id: string): ScheduledAction | null {
     action.triggerTime + 1000 // Add 1 second to ensure we get the *next* occurrence
   );
 
-  return updateScheduledAction(id, { triggerTime: nextTrigger });
+  // Reset notification tracking for the new occurrence
+  return updateScheduledAction(id, { 
+    triggerTime: nextTrigger,
+    notificationClicked: false,
+    lastNotificationTime: undefined,
+  });
+}
+
+// ============= Notification Tracking =============
+
+// Mark a notification as clicked (user acted on it)
+export function markNotificationClicked(id: string): void {
+  updateScheduledAction(id, { notificationClicked: true });
+}
+
+// Mark a notification as shown (for tracking missed notifications)
+export function markNotificationShown(id: string): void {
+  updateScheduledAction(id, { 
+    lastNotificationTime: Date.now(),
+    notificationClicked: false,
+  });
 }
 
 // ============= Formatting =============
