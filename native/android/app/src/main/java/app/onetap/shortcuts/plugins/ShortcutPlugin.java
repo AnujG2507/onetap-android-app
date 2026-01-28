@@ -60,7 +60,7 @@ import app.onetap.shortcuts.VideoProxyActivity;
 import app.onetap.shortcuts.ScheduledActionReceiver;
 import app.onetap.shortcuts.NotificationHelper;
 import app.onetap.shortcuts.NotificationClickActivity;
-import app.onetap.shortcuts.FavoritesWidget;
+
 import app.onetap.shortcuts.MainActivity;
 import android.content.SharedPreferences;
 import android.appwidget.AppWidgetManager;
@@ -2335,8 +2335,6 @@ public class ShortcutPlugin extends Plugin {
             SharedPreferences prefs = context.getSharedPreferences("widget_data", Context.MODE_PRIVATE);
             prefs.edit().putString("shortcuts", shortcutsJson).apply();
 
-            // Notify widgets of data change
-            FavoritesWidget.refreshAllWidgets(context);
 
             android.util.Log.d("ShortcutPlugin", "Widget data synced successfully");
 
@@ -2368,9 +2366,6 @@ public class ShortcutPlugin extends Plugin {
                 call.resolve(result);
                 return;
             }
-
-            // Refresh Favorites widgets
-            FavoritesWidget.refreshAllWidgets(context);
 
             // Refresh Quick Create widgets
             AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(context);
