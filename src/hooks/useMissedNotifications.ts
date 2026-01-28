@@ -15,7 +15,9 @@ import {
 import ShortcutPlugin from '@/plugins/ShortcutPlugin';
 
 const DISMISSED_KEY = 'missed_notifications_dismissed';
+const DISMISSED_TIMESTAMPS_KEY = 'missed_notifications_dismissed_times';
 const CHECK_INTERVAL = 60000; // Re-check every minute
+const CLEANUP_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 interface UseMissedNotificationsReturn {
   missedActions: ScheduledAction[];
@@ -24,6 +26,26 @@ interface UseMissedNotificationsReturn {
   dismissAll: () => void;
   executeAction: (action: ScheduledAction) => void;
   rescheduleAction: (id: string) => Promise<void>;
+}
+
+// Get dismissed timestamps map
+function getDismissedTimestamps(): Map<string, number> {
+  try {
+    const stored = localStorage.getItem(DISMISSED_TIMESTAMPS_KEY);
+    if (!stored) return new Map();
+    return new Map(Object.entries(JSON.parse(stored)));
+  } catch {
+    return new Map();
+  }
+}
+
+// Save dismissed timestamps to localStorage
+function saveDismissedTimestamps(timestamps: Map<string, number>): void {
+  try {
+    localStorage.setItem(DISMISSED_TIMESTAMPS_KEY, JSON.stringify(Object.fromEntries(timestamps)));
+  } catch (error) {
+    console.error('Failed to save dismissed timestamps:', error);
+  }
 }
 
 // Get IDs that have been dismissed (persisted in localStorage)
@@ -43,6 +65,40 @@ function saveDismissedIds(ids: Set<string>): void {
     localStorage.setItem(DISMISSED_KEY, JSON.stringify([...ids]));
   } catch (error) {
     console.error('Failed to save dismissed IDs:', error);
+  }
+}
+
+// Clean up old dismissed IDs that are older than CLEANUP_MAX_AGE
+function cleanupOldDismissedIds(): void {
+  const now = Date.now();
+  const timestamps = getDismissedTimestamps();
+  const dismissedIds = getDismissedIds();
+  const existingActionIds = new Set(getScheduledActions().map(a => a.id));
+  
+  let cleanedCount = 0;
+  const newDismissedIds = new Set<string>();
+  const newTimestamps = new Map<string, number>();
+  
+  for (const id of dismissedIds) {
+    const timestamp = timestamps.get(id) || 0;
+    const isStale = (now - timestamp) > CLEANUP_MAX_AGE;
+    const actionExists = existingActionIds.has(id);
+    
+    // Keep if: action still exists OR dismissed recently
+    if (actionExists || !isStale) {
+      newDismissedIds.add(id);
+      if (timestamps.has(id)) {
+        newTimestamps.set(id, timestamps.get(id)!);
+      }
+    } else {
+      cleanedCount++;
+    }
+  }
+  
+  if (cleanedCount > 0) {
+    console.log(`[useMissedNotifications] Cleaned up ${cleanedCount} old dismissed IDs`);
+    saveDismissedIds(newDismissedIds);
+    saveDismissedTimestamps(newTimestamps);
   }
 }
 
@@ -103,10 +159,13 @@ export function useMissedNotifications(): UseMissedNotificationsReturn {
     setMissedActions(pastDue);
   }, [dismissedIds]);
 
-  // Sync native clicked IDs on mount (once)
+  // Sync native clicked IDs on mount and run cleanup (once)
   useEffect(() => {
     if (!nativeSyncDone.current) {
       nativeSyncDone.current = true;
+      // Clean up old dismissed IDs first
+      cleanupOldDismissedIds();
+      // Then sync native data
       syncNativeClickedIds().then(() => {
         // Re-check after syncing native data
         checkForMissedActions();
@@ -135,15 +194,29 @@ export function useMissedNotifications(): UseMissedNotificationsReturn {
     newDismissed.add(id);
     setDismissedIds(newDismissed);
     saveDismissedIds(newDismissed);
+    
+    // Also record the timestamp for cleanup purposes
+    const timestamps = getDismissedTimestamps();
+    timestamps.set(id, Date.now());
+    saveDismissedTimestamps(timestamps);
+    
     setMissedActions(prev => prev.filter(a => a.id !== id));
   }, [dismissedIds]);
 
   // Dismiss all missed actions
   const dismissAll = useCallback(() => {
     const newDismissed = new Set(dismissedIds);
-    missedActions.forEach(action => newDismissed.add(action.id));
+    const timestamps = getDismissedTimestamps();
+    const now = Date.now();
+    
+    missedActions.forEach(action => {
+      newDismissed.add(action.id);
+      timestamps.set(action.id, now);
+    });
+    
     setDismissedIds(newDismissed);
     saveDismissedIds(newDismissed);
+    saveDismissedTimestamps(timestamps);
     setMissedActions([]);
   }, [dismissedIds, missedActions]);
 
