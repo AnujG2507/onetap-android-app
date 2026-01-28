@@ -52,6 +52,7 @@ public class BootReceiver extends BroadcastReceiver {
                 JSONObject action = new JSONObject((String) value);
                 
                 String actionName = action.getString("name");
+                String description = action.optString("description", null);
                 String destinationType = action.getString("destinationType");
                 String destinationData = action.getString("destinationData");
                 long triggerTime = action.getLong("triggerTime");
@@ -79,6 +80,7 @@ public class BootReceiver extends BroadcastReceiver {
                     context,
                     actionId,
                     actionName,
+                    description,
                     destinationType,
                     destinationData,
                     triggerTime,

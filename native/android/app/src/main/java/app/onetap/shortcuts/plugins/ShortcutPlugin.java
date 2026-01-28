@@ -2235,6 +2235,7 @@ public class ShortcutPlugin extends Plugin {
                 context,
                 testId,
                 "Test Notification",
+                null,
                 "url",
                 "{\"uri\": \"https://google.com\"}"
             );
