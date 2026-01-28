@@ -20,6 +20,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { useSheetBackHandler } from '@/hooks/useSheetBackHandler';
 import { triggerHaptic } from '@/lib/haptics';
 import {
   getTrashLinks,
@@ -56,6 +57,39 @@ export function TrashSheet({ open: controlledOpen, onOpenChange, onRestored, onO
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showHint, setShowHint] = useState(false);
   const { toast } = useToast();
+  
+  // Register back handlers for confirmation dialogs (higher priority than sheet)
+  useSheetBackHandler(
+    'trash-empty-confirm',
+    showEmptyConfirm,
+    useCallback(() => setShowEmptyConfirm(false), []),
+    30
+  );
+  
+  useSheetBackHandler(
+    'trash-delete-confirm',
+    showDeleteConfirm,
+    useCallback(() => {
+      setShowDeleteConfirm(false);
+      setSelectedId(null);
+    }, []),
+    30
+  );
+  
+  useSheetBackHandler(
+    'trash-restore-all-confirm',
+    showRestoreAllConfirm,
+    useCallback(() => setShowRestoreAllConfirm(false), []),
+    30
+  );
+  
+  // Register back handler for the sheet itself
+  useSheetBackHandler(
+    'trash-sheet',
+    open,
+    useCallback(() => setOpen(false), [setOpen]),
+    0
+  );
   
   const handleOpenSettings = () => {
     setOpen(false);

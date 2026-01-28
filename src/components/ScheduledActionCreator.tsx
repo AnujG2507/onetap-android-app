@@ -9,6 +9,7 @@ import { ChevronLeft, FileText, Link, Phone, Check, Clipboard, Globe, Bookmark }
 import { cn } from '@/lib/utils';
 import { ScheduledTimingPicker } from './ScheduledTimingPicker';
 import { useScheduledActions } from '@/hooks/useScheduledActions';
+import { useSheetBackHandler } from '@/hooks/useSheetBackHandler';
 import { triggerHaptic } from '@/lib/haptics';
 import { pickFile, isValidUrl } from '@/lib/contentResolver';
 import ShortcutPlugin from '@/plugins/ShortcutPlugin';
@@ -57,6 +58,37 @@ export function ScheduledActionCreator({
   const [showBookmarkPicker, setShowBookmarkPicker] = useState(false);
   const [urlInput, setUrlInput] = useState('');
   const [urlError, setUrlError] = useState('');
+
+  // Back button handler for internal step navigation
+  // Determine if we should intercept the back button (when not on exit step)
+  const shouldInterceptBack = 
+    urlSubStep !== null || // In URL sub-step
+    step === 'confirm' || // On confirm step
+    (step === 'timing' && !initialDestination); // On timing without pre-filled destination
+
+  const internalHandleBack = useCallback(() => {
+    // Handle URL sub-step back
+    if (urlSubStep) {
+      setUrlSubStep(null);
+      setUrlInput('');
+      setUrlError('');
+      return;
+    }
+    
+    if (step === 'confirm') {
+      setStep('timing');
+    } else if (step === 'timing' && !initialDestination) {
+      setStep('destination');
+    }
+  }, [urlSubStep, step, initialDestination]);
+
+  // Register with higher priority (20) than parent sheet (0) to intercept back button
+  useSheetBackHandler(
+    'scheduled-action-creator-steps',
+    shouldInterceptBack,
+    internalHandleBack,
+    20
+  );
 
   // Get suggested name based on destination
   const getSuggestedName = useCallback((dest: ScheduledActionDestination): string => {

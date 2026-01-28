@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Search, Star, Trash2, Plus, X, Edit2, Tag, Bookmark, ArrowRight, Globe } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { detectPlatform } from '@/lib/platformIcons';
 import { PlatformIcon } from '@/components/PlatformIcon';
+import { useSheetBackHandler } from '@/hooks/useSheetBackHandler';
 import { 
   getSavedLinks, 
   removeSavedLink, 
@@ -65,6 +66,23 @@ export function SavedLinksSheet({ open, onOpenChange, onSelectLink, onGoToBookma
     setShowAddForm(false);
     setEditingLink(null);
   };
+
+  // Back button handler - close form first, then close sheet
+  const handleBackButton = useCallback(() => {
+    if (showAddForm) {
+      resetForm();
+    } else {
+      onOpenChange(false);
+    }
+  }, [showAddForm, onOpenChange]);
+
+  // Register with back handler - only when sheet is open
+  useSheetBackHandler(
+    'saved-links-sheet',
+    open,
+    handleBackButton,
+    showAddForm ? 20 : 0 // Higher priority when form is open
+  );
 
   const handleOpenChange = (isOpen: boolean) => {
     // Forward to parent - useEffect handles the refresh when open changes

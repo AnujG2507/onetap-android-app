@@ -21,6 +21,7 @@ import { cn } from '@/lib/utils';
 import { ScheduledTimingPicker } from './ScheduledTimingPicker';
 import { SavedLinksSheet } from './SavedLinksSheet';
 import { useScheduledActions } from '@/hooks/useScheduledActions';
+import { useSheetBackHandler } from '@/hooks/useSheetBackHandler';
 import { triggerHaptic } from '@/lib/haptics';
 import { pickFile, isValidUrl } from '@/lib/contentResolver';
 import ShortcutPlugin from '@/plugins/ShortcutPlugin';
@@ -67,6 +68,35 @@ export function ScheduledActionEditor({
   const [showBookmarkPicker, setShowBookmarkPicker] = useState(false);
   const [urlInput, setUrlInput] = useState('');
   const [urlError, setUrlError] = useState('');
+
+  // Back button handler for internal step navigation
+  // Determine if we should intercept the back button (when not on main step)
+  const shouldInterceptBack = 
+    urlSubStep !== null || // In URL sub-step
+    step !== 'main'; // On destination or timing step
+
+  const internalHandleBack = useCallback(() => {
+    // Handle URL sub-step back
+    if (urlSubStep) {
+      setUrlSubStep(null);
+      setUrlInput('');
+      setUrlError('');
+      return;
+    }
+    
+    // Return to main view from any sub-step
+    if (step !== 'main') {
+      setStep('main');
+    }
+  }, [urlSubStep, step]);
+
+  // Register with higher priority (20) than parent sheet (0) to intercept back button
+  useSheetBackHandler(
+    'scheduled-action-editor-steps',
+    shouldInterceptBack && isOpen,
+    internalHandleBack,
+    20
+  );
 
   // Reset state when action changes
   const resetState = useCallback(() => {
