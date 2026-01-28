@@ -4,6 +4,7 @@ import android.Manifest;
 import android.app.Activity;
 import android.content.ClipData;
 import android.content.ContentResolver;
+import android.content.ContentUris;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -658,18 +659,19 @@ public class ShortcutPlugin extends Plugin {
 
         String name = null;
         String phoneNumber = null;
-        String photoUri = null;
+        long contactId = -1;
 
         try {
             Context context = getContext();
             if (context != null) {
                 ContentResolver resolver = context.getContentResolver();
                 
-                // Query the contact data - the system grants temporary permission for this specific URI
+                // Query the contact data - use CONTACT_ID instead of PHOTO_URI
+                // PHOTO_URI is unreliable across Android versions/manufacturers
                 String[] projection = {
                     ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
                     ContactsContract.CommonDataKinds.Phone.NUMBER,
-                    ContactsContract.CommonDataKinds.Phone.PHOTO_URI
+                    ContactsContract.CommonDataKinds.Phone.CONTACT_ID
                 };
                 
                 Cursor cursor = resolver.query(contactUri, projection, null, null, null);
@@ -679,8 +681,8 @@ public class ShortcutPlugin extends Plugin {
                             ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME);
                         int numberIndex = cursor.getColumnIndex(
                             ContactsContract.CommonDataKinds.Phone.NUMBER);
-                        int photoIndex = cursor.getColumnIndex(
-                            ContactsContract.CommonDataKinds.Phone.PHOTO_URI);
+                        int contactIdIndex = cursor.getColumnIndex(
+                            ContactsContract.CommonDataKinds.Phone.CONTACT_ID);
                         
                         if (nameIndex >= 0) {
                             name = cursor.getString(nameIndex);
@@ -688,8 +690,8 @@ public class ShortcutPlugin extends Plugin {
                         if (numberIndex >= 0) {
                             phoneNumber = cursor.getString(numberIndex);
                         }
-                        if (photoIndex >= 0) {
-                            photoUri = cursor.getString(photoIndex);
+                        if (contactIdIndex >= 0) {
+                            contactId = cursor.getLong(contactIdIndex);
                         }
                     }
                     cursor.close();
@@ -712,20 +714,34 @@ public class ShortcutPlugin extends Plugin {
         }
 
         android.util.Log.d("ShortcutPlugin", "Contact picked - name: " + name + 
-            ", phone: " + phoneNumber + ", photoUri: " + photoUri);
+            ", phone: " + phoneNumber + ", contactId: " + contactId);
 
         ret.put("success", true);
         ret.put("name", name != null ? name : "");
         ret.put("phoneNumber", phoneNumber);
-        if (photoUri != null) {
-            ret.put("photoUri", photoUri);
-            
-            // Convert contact photo to base64 for immediate use as icon
+        
+        // Use the official Android API to get contact photo
+        // This is more reliable than PHOTO_URI across Android versions
+        if (contactId >= 0) {
             try {
                 Context ctx = getContext();
                 if (ctx != null) {
                     ContentResolver resolver = ctx.getContentResolver();
-                    InputStream photoStream = resolver.openInputStream(Uri.parse(photoUri));
+                    
+                    // Build contact URI from CONTACT_ID
+                    Uri contactContentUri = ContentUris.withAppendedId(
+                        ContactsContract.Contacts.CONTENT_URI, contactId);
+                    
+                    // Use official API - try high-res first (preferHighres = true)
+                    InputStream photoStream = ContactsContract.Contacts
+                        .openContactPhotoInputStream(resolver, contactContentUri, true);
+                    
+                    // Fall back to thumbnail if high-res unavailable
+                    if (photoStream == null) {
+                        photoStream = ContactsContract.Contacts
+                            .openContactPhotoInputStream(resolver, contactContentUri, false);
+                    }
+                    
                     if (photoStream != null) {
                         Bitmap photoBitmap = BitmapFactory.decodeStream(photoStream);
                         photoStream.close();
@@ -748,8 +764,10 @@ public class ShortcutPlugin extends Plugin {
                             photoBitmap.compress(Bitmap.CompressFormat.JPEG, 85, outputStream);
                             String base64 = Base64.encodeToString(outputStream.toByteArray(), Base64.NO_WRAP);
                             ret.put("photoBase64", "data:image/jpeg;base64," + base64);
-                            android.util.Log.d("ShortcutPlugin", "Contact photo converted to base64, size: " + base64.length());
+                            android.util.Log.d("ShortcutPlugin", "Contact photo converted to base64 using openContactPhotoInputStream, size: " + base64.length());
                         }
+                    } else {
+                        android.util.Log.d("ShortcutPlugin", "No photo available for contact ID: " + contactId);
                     }
                 }
             } catch (Exception e) {
