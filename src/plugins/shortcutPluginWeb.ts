@@ -145,6 +145,7 @@ export class ShortcutPluginWeb implements ShortcutPluginInterface {
     name?: string;
     phoneNumber?: string;
     photoUri?: string;
+    photoBase64?: string;
     error?: string;
   }> {
     console.log('[ShortcutPluginWeb] pickContact called (web fallback)');

@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Phone, X, UserCircle2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,6 +12,7 @@ interface ContactData {
   name?: string;
   phoneNumber?: string;
   photoUri?: string;
+  photoBase64?: string;
 }
 
 interface ContactShortcutCustomizerProps {
@@ -45,7 +45,12 @@ export function ContactShortcutCustomizer({
   const [phoneNumber, setPhoneNumber] = useState(contact?.phoneNumber || '');
   const [isPickingContact, setIsPickingContact] = useState(false);
   const [pickedContact, setPickedContact] = useState<ContactData | null>(contact || null);
+  const [contactPhoto, setContactPhoto] = useState<string | null>(contact?.photoBase64 || null);
   const [icon, setIcon] = useState<ShortcutIcon>(() => {
+    // If contact has a photo, use it as default
+    if (contact?.photoBase64) {
+      return { type: 'thumbnail', value: contact.photoBase64 };
+    }
     // Default icon based on mode
     if (mode === 'dial') {
       return { type: 'emoji', value: '📞' };
@@ -62,9 +67,17 @@ export function ContactShortcutCustomizer({
           name: result.name,
           phoneNumber: result.phoneNumber,
           photoUri: result.photoUri,
+          photoBase64: result.photoBase64,
         };
         setPickedContact(newContact);
         setPhoneNumber(result.phoneNumber);
+        
+        // Use contact photo as icon if available
+        if (result.photoBase64) {
+          setContactPhoto(result.photoBase64);
+          setIcon({ type: 'thumbnail', value: result.photoBase64 });
+        }
+        
         if (result.name && !name) {
           if (mode === 'dial') {
             setName(t('contact.callName', { name: result.name }));
@@ -123,8 +136,10 @@ export function ContactShortcutCustomizer({
         {/* Contact Info Display */}
         {pickedContact?.name && (
           <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/30">
-            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-2xl">
-              {mode === 'dial' ? (
+            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-2xl overflow-hidden">
+              {contactPhoto ? (
+                <img src={contactPhoto} alt="" className="h-full w-full object-cover" />
+              ) : mode === 'dial' ? (
                 <Phone className="h-6 w-6 text-primary" />
               ) : (
                 <WhatsAppIcon className="h-6 w-6 text-primary" />
@@ -206,6 +221,7 @@ export function ContactShortcutCustomizer({
         <IconPicker
           selectedIcon={icon}
           onSelect={setIcon}
+          thumbnail={contactPhoto || undefined}
         />
 
         {/* Spacer */}

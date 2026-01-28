@@ -135,6 +135,8 @@ export function ScheduledActionCreator({
           type: 'contact',
           phoneNumber: result.phoneNumber,
           contactName: result.name || 'Contact',
+          // Store photo for display - prefer base64 for immediate use
+          photoUri: result.photoBase64 || result.photoUri,
         });
       }
     } catch (error) {

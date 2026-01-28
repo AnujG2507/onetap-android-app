@@ -104,6 +104,7 @@ export interface ShortcutPluginInterface {
     name?: string;
     phoneNumber?: string;
     photoUri?: string;
+    photoBase64?: string; // base64-encoded contact photo for icon (data:image/jpeg;base64,...)
     error?: string;
   }>;
 
