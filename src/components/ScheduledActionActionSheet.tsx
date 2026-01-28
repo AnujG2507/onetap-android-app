@@ -125,7 +125,18 @@ export function ScheduledActionActionSheet({
     switch (action.destination.type) {
       case 'file': return <FileText className="h-5 w-5" />;
       case 'url': return <Link className="h-5 w-5" />;
-      case 'contact': return <Phone className="h-5 w-5" />;
+      case 'contact': 
+        // Show contact photo if available
+        if (action.destination.photoUri) {
+          return (
+            <img 
+              src={action.destination.photoUri} 
+              alt="" 
+              className="h-full w-full object-cover rounded-xl"
+            />
+          );
+        }
+        return <Phone className="h-5 w-5" />;
     }
   };
 
@@ -168,7 +179,7 @@ export function ScheduledActionActionSheet({
           {/* Action header */}
           <div className="px-5 pb-4 border-b">
             <div className="flex items-start gap-3">
-              <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 overflow-hidden ${
                 action.enabled 
                   ? 'bg-primary/10 text-primary' 
                   : 'bg-muted text-muted-foreground'
