@@ -20,6 +20,7 @@ import {
   CalendarDays,
   Repeat,
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { triggerHaptic } from '@/lib/haptics';
 import { ContactAvatar } from '@/components/ContactAvatar';
 import type { ScheduledAction, RecurrenceType } from '@/types/scheduledAction';
@@ -127,17 +128,21 @@ export function ScheduledActionActionSheet({
       case 'file': return <FileText className="h-5 w-5" />;
       case 'url': return <Link className="h-5 w-5" />;
       case 'contact': 
-        // Show contact avatar with photo or initials fallback
+        // Contact avatar handles its own background
         return (
           <ContactAvatar
             photoUri={action.destination.photoUri}
             name={action.destination.contactName}
-            className="h-full w-full text-sm"
+            className="h-full w-full rounded-xl text-sm"
             fallbackIcon={<Phone className="h-5 w-5" />}
           />
         );
     }
   };
+  
+  // Check if contact has avatar (photo or name for initials)
+  const isContactWithAvatar = action.destination.type === 'contact' && 
+    (action.destination.photoUri || action.destination.contactName);
 
   const getRecurrenceIcon = (recurrence: RecurrenceType) => {
     switch (recurrence) {
@@ -178,11 +183,10 @@ export function ScheduledActionActionSheet({
           {/* Action header */}
           <div className="px-5 pb-4 border-b">
             <div className="flex items-start gap-3">
-              <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 overflow-hidden ${
-                action.enabled 
-                  ? 'bg-primary/10 text-primary' 
-                  : 'bg-muted text-muted-foreground'
-              }`}>
+              <div className={cn(
+                "w-12 h-12 rounded-xl flex items-center justify-center shrink-0 overflow-hidden",
+                !isContactWithAvatar && (action.enabled ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground')
+              )}>
                 {getDestinationIcon()}
               </div>
               <div className="flex-1 min-w-0">

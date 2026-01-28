@@ -84,17 +84,21 @@ export function ScheduledActionItem({
       case 'url':
         return <Link className="h-5 w-5" />;
       case 'contact':
-        // Show contact avatar with photo or initials fallback
+        // Contact avatar handles its own background
         return (
           <ContactAvatar
             photoUri={action.destination.photoUri}
             name={action.destination.contactName}
-            className="h-full w-full text-sm"
+            className="h-full w-full rounded-xl text-sm"
             fallbackIcon={<Phone className="h-5 w-5" />}
           />
         );
     }
   };
+  
+  // Check if contact destination has photo or name (for initials)
+  const isContactWithAvatar = action.destination.type === 'contact' && 
+    (action.destination.photoUri || action.destination.contactName);
 
   const getRecurrenceIcon = (recurrence: RecurrenceType) => {
     switch (recurrence) {
@@ -296,7 +300,9 @@ export function ScheduledActionItem({
             {/* Destination icon */}
             <div className={cn(
               "flex h-10 w-10 items-center justify-center rounded-xl shrink-0 overflow-hidden",
-              action.enabled && !isExpired ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+              // Only apply background if NOT a contact with avatar (photo or initials)
+              !isContactWithAvatar && (action.enabled && !isExpired ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"),
+              isContactWithAvatar && !action.enabled && "opacity-60"
             )}>
               {getDestinationIcon()}
             </div>

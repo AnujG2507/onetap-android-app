@@ -1,75 +1,63 @@
 
-# Contact Photo Logic Fix Plan ✅ COMPLETED
+# Contact Photo Logic - COMPLETE ✅
 
-## Problem Analysis
+## Summary
 
-The contact photo logic was not working. After examining the native Android code, I identified the root cause:
+The contact photo logic has been fully audited and fixed to work end-to-end.
 
-**The code queried `PHOTO_URI` from the phone data URI but then tried to open it as a generic input stream. This is not the reliable way to access contact photos on Android.**
+## Changes Made
 
-### Previous Approach (FIXED)
-```java
-// Gets photoUri from query
-String photoUri = cursor.getString(photoIndex);
+### 1. Native Android (`ShortcutPlugin.java`)
+- ✅ Uses `CONTACT_ID` instead of unreliable `PHOTO_URI`
+- ✅ Uses official `ContactsContract.Contacts.openContactPhotoInputStream()` API
+- ✅ Tries high-res first, falls back to thumbnail
+- ✅ Returns `photoBase64` as `data:image/jpeg;base64,...`
 
-// Then tries to open it
-InputStream photoStream = resolver.openInputStream(Uri.parse(photoUri));
+### 2. New `ContactAvatar` Component (`src/components/ContactAvatar.tsx`)
+- ✅ Displays contact photo when available
+- ✅ Shows initials avatar with colored background as fallback
+- ✅ Falls back to provided icon (Phone icon) when no name available
+- ✅ Handles image load errors gracefully
+- ✅ Has solid `bg-muted` background to cover parent container backgrounds
+
+### 3. Updated Components
+All components now use `ContactAvatar` with conditional parent backgrounds:
+
+| Component | Changes |
+|-----------|---------|
+| `ContactShortcutCustomizer` | Uses ContactAvatar for contact info display |
+| `ScheduledActionCreator` | Uses ContactAvatar, conditional bg based on `hasContactAvatar()` |
+| `ScheduledActionItem` | Uses ContactAvatar, conditional bg based on `isContactWithAvatar` |
+| `ScheduledActionActionSheet` | Uses ContactAvatar, conditional bg with `cn()` |
+| `ScheduledActionEditor` | Uses ContactAvatar, conditional bg based on `hasContactAvatar()` |
+
+### 4. Data Flow
+```
+Native pickContact() 
+  → returns { photoBase64: "data:image/jpeg;base64,..." }
+    → stored in destination.photoUri (ScheduledActionDestination)
+      → passed to ContactAvatar.photoUri
+        → rendered as <img src={photoUri} />
 ```
 
-### Why It Failed
-1. The `PHOTO_URI` column may return `null` for contacts that DO have photos (inconsistent across Android versions/manufacturers)
-2. Even when `PHOTO_URI` is not null, opening it with `openInputStream()` may fail due to permission issues
-3. The correct Android API for contact photos is `ContactsContract.Contacts.openContactPhotoInputStream()`, which handles the photo retrieval internally
+## Key Fixes
 
----
+1. **Native API**: Replaced `PHOTO_URI` + `openInputStream()` with official `openContactPhotoInputStream()` which handles permissions correctly
 
-## Solution (APPLIED)
+2. **Container Backgrounds**: Parent containers now conditionally apply `bg-primary/10` only when NOT displaying a ContactAvatar (photo or initials)
 
-Replaced the current photo retrieval logic with the official Android API: `ContactsContract.Contacts.openContactPhotoInputStream()`
+3. **Error Handling**: ContactAvatar includes `onError` handler to hide broken images
 
-### Changes Made in ShortcutPlugin.java
+## Testing
 
-1. ✅ Added `ContentUris` import at the top of the file
-2. ✅ Updated projection to use `CONTACT_ID` instead of `PHOTO_URI`
-3. ✅ Query `CONTACT_ID` from the cursor (as `long`)
-4. ✅ Build contact URI using `ContentUris.withAppendedId()`
-5. ✅ Use `openContactPhotoInputStream()` with `preferHighres=true` first
-6. ✅ Fall back to thumbnail (`preferHighres=false`) if high-res unavailable
+To verify on device:
+1. Pick a contact WITH a photo → photo should display in avatar
+2. Pick a contact WITHOUT a photo → initials should display with colored background
+3. Verify in all locations:
+   - Contact shortcut customizer
+   - Reminder creation preview
+   - Reminder list items
+   - Reminder action sheet
+   - Reminder editor
 
-### New Code
-```java
-// Query CONTACT_ID instead of PHOTO_URI
-String[] projection = {
-    ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
-    ContactsContract.CommonDataKinds.Phone.NUMBER,
-    ContactsContract.CommonDataKinds.Phone.CONTACT_ID
-};
-
-// Build contact URI and use official API
-Uri contactContentUri = ContentUris.withAppendedId(
-    ContactsContract.Contacts.CONTENT_URI, contactId);
-
-InputStream photoStream = ContactsContract.Contacts
-    .openContactPhotoInputStream(resolver, contactContentUri, true);
-    
-if (photoStream == null) {
-    photoStream = ContactsContract.Contacts
-        .openContactPhotoInputStream(resolver, contactContentUri, false);
-}
-```
-
----
-
-## Testing After Fix
-
-To verify the fix works:
-1. Pick a contact WITH a photo → verify `photoBase64` is returned and displayed
-2. Pick a contact WITHOUT a photo → verify graceful fallback to emoji icon
-3. Verify the photo appears correctly in:
-   - ContactShortcutCustomizer (contact info display + IconPicker)
-   - ScheduledActionCreator (reminder destination)
-   - ScheduledActionItem (reminder list)
-   - ScheduledActionActionSheet (action sheet)
-   - ScheduledActionEditor (editor view)
-
-**Remember to run `npx cap sync` after pulling these changes.**
+**Run `npx cap sync` after pulling changes.**
