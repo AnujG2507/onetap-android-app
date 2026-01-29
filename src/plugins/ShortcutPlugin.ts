@@ -248,13 +248,22 @@ export interface ShortcutPluginInterface {
   disablePinnedShortcut(options: { id: string }): Promise<{ success: boolean; error?: string }>;
 
   // Update an existing pinned shortcut in-place on the home screen
-  // Changes label and/or icon without affecting position
+  // Changes label, icon, and/or intent data without affecting position
   updatePinnedShortcut(options: {
     id: string;
     label: string;
     iconEmoji?: string;
     iconText?: string;
     iconData?: string;
+    // Intent-affecting properties (for WhatsApp, Contact, PDF shortcuts)
+    shortcutType?: 'file' | 'link' | 'contact' | 'message';
+    phoneNumber?: string;
+    quickMessages?: string[];  // WhatsApp quick messages
+    messageApp?: string;       // 'whatsapp' | 'telegram' etc.
+    resumeEnabled?: boolean;   // PDF resume
+    contentUri?: string;       // For file/link shortcuts
+    mimeType?: string;
+    contactName?: string;      // Contact display name for WhatsApp
   }): Promise<{ success: boolean; error?: string }>;
 }
 

@@ -2946,14 +2946,44 @@ public class ShortcutPlugin extends Plugin {
 
     /**
      * Update an existing pinned shortcut in-place on the home screen.
-     * Uses ShortcutManager.updateShortcuts() which changes the label and icon
-     * without affecting the shortcut's position on the launcher.
+     * Uses ShortcutManager.updateShortcuts() which changes the label, icon,
+     * and intent data without affecting the shortcut's position on the launcher.
+     * 
+     * Supports updating:
+     * - Label and icon (all shortcut types)
+     * - WhatsApp: phone number, quick messages
+     * - Contact: phone number
+     * - PDF: resume enabled
+     * - File/Link: content URI
      */
     @PluginMethod
     public void updatePinnedShortcut(PluginCall call) {
         String shortcutId = call.getString("id");
         String label = call.getString("label");
-        android.util.Log.d("ShortcutPlugin", "updatePinnedShortcut called for id: " + shortcutId + ", label: " + label);
+        
+        // Intent-affecting properties
+        String shortcutType = call.getString("shortcutType");
+        String phoneNumber = call.getString("phoneNumber");
+        String messageApp = call.getString("messageApp");
+        Boolean resumeEnabled = call.getBoolean("resumeEnabled", false);
+        String contentUri = call.getString("contentUri");
+        String mimeType = call.getString("mimeType");
+        String contactName = call.getString("contactName");
+        
+        // Parse quick messages array
+        JSArray quickMessagesArray = call.getArray("quickMessages");
+        String quickMessagesJson = null;
+        if (quickMessagesArray != null) {
+            try {
+                quickMessagesJson = quickMessagesArray.toString();
+            } catch (Exception e) {
+                android.util.Log.w("ShortcutPlugin", "Error parsing quickMessages: " + e.getMessage());
+            }
+        }
+        
+        android.util.Log.d("ShortcutPlugin", "updatePinnedShortcut called for id: " + shortcutId + 
+            ", label: " + label + ", type: " + shortcutType + 
+            ", hasQuickMessages: " + (quickMessagesJson != null));
 
         if (shortcutId == null || shortcutId.isEmpty()) {
             JSObject result = new JSObject();
@@ -2972,7 +3002,6 @@ public class ShortcutPlugin extends Plugin {
         }
 
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-            // ShortcutManager not available before Android 8.0
             JSObject result = new JSObject();
             result.put("success", false);
             result.put("error", "Android 8.0+ required");
@@ -2999,8 +3028,12 @@ public class ShortcutPlugin extends Plugin {
                 return;
             }
 
-            // Create icon from params (using same priority as createIcon but with direct params)
+            // Create icon from params
             Icon icon = createIconForUpdate(call);
+
+            // Build intent based on shortcut type
+            Intent intent = buildIntentForUpdate(context, shortcutType, messageApp, phoneNumber, 
+                quickMessagesJson, contactName, resumeEnabled, contentUri, mimeType, label, shortcutId);
 
             // Build updated ShortcutInfo with same ID
             ShortcutInfo.Builder builder = new ShortcutInfo.Builder(context, shortcutId)
@@ -3009,6 +3042,11 @@ public class ShortcutPlugin extends Plugin {
             
             if (icon != null) {
                 builder.setIcon(icon);
+            }
+            
+            // Include intent if we built one (for intent-affecting updates)
+            if (intent != null) {
+                builder.setIntent(intent);
             }
 
             ShortcutInfo updatedInfo = builder.build();
@@ -3019,7 +3057,8 @@ public class ShortcutPlugin extends Plugin {
             
             boolean updated = manager.updateShortcuts(shortcutsToUpdate);
             
-            android.util.Log.d("ShortcutPlugin", "Updated pinned shortcut: " + shortcutId + ", success: " + updated);
+            android.util.Log.d("ShortcutPlugin", "Updated pinned shortcut: " + shortcutId + 
+                ", success: " + updated + ", hadIntent: " + (intent != null));
 
             JSObject result = new JSObject();
             result.put("success", updated);
@@ -3031,6 +3070,77 @@ public class ShortcutPlugin extends Plugin {
             result.put("error", e.getMessage());
             call.resolve(result);
         }
+    }
+
+    /**
+     * Build intent for updatePinnedShortcut based on shortcut type.
+     * Returns null if no intent rebuild is needed (icon/label only update).
+     */
+    private Intent buildIntentForUpdate(Context context, String shortcutType, String messageApp,
+            String phoneNumber, String quickMessagesJson, String contactName,
+            Boolean resumeEnabled, String contentUri, String mimeType, String label, String shortcutId) {
+        
+        if (shortcutType == null) {
+            // No type specified, can't rebuild intent
+            return null;
+        }
+        
+        Intent intent = null;
+        
+        if ("message".equals(shortcutType) && "whatsapp".equals(messageApp)) {
+            // WhatsApp shortcut - route through WhatsAppProxyActivity
+            android.util.Log.d("ShortcutPlugin", "Building WhatsApp intent for update");
+            intent = new Intent(context, WhatsAppProxyActivity.class);
+            intent.setAction("app.onetap.WHATSAPP_MESSAGE");
+            // Set data to a unique URI for this shortcut
+            intent.setData(Uri.parse("onetap://whatsapp/" + shortcutId));
+            if (phoneNumber != null) {
+                intent.putExtra(WhatsAppProxyActivity.EXTRA_PHONE_NUMBER, phoneNumber);
+            }
+            if (quickMessagesJson != null) {
+                intent.putExtra(WhatsAppProxyActivity.EXTRA_QUICK_MESSAGES, quickMessagesJson);
+            }
+            if (contactName != null) {
+                intent.putExtra(WhatsAppProxyActivity.EXTRA_CONTACT_NAME, contactName);
+            }
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            
+        } else if ("contact".equals(shortcutType)) {
+            // Contact dial shortcut - route through ContactProxyActivity
+            android.util.Log.d("ShortcutPlugin", "Building Contact intent for update");
+            intent = new Intent(context, ContactProxyActivity.class);
+            intent.setAction("app.onetap.CALL_CONTACT");
+            if (phoneNumber != null) {
+                intent.setData(Uri.parse("tel:" + phoneNumber));
+                intent.putExtra(ContactProxyActivity.EXTRA_PHONE_NUMBER, phoneNumber);
+            }
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            
+        } else if ("file".equals(shortcutType) && contentUri != null && mimeType != null && mimeType.equals("application/pdf")) {
+            // PDF file - route through PDFProxyActivity if resume is relevant
+            android.util.Log.d("ShortcutPlugin", "Building PDF intent for update, resumeEnabled=" + resumeEnabled);
+            intent = new Intent(context, PDFProxyActivity.class);
+            intent.setAction("app.onetap.OPEN_PDF");
+            intent.setDataAndType(Uri.parse(contentUri), "application/pdf");
+            intent.putExtra("shortcut_id", shortcutId);
+            intent.putExtra("resume_enabled", resumeEnabled != null && resumeEnabled);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            
+        } else if ("file".equals(shortcutType) && contentUri != null && mimeType != null && mimeType.startsWith("video/")) {
+            // Video file - route through VideoProxyActivity
+            android.util.Log.d("ShortcutPlugin", "Building Video intent for update");
+            intent = new Intent(context, VideoProxyActivity.class);
+            intent.setAction("app.onetap.OPEN_VIDEO");
+            intent.setDataAndType(Uri.parse(contentUri), mimeType);
+            intent.putExtra("shortcut_title", label);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        }
+        // For link/file types that don't need special handling, we don't rebuild the intent
+        // The original intent remains valid
+        
+        return intent;
     }
 
     /**

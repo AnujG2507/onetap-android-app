@@ -456,6 +456,15 @@ export class ShortcutPluginWeb implements ShortcutPluginInterface {
     iconEmoji?: string;
     iconText?: string;
     iconData?: string;
+    // Intent-affecting properties
+    shortcutType?: 'file' | 'link' | 'contact' | 'message';
+    phoneNumber?: string;
+    quickMessages?: string[];
+    messageApp?: string;
+    resumeEnabled?: boolean;
+    contentUri?: string;
+    mimeType?: string;
+    contactName?: string;
   }): Promise<{ success: boolean; error?: string }> {
     console.log('[ShortcutPluginWeb] updatePinnedShortcut called (web fallback)', options.id, options.label);
     // No-op on web - shortcuts don't exist on home screen
