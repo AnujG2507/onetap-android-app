@@ -52,13 +52,18 @@ public class PDFProxyActivity extends Activity {
         // Check if this is from a shortcut (has shortcut_id) or external open
         String shortcutId = incomingIntent.getStringExtra("shortcut_id");
         boolean resumeEnabled;
+        boolean isFromShortcut = (shortcutId != null);
         
-        if (shortcutId != null) {
+        if (isFromShortcut) {
             // From shortcut - use the shortcut's resume setting
             resumeEnabled = incomingIntent.getBooleanExtra("resume_enabled", false);
             Log.d(TAG, "PDF from shortcut: uri=" + pdfUri + 
                   ", shortcutId=" + shortcutId + 
                   ", resumeEnabled=" + resumeEnabled);
+            
+            // Track the usage event for shortcut taps
+            NativeUsageTracker.recordTap(this, shortcutId);
+            Log.d(TAG, "Recorded tap for PDF shortcut: " + shortcutId);
         } else {
             // From external "Open with" - generate ID from URI and enable resume by default
             shortcutId = "external_" + Math.abs(pdfUri.toString().hashCode());

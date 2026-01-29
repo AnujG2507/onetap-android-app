@@ -32,6 +32,7 @@ public class WhatsAppProxyActivity extends Activity {
     public static final String EXTRA_PHONE_NUMBER = "phone_number";
     public static final String EXTRA_QUICK_MESSAGES = "quick_messages";
     public static final String EXTRA_CONTACT_NAME = "contact_name";
+    public static final String EXTRA_SHORTCUT_ID = "shortcut_id";
     
     // SharedPreferences key for pending WhatsApp action
     private static final String PREFS_NAME = "whatsapp_pending";
@@ -48,8 +49,15 @@ public class WhatsAppProxyActivity extends Activity {
         String phoneNumber = intent.getStringExtra(EXTRA_PHONE_NUMBER);
         String messagesJson = intent.getStringExtra(EXTRA_QUICK_MESSAGES);
         String contactName = intent.getStringExtra(EXTRA_CONTACT_NAME);
+        String shortcutId = intent.getStringExtra(EXTRA_SHORTCUT_ID);
         
-        Log.d(TAG, "WhatsApp proxy opened: phone=" + phoneNumber + ", hasMessages=" + (messagesJson != null));
+        Log.d(TAG, "WhatsApp proxy opened: phone=" + phoneNumber + ", hasMessages=" + (messagesJson != null) + ", shortcutId=" + shortcutId);
+        
+        // Track the usage event if we have a shortcut ID
+        if (shortcutId != null && !shortcutId.isEmpty()) {
+            NativeUsageTracker.recordTap(this, shortcutId);
+            Log.d(TAG, "Recorded tap for WhatsApp shortcut: " + shortcutId);
+        }
         
         if (phoneNumber == null || phoneNumber.isEmpty()) {
             Log.e(TAG, "No phone number provided");

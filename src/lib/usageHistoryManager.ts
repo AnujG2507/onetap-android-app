@@ -11,9 +11,10 @@ const MAX_HISTORY_DAYS = 30;
 
 export const usageHistoryManager = {
   // Add a new usage event
-  recordUsage(shortcutId: string): void {
+  // Optional timestamp parameter allows recording events from native layer with their original timestamp
+  recordUsage(shortcutId: string, timestamp?: number): void {
     const history = this.getHistory();
-    history.push({ shortcutId, timestamp: Date.now() });
+    history.push({ shortcutId, timestamp: timestamp ?? Date.now() });
     this.saveHistory(history);
     this.purgeOldEntries();
   },

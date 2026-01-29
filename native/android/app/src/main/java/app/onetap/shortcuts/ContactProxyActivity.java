@@ -18,6 +18,7 @@ public class ContactProxyActivity extends Activity {
     private static final String TAG = "ContactProxyActivity";
     
     public static final String EXTRA_PHONE_NUMBER = "phone_number";
+    public static final String EXTRA_SHORTCUT_ID = "shortcut_id";
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -25,6 +26,7 @@ public class ContactProxyActivity extends Activity {
         
         Intent intent = getIntent();
         String phoneNumber = null;
+        String shortcutId = intent.getStringExtra(EXTRA_SHORTCUT_ID);
         
         // Try to get phone number from extras first
         if (intent.hasExtra(EXTRA_PHONE_NUMBER)) {
@@ -45,7 +47,13 @@ public class ContactProxyActivity extends Activity {
             return;
         }
         
-        Log.d(TAG, "Contact proxy activated for number: " + phoneNumber);
+        Log.d(TAG, "Contact proxy activated for number: " + phoneNumber + ", shortcutId: " + shortcutId);
+        
+        // Track the usage event if we have a shortcut ID
+        if (shortcutId != null && !shortcutId.isEmpty()) {
+            NativeUsageTracker.recordTap(this, shortcutId);
+            Log.d(TAG, "Recorded tap for contact shortcut: " + shortcutId);
+        }
         
         // Check if we have CALL_PHONE permission
         boolean hasCallPermission = checkSelfPermission(Manifest.permission.CALL_PHONE) 

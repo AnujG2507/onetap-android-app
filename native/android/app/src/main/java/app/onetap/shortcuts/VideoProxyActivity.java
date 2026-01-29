@@ -37,13 +37,20 @@ public class VideoProxyActivity extends Activity {
         Uri videoUri = receivedIntent.getData();
         String mimeType = receivedIntent.getType();
         String shortcutTitle = receivedIntent.getStringExtra("shortcut_title");
+        String shortcutId = receivedIntent.getStringExtra("shortcut_id");
 
-        Log.d(TAG, "Video URI: " + videoUri + ", MIME type: " + mimeType + ", Title: " + shortcutTitle);
+        Log.d(TAG, "Video URI: " + videoUri + ", MIME type: " + mimeType + ", Title: " + shortcutTitle + ", ID: " + shortcutId);
 
         if (videoUri == null) {
             Log.e(TAG, "No video URI in intent");
             finish();
             return;
+        }
+
+        // Track the usage event if we have a shortcut ID
+        if (shortcutId != null && !shortcutId.isEmpty()) {
+            NativeUsageTracker.recordTap(this, shortcutId);
+            Log.d(TAG, "Recorded tap for video shortcut: " + shortcutId);
         }
 
         // Default MIME type if not provided

@@ -1,5 +1,6 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { Capacitor } from '@capacitor/core';
+import { App } from '@capacitor/app';
 import type { ShortcutData, ContentSource, ShortcutIcon, MessageApp } from '@/types/shortcut';
 import ShortcutPlugin from '@/plugins/ShortcutPlugin';
 import { usageHistoryManager } from '@/lib/usageHistoryManager';
@@ -67,14 +68,91 @@ export function useShortcuts() {
     }
   }, [shortcuts, saveShortcuts]);
 
+  // Sync native usage events from home screen taps
+  const syncNativeUsageEvents = useCallback(async () => {
+    if (!Capacitor.isNativePlatform()) return;
+    
+    try {
+      const result = await ShortcutPlugin.getNativeUsageEvents();
+      
+      if (!result.success || result.events.length === 0) {
+        return;
+      }
+      
+      console.log(`[useShortcuts] Syncing ${result.events.length} native usage events`);
+      
+      // Process each event
+      const shortcutUpdates = new Map<string, number>();
+      
+      result.events.forEach(event => {
+        // Record to usage history with original timestamp
+        usageHistoryManager.recordUsage(event.shortcutId, event.timestamp);
+        
+        // Aggregate usage count updates per shortcut
+        shortcutUpdates.set(
+          event.shortcutId, 
+          (shortcutUpdates.get(event.shortcutId) || 0) + 1
+        );
+      });
+      
+      // Update shortcuts with aggregated counts
+      if (shortcutUpdates.size > 0) {
+        setShortcuts(current => {
+          const updated = current.map(s => {
+            const additionalTaps = shortcutUpdates.get(s.id);
+            if (additionalTaps) {
+              return { ...s, usageCount: s.usageCount + additionalTaps };
+            }
+            return s;
+          });
+          
+          // Save to localStorage
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+          
+          // Sync to widgets
+          syncToWidgets(updated);
+          
+          console.log(`[useShortcuts] Updated usage counts for ${shortcutUpdates.size} shortcuts`);
+          
+          return updated;
+        });
+      }
+    } catch (error) {
+      console.warn('[useShortcuts] Failed to sync native usage events:', error);
+    }
+  }, [syncToWidgets]);
+
+  // Track if initial sync has been done
+  const initialSyncDone = useRef(false);
+
   // Initial sync on mount + migrate usage history
   useEffect(() => {
     syncToWidgets(shortcuts);
     // Migrate existing usage data to history (one-time)
     usageHistoryManager.migrateExistingUsage(shortcuts);
+    // Sync native usage events from home screen taps
+    syncNativeUsageEvents();
     // Sync with home screen to remove orphaned shortcuts
     syncWithHomeScreen();
+    
+    initialSyncDone.current = true;
   }, []); // Only on mount
+
+  // Sync native usage events when app comes to foreground
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    const listener = App.addListener('appStateChange', ({ isActive }) => {
+      if (isActive && initialSyncDone.current) {
+        console.log('[useShortcuts] App resumed, syncing native usage events');
+        syncNativeUsageEvents();
+      }
+    });
+
+    return () => {
+      listener.then(l => l.remove());
+    };
+  }, [syncNativeUsageEvents]);
 
   const createShortcut = useCallback((
     source: ContentSource,

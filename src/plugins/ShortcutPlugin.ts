@@ -265,6 +265,20 @@ export interface ShortcutPluginInterface {
     mimeType?: string;
     contactName?: string;      // Contact display name for WhatsApp
   }): Promise<{ success: boolean; error?: string }>;
+
+  // ========== Native Usage Tracking ==========
+
+  // Get native usage events recorded by proxy activities (home screen taps).
+  // Called on app startup to sync tap counts from native to JS layer.
+  // Events are cleared after retrieval.
+  getNativeUsageEvents(): Promise<{
+    success: boolean;
+    events: Array<{
+      shortcutId: string;
+      timestamp: number;
+    }>;
+    error?: string;
+  }>;
 }
 
 // This plugin bridges to native Android code

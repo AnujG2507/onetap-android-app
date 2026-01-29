@@ -63,6 +63,7 @@ import app.onetap.shortcuts.ShortcutEditProxyActivity;
 import app.onetap.shortcuts.ScheduledActionReceiver;
 import app.onetap.shortcuts.NotificationHelper;
 import app.onetap.shortcuts.NotificationClickActivity;
+import app.onetap.shortcuts.NativeUsageTracker;
 
 import app.onetap.shortcuts.MainActivity;
 import android.content.SharedPreferences;
@@ -289,6 +290,8 @@ public class ShortcutPlugin extends Plugin {
                     intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
                     // Pass shortcut name as title for video player display
                     intent.putExtra("shortcut_title", finalLabel);
+                    // Pass shortcut ID for usage tracking
+                    intent.putExtra("shortcut_id", finalId);
                 } else if (finalUsePDFProxy != null && finalUsePDFProxy) {
                     android.util.Log.d("ShortcutPlugin", "Using PDFProxyActivity for PDF shortcut, resumeEnabled=" + finalResumeEnabled);
                     intent = new Intent(context, PDFProxyActivity.class);
@@ -307,6 +310,8 @@ public class ShortcutPlugin extends Plugin {
                     // Extract phone number from tel: URI and pass as extra
                     String phoneNumber = finalDataUri.getSchemeSpecificPart();
                     intent.putExtra(ContactProxyActivity.EXTRA_PHONE_NUMBER, phoneNumber);
+                    // Pass shortcut ID for usage tracking
+                    intent.putExtra(ContactProxyActivity.EXTRA_SHORTCUT_ID, finalId);
                     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 } else if ("app.onetap.WHATSAPP_MESSAGE".equals(finalIntentAction)) {
                     // WhatsApp shortcuts with multiple messages - route through WhatsAppProxyActivity
@@ -317,6 +322,8 @@ public class ShortcutPlugin extends Plugin {
                     intent.putExtra(WhatsAppProxyActivity.EXTRA_PHONE_NUMBER, finalWhatsappPhoneNumber);
                     intent.putExtra(WhatsAppProxyActivity.EXTRA_QUICK_MESSAGES, finalWhatsappQuickMessages);
                     intent.putExtra(WhatsAppProxyActivity.EXTRA_CONTACT_NAME, finalWhatsappContactName);
+                    // Pass shortcut ID for usage tracking
+                    intent.putExtra(WhatsAppProxyActivity.EXTRA_SHORTCUT_ID, finalId);
                     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 } else {
                     intent = createCompatibleIntent(context, finalIntentAction, finalDataUri, finalIntentType);
@@ -3174,5 +3181,46 @@ public class ShortcutPlugin extends Plugin {
 
         android.util.Log.d("ShortcutPlugin", "No icon data provided for update, using default");
         return Icon.createWithResource(getContext(), android.R.drawable.ic_menu_add);
+    }
+
+    // ========== Native Usage Tracking ==========
+
+    /**
+     * Get native usage events recorded by proxy activities and clear the storage.
+     * Called from JS on app startup to sync home screen tap counts.
+     */
+    @PluginMethod
+    public void getNativeUsageEvents(PluginCall call) {
+        Context context = getContext();
+        if (context == null) {
+            call.reject("Context is null");
+            return;
+        }
+
+        try {
+            java.util.List<NativeUsageTracker.UsageEvent> events = NativeUsageTracker.getAndClearEvents(context);
+            
+            JSArray eventsArray = new JSArray();
+            for (NativeUsageTracker.UsageEvent event : events) {
+                JSObject eventObj = new JSObject();
+                eventObj.put("shortcutId", event.shortcutId);
+                eventObj.put("timestamp", event.timestamp);
+                eventsArray.put(eventObj);
+            }
+            
+            JSObject result = new JSObject();
+            result.put("success", true);
+            result.put("events", eventsArray);
+            call.resolve(result);
+            
+            android.util.Log.d("ShortcutPlugin", "Returned " + events.size() + " native usage events");
+        } catch (Exception e) {
+            android.util.Log.e("ShortcutPlugin", "Error getting native usage events", e);
+            JSObject result = new JSObject();
+            result.put("success", false);
+            result.put("events", new JSArray());
+            result.put("error", e.getMessage());
+            call.resolve(result);
+        }
     }
 }

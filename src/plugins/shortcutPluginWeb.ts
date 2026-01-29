@@ -470,4 +470,19 @@ export class ShortcutPluginWeb implements ShortcutPluginInterface {
     // No-op on web - shortcuts don't exist on home screen
     return { success: true };
   }
+
+  // ========== Native Usage Tracking (Web Fallback) ==========
+
+  async getNativeUsageEvents(): Promise<{
+    success: boolean;
+    events: Array<{
+      shortcutId: string;
+      timestamp: number;
+    }>;
+    error?: string;
+  }> {
+    console.log('[ShortcutPluginWeb] getNativeUsageEvents called (web fallback)');
+    // On web, there are no native proxy activities recording tap events
+    return { success: true, events: [] };
+  }
 }
