@@ -1,101 +1,127 @@
 
+# Plan: Auto-Update Shortcuts on Home Screen When Edited
 
-# Plan: Enable Shortcut Editing via Alternative Methods
+## Overview
 
-## The Problem
+When a user edits a shortcut (changing name or icon), the home screen icon will update automatically in-place, preserving its position. The "Re-Add to Home Screen" button will be kept as a fallback option.
 
-Android does **NOT** support custom context menu actions (like "Edit") when long-pressing a pinned shortcut on the home screen. This is a platform limitation:
+## What Will Change
 
-- Long-pressing a **pinned shortcut** only shows "Remove" (controlled by the launcher)
-- Long-pressing the **app icon** shows static/dynamic shortcuts from the app
-- There is no API to add custom actions to individual pinned shortcuts
+### User Experience
+1. Edit a shortcut's name or icon in the app
+2. Tap "Save"
+3. The home screen icon updates automatically (same position)
+4. No need to manually re-add the shortcut
+5. "Re-Add to Home Screen" button remains available as a fallback
 
-The existing `ShortcutEditProxyActivity` was built anticipating a feature that doesn't exist in standard Android.
-
-## Current State
-
-| Component | Status |
-|-----------|--------|
-| `ShortcutEditProxyActivity` | Exists but never invoked |
-| `getPendingEditShortcut()` plugin method | Exists but unused |
-| "My Shortcuts" list with edit functionality | Already working |
-
-## Recommended Solution
-
-Since Android doesn't support custom actions on pinned shortcuts, we should leverage the **existing "My Shortcuts" list** as the primary edit mechanism, and optionally add a **static shortcut** for quick access.
-
-### Option A: Rely on Existing "My Shortcuts" (No Changes)
-
-The "My Shortcuts" feature already allows editing:
-1. Open app menu
-2. Tap "My Shortcuts"
-3. Tap any shortcut
-4. Select "Edit" from action sheet
-
-This is the most straightforward approach and works today.
-
-### Option B: Add Static "Edit Shortcuts" App Shortcut
-
-Add a static shortcut that appears when long-pressing the **app icon** on the launcher. This provides quick access to the shortcuts list.
-
-**Implementation:**
-
-1. **Create `res/xml/shortcuts.xml`**
-```xml
-<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
-  <shortcut
-    android:shortcutId="manage_shortcuts"
-    android:enabled="true"
-    android:icon="@drawable/ic_shortcut_edit"
-    android:shortcutShortLabel="@string/shortcut_manage_label"
-    android:shortcutLongLabel="@string/shortcut_manage_long_label">
-    <intent
-      android:action="android.intent.action.VIEW"
-      android:targetPackage="app.onetap.shortcuts"
-      android:targetClass="app.onetap.shortcuts.MainActivity"
-      android:data="onetap://manage-shortcuts" />
-  </shortcut>
-</shortcuts>
-```
-
-2. **Update `AndroidManifest.xml`** - Add meta-data to MainActivity:
-```xml
-<meta-data android:name="android.app.shortcuts"
-           android:resource="@xml/shortcuts" />
-```
-
-3. **Handle Deep Link in App** - Open "My Shortcuts" sheet when app receives `onetap://manage-shortcuts`
-
-4. **Add icon drawable** - Create `ic_shortcut_edit.xml` vector drawable
-
-### Option C: Remove Unused Edit Proxy Code
-
-Since the `ShortcutEditProxyActivity` cannot be triggered by Android, consider removing it to clean up the codebase:
-- Delete `ShortcutEditProxyActivity.java`
-- Remove from `AndroidManifest.xml`
-- Remove related plugin methods
-
-## Recommendation
-
-**Proceed with Option B** - Adding a static "Manage Shortcuts" app shortcut provides a discoverable entry point for users who want to edit their shortcuts, while working within Android's constraints.
-
-## Files to Modify
+### Files to Modify
 
 | File | Change |
 |------|--------|
-| `native/android/app/src/main/res/xml/shortcuts.xml` | Create new file with static shortcut |
-| `native/android/app/src/main/res/drawable/ic_shortcut_edit.xml` | Create edit icon drawable |
-| `native/android/app/src/main/res/values/strings.xml` | Add shortcut labels |
-| `native/android/app/src/main/AndroidManifest.xml` | Add shortcuts meta-data |
-| `src/App.tsx` or deep link handler | Handle `onetap://manage-shortcuts` deep link |
+| `ShortcutPlugin.java` | Add `updatePinnedShortcut()` method |
+| `ShortcutPlugin.ts` | Add TypeScript interface |
+| `shortcutPluginWeb.ts` | Add web fallback stub |
+| `useShortcuts.ts` | Call native update when saving |
+| `ShortcutEditSheet.tsx` | Update toast message |
 
-## User Experience After Implementation
+## Technical Details
 
-1. User long-presses **app icon** on launcher
-2. Menu appears with "Manage Shortcuts" option
-3. User taps it
-4. App opens directly to "My Shortcuts" list
-5. User can tap any shortcut to edit it
+### 1. Native Android Method
 
-This is the proper Android-native way to provide quick access to shortcut management.
+Add `updatePinnedShortcut` to `ShortcutPlugin.java` that:
+- Takes shortcut ID, new label, and icon data
+- Uses existing `createEmojiIcon`, `createTextIcon`, and `createBitmapIcon` helpers
+- Calls `ShortcutManager.updateShortcuts()` to update in-place
 
+```java
+@PluginMethod
+public void updatePinnedShortcut(PluginCall call) {
+    String id = call.getString("id");
+    String label = call.getString("label");
+    String iconEmoji = call.getString("iconEmoji");
+    String iconText = call.getString("iconText");
+    String iconData = call.getString("iconData");
+    
+    // Create icon using existing helpers
+    Icon icon;
+    if (iconData != null) {
+        icon = createBitmapIcon(iconData);
+    } else if (iconEmoji != null) {
+        icon = createEmojiIcon(iconEmoji);
+    } else if (iconText != null) {
+        icon = createTextIcon(iconText);
+    } else {
+        icon = defaultIcon;
+    }
+    
+    // Build updated ShortcutInfo with same ID
+    ShortcutInfo updatedInfo = new ShortcutInfo.Builder(context, id)
+        .setShortLabel(label)
+        .setLongLabel(label)
+        .setIcon(icon)
+        .build();
+    
+    // Update in-place (preserves position)
+    shortcutManager.updateShortcuts(Collections.singletonList(updatedInfo));
+}
+```
+
+### 2. TypeScript Plugin Interface
+
+```typescript
+updatePinnedShortcut(options: {
+    id: string;
+    label: string;
+    iconEmoji?: string;
+    iconText?: string;
+    iconData?: string;
+}): Promise<{ success: boolean; error?: string }>;
+```
+
+### 3. Hook Integration
+
+Modify `updateShortcut` in `useShortcuts.ts` to call native update:
+
+```typescript
+const updateShortcut = useCallback(async (id, updates) => {
+    // Update localStorage first
+    const updated = shortcuts.map(s => 
+        s.id === id ? { ...s, ...updates } : s
+    );
+    saveShortcuts(updated);
+    
+    // Update home screen shortcut if name or icon changed
+    if (Capacitor.isNativePlatform() && (updates.name || updates.icon)) {
+        const shortcut = updated.find(s => s.id === id);
+        if (shortcut) {
+            await ShortcutPlugin.updatePinnedShortcut({
+                id,
+                label: shortcut.name,
+                iconEmoji: shortcut.icon.type === 'emoji' ? shortcut.icon.value : undefined,
+                iconText: shortcut.icon.type === 'text' ? shortcut.icon.value : undefined,
+                iconData: shortcut.icon.type === 'thumbnail' ? shortcut.icon.value : undefined,
+            });
+        }
+    }
+}, [shortcuts, saveShortcuts]);
+```
+
+### 4. UI Changes
+
+Update `ShortcutEditSheet.tsx`:
+- Remove the "re-add hint" from the toast since updates happen automatically
+- Keep the "Re-Add to Home Screen" button as a manual fallback option
+- Button still shows when icon/name changed for users who want to force re-creation
+
+## Why Keep the Re-Add Button?
+
+1. **Fallback**: Some custom launchers may not refresh immediately
+2. **User Control**: Users can manually recreate if update doesn't work
+3. **No Downside**: It's optional and doesn't interfere with auto-update
+
+## Android API Notes
+
+- `ShortcutManager.updateShortcuts()` requires API 25+ (Android 7.1)
+- App already requires API 26+ (Android 8.0) for pinned shortcuts
+- Update only changes label/icon - the underlying intent stays the same
+- Most modern launchers support this API correctly
