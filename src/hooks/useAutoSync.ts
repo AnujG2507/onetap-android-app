@@ -1,7 +1,8 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { useAuth } from './useAuth';
+import { useNetworkStatus } from './useNetworkStatus';
 import { uploadBookmarksToCloud, uploadTrashToCloud } from '@/lib/cloudSync';
-import { recordSync } from '@/lib/syncStatusManager';
+import { recordSync, markPending, markSyncFailed, type PendingReason } from '@/lib/syncStatusManager';
 import { getSettings } from '@/lib/settingsManager';
 
 const STORAGE_KEY = 'saved_links';
@@ -12,10 +13,11 @@ const MIN_SYNC_INTERVAL_MS = 30000; // Don't sync more than once per 30 seconds
 /**
  * Hook that automatically syncs bookmarks and trash to cloud when changes are detected.
  * Only uploads to cloud (one-way sync) to avoid conflicts with user actions.
- * Returns isEnabled state that can be used to show UI indicators.
+ * Marks pending state on failure for retry-on-foreground/reconnect.
  */
 export function useAutoSync() {
   const { user, loading } = useAuth();
+  const { isOnline } = useNetworkStatus();
   const [isEnabled, setIsEnabled] = useState(() => getSettings().autoSyncEnabled);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
   const lastSyncTime = useRef<number>(0);
@@ -37,6 +39,13 @@ export function useAutoSync() {
       if (!user || !isEnabled) return;
       // If already syncing, mark as pending
       pendingSync.current = true;
+      return;
+    }
+
+    // Check if online
+    if (!isOnline) {
+      console.log('[AutoSync] Offline, marking as pending');
+      markPending('network');
       return;
     }
 
@@ -62,10 +71,21 @@ export function useAutoSync() {
         recordSync(bookmarkResult.uploaded, 0);
         console.log('[AutoSync] Completed, uploaded:', bookmarkResult.uploaded);
       } else {
+        // Determine failure reason for debugging
+        let reason: PendingReason = 'unknown';
+        if (bookmarkResult.error?.includes('Not authenticated')) {
+          reason = 'auth';
+        } else if (!navigator.onLine) {
+          reason = 'network';
+        } else {
+          reason = 'partial';
+        }
+        markSyncFailed(reason);
         console.error('[AutoSync] Failed:', bookmarkResult.error);
       }
     } catch (error) {
       console.error('[AutoSync] Error:', error);
+      markSyncFailed('unknown');
     } finally {
       isSyncing.current = false;
       
@@ -75,10 +95,13 @@ export function useAutoSync() {
         debounceTimer.current = setTimeout(performSync, DEBOUNCE_MS);
       }
     }
-  }, [user, isEnabled]);
+  }, [user, isEnabled, isOnline]);
 
   const scheduleSync = useCallback(() => {
     if (!user || !isEnabled) return;
+    
+    // Mark as pending immediately when changes detected
+    markPending('unknown');
     
     // Clear any existing timer
     if (debounceTimer.current) {
@@ -126,7 +149,7 @@ export function useAutoSync() {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('bookmarks-changed', handleStorageChange as EventListener);
       if (debounceTimer.current) {
-      clearTimeout(debounceTimer.current);
+        clearTimeout(debounceTimer.current);
       }
       clearTimeout(initialSyncTimer);
     };
