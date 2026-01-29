@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Zap, ChevronRight } from 'lucide-react';
+import { Zap, ChevronRight, RefreshCw } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { useShortcuts } from '@/hooks/useShortcuts';
 import { useSheetBackHandler } from '@/hooks/useSheetBackHandler';
 import { ShortcutActionSheet } from '@/components/ShortcutActionSheet';
@@ -113,6 +114,7 @@ export function ShortcutsList({ isOpen, onClose, onCreateReminder }: ShortcutsLi
   const { shortcuts, deleteShortcut, updateShortcut, incrementUsage, syncWithHomeScreen } = useShortcuts();
   const [selectedShortcut, setSelectedShortcut] = useState<ShortcutData | null>(null);
   const [editingShortcut, setEditingShortcut] = useState<ShortcutData | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
   
   // Register with back handler
   useSheetBackHandler('shortcuts-list-sheet', isOpen, onClose);
@@ -123,6 +125,17 @@ export function ShortcutsList({ isOpen, onClose, onCreateReminder }: ShortcutsLi
       syncWithHomeScreen();
     }
   }, [isOpen, syncWithHomeScreen]);
+  
+  // Manual refresh handler
+  const handleManualRefresh = useCallback(async () => {
+    setIsSyncing(true);
+    try {
+      await syncWithHomeScreen();
+    } finally {
+      // Brief delay to show animation
+      setTimeout(() => setIsSyncing(false), 500);
+    }
+  }, [syncWithHomeScreen]);
   
   // Sort shortcuts by usage count (descending)
   const sortedShortcuts = useMemo(() => {
@@ -201,8 +214,17 @@ export function ShortcutsList({ isOpen, onClose, onCreateReminder }: ShortcutsLi
     <>
       <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
         <SheetContent side="bottom" className="h-[85vh] p-0 flex flex-col">
-          <SheetHeader className="p-4 pb-2 border-b">
+          <SheetHeader className="p-4 pb-2 border-b flex flex-row items-center justify-between">
             <SheetTitle className="text-start">{t('shortcuts.title')}</SheetTitle>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleManualRefresh}
+              disabled={isSyncing}
+              className="h-8 w-8"
+            >
+              <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
+            </Button>
           </SheetHeader>
           
           {sortedShortcuts.length === 0 ? (
