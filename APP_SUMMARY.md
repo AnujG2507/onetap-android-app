@@ -99,28 +99,59 @@ cloud_bookmarks (
 ### Design Principles
 1. **Local sovereignty**: Device intent is never overridden
 2. **Additive-only**: Cloud never deletes local data
-3. **Idempotent uploads**: `onConflict: 'user_id,entity_id'`
-4. **No background workers**: Sync triggers on user actions only
+3. **Calm sync**: Intentional, not reactive—users never feel watched
+4. **Runtime enforcement**: Philosophy enforced by guards, not convention
+
+### Sync Triggers (Exhaustive List)
+| Trigger | Condition | Frequency |
+|---------|-----------|-----------|
+| **Manual** | User presses "Sync Now" | Unlimited |
+| **Daily auto** | App foregrounded + auto-sync enabled + >24h since last sync | Once per day |
+| **Recovery** | User explicitly uses recovery tools | On demand |
+
+**Explicitly forbidden**: Sync on CRUD, debounced changes, background timers, polling, network reconnect.
+
+### Runtime Guards (`syncGuard.ts`)
+
+All sync operations route through guarded entry points that enforce timing and intent:
+
+```typescript
+// Primary entry point - validates before executing
+guardedSync(trigger: 'manual' | 'daily_auto')
+
+// Recovery tools only
+guardedUpload()   // recovery_upload trigger
+guardedDownload() // recovery_download trigger
+```
+
+**Guard validations:**
+- Concurrent sync blocked (only one sync at a time)
+- Rapid calls detected (effect loops trigger violation)
+- Daily auto-sync limited to once per 24h per session
+- Unknown triggers rejected
+
+**Failure behavior:**
+- **Development**: `SyncGuardViolation` thrown immediately—makes regressions impossible to ignore
+- **Production**: Warning logged, sync safely no-ops, app continues functioning
 
 ### Sync Flow
 ```
-Local Change Detected
+User Action (Sync Now) or Foreground (daily)
     ↓
-Mark hasPendingChanges = true
-    ↓
-Debounce 3s (min 30s interval)
+validateSyncAttempt(trigger)
+    ↓ [blocked?]
+    └── Return { blocked: true, reason }
+    ↓ [allowed]
+markSyncStarted(trigger)
     ↓
 Upload (upsert by entity_id)
     ↓
 Download (skip existing IDs)
     ↓
-Mark synced + update timestamp
+recordSync(uploaded, downloaded)
+    ↓
+markSyncCompleted(trigger, success)
 ```
-
-### Retry Triggers
-- **Foreground return**: `visibilitychange` event
-- **Network reconnect**: Online event after offline
-- No polling, no timers, no manual retry buttons
 
 ### Conflict Resolution
 | Scenario | Behavior |
@@ -135,10 +166,10 @@ Mark synced + update timestamp
 ## Key Files
 
 ### Sync Logic
-- `src/lib/cloudSync.ts` - Upload/download operations
-- `src/lib/syncStatusManager.ts` - State tracking
-- `src/hooks/useAutoSync.ts` - Orchestration + debounce
-- `src/hooks/useSyncStatus.ts` - Retry on foreground/reconnect
+- `src/lib/syncGuard.ts` - Runtime guards enforcing sync philosophy
+- `src/lib/cloudSync.ts` - Guarded sync entry points + upload/download
+- `src/lib/syncStatusManager.ts` - Timing state (lastSyncAt, pending)
+- `src/hooks/useAutoSync.ts` - Daily foreground sync orchestration
 
 ### Data Management
 - `src/lib/savedLinksManager.ts` - Bookmark CRUD
