@@ -60,10 +60,23 @@
             android:launchMode="singleTask"
             android:exported="true">
             
+            <!-- Static shortcuts (shown on app icon long-press) -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+            
             <!-- Main launcher intent -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            
+            <!-- Deep link for manage-shortcuts static shortcut -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="onetap" android:host="manage-shortcuts" />
             </intent-filter>
 
             <!-- Share Sheet: Handle shared text (URLs, etc.) -->

@@ -46,6 +46,14 @@ export function useDeepLink() {
       lastDeepLinkUrl = url;
       lastDeepLinkTime = new Date();
 
+      // Handle manage-shortcuts deep link
+      if (url === 'onetap://manage-shortcuts' || url.startsWith('onetap://manage-shortcuts')) {
+        console.log('[DeepLink] Manage shortcuts deep link detected');
+        // Dispatch custom event for Index.tsx to handle
+        window.dispatchEvent(new CustomEvent('onetap:manage-shortcuts'));
+        return;
+      }
+
       // Only handle OAuth callbacks
       if (!isOAuthCallback(url)) {
         console.log('[DeepLink] Not an auth callback, ignoring');
