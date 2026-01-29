@@ -190,14 +190,38 @@ export function useShortcuts() {
     saveShortcuts(updated);
   }, [shortcuts, saveShortcuts]);
 
-  const updateShortcut = useCallback((
+  const updateShortcut = useCallback(async (
     id: string,
     updates: Partial<Pick<ShortcutData, 'name' | 'icon' | 'quickMessages' | 'phoneNumber' | 'resumeEnabled'>>
   ) => {
+    // Update localStorage first
     const updated = shortcuts.map(s => 
       s.id === id ? { ...s, ...updates } : s
     );
     saveShortcuts(updated);
+
+    // Update home screen shortcut if name or icon changed (native only)
+    if (Capacitor.isNativePlatform() && (updates.name || updates.icon)) {
+      try {
+        const shortcut = updated.find(s => s.id === id);
+        if (shortcut) {
+          const result = await ShortcutPlugin.updatePinnedShortcut({
+            id,
+            label: shortcut.name,
+            iconEmoji: shortcut.icon.type === 'emoji' ? shortcut.icon.value : undefined,
+            iconText: shortcut.icon.type === 'text' ? shortcut.icon.value : undefined,
+            iconData: shortcut.icon.type === 'thumbnail' ? shortcut.icon.value : undefined,
+          });
+          if (result.success) {
+            console.log('[useShortcuts] Updated pinned shortcut on home screen:', id);
+          } else {
+            console.warn('[useShortcuts] Failed to update pinned shortcut:', result.error);
+          }
+        }
+      } catch (error) {
+        console.warn('[useShortcuts] Error updating pinned shortcut:', error);
+      }
+    }
   }, [shortcuts, saveShortcuts]);
 
   const getShortcut = useCallback((id: string): ShortcutData | undefined => {

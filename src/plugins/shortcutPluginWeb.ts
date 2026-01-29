@@ -449,4 +449,16 @@ export class ShortcutPluginWeb implements ShortcutPluginInterface {
     // No-op on web - shortcuts don't exist on home screen
     return { success: true };
   }
+
+  async updatePinnedShortcut(options: {
+    id: string;
+    label: string;
+    iconEmoji?: string;
+    iconText?: string;
+    iconData?: string;
+  }): Promise<{ success: boolean; error?: string }> {
+    console.log('[ShortcutPluginWeb] updatePinnedShortcut called (web fallback)', options.id, options.label);
+    // No-op on web - shortcuts don't exist on home screen
+    return { success: true };
+  }
 }

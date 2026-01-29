@@ -83,17 +83,10 @@ export function ShortcutEditSheet({
       resumeEnabled: shortcut.fileType === 'pdf' ? resumeEnabled : undefined,
     });
 
-    // Show toast with re-add prompt if icon/name changed
-    if (hasIconOrNameChanged && Capacitor.isNativePlatform()) {
-      toast({
-        title: t('shortcutEdit.saved'),
-        description: t('shortcutEdit.reAddHint'),
-      });
-    } else {
-      toast({
-        title: t('shortcutEdit.saved'),
-      });
-    }
+    // Show toast - home screen updates automatically now
+    toast({
+      title: t('shortcutEdit.saved'),
+    });
 
     onClose();
   }, [shortcut, name, icon, quickMessages, resumeEnabled, hasIconOrNameChanged, onSave, onClose, toast, t]);

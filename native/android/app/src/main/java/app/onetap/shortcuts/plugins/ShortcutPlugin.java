@@ -2940,7 +2940,129 @@ public class ShortcutPlugin extends Plugin {
             JSObject result = new JSObject();
             result.put("success", false);
             result.put("error", e.getMessage());
+        call.resolve(result);
+        }
+    }
+
+    /**
+     * Update an existing pinned shortcut in-place on the home screen.
+     * Uses ShortcutManager.updateShortcuts() which changes the label and icon
+     * without affecting the shortcut's position on the launcher.
+     */
+    @PluginMethod
+    public void updatePinnedShortcut(PluginCall call) {
+        String shortcutId = call.getString("id");
+        String label = call.getString("label");
+        android.util.Log.d("ShortcutPlugin", "updatePinnedShortcut called for id: " + shortcutId + ", label: " + label);
+
+        if (shortcutId == null || shortcutId.isEmpty()) {
+            JSObject result = new JSObject();
+            result.put("success", false);
+            result.put("error", "Shortcut ID is required");
+            call.resolve(result);
+            return;
+        }
+
+        if (label == null || label.isEmpty()) {
+            JSObject result = new JSObject();
+            result.put("success", false);
+            result.put("error", "Label is required");
+            call.resolve(result);
+            return;
+        }
+
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            // ShortcutManager not available before Android 8.0
+            JSObject result = new JSObject();
+            result.put("success", false);
+            result.put("error", "Android 8.0+ required");
+            call.resolve(result);
+            return;
+        }
+
+        try {
+            Context context = getContext();
+            if (context == null) {
+                JSObject result = new JSObject();
+                result.put("success", false);
+                result.put("error", "Context is null");
+                call.resolve(result);
+                return;
+            }
+
+            ShortcutManager manager = context.getSystemService(ShortcutManager.class);
+            if (manager == null) {
+                JSObject result = new JSObject();
+                result.put("success", false);
+                result.put("error", "ShortcutManager not available");
+                call.resolve(result);
+                return;
+            }
+
+            // Create icon from params (using same priority as createIcon but with direct params)
+            Icon icon = createIconForUpdate(call);
+
+            // Build updated ShortcutInfo with same ID
+            ShortcutInfo.Builder builder = new ShortcutInfo.Builder(context, shortcutId)
+                .setShortLabel(label)
+                .setLongLabel(label);
+            
+            if (icon != null) {
+                builder.setIcon(icon);
+            }
+
+            ShortcutInfo updatedInfo = builder.build();
+
+            // Update in-place (preserves position on home screen)
+            List<ShortcutInfo> shortcutsToUpdate = new ArrayList<>();
+            shortcutsToUpdate.add(updatedInfo);
+            
+            boolean updated = manager.updateShortcuts(shortcutsToUpdate);
+            
+            android.util.Log.d("ShortcutPlugin", "Updated pinned shortcut: " + shortcutId + ", success: " + updated);
+
+            JSObject result = new JSObject();
+            result.put("success", updated);
+            call.resolve(result);
+        } catch (Exception e) {
+            android.util.Log.e("ShortcutPlugin", "Error updating shortcut: " + e.getMessage());
+            JSObject result = new JSObject();
+            result.put("success", false);
+            result.put("error", e.getMessage());
             call.resolve(result);
         }
+    }
+
+    /**
+     * Create icon for updatePinnedShortcut using direct parameters.
+     * Similar to createIcon but uses specific parameter names for update.
+     */
+    private Icon createIconForUpdate(PluginCall call) {
+        // Priority 1: Base64 icon data (thumbnail)
+        String iconData = call.getString("iconData");
+        if (iconData != null && !iconData.isEmpty()) {
+            android.util.Log.d("ShortcutPlugin", "Creating update icon from base64 data");
+            Icon icon = createBitmapIcon(iconData);
+            if (icon != null) {
+                return icon;
+            }
+        }
+
+        // Priority 2: Emoji icon
+        String emoji = call.getString("iconEmoji");
+        if (emoji != null && !emoji.isEmpty()) {
+            android.util.Log.d("ShortcutPlugin", "Creating update emoji icon: " + emoji);
+            return createEmojiIcon(emoji);
+        }
+
+        // Priority 3: Text icon
+        String text = call.getString("iconText");
+        if (text != null && !text.isEmpty()) {
+            android.util.Log.d("ShortcutPlugin", "Creating update text icon: " + text);
+            return createTextIcon(text);
+        }
+
+        android.util.Log.d("ShortcutPlugin", "No icon data provided for update, using default");
+        return Icon.createWithResource(getContext(), android.R.drawable.ic_menu_add);
     }
 }

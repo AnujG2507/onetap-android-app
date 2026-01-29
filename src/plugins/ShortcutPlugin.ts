@@ -246,6 +246,16 @@ export interface ShortcutPluginInterface {
   // Disable and remove a pinned shortcut from the home screen
   // Called when deleting a shortcut from the app
   disablePinnedShortcut(options: { id: string }): Promise<{ success: boolean; error?: string }>;
+
+  // Update an existing pinned shortcut in-place on the home screen
+  // Changes label and/or icon without affecting position
+  updatePinnedShortcut(options: {
+    id: string;
+    label: string;
+    iconEmoji?: string;
+    iconText?: string;
+    iconData?: string;
+  }): Promise<{ success: boolean; error?: string }>;
 }
 
 // This plugin bridges to native Android code
