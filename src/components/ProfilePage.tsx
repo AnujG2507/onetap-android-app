@@ -7,6 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { UsageInsights } from '@/components/UsageInsights';
 import { TutorialCoachMarks } from '@/components/TutorialCoachMarks';
+import { SyncStatusIndicator } from '@/components/SyncStatusIndicator';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -361,17 +362,17 @@ export function ProfilePage() {
               <Clock className="w-4 h-4" />
               {t('profile.syncStatus')}
             </CardTitle>
-            {autoSyncEnabled ? (
-              <span className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+            <div className="flex items-center gap-2">
+              {/* Subtle sync status indicator */}
+              <SyncStatusIndicator />
+              {autoSyncEnabled ? (
+                <span className="text-xs text-green-600 dark:text-green-400">
+                  {t('profile.autoSyncOn')}
                 </span>
-                {t('profile.autoSyncOn')}
-              </span>
-            ) : (
-              <span className="text-xs text-muted-foreground">{t('profile.autoSyncOff')}</span>
-            )}
+              ) : (
+                <span className="text-xs text-muted-foreground">{t('profile.autoSyncOff')}</span>
+              )}
+            </div>
           </div>
           <CardDescription>
             {formatRelativeTime(syncStatus.lastSyncAt)}

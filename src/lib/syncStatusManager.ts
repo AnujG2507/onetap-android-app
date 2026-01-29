@@ -1,22 +1,44 @@
 const SYNC_STATUS_KEY = 'sync_status';
 
+export type SyncState = 'synced' | 'pending' | 'syncing' | 'offline' | 'disabled';
+
+// Internal pending reasons for debugging (not exposed in UI)
+export type PendingReason = 'network' | 'auth' | 'partial' | 'unknown';
+
 export interface SyncStatus {
   lastSyncAt: number | null;
   lastUploadCount: number;
   lastDownloadCount: number;
+  // P2 additions
+  hasPendingChanges: boolean;
+  pendingReason?: PendingReason;
+  lastFailedAt?: number;
 }
 
 const defaultStatus: SyncStatus = {
   lastSyncAt: null,
   lastUploadCount: 0,
   lastDownloadCount: 0,
+  hasPendingChanges: false,
 };
+
+// Event for sync status changes
+const SYNC_STATUS_CHANGE_EVENT = 'sync-status-changed';
+
+function notifyStatusChange(): void {
+  window.dispatchEvent(new CustomEvent(SYNC_STATUS_CHANGE_EVENT));
+}
+
+export function onSyncStatusChange(callback: () => void): () => void {
+  window.addEventListener(SYNC_STATUS_CHANGE_EVENT, callback);
+  return () => window.removeEventListener(SYNC_STATUS_CHANGE_EVENT, callback);
+}
 
 export function getSyncStatus(): SyncStatus {
   try {
     const stored = localStorage.getItem(SYNC_STATUS_KEY);
     if (!stored) return defaultStatus;
-    return JSON.parse(stored) as SyncStatus;
+    return { ...defaultStatus, ...JSON.parse(stored) } as SyncStatus;
   } catch {
     return defaultStatus;
   }
@@ -26,6 +48,7 @@ export function updateSyncStatus(updates: Partial<SyncStatus>): void {
   const current = getSyncStatus();
   const newStatus = { ...current, ...updates };
   localStorage.setItem(SYNC_STATUS_KEY, JSON.stringify(newStatus));
+  notifyStatusChange();
 }
 
 export function recordSync(uploaded: number, downloaded: number): void {
@@ -33,11 +56,38 @@ export function recordSync(uploaded: number, downloaded: number): void {
     lastSyncAt: Date.now(),
     lastUploadCount: uploaded,
     lastDownloadCount: downloaded,
+    hasPendingChanges: false,
+    pendingReason: undefined,
+    lastFailedAt: undefined,
+  });
+}
+
+export function markPending(reason: PendingReason = 'unknown'): void {
+  updateSyncStatus({
+    hasPendingChanges: true,
+    pendingReason: reason,
+  });
+}
+
+export function markSyncFailed(reason: PendingReason = 'unknown'): void {
+  updateSyncStatus({
+    hasPendingChanges: true,
+    pendingReason: reason,
+    lastFailedAt: Date.now(),
+  });
+}
+
+export function clearPending(): void {
+  updateSyncStatus({
+    hasPendingChanges: false,
+    pendingReason: undefined,
+    lastFailedAt: undefined,
   });
 }
 
 export function clearSyncStatus(): void {
   localStorage.removeItem(SYNC_STATUS_KEY);
+  notifyStatusChange();
 }
 
 export function formatRelativeTime(timestamp: number | null): string {
