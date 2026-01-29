@@ -55,7 +55,19 @@
     "empty": "No shortcuts yet",
     "emptyDesc": "Create shortcuts from the Access tab",
     "taps": "taps",
-    "tap": "tap"
+    "tap": "tap",
+    "searchPlaceholder": "Search shortcuts...",
+    "filterAll": "All",
+    "filterLinks": "Links",
+    "filterFiles": "Files",
+    "filterWhatsApp": "WhatsApp",
+    "filterContacts": "Contacts",
+    "sortMostUsed": "Most used",
+    "sortNewest": "Newest",
+    "sortAZ": "A-Z",
+    "searchResults": "{{count}} shortcuts",
+    "noMatch": "No shortcuts match your filter",
+    "clearFilters": "Clear filters"
   },
   "contact": {
     "call": "Call",

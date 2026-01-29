@@ -1,15 +1,17 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Zap, ChevronRight, RefreshCw } from 'lucide-react';
+import { Zap, ChevronRight, RefreshCw, Search, X, Link2, FileIcon, MessageCircle, Phone, BarChart3, Clock, ArrowDownAZ } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useShortcuts } from '@/hooks/useShortcuts';
 import { useSheetBackHandler } from '@/hooks/useSheetBackHandler';
 import { ShortcutActionSheet } from '@/components/ShortcutActionSheet';
@@ -22,6 +24,11 @@ interface ShortcutsListProps {
   onClose: () => void;
   onCreateReminder: (destination: ScheduledActionDestination) => void;
 }
+
+type TypeFilter = 'all' | 'link' | 'file' | 'whatsapp' | 'contact';
+type SortMode = 'usage' | 'newest' | 'alphabetical';
+
+const SORT_MODE_KEY = 'shortcuts_sort_mode';
 
 // Helper to get shortcut type label
 function getShortcutTypeLabel(shortcut: ShortcutData, t: (key: string) => string): string {
@@ -75,8 +82,6 @@ function ShortcutIcon({ shortcut }: { shortcut: ShortcutData }) {
   }
   
   if (icon.type === 'thumbnail') {
-    // For thumbnail type, the value contains the base64 data
-    // Also check shortcut.thumbnailData as fallback
     const thumbnailSrc = icon.value || shortcut.thumbnailData;
     if (thumbnailSrc) {
       return (
@@ -109,12 +114,99 @@ function ShortcutIcon({ shortcut }: { shortcut: ShortcutData }) {
   );
 }
 
+// Type filter chip component
+function TypeFilterChip({ 
+  value, 
+  label, 
+  icon, 
+  isActive, 
+  count,
+  onClick 
+}: { 
+  value: TypeFilter; 
+  label: string; 
+  icon: React.ReactNode; 
+  isActive: boolean;
+  count: number;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`
+        flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors
+        ${isActive 
+          ? 'bg-primary text-primary-foreground' 
+          : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+        }
+      `}
+    >
+      {icon}
+      <span>{label}</span>
+      {count > 0 && (
+        <span className={`text-xs ${isActive ? 'text-primary-foreground/70' : 'text-muted-foreground/70'}`}>
+          ({count})
+        </span>
+      )}
+    </button>
+  );
+}
+
+// Sort button component
+function SortButton({ 
+  mode, 
+  currentMode, 
+  icon, 
+  tooltip, 
+  onClick 
+}: { 
+  mode: SortMode; 
+  currentMode: SortMode; 
+  icon: React.ReactNode; 
+  tooltip: string;
+  onClick: () => void;
+}) {
+  const isActive = mode === currentMode;
+  
+  return (
+    <TooltipProvider delayDuration={0}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            onClick={onClick}
+            className={`
+              p-2 rounded-lg transition-colors
+              ${isActive 
+                ? 'bg-primary text-primary-foreground' 
+                : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+              }
+            `}
+          >
+            {icon}
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">
+          <p>{tooltip}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
 export function ShortcutsList({ isOpen, onClose, onCreateReminder }: ShortcutsListProps) {
   const { t } = useTranslation();
   const { shortcuts, deleteShortcut, updateShortcut, incrementUsage, syncWithHomeScreen } = useShortcuts();
   const [selectedShortcut, setSelectedShortcut] = useState<ShortcutData | null>(null);
   const [editingShortcut, setEditingShortcut] = useState<ShortcutData | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  
+  // Search and filter state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
+  const [sortMode, setSortMode] = useState<SortMode>(() => {
+    const saved = localStorage.getItem(SORT_MODE_KEY);
+    return (saved as SortMode) || 'usage';
+  });
   
   // Register with back handler
   useSheetBackHandler('shortcuts-list-sheet', isOpen, onClose);
@@ -126,21 +218,89 @@ export function ShortcutsList({ isOpen, onClose, onCreateReminder }: ShortcutsLi
     }
   }, [isOpen, syncWithHomeScreen]);
   
+  // Persist sort mode
+  useEffect(() => {
+    localStorage.setItem(SORT_MODE_KEY, sortMode);
+  }, [sortMode]);
+  
+  // Reset filters when sheet closes
+  useEffect(() => {
+    if (!isOpen) {
+      setSearchQuery('');
+      setTypeFilter('all');
+    }
+  }, [isOpen]);
+  
+  // Calculate counts for each filter type
+  const typeCounts = useMemo(() => {
+    return {
+      all: shortcuts.length,
+      link: shortcuts.filter(s => s.type === 'link').length,
+      file: shortcuts.filter(s => s.type === 'file').length,
+      whatsapp: shortcuts.filter(s => s.type === 'message' && s.messageApp === 'whatsapp').length,
+      contact: shortcuts.filter(s => s.type === 'contact').length,
+    };
+  }, [shortcuts]);
+  
+  // Filter and sort shortcuts
+  const filteredShortcuts = useMemo(() => {
+    let result = [...shortcuts];
+    
+    // Type filter
+    if (typeFilter !== 'all') {
+      result = result.filter(s => {
+        if (typeFilter === 'whatsapp') return s.type === 'message' && s.messageApp === 'whatsapp';
+        if (typeFilter === 'contact') return s.type === 'contact';
+        if (typeFilter === 'link') return s.type === 'link';
+        if (typeFilter === 'file') return s.type === 'file';
+        return true;
+      });
+    }
+    
+    // Search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(s => 
+        s.name.toLowerCase().includes(query) ||
+        s.contentUri?.toLowerCase().includes(query) ||
+        s.phoneNumber?.includes(query)
+      );
+    }
+    
+    // Sort
+    result.sort((a, b) => {
+      switch (sortMode) {
+        case 'usage': 
+          return (b.usageCount || 0) - (a.usageCount || 0);
+        case 'newest': 
+          return b.createdAt - a.createdAt;
+        case 'alphabetical': 
+          return a.name.localeCompare(b.name);
+        default:
+          return 0;
+      }
+    });
+    
+    return result;
+  }, [shortcuts, typeFilter, searchQuery, sortMode]);
+  
+  // Check if filters are active
+  const hasActiveFilters = searchQuery.trim() !== '' || typeFilter !== 'all';
+  
   // Manual refresh handler
   const handleManualRefresh = useCallback(async () => {
     setIsSyncing(true);
     try {
       await syncWithHomeScreen();
     } finally {
-      // Brief delay to show animation
       setTimeout(() => setIsSyncing(false), 500);
     }
   }, [syncWithHomeScreen]);
   
-  // Sort shortcuts by usage count (descending)
-  const sortedShortcuts = useMemo(() => {
-    return [...shortcuts].sort((a, b) => (b.usageCount || 0) - (a.usageCount || 0));
-  }, [shortcuts]);
+  const handleClearFilters = useCallback(() => {
+    setSearchQuery('');
+    setTypeFilter('all');
+  }, []);
   
   const handleShortcutTap = useCallback((shortcut: ShortcutData) => {
     setSelectedShortcut(shortcut);
@@ -152,7 +312,6 @@ export function ShortcutsList({ isOpen, onClose, onCreateReminder }: ShortcutsLi
   
   const handleEdit = useCallback((shortcut: ShortcutData) => {
     setSelectedShortcut(null);
-    // Small delay to allow action sheet to close
     setTimeout(() => {
       setEditingShortcut(shortcut);
     }, 150);
@@ -167,7 +326,6 @@ export function ShortcutsList({ isOpen, onClose, onCreateReminder }: ShortcutsLi
     setSelectedShortcut(null);
     onClose();
     
-    // Build destination from shortcut
     let destination: ScheduledActionDestination;
     if (shortcut.type === 'contact' || shortcut.type === 'message') {
       destination = { 
@@ -194,7 +352,6 @@ export function ShortcutsList({ isOpen, onClose, onCreateReminder }: ShortcutsLi
     incrementUsage(shortcut.id);
     setSelectedShortcut(null);
     
-    // Open the content based on type
     if (shortcut.type === 'link') {
       window.open(shortcut.contentUri, '_blank');
     } else if (shortcut.type === 'contact' && shortcut.phoneNumber) {
@@ -203,12 +360,19 @@ export function ShortcutsList({ isOpen, onClose, onCreateReminder }: ShortcutsLi
       const phone = shortcut.phoneNumber.replace(/\D/g, '');
       window.open(`https://wa.me/${phone}`, '_blank');
     }
-    // File types would need native handling
   }, [incrementUsage]);
   
   const handleSaveEdit = useCallback(async (id: string, updates: Parameters<typeof updateShortcut>[1]) => {
     return await updateShortcut(id, updates);
   }, [updateShortcut]);
+  
+  const TYPE_FILTERS: Array<{ value: TypeFilter; labelKey: string; icon: React.ReactNode }> = [
+    { value: 'all', labelKey: 'shortcuts.filterAll', icon: null },
+    { value: 'link', labelKey: 'shortcuts.filterLinks', icon: <Link2 className="h-3.5 w-3.5" /> },
+    { value: 'file', labelKey: 'shortcuts.filterFiles', icon: <FileIcon className="h-3.5 w-3.5" /> },
+    { value: 'whatsapp', labelKey: 'shortcuts.filterWhatsApp', icon: <MessageCircle className="h-3.5 w-3.5" /> },
+    { value: 'contact', labelKey: 'shortcuts.filterContacts', icon: <Phone className="h-3.5 w-3.5" /> },
+  ];
   
   return (
     <>
@@ -229,8 +393,84 @@ export function ShortcutsList({ isOpen, onClose, onCreateReminder }: ShortcutsLi
             </div>
           </SheetHeader>
           
-          {sortedShortcuts.length === 0 ? (
-            // Empty state
+          {/* Search and Filter Controls */}
+          {shortcuts.length > 0 && (
+            <div className="px-4 py-3 space-y-3 border-b">
+              {/* Search Input */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder={t('shortcuts.searchPlaceholder')}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9 pr-9"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+              
+              {/* Type Filter Chips */}
+              <ScrollArea className="w-full">
+                <div className="flex gap-2 pb-1">
+                  {TYPE_FILTERS.map(({ value, labelKey, icon }) => (
+                    <TypeFilterChip
+                      key={value}
+                      value={value}
+                      label={t(labelKey)}
+                      icon={icon}
+                      isActive={typeFilter === value}
+                      count={typeCounts[value]}
+                      onClick={() => setTypeFilter(value)}
+                    />
+                  ))}
+                </div>
+                <ScrollBar orientation="horizontal" />
+              </ScrollArea>
+              
+              {/* Sort Controls and Result Count */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1">
+                  <SortButton
+                    mode="usage"
+                    currentMode={sortMode}
+                    icon={<BarChart3 className="h-4 w-4" />}
+                    tooltip={t('shortcuts.sortMostUsed')}
+                    onClick={() => setSortMode('usage')}
+                  />
+                  <SortButton
+                    mode="newest"
+                    currentMode={sortMode}
+                    icon={<Clock className="h-4 w-4" />}
+                    tooltip={t('shortcuts.sortNewest')}
+                    onClick={() => setSortMode('newest')}
+                  />
+                  <SortButton
+                    mode="alphabetical"
+                    currentMode={sortMode}
+                    icon={<ArrowDownAZ className="h-4 w-4" />}
+                    tooltip={t('shortcuts.sortAZ')}
+                    onClick={() => setSortMode('alphabetical')}
+                  />
+                </div>
+                
+                {hasActiveFilters && (
+                  <span className="text-sm text-muted-foreground">
+                    {t('shortcuts.searchResults', { count: filteredShortcuts.length })}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+          
+          {shortcuts.length === 0 ? (
+            // Global empty state - no shortcuts at all
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
               <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
                 <Zap className="h-8 w-8 text-primary" />
@@ -238,10 +478,25 @@ export function ShortcutsList({ isOpen, onClose, onCreateReminder }: ShortcutsLi
               <h3 className="text-lg font-medium mb-1">{t('shortcuts.empty')}</h3>
               <p className="text-sm text-muted-foreground">{t('shortcuts.emptyDesc')}</p>
             </div>
+          ) : filteredShortcuts.length === 0 ? (
+            // No results for filter/search
+            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+              <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mb-4">
+                <Search className="h-8 w-8 text-muted-foreground" />
+              </div>
+              <h3 className="text-lg font-medium mb-1">{t('shortcuts.noMatch')}</h3>
+              <Button
+                variant="link"
+                onClick={handleClearFilters}
+                className="text-primary"
+              >
+                {t('shortcuts.clearFilters')}
+              </Button>
+            </div>
           ) : (
             <ScrollArea className="flex-1">
               <div className="p-2">
-                {sortedShortcuts.map((shortcut) => {
+                {filteredShortcuts.map((shortcut) => {
                   const typeLabel = getShortcutTypeLabel(shortcut, t);
                   const target = getShortcutTarget(shortcut);
                   const usageCount = shortcut.usageCount || 0;
