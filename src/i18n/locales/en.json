@@ -67,7 +67,8 @@
     "sortAZ": "A-Z",
     "searchResults": "{{count}} shortcuts",
     "noMatch": "No shortcuts match your filter",
-    "clearFilters": "Clear filters"
+    "clearFilters": "Clear filters",
+    "syncTooltip": "Sync with home screen"
   },
   "contact": {
     "call": "Call",

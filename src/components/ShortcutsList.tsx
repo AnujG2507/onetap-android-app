@@ -381,15 +381,24 @@ export function ShortcutsList({ isOpen, onClose, onCreateReminder }: ShortcutsLi
           <SheetHeader className="p-4 pb-2 border-b flex flex-row items-center justify-between">
             <SheetTitle className="text-start">{t('shortcuts.title')}</SheetTitle>
             <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleManualRefresh}
-                disabled={isSyncing}
-                className="h-8 w-8"
-              >
-                <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
-              </Button>
+              <TooltipProvider delayDuration={0}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleManualRefresh}
+                      disabled={isSyncing}
+                      className="h-8 w-8"
+                    >
+                      <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <p>{t('shortcuts.syncTooltip')}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
           </SheetHeader>
           
