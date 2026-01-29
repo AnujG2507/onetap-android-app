@@ -433,6 +433,12 @@ export interface TrashedLink extends SavedLink {
   deletedAt: number;
   /** Retention period in days that was active when the item was trashed */
   retentionDays: number;
+  /** 
+   * Whether this trash item can be restored.
+   * Set to false for items downloaded from cloud that may have ID conflicts.
+   * Undefined or true means restorable.
+   */
+  restorable?: boolean;
 }
 
 /**
@@ -488,6 +494,7 @@ function removeFromTrash(id: string): void {
 
 /**
  * Restore a link from trash back to main storage
+ * Returns null if item not found or not restorable
  */
 export function restoreFromTrash(id: string): SavedLink | null {
   const trashLinks = getTrashLinks();
@@ -495,13 +502,32 @@ export function restoreFromTrash(id: string): SavedLink | null {
   
   if (!trashedLink) return null;
   
-  // Remove deletedAt before restoring
-  const { deletedAt, ...restoredLink } = trashedLink;
+  // Check if item is marked as non-restorable
+  if (trashedLink.restorable === false) {
+    console.warn('[Trash] Cannot restore non-restorable item:', id);
+    return null;
+  }
+  
+  // Remove trash-specific fields before restoring
+  const { deletedAt, retentionDays, restorable, ...restoredLink } = trashedLink;
   
   // Restore to main storage
   restoreSavedLink(restoredLink);
   
   return restoredLink;
+}
+
+/**
+ * Check if a trash item is restorable
+ */
+export function isTrashItemRestorable(id: string): boolean {
+  const trashLinks = getTrashLinks();
+  const trashedLink = trashLinks.find(link => link.id === id);
+  
+  if (!trashedLink) return false;
+  
+  // restorable is true by default if undefined
+  return trashedLink.restorable !== false;
 }
 
 /**

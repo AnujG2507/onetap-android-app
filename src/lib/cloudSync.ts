@@ -4,6 +4,7 @@ import { getSavedLinks, SavedLink, getTrashLinks, TrashedLink, normalizeUrl } fr
 export interface CloudBookmark {
   id: string;
   user_id: string;
+  entity_id: string; // Canonical ID from local storage
   url: string;
   title: string | null;
   description: string | null;
@@ -16,6 +17,7 @@ export interface CloudBookmark {
 export interface CloudTrashItem {
   id: string;
   user_id: string;
+  entity_id: string; // Canonical ID from local storage
   url: string;
   title: string | null;
   description: string | null;
@@ -29,7 +31,7 @@ export interface CloudTrashItem {
 
 /**
  * Upload local bookmarks to cloud
- * Only uploads bookmarks, not shortcuts or trash
+ * Uses local ID as entity_id - local is source of truth for identity
  */
 export async function uploadBookmarksToCloud(): Promise<{ success: boolean; uploaded: number; error?: string }> {
   try {
@@ -45,6 +47,7 @@ export async function uploadBookmarksToCloud(): Promise<{ success: boolean; uplo
       const { error } = await supabase
         .from('cloud_bookmarks')
         .upsert({
+          entity_id: bookmark.id, // Local ID is canonical
           user_id: user.id,
           url: bookmark.url,
           title: bookmark.title || null,
@@ -53,12 +56,14 @@ export async function uploadBookmarksToCloud(): Promise<{ success: boolean; uplo
           favicon: null,
           created_at: new Date(bookmark.createdAt).toISOString(),
         }, {
-          onConflict: 'user_id,url',
+          onConflict: 'user_id,entity_id', // Upsert by entity_id, not URL
           ignoreDuplicates: false,
         });
 
       if (!error) {
         uploaded++;
+      } else {
+        console.warn('[CloudSync] Failed to upload bookmark:', bookmark.id, error.message);
       }
     }
 
@@ -71,6 +76,7 @@ export async function uploadBookmarksToCloud(): Promise<{ success: boolean; uplo
 
 /**
  * Upload local trash to cloud
+ * Uses local ID as entity_id - local is source of truth for identity
  */
 export async function uploadTrashToCloud(): Promise<{ success: boolean; uploaded: number; error?: string }> {
   try {
@@ -86,6 +92,7 @@ export async function uploadTrashToCloud(): Promise<{ success: boolean; uploaded
       const { error } = await supabase
         .from('cloud_trash')
         .upsert({
+          entity_id: item.id, // Local ID is canonical
           user_id: user.id,
           url: item.url,
           title: item.title || null,
@@ -95,12 +102,14 @@ export async function uploadTrashToCloud(): Promise<{ success: boolean; uploaded
           retention_days: item.retentionDays,
           original_created_at: new Date(item.createdAt).toISOString(),
         }, {
-          onConflict: 'user_id,url',
+          onConflict: 'user_id,entity_id', // Upsert by entity_id, not URL
           ignoreDuplicates: false,
         });
 
       if (!error) {
         uploaded++;
+      } else {
+        console.warn('[CloudSync] Failed to upload trash item:', item.id, error.message);
       }
     }
 
@@ -113,6 +122,7 @@ export async function uploadTrashToCloud(): Promise<{ success: boolean; uploaded
 
 /**
  * Download bookmarks from cloud to local storage
+ * Uses entity_id as local ID - never rewrites local IDs
  */
 export async function downloadBookmarksFromCloud(): Promise<{ success: boolean; downloaded: number; error?: string }> {
   try {
@@ -137,14 +147,20 @@ export async function downloadBookmarksFromCloud(): Promise<{ success: boolean; 
     // Get existing local bookmarks
     const STORAGE_KEY = 'saved_links';
     const existingLinks = getSavedLinks();
-    const existingUrls = new Set(existingLinks.map(l => normalizeUrl(l.url)));
+    
+    // Build set of existing entity_ids (local IDs)
+    const existingIds = new Set(existingLinks.map(l => l.id));
 
-    // Convert cloud bookmarks to local format and merge
+    // Convert cloud bookmarks to local format
+    // Only add items whose entity_id doesn't exist locally
     const newBookmarks: SavedLink[] = [];
     for (const cloudBookmark of cloudBookmarks) {
-      if (!existingUrls.has(normalizeUrl(cloudBookmark.url))) {
+      // Use entity_id as local ID - this is the canonical ID
+      const entityId = cloudBookmark.entity_id;
+      
+      if (!existingIds.has(entityId)) {
         newBookmarks.push({
-          id: cloudBookmark.id,
+          id: entityId, // Use entity_id, NOT cloud primary key
           url: cloudBookmark.url,
           title: cloudBookmark.title || '',
           description: cloudBookmark.description || '',
@@ -152,7 +168,7 @@ export async function downloadBookmarksFromCloud(): Promise<{ success: boolean; 
           createdAt: new Date(cloudBookmark.created_at).getTime(),
           isShortlisted: false,
         });
-        existingUrls.add(normalizeUrl(cloudBookmark.url));
+        existingIds.add(entityId);
       }
     }
 
@@ -170,6 +186,7 @@ export async function downloadBookmarksFromCloud(): Promise<{ success: boolean; 
 
 /**
  * Download trash from cloud to local storage
+ * Uses entity_id as local ID - marks non-restorable items
  */
 export async function downloadTrashFromCloud(): Promise<{ success: boolean; downloaded: number; error?: string }> {
   try {
@@ -194,14 +211,20 @@ export async function downloadTrashFromCloud(): Promise<{ success: boolean; down
     // Get existing local trash
     const TRASH_STORAGE_KEY = 'saved_links_trash';
     const existingTrash = getTrashLinks();
-    const existingTrashUrls = new Set(existingTrash.map(l => normalizeUrl(l.url)));
+    
+    // Build set of existing entity_ids (local IDs)
+    const existingIds = new Set(existingTrash.map(l => l.id));
 
-    // Convert cloud trash to local format and merge
+    // Convert cloud trash to local format
+    // Only add items whose entity_id doesn't exist locally
     const newTrashItems: TrashedLink[] = [];
     for (const cloudItem of cloudTrash) {
-      if (!existingTrashUrls.has(normalizeUrl(cloudItem.url))) {
+      // Use entity_id as local ID - this is the canonical ID
+      const entityId = cloudItem.entity_id;
+      
+      if (!existingIds.has(entityId)) {
         newTrashItems.push({
-          id: cloudItem.id,
+          id: entityId, // Use entity_id, NOT cloud primary key
           url: cloudItem.url,
           title: cloudItem.title || '',
           description: cloudItem.description || '',
@@ -210,8 +233,9 @@ export async function downloadTrashFromCloud(): Promise<{ success: boolean; down
           isShortlisted: false,
           deletedAt: new Date(cloudItem.deleted_at).getTime(),
           retentionDays: cloudItem.retention_days,
+          // Note: restorable flag will be computed when restoring
         });
-        existingTrashUrls.add(normalizeUrl(cloudItem.url));
+        existingIds.add(entityId);
       }
     }
 
@@ -231,7 +255,7 @@ export async function downloadTrashFromCloud(): Promise<{ success: boolean; down
  * Full sync: upload local then download cloud (bookmarks + trash)
  */
 export async function syncBookmarks(): Promise<{ success: boolean; uploaded: number; downloaded: number; error?: string }> {
-  // Upload bookmarks
+  // Upload bookmarks first - local is source of truth
   const uploadResult = await uploadBookmarksToCloud();
   if (!uploadResult.success) {
     return { success: false, uploaded: 0, downloaded: 0, error: uploadResult.error };
@@ -243,13 +267,13 @@ export async function syncBookmarks(): Promise<{ success: boolean; uploaded: num
     console.error('[CloudSync] Trash upload failed but continuing:', trashUploadResult.error);
   }
 
-  // Download bookmarks
+  // Download bookmarks (only adds items not in local)
   const downloadResult = await downloadBookmarksFromCloud();
   if (!downloadResult.success) {
     return { success: false, uploaded: uploadResult.uploaded, downloaded: 0, error: downloadResult.error };
   }
 
-  // Download trash
+  // Download trash (only adds items not in local)
   const trashDownloadResult = await downloadTrashFromCloud();
   if (!trashDownloadResult.success) {
     console.error('[CloudSync] Trash download failed but continuing:', trashDownloadResult.error);
