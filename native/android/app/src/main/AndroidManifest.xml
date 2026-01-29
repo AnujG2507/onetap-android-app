@@ -177,6 +177,14 @@
             android:noHistory="true"
             android:excludeFromRecents="true" />
 
+        <!-- Contact Proxy Activity - routes contact shortcuts to check permission before calling -->
+        <activity
+            android:name=".ContactProxyActivity"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:exported="false"
+            android:noHistory="true"
+            android:excludeFromRecents="true" />
+
         <!-- Scheduled Actions: Alarm Receiver -->
         <receiver
             android:name=".ScheduledActionReceiver"

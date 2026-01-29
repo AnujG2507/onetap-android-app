@@ -57,6 +57,7 @@ import app.onetap.shortcuts.DesktopWebViewActivity;
 import app.onetap.shortcuts.NativeVideoPlayerActivity;
 import app.onetap.shortcuts.PDFProxyActivity;
 import app.onetap.shortcuts.VideoProxyActivity;
+import app.onetap.shortcuts.ContactProxyActivity;
 import app.onetap.shortcuts.ScheduledActionReceiver;
 import app.onetap.shortcuts.NotificationHelper;
 import app.onetap.shortcuts.NotificationClickActivity;
@@ -252,7 +253,7 @@ public class ShortcutPlugin extends Plugin {
                     return;
                 }
 
-                // Create intent - use proxy activities for videos and PDFs
+                // Create intent - use proxy activities for videos, PDFs, and contacts
                 final Uri finalDataUri = dataUri;
                 Intent intent;
                 if (finalUseVideoProxy != null && finalUseVideoProxy) {
@@ -273,6 +274,16 @@ public class ShortcutPlugin extends Plugin {
                     intent.putExtra("resume_enabled", finalResumeEnabled != null && finalResumeEnabled);
                     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                     intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                } else if ("app.onetap.CALL_CONTACT".equals(finalIntentAction)) {
+                    // Contact shortcuts - route through ContactProxyActivity for permission checking
+                    android.util.Log.d("ShortcutPlugin", "Using ContactProxyActivity for contact shortcut");
+                    intent = new Intent(context, ContactProxyActivity.class);
+                    intent.setAction("app.onetap.CALL_CONTACT");
+                    intent.setData(finalDataUri);
+                    // Extract phone number from tel: URI and pass as extra
+                    String phoneNumber = finalDataUri.getSchemeSpecificPart();
+                    intent.putExtra(ContactProxyActivity.EXTRA_PHONE_NUMBER, phoneNumber);
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 } else {
                     intent = createCompatibleIntent(context, finalIntentAction, finalDataUri, finalIntentType);
                 }
