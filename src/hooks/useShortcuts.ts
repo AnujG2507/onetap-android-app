@@ -200,17 +200,29 @@ export function useShortcuts() {
     );
     saveShortcuts(updated);
 
-    // Update home screen shortcut if name or icon changed (native only)
-    if (Capacitor.isNativePlatform() && (updates.name || updates.icon)) {
+    // Update home screen shortcut on native platform
+    // This handles: name, icon, quick messages, phone number, resume enabled
+    if (Capacitor.isNativePlatform()) {
       try {
         const shortcut = updated.find(s => s.id === id);
         if (shortcut) {
+          // Always call native update - it will rebuild the intent if needed
           const result = await ShortcutPlugin.updatePinnedShortcut({
             id,
             label: shortcut.name,
+            // Icon data
             iconEmoji: shortcut.icon.type === 'emoji' ? shortcut.icon.value : undefined,
             iconText: shortcut.icon.type === 'text' ? shortcut.icon.value : undefined,
             iconData: shortcut.icon.type === 'thumbnail' ? shortcut.icon.value : undefined,
+            // Intent-affecting data for all shortcut types
+            shortcutType: shortcut.type,
+            phoneNumber: shortcut.phoneNumber,
+            quickMessages: shortcut.quickMessages,
+            messageApp: shortcut.messageApp,
+            resumeEnabled: shortcut.resumeEnabled,
+            contentUri: shortcut.contentUri,
+            mimeType: shortcut.mimeType,
+            contactName: shortcut.contactName || shortcut.name,
           });
           if (result.success) {
             console.log('[useShortcuts] Updated pinned shortcut on home screen:', id);
