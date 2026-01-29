@@ -535,10 +535,10 @@ export function ShortcutsList({ isOpen, onClose, onCreateReminder }: ShortcutsLi
                               {usageCount} {usageCount === 1 ? t('shortcuts.tap') : t('shortcuts.taps')}
                             </Badge>
                           </div>
-                          <span className="text-xs text-muted-foreground truncate block max-w-full">
+                          <HorizontalScrollText className="text-xs text-muted-foreground">
                             {typeLabel}
                             {target && ` · ${target}`}
-                          </span>
+                          </HorizontalScrollText>
                         </div>
                         
                         <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 flex-none rtl:rotate-180" />
