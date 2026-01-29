@@ -65,6 +65,7 @@ export function BookmarkItem({
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false);
   const [isUrlExpanded, setIsUrlExpanded] = useState(false);
+  const [isTitleExpanded, setIsTitleExpanded] = useState(false);
   
   // Swipe state
   const [swipeX, setSwipeX] = useState(0);
@@ -320,7 +321,17 @@ export function BookmarkItem({
           
           {/* Content */}
           <div className="flex-1 min-w-0 overflow-hidden">
-            <p className="font-medium text-foreground truncate">
+            <p 
+              className={cn(
+                "font-medium text-foreground cursor-pointer",
+                isTitleExpanded ? "break-all" : "truncate"
+              )}
+              onClick={(e) => {
+                if (isSelectionMode) return;
+                e.stopPropagation();
+                setIsTitleExpanded(!isTitleExpanded);
+              }}
+            >
               {link.title}
             </p>
             <div 
