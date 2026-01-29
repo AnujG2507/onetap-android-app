@@ -2876,4 +2876,71 @@ public class ShortcutPlugin extends Plugin {
             call.resolve(result);
         }
     }
+
+    /**
+     * Disable and remove a pinned shortcut from the home screen.
+     * Uses ShortcutManager.disableShortcuts() which removes the shortcut
+     * from the launcher and prevents it from being pinned again.
+     */
+    @PluginMethod
+    public void disablePinnedShortcut(PluginCall call) {
+        String shortcutId = call.getString("id");
+        android.util.Log.d("ShortcutPlugin", "disablePinnedShortcut called for id: " + shortcutId);
+
+        if (shortcutId == null || shortcutId.isEmpty()) {
+            JSObject result = new JSObject();
+            result.put("success", false);
+            result.put("error", "Shortcut ID is required");
+            call.resolve(result);
+            return;
+        }
+
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            // ShortcutManager not available before Android 8.0
+            JSObject result = new JSObject();
+            result.put("success", false);
+            result.put("error", "Android 8.0+ required");
+            call.resolve(result);
+            return;
+        }
+
+        try {
+            Context context = getContext();
+            if (context == null) {
+                JSObject result = new JSObject();
+                result.put("success", false);
+                result.put("error", "Context is null");
+                call.resolve(result);
+                return;
+            }
+
+            ShortcutManager manager = context.getSystemService(ShortcutManager.class);
+            if (manager == null) {
+                JSObject result = new JSObject();
+                result.put("success", false);
+                result.put("error", "ShortcutManager not available");
+                call.resolve(result);
+                return;
+            }
+
+            // Disable the shortcut - this removes it from the home screen
+            // The message is shown if user tries to use a disabled shortcut
+            List<String> shortcutIds = new ArrayList<>();
+            shortcutIds.add(shortcutId);
+            
+            manager.disableShortcuts(shortcutIds, "This shortcut has been deleted");
+            
+            android.util.Log.d("ShortcutPlugin", "Disabled pinned shortcut: " + shortcutId);
+
+            JSObject result = new JSObject();
+            result.put("success", true);
+            call.resolve(result);
+        } catch (Exception e) {
+            android.util.Log.e("ShortcutPlugin", "Error disabling shortcut: " + e.getMessage());
+            JSObject result = new JSObject();
+            result.put("success", false);
+            result.put("error", e.getMessage());
+            call.resolve(result);
+        }
+    }
 }

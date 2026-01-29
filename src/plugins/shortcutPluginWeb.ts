@@ -443,4 +443,10 @@ export class ShortcutPluginWeb implements ShortcutPluginInterface {
     // The sync logic will skip filtering when this returns empty
     return { ids: [] };
   }
+
+  async disablePinnedShortcut(options: { id: string }): Promise<{ success: boolean; error?: string }> {
+    console.log('[ShortcutPluginWeb] disablePinnedShortcut called (web fallback)', options.id);
+    // No-op on web - shortcuts don't exist on home screen
+    return { success: true };
+  }
 }

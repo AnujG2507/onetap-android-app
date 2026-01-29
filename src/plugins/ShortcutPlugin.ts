@@ -242,6 +242,10 @@ export interface ShortcutPluginInterface {
   // Get IDs of shortcuts currently pinned on the home screen
   // Used to sync app storage with actual home screen state
   getPinnedShortcutIds(): Promise<{ ids: string[] }>;
+
+  // Disable and remove a pinned shortcut from the home screen
+  // Called when deleting a shortcut from the app
+  disablePinnedShortcut(options: { id: string }): Promise<{ success: boolean; error?: string }>;
 }
 
 // This plugin bridges to native Android code
