@@ -5,6 +5,7 @@ import { Separator } from '@/components/ui/separator';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useAuth } from '@/hooks/useAuth';
 import { syncBookmarks, uploadBookmarksToCloud, downloadBookmarksFromCloud, uploadTrashToCloud, downloadTrashFromCloud } from '@/lib/cloudSync';
+import { recordSync } from '@/lib/syncStatusManager';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
@@ -52,12 +53,17 @@ export function CloudBackupSection() {
    * 1. Upload local → cloud (upsert by entity_id, never overwrites)
    * 2. Download cloud → local (only adds missing entity_ids)
    * Result: Union of both datasets, safe to run repeatedly
+   * 
+   * Manual sync always runs immediately and resets the daily sync timer.
    */
   const handleSync = async () => {
     setIsSyncing(true);
     try {
       const result = await syncBookmarks();
       if (result.success) {
+        // Record successful sync - resets the 24h daily sync timer
+        recordSync(result.uploaded, result.downloaded);
+        
         const hasChanges = result.uploaded > 0 || result.downloaded > 0;
         toast({
           title: 'Sync complete',
@@ -80,16 +86,18 @@ export function CloudBackupSection() {
     }
   };
 
-  // Recovery tools - hidden by default
+  // Recovery tools - hidden by default, for edge cases only
   const handleForceUpload = async () => {
     setIsRecoveryAction(true);
     try {
-      const [bookmarkResult, trashResult] = await Promise.all([
+      const [bookmarkResult] = await Promise.all([
         uploadBookmarksToCloud(),
         uploadTrashToCloud()
       ]);
       
       if (bookmarkResult.success) {
+        // Record as sync (upload-only still resets daily timer)
+        recordSync(bookmarkResult.uploaded, 0);
         toast({
           title: 'Upload complete',
           description: `Uploaded ${bookmarkResult.uploaded} bookmarks to cloud.`,
@@ -109,12 +117,14 @@ export function CloudBackupSection() {
   const handleForceDownload = async () => {
     setIsRecoveryAction(true);
     try {
-      const [bookmarkResult, trashResult] = await Promise.all([
+      const [bookmarkResult] = await Promise.all([
         downloadBookmarksFromCloud(),
         downloadTrashFromCloud()
       ]);
       
       if (bookmarkResult.success) {
+        // Record as sync (download-only still resets daily timer)
+        recordSync(0, bookmarkResult.downloaded);
         toast({
           title: 'Download complete',
           description: bookmarkResult.downloaded > 0 

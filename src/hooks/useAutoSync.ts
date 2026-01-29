@@ -1,28 +1,36 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { useAuth } from './useAuth';
 import { useNetworkStatus } from './useNetworkStatus';
-import { uploadBookmarksToCloud, uploadTrashToCloud } from '@/lib/cloudSync';
-import { recordSync, markPending, markSyncFailed, type PendingReason } from '@/lib/syncStatusManager';
+import { syncBookmarks } from '@/lib/cloudSync';
+import { getSyncStatus, recordSync } from '@/lib/syncStatusManager';
 import { getSettings } from '@/lib/settingsManager';
 
-const STORAGE_KEY = 'saved_links';
-const TRASH_STORAGE_KEY = 'saved_links_trash';
-const DEBOUNCE_MS = 3000; // Wait 3 seconds after last change before syncing
-const MIN_SYNC_INTERVAL_MS = 30000; // Don't sync more than once per 30 seconds
+const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
 /**
- * Hook that automatically syncs bookmarks and trash to cloud when changes are detected.
- * Only uploads to cloud (one-way sync) to avoid conflicts with user actions.
- * Marks pending state on failure for retry-on-foreground/reconnect.
+ * Calm, intentional sync hook.
+ * 
+ * Design philosophy:
+ * - Sync is a convergence operation, not a live mirror
+ * - Local data remains authoritative at all times
+ * - Users should never feel data is being uploaded constantly
+ * 
+ * Sync triggers (only these, nothing else):
+ * 1. Explicit user action via "Sync now" button (handled by CloudBackupSection)
+ * 2. Once per 24 hours on app foreground (if auto-sync enabled)
+ * 
+ * Explicitly disallowed:
+ * - Sync on every CRUD operation
+ * - Sync on debounced local changes
+ * - Background timers, polling, or hidden retries
+ * - Network reconnection triggers
  */
 export function useAutoSync() {
   const { user, loading } = useAuth();
   const { isOnline } = useNetworkStatus();
   const [isEnabled, setIsEnabled] = useState(() => getSettings().autoSyncEnabled);
-  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
-  const lastSyncTime = useRef<number>(0);
   const isSyncing = useRef(false);
-  const pendingSync = useRef(false);
+  const hasAttemptedForegroundSync = useRef(false);
 
   // Listen for settings changes
   useEffect(() => {
@@ -34,146 +42,117 @@ export function useAutoSync() {
     return () => window.removeEventListener('settings-changed', checkSettings);
   }, []);
 
-  const performSync = useCallback(async () => {
-    if (!user || !isEnabled || isSyncing.current) {
-      if (!user || !isEnabled) return;
-      // If already syncing, mark as pending
-      pendingSync.current = true;
+  /**
+   * Check if enough time has passed since last successful sync.
+   * Returns true if we should perform a daily sync.
+   */
+  const shouldPerformDailySync = useCallback((): boolean => {
+    const status = getSyncStatus();
+    if (!status.lastSyncAt) {
+      // Never synced before - should sync
+      return true;
+    }
+    
+    const timeSinceLastSync = Date.now() - status.lastSyncAt;
+    return timeSinceLastSync >= TWENTY_FOUR_HOURS_MS;
+  }, []);
+
+  /**
+   * Perform the daily foreground sync.
+   * Only runs if:
+   * - User is authenticated
+   * - Auto-sync is enabled
+   * - Device is online
+   * - Last successful sync was >24h ago
+   */
+  const performDailySync = useCallback(async () => {
+    if (!user || !isEnabled || !isOnline || isSyncing.current) {
       return;
     }
 
-    // Check if online
-    if (!isOnline) {
-      console.log('[AutoSync] Offline, marking as pending');
-      markPending('network');
-      return;
-    }
-
-    // Check minimum interval
-    const now = Date.now();
-    if (now - lastSyncTime.current < MIN_SYNC_INTERVAL_MS) {
-      console.log('[AutoSync] Skipping - too soon since last sync');
+    if (!shouldPerformDailySync()) {
+      console.log('[DailySync] Skipped - synced within last 24 hours');
       return;
     }
 
     isSyncing.current = true;
-    console.log('[AutoSync] Starting auto-sync...');
+    console.log('[DailySync] Starting daily foreground sync...');
 
     try {
-      // Upload bookmarks
-      const bookmarkResult = await uploadBookmarksToCloud();
+      const result = await syncBookmarks();
       
-      // Upload trash silently in background
-      await uploadTrashToCloud();
-      
-      if (bookmarkResult.success) {
-        lastSyncTime.current = Date.now();
-        recordSync(bookmarkResult.uploaded, 0);
-        console.log('[AutoSync] Completed, uploaded:', bookmarkResult.uploaded);
-      } else {
-        // Determine failure reason for debugging
-        let reason: PendingReason = 'unknown';
-        if (bookmarkResult.error?.includes('Not authenticated')) {
-          reason = 'auth';
-        } else if (!navigator.onLine) {
-          reason = 'network';
-        } else {
-          reason = 'partial';
+      if (result.success) {
+        recordSync(result.uploaded, result.downloaded);
+        console.log('[DailySync] Completed:', { 
+          uploaded: result.uploaded, 
+          downloaded: result.downloaded 
+        });
+        
+        // Reload only if we got new data from cloud
+        if (result.downloaded > 0) {
+          window.location.reload();
         }
-        markSyncFailed(reason);
-        console.error('[AutoSync] Failed:', bookmarkResult.error);
+      } else {
+        // Failed sync - log but don't retry aggressively
+        // User can manually sync if needed
+        console.warn('[DailySync] Failed:', result.error);
       }
     } catch (error) {
-      console.error('[AutoSync] Error:', error);
-      markSyncFailed('unknown');
+      console.error('[DailySync] Error:', error);
     } finally {
       isSyncing.current = false;
-      
-      // If there was a pending sync request, schedule another
-      if (pendingSync.current) {
-        pendingSync.current = false;
-        debounceTimer.current = setTimeout(performSync, DEBOUNCE_MS);
-      }
     }
-  }, [user, isEnabled, isOnline]);
+  }, [user, isEnabled, isOnline, shouldPerformDailySync]);
 
-  const scheduleSync = useCallback(() => {
-    if (!user || !isEnabled) return;
-    
-    // Mark as pending immediately when changes detected
-    markPending('unknown');
-    
-    // Clear any existing timer
-    if (debounceTimer.current) {
-      clearTimeout(debounceTimer.current);
-    }
-    
-    // Schedule new sync
-    debounceTimer.current = setTimeout(performSync, DEBOUNCE_MS);
-  }, [user, isEnabled, performSync]);
-
+  /**
+   * Handle app returning to foreground.
+   * Triggers daily sync check (once per app session).
+   */
   useEffect(() => {
-    // Don't set up listener until auth is loaded, user is signed in, and auto-sync is enabled
     if (loading || !user || !isEnabled) return;
 
-    // Listen for storage changes (works for same-tab changes too via custom event)
-    const handleStorageChange = (event: StorageEvent | CustomEvent) => {
-      let key: string | null = null;
-      
-      if (event instanceof StorageEvent) {
-        key = event.key;
-      } else if (event instanceof CustomEvent) {
-        key = event.detail?.key;
-      }
-      
-      if (key === STORAGE_KEY || key === TRASH_STORAGE_KEY) {
-        console.log('[AutoSync] Change detected:', key);
-        scheduleSync();
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && !hasAttemptedForegroundSync.current) {
+        hasAttemptedForegroundSync.current = true;
+        // Small delay to let app settle after foregrounding
+        setTimeout(performDailySync, 2000);
       }
     };
 
-    // Listen for cross-tab storage events
-    window.addEventListener('storage', handleStorageChange);
-    
-    // Listen for same-tab storage events (custom event we'll dispatch)
-    window.addEventListener('bookmarks-changed', handleStorageChange as EventListener);
+    // Check on initial mount (counts as "foregrounding")
+    if (!hasAttemptedForegroundSync.current) {
+      hasAttemptedForegroundSync.current = true;
+      // Longer delay on initial mount to not compete with app startup
+      setTimeout(performDailySync, 5000);
+    }
 
-    // Initial sync on mount (if user is signed in)
-    const initialSyncTimer = setTimeout(() => {
-      if (user && Date.now() - lastSyncTime.current > MIN_SYNC_INTERVAL_MS) {
-        performSync();
-      }
-    }, 5000); // Wait 5 seconds after mount before initial sync
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('bookmarks-changed', handleStorageChange as EventListener);
-      if (debounceTimer.current) {
-        clearTimeout(debounceTimer.current);
-      }
-      clearTimeout(initialSyncTimer);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [loading, user, isEnabled, scheduleSync, performSync]);
+  }, [loading, user, isEnabled, performDailySync]);
 
-  return { isAutoSyncEnabled: !!user && isEnabled };
+  return { 
+    isAutoSyncEnabled: !!user && isEnabled,
+    // Expose for manual sync button to reset foreground flag
+    resetForegroundFlag: () => { hasAttemptedForegroundSync.current = false; }
+  };
 }
 
 /**
- * Dispatch a custom event to notify auto-sync of bookmark changes.
- * Call this after any bookmark modification.
+ * @deprecated No longer needed - sync is intentional, not reactive.
+ * Kept for backward compatibility but does nothing.
  */
 export function notifyBookmarkChange() {
-  window.dispatchEvent(new CustomEvent('bookmarks-changed', { 
-    detail: { key: 'saved_links' } 
-  }));
+  // Intentionally empty - sync is not triggered by local changes
+  // This is by design: sync is a convergence operation, not a live mirror
 }
 
 /**
- * Dispatch a custom event to notify auto-sync of trash changes.
- * Call this after any trash modification.
+ * @deprecated No longer needed - sync is intentional, not reactive.
+ * Kept for backward compatibility but does nothing.
  */
 export function notifyTrashChange() {
-  window.dispatchEvent(new CustomEvent('bookmarks-changed', { 
-    detail: { key: 'saved_links_trash' } 
-  }));
+  // Intentionally empty - sync is not triggered by local changes
 }
