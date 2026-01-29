@@ -1,172 +1,171 @@
 
-# Plan: Search and Filter for My Shortcuts List
+# Plan: Implement Home Screen Shortcut Tap Tracking on Android
 
 ## Overview
 
-Add search and filter functionality to the My Shortcuts list, following the established patterns from the Reminders and Library tabs.
+Add native tap tracking for shortcuts launched from the Android home screen. Currently, tap tracking only works when shortcuts are opened from within the app, but home screen taps (the primary use case) are not tracked.
 
-## User Experience
+## Problem Statement
 
-| Feature | Description |
-|---------|-------------|
-| **Search** | Filter shortcuts by name, target (URL/phone), or type |
-| **Type Filters** | Chip bar to filter by: All, Links, Files, WhatsApp, Contacts |
-| **Sort Options** | Most Used (default), Newest, A-Z |
-| **Clear Filters** | Quick link to reset all filters when active |
-| **Result Count** | Shows "X shortcuts" when filtering |
+| Shortcut Type | Current Tracking | Expected Tracking |
+|---------------|------------------|-------------------|
+| Link (from home screen) | Not tracked | Cannot track (opens browser directly) |
+| Contact (from home screen) | Not tracked | Can track via proxy |
+| Video (from home screen) | Not tracked | Can track via proxy |
+| PDF (from home screen) | Not tracked | Can track via proxy |
+| WhatsApp single message | Not tracked | Cannot track (opens directly) |
+| WhatsApp multi-message | Not tracked | Can track via proxy |
+| Any shortcut (from app) | Tracked | Tracked |
 
-## Filter Categories
+## Architecture
 
-Based on `ShortcutType` and `fileType`:
+Track shortcut usage natively in SharedPreferences, then sync to JS layer on app startup:
 
-| Filter | Includes |
-|--------|----------|
-| **All** | All shortcuts |
-| **Links** | `type === 'link'` |
-| **Files** | `type === 'file'` (images, videos, PDFs, documents) |
-| **WhatsApp** | `type === 'message'` with `messageApp === 'whatsapp'` |
-| **Contacts** | `type === 'contact'` (direct dial) |
-
-## Sort Modes
-
-| Mode | Behavior |
-|------|----------|
-| **Most Used** | By `usageCount` descending (current default) |
-| **Newest** | By `createdAt` descending |
-| **A-Z** | Alphabetical by name |
-
-## UI Layout
-
-```
-┌────────────────────────────────────────────────┐
-│  My Shortcuts                        [↻] [×]   │  ← Header with sync + close
-├────────────────────────────────────────────────┤
-│  [🔍 Search shortcuts...              ][×]     │  ← Search input
-│                                                │
-│  (All) (Links) (Files) (WhatsApp) (Contacts)   │  ← Type filter chips
-│                                                │
-│  Sort: [📊] [🕐] [A-Z]    5 shortcuts          │  ← Sort controls + count
-├────────────────────────────────────────────────┤
-│  [Shortcut items...]                           │  ← Scrollable list
-└────────────────────────────────────────────────┘
+```text
+Home Screen Tap
+      |
+      v
+Proxy Activity (Video/PDF/Contact/WhatsApp)
+      |
+      +---> Record shortcut_id to SharedPreferences
+      |
+      v
+Execute Action (open player/dialer/etc.)
+      ...
+      
+Later: App Opens
+      |
+      v
+JS calls getNativeUsageEvents()
+      |
+      v
+Merge native events into usageHistoryManager
+      |
+      v
+Update usageCount on shortcuts
 ```
 
 ## Technical Implementation
 
-### Files to Modify
+### 1. Native Usage Tracker (Java)
 
-| File | Changes |
-|------|---------|
-| `src/components/ShortcutsList.tsx` | Add search, filter chips, sort controls, and filtering logic |
-| `src/i18n/locales/en.json` | Add translation keys for new UI elements |
+Create a simple SharedPreferences-based tracker that records shortcut IDs with timestamps:
 
-### State Management
+**New File**: `NativeUsageTracker.java`
 
-```typescript
-// New state in ShortcutsList
-const [searchQuery, setSearchQuery] = useState('');
-const [typeFilter, setTypeFilter] = useState<'all' | 'link' | 'file' | 'whatsapp' | 'contact'>('all');
-const [sortMode, setSortMode] = useState<'usage' | 'newest' | 'alphabetical'>('usage');
-```
-
-### Filter Logic
-
-```typescript
-const filteredShortcuts = useMemo(() => {
-  let result = [...shortcuts];
-  
-  // Type filter
-  if (typeFilter !== 'all') {
-    result = result.filter(s => {
-      if (typeFilter === 'whatsapp') return s.type === 'message' && s.messageApp === 'whatsapp';
-      if (typeFilter === 'contact') return s.type === 'contact';
-      if (typeFilter === 'link') return s.type === 'link';
-      if (typeFilter === 'file') return s.type === 'file';
-      return true;
-    });
-  }
-  
-  // Search filter
-  if (searchQuery.trim()) {
-    const query = searchQuery.toLowerCase();
-    result = result.filter(s => 
-      s.name.toLowerCase().includes(query) ||
-      s.contentUri?.toLowerCase().includes(query) ||
-      s.phoneNumber?.includes(query)
-    );
-  }
-  
-  // Sort
-  result.sort((a, b) => {
-    switch (sortMode) {
-      case 'usage': return (b.usageCount || 0) - (a.usageCount || 0);
-      case 'newest': return b.createdAt - a.createdAt;
-      case 'alphabetical': return a.name.localeCompare(b.name);
+```java
+public class NativeUsageTracker {
+    private static final String PREFS_NAME = "shortcut_usage_tracking";
+    private static final String KEY_EVENTS = "usage_events";
+    
+    // Record a tap event (called from proxy activities)
+    public static void recordTap(Context context, String shortcutId) {
+        // Append to JSON array: [{id, timestamp}, ...]
     }
-  });
-  
-  return result;
-}, [shortcuts, typeFilter, searchQuery, sortMode]);
-```
-
-### Type Filter Chips
-
-Following the NotificationsPage pattern with counts:
-
-```typescript
-const TYPE_FILTERS = [
-  { value: 'all', labelKey: 'shortcuts.filterAll', icon: null },
-  { value: 'link', labelKey: 'shortcuts.filterLinks', icon: <Link2 /> },
-  { value: 'file', labelKey: 'shortcuts.filterFiles', icon: <FileIcon /> },
-  { value: 'whatsapp', labelKey: 'shortcuts.filterWhatsApp', icon: <MessageCircle /> },
-  { value: 'contact', labelKey: 'shortcuts.filterContacts', icon: <Phone /> },
-];
-```
-
-### Translation Keys to Add
-
-```json
-"shortcuts": {
-  "title": "My Shortcuts",
-  "empty": "No shortcuts yet",
-  "emptyDesc": "Create shortcuts from the Access tab",
-  "taps": "taps",
-  "tap": "tap",
-  "searchPlaceholder": "Search shortcuts...",
-  "filterAll": "All",
-  "filterLinks": "Links",
-  "filterFiles": "Files",
-  "filterWhatsApp": "WhatsApp",
-  "filterContacts": "Contacts",
-  "sortMostUsed": "Most used",
-  "sortNewest": "Newest",
-  "sortAZ": "A-Z",
-  "searchResults": "{{count}} shortcuts",
-  "noMatch": "No shortcuts match your filter",
-  "clearFilters": "Clear filters"
+    
+    // Get and clear events (called from ShortcutPlugin)
+    public static List<UsageEvent> getAndClearEvents(Context context) {
+        // Return all events and clear the list
+    }
 }
 ```
 
-### Empty State Handling
+### 2. Update Proxy Activities
 
-- **No shortcuts at all**: Show existing empty state
-- **No matches for filter**: Show "No shortcuts match your filter" with "Clear filters" button
+Add tracking calls to each proxy activity that handles shortcut taps:
 
-## Component Structure
+| Proxy Activity | Changes |
+|----------------|---------|
+| `VideoProxyActivity` | Add `NativeUsageTracker.recordTap(this, shortcutId)` |
+| `PDFProxyActivity` | Add tracking when `shortcutId` is from a shortcut (not external) |
+| `ContactProxyActivity` | Receive and track shortcut_id from intent |
+| `WhatsAppProxyActivity` | Add tracking before opening main app |
 
+### 3. ShortcutPlugin Method
+
+Add a new plugin method to retrieve native usage events:
+
+```java
+@PluginMethod
+public void getNativeUsageEvents() {
+    // Get events from NativeUsageTracker
+    // Return as JSON array to JS
+    // Clear the native events after retrieval
+}
 ```
-ShortcutsList
-├── SheetHeader (title + sync + close)
-├── Search Input (with clear button)
-├── Type Filter Chips (horizontal scroll)
-├── Sort Controls + Result Count
-├── ScrollArea
-│   ├── Shortcut Items (filtered)
-│   └── Empty/No Match State
-└── Action/Edit Sheets
+
+### 4. JS Integration
+
+Sync native events on app startup/foreground:
+
+**Update**: `useShortcuts.ts`
+
+```typescript
+// On mount and app foreground
+useEffect(() => {
+  syncNativeUsageEvents();
+}, []);
+
+async function syncNativeUsageEvents() {
+  if (!Capacitor.isNativePlatform()) return;
+  
+  const { events } = await ShortcutPlugin.getNativeUsageEvents();
+  
+  events.forEach(event => {
+    usageHistoryManager.recordUsage(event.shortcutId, event.timestamp);
+    // Also update usageCount on the shortcut
+  });
+}
 ```
 
-## Persistence
+### 5. Update Intent Extras
 
-Sort preferences will be persisted to localStorage following the Library pattern:
-- `shortcuts_sort_mode`: 'usage' | 'newest' | 'alphabetical'
+Pass shortcut_id through intents that don't currently include it:
+
+| Shortcut Type | Current Intent | Changes Needed |
+|---------------|----------------|----------------|
+| Contact | Has phone_number only | Add shortcut_id extra |
+| Video | Has shortcut_title | Add shortcut_id extra |
+| PDF | Already has shortcut_id | No changes |
+| WhatsApp | Has phone/messages | Add shortcut_id extra |
+
+## Files to Modify
+
+| File | Changes |
+|------|---------|
+| `NativeUsageTracker.java` (new) | SharedPreferences-based usage event storage |
+| `VideoProxyActivity.java` | Add tracking call with shortcut_id |
+| `PDFProxyActivity.java` | Add tracking for shortcut taps (not external opens) |
+| `ContactProxyActivity.java` | Receive shortcut_id, add tracking |
+| `WhatsAppProxyActivity.java` | Add tracking call with shortcut_id |
+| `ShortcutPlugin.java` | Add getNativeUsageEvents() method |
+| `ShortcutPlugin.ts` | Add TypeScript interface for new method |
+| `src/lib/shortcutManager.ts` | Pass shortcut_id in all proxy intents |
+| `src/hooks/useShortcuts.ts` | Sync native events on startup |
+| `src/lib/usageHistoryManager.ts` | Accept optional timestamp parameter |
+
+## Limitations
+
+These shortcut types cannot be tracked because they bypass the app entirely:
+
+1. **Link shortcuts** - Open directly in browser via `ACTION_VIEW`
+2. **WhatsApp single-message shortcuts** - Open WhatsApp directly via `wa.me` URL
+
+For these, we could consider using a "Link Proxy Activity" in the future, but this would add latency and complexity.
+
+## Testing Approach
+
+1. Create shortcuts of each type (video, PDF, contact, WhatsApp multi-message)
+2. Tap each shortcut from the home screen (not from the app)
+3. Open the app and navigate to My Shortcuts
+4. Verify tap counts have incremented correctly
+5. Check the weekly activity chart reflects the new taps
+
+## Edge Cases
+
+| Scenario | Behavior |
+|----------|----------|
+| App killed while events pending | Events persist in SharedPreferences |
+| Same shortcut tapped multiple times before app opens | All events recorded and synced |
+| Shortcut deleted before sync | Events for missing shortcuts discarded |
+| Device reboot | SharedPreferences survives reboots |
