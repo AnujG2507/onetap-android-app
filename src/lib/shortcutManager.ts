@@ -87,10 +87,14 @@ export function buildContentIntent(shortcut: ShortcutData): ShortcutIntent {
     }
   }
 
+  // Link shortcuts - route through LinkProxyActivity for tap tracking
   if (shortcut.type === 'link') {
     return {
-      action: 'android.intent.action.VIEW',
+      action: 'app.onetap.OPEN_LINK',
       data: shortcut.contentUri,
+      extras: {
+        url: shortcut.contentUri,
+      },
     };
   }
   

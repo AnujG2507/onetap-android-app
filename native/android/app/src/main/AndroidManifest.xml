@@ -206,6 +206,14 @@
             android:noHistory="true"
             android:excludeFromRecents="true" />
 
+        <!-- Link Proxy Activity - tracks link shortcut taps before opening browser -->
+        <activity
+            android:name=".LinkProxyActivity"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:exported="false"
+            android:noHistory="true"
+            android:excludeFromRecents="true" />
+
         <!-- Shortcut Edit Proxy Activity - handles long-press edit from home screen -->
         <activity
             android:name=".ShortcutEditProxyActivity"
