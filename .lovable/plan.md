@@ -1,80 +1,43 @@
 
-# Plan: Direct Call Placement for Contact One Tap Access/Reminders
+# Plan: Clear Shortcut Name When Phone Number is Cleared
 
 ## Overview
-When a user taps on a One Tap Access or One Tap Reminder for a call contact, the app currently opens the phone dialer with the number pre-filled. This requires an extra tap to actually place the call.
+When a user selects a contact and then clears the phone number using the X button, the shortcut name should also be cleared to provide a consistent reset experience. However, clearing the shortcut name independently should NOT affect the phone number field.
 
-This change will make tapping directly place the call, removing the extra step and delivering the true "one tap" promise.
+## Current Behavior
+- Phone number clear button (lines 185-199): Clears phone number, picked contact, photo, and icon
+- Shortcut name clear button (lines 227-234): Only clears the name field
 
-## Changes Required
+## Required Change
 
-### 1. Add CALL_PHONE Permission
-**File:** `native/android/app/src/main/AndroidManifest.xml`
+**File:** `src/components/ContactShortcutCustomizer.tsx`
 
-Add the `CALL_PHONE` permission which is required by Android to directly initiate phone calls:
-```xml
-<uses-permission android:name="android.permission.CALL_PHONE" />
+Update the phone number clear button's `onClick` handler to also clear the `name` state:
+
+```typescript
+onClick={() => {
+  setPhoneNumber('');
+  setPickedContact(null);
+  setContactPhoto(null);
+  setName(''); // Add this line to clear shortcut name
+  // Reset icon to default
+  setIcon({ type: 'emoji', value: mode === 'dial' ? '📞' : '💬' });
+}}
 ```
 
-### 2. Update Shortcut Intent Builder
-**File:** `src/lib/shortcutManager.ts`
-
-Change the intent action for contact shortcuts from `ACTION_DIAL` to `ACTION_CALL`:
-- Current: `action: 'android.intent.action.DIAL'`
-- New: `action: 'android.intent.action.CALL'`
-
-### 3. Update Notification Click Handler
-**File:** `native/android/app/src/main/java/app/onetap/shortcuts/NotificationClickActivity.java`
-
-Update the `executeAction` method to use `ACTION_CALL` instead of `ACTION_DIAL` for contact destinations:
-- Current: `Intent.ACTION_DIAL`
-- New: `Intent.ACTION_CALL`
-
-### 4. Update Notification Helper Intent Builder
-**File:** `native/android/app/src/main/java/app/onetap/shortcuts/NotificationHelper.java`
-
-Update the `buildActionIntent` method for contacts to use `ACTION_CALL`:
-- Current: `Intent.ACTION_DIAL`
-- New: `Intent.ACTION_CALL`
-
 ## Technical Details
+- **Location:** Line 187-193 in the phone number input's clear button click handler
+- **Change:** Add `setName('')` to the existing reset logic
+- **Impact:** When user clears phone number, all contact-related data including the auto-generated shortcut name will be reset
 
-### Android Intent Actions
-- **`ACTION_DIAL`**: Opens the dialer app with the number pre-filled but does NOT place the call
-- **`ACTION_CALL`**: Directly places the phone call without user confirmation
+## Expected Behavior After Change
 
-### Permission Requirement
-The `CALL_PHONE` permission is a "dangerous" permission in Android, meaning:
-- On Android 6.0+ (API 23+), runtime permission is required
-- The user will be prompted to grant permission the first time a call shortcut is tapped
-- This is a one-time prompt; once granted, all subsequent calls work seamlessly
-
-### Web Fallback Behavior
-The web fallback (`window.open('tel:...')` in `useMissedNotifications.ts` and `shortcutPluginWeb.ts`) will continue to work as-is. On mobile web browsers, `tel:` links typically open the dialer since web apps cannot directly place calls for security reasons. This is acceptable for the web fallback path.
-
-## User Experience Flow
-
-**Before (current):**
-1. User taps contact One Tap Access shortcut
-2. Dialer opens with number pre-filled
-3. User taps call button to place call
-4. Call is placed
-
-**After (proposed):**
-1. User taps contact One Tap Access shortcut
-2. (First time only) User grants CALL_PHONE permission if not already granted
-3. Call is placed directly
-
-## Edge Cases Handled
-
-- **Permission denied**: If user denies CALL_PHONE permission, the call intent will fail gracefully. The native side should handle `SecurityException` and potentially fall back to `ACTION_DIAL`.
-- **Web fallback**: Web users will continue to see the dialer open (expected browser behavior)
-- **Recurring reminders**: Work identically - tap notification, call is placed directly
+| Action | Phone Number | Shortcut Name | Icon |
+|--------|--------------|---------------|------|
+| Clear phone number | Cleared | Cleared | Reset to default |
+| Clear shortcut name | Unchanged | Cleared | Unchanged |
 
 ## Files Changed Summary
 | File | Change |
 |------|--------|
-| `AndroidManifest.xml` | Add `CALL_PHONE` permission |
-| `shortcutManager.ts` | Change intent action to `ACTION_CALL` |
-| `NotificationClickActivity.java` | Change intent to `ACTION_CALL` |
-| `NotificationHelper.java` | Change intent to `ACTION_CALL` |
+| `src/components/ContactShortcutCustomizer.tsx` | Add `setName('')` to phone clear handler |
