@@ -6,4 +6,8 @@
     <!-- Widget strings -->
     <string name="widget_quick_create_label">Quick Create</string>
     <string name="widget_quick_create_desc">Tap to create a new shortcut instantly</string>
+    
+    <!-- Static shortcut strings (shown when long-pressing app icon) -->
+    <string name="shortcut_manage_label">My Shortcuts</string>
+    <string name="shortcut_manage_long_label">Manage My Shortcuts</string>
 </resources>

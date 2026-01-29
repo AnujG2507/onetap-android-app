@@ -110,6 +110,17 @@ const Index = () => {
     return unsubscribe;
   }, []);
 
+  // Handle manage-shortcuts deep link (from static app shortcut)
+  useEffect(() => {
+    const handleManageShortcuts = () => {
+      console.log('[Index] Opening shortcuts list via deep link');
+      setShortcutsListOpen(true);
+    };
+    
+    window.addEventListener('onetap:manage-shortcuts', handleManageShortcuts);
+    return () => window.removeEventListener('onetap:manage-shortcuts', handleManageShortcuts);
+  }, []);
+
   // Handle pending shortcut edit from home screen long-press
   useEffect(() => {
     if (pendingEditId) {
