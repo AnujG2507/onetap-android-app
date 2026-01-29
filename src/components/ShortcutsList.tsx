@@ -216,15 +216,17 @@ export function ShortcutsList({ isOpen, onClose, onCreateReminder }: ShortcutsLi
         <SheetContent side="bottom" className="h-[85vh] p-0 flex flex-col">
           <SheetHeader className="p-4 pb-2 border-b flex flex-row items-center justify-between">
             <SheetTitle className="text-start">{t('shortcuts.title')}</SheetTitle>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleManualRefresh}
-              disabled={isSyncing}
-              className="h-8 w-8"
-            >
-              <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleManualRefresh}
+                disabled={isSyncing}
+                className="h-8 w-8"
+              >
+                <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
+              </Button>
+            </div>
           </SheetHeader>
           
           {sortedShortcuts.length === 0 ? (
