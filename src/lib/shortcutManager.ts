@@ -176,6 +176,27 @@ export async function createHomeScreenShortcut(
     isLargeFile: contentSource?.isLargeFile,
   });
 
+  // For contact shortcuts, request CALL_PHONE permission upfront
+  // This allows the shortcut to place calls directly with one tap
+  if (shortcut.type === 'contact' && Capacitor.isNativePlatform()) {
+    console.log('[ShortcutManager] Contact shortcut detected, checking call permission...');
+    try {
+      const permissionStatus = await ShortcutPlugin.checkCallPermission();
+      if (!permissionStatus.granted) {
+        console.log('[ShortcutManager] Requesting CALL_PHONE permission...');
+        const result = await ShortcutPlugin.requestCallPermission();
+        console.log('[ShortcutManager] Call permission request result:', result);
+        // Note: We continue regardless of the result - the ContactProxyActivity 
+        // will gracefully fall back to the dialer if permission is denied
+      } else {
+        console.log('[ShortcutManager] CALL_PHONE permission already granted');
+      }
+    } catch (error) {
+      console.warn('[ShortcutManager] Error checking/requesting call permission:', error);
+      // Continue anyway - the fallback will handle it
+    }
+  }
+
   const intent = buildContentIntent(shortcut);
   console.log('[ShortcutManager] Built intent:', intent);
 

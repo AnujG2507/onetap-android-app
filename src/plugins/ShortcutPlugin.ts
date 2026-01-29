@@ -149,6 +149,17 @@ export interface ShortcutPluginInterface {
     granted: boolean; 
   }>;
 
+  // Check if CALL_PHONE permission is granted (for contact shortcuts)
+  checkCallPermission(): Promise<{ 
+    granted: boolean; 
+  }>;
+
+  // Request CALL_PHONE permission for direct call placement
+  requestCallPermission(): Promise<{ 
+    granted: boolean; 
+    requested?: boolean; 
+  }>;
+
   // Open system settings for exact alarm permission (Android 12+)
   openAlarmSettings(): Promise<{ success: boolean }>;
 
