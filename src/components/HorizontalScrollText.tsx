@@ -27,7 +27,10 @@ export function HorizontalScrollText({
         "[text-overflow:ellipsis]",
         className
       )}
-      style={{ WebkitOverflowScrolling: "touch" }}
+      style={{ 
+        WebkitOverflowScrolling: "touch",
+        touchAction: "pan-y"  // Prevent capturing horizontal swipes needed for parent gestures
+      }}
     >
       <span className="inline-block pr-2">{children}</span>
     </span>
