@@ -158,7 +158,22 @@ export function useShortcuts() {
     return 'document';
   }
 
-  const deleteShortcut = useCallback((id: string) => {
+  const deleteShortcut = useCallback(async (id: string) => {
+    // Remove from home screen first (if on native platform)
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const result = await ShortcutPlugin.disablePinnedShortcut({ id });
+        if (result.success) {
+          console.log('[useShortcuts] Disabled pinned shortcut from home screen:', id);
+        } else {
+          console.warn('[useShortcuts] Failed to disable pinned shortcut:', result.error);
+        }
+      } catch (error) {
+        console.warn('[useShortcuts] Error disabling pinned shortcut:', error);
+      }
+    }
+    
+    // Remove from local storage
     const updated = shortcuts.filter(s => s.id !== id);
     saveShortcuts(updated);
   }, [shortcuts, saveShortcuts]);
