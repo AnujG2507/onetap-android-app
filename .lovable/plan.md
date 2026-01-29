@@ -1,76 +1,80 @@
 
-# Contact Photo Logic - COMPLETE ✅
+# Plan: Direct Call Placement for Contact One Tap Access/Reminders
 
-## Summary
+## Overview
+When a user taps on a One Tap Access or One Tap Reminder for a call contact, the app currently opens the phone dialer with the number pre-filled. This requires an extra tap to actually place the call.
 
-Contact photos (or initials fallback) now appear in BOTH:
-1. **Home screen shortcuts** - via `iconData` (photo) or `iconText` (initials)
-2. **Scheduled reminders** - via `ContactAvatar` component
+This change will make tapping directly place the call, removing the extra step and delivering the true "one tap" promise.
 
-## Flow for Home Screen Shortcuts
+## Changes Required
 
-```
-ContactShortcutCustomizer
-  → pickContact() returns { name, phoneNumber, photoBase64 }
-    → If photoBase64: icon = { type: 'thumbnail', value: photoBase64 }
-    → Else if name: icon = { type: 'text', value: getInitials(name) }
-    → Else: icon = { type: 'emoji', value: '📞' or '💬' }
-      
-shortcutManager.ts
-  → If icon.type === 'thumbnail' && value.startsWith('data:')
-    → Extract base64 and pass as iconData to native
-  → If icon.type === 'text'
-    → Pass as iconText to native → createTextIcon()
-  → If icon.type === 'emoji'
-    → Pass as iconEmoji to native → createEmojiIcon()
+### 1. Add CALL_PHONE Permission
+**File:** `native/android/app/src/main/AndroidManifest.xml`
 
-Native ShortcutPlugin.java
-  → createIcon() priority: iconData > iconUri > iconEmoji > iconText
-  → createTextIcon() renders initials on colored background
+Add the `CALL_PHONE` permission which is required by Android to directly initiate phone calls:
+```xml
+<uses-permission android:name="android.permission.CALL_PHONE" />
 ```
 
-## Flow for Scheduled Reminders
+### 2. Update Shortcut Intent Builder
+**File:** `src/lib/shortcutManager.ts`
 
-```
-ScheduledActionCreator / ScheduledActionEditor
-  → pickContact() returns { name, phoneNumber, photoBase64 }
-    → Store in destination: { type: 'contact', contactName, phoneNumber, photoUri: photoBase64 }
-      
-ContactAvatar component
-  → If photoUri: display photo
-  → Else if name: display initials with colored background
-  → Else: display fallback Phone icon
-```
+Change the intent action for contact shortcuts from `ACTION_DIAL` to `ACTION_CALL`:
+- Current: `action: 'android.intent.action.DIAL'`
+- New: `action: 'android.intent.action.CALL'`
 
-## Key Changes Made
+### 3. Update Notification Click Handler
+**File:** `native/android/app/src/main/java/app/onetap/shortcuts/NotificationClickActivity.java`
 
-### 1. Native Android (`ShortcutPlugin.java`) - Already fixed
-- Uses `openContactPhotoInputStream()` API
-- Returns `photoBase64` as `data:image/jpeg;base64,...`
+Update the `executeAction` method to use `ACTION_CALL` instead of `ACTION_DIAL` for contact destinations:
+- Current: `Intent.ACTION_DIAL`
+- New: `Intent.ACTION_CALL`
 
-### 2. `ContactShortcutCustomizer.tsx`
-- Now uses `getInitials()` from ContactAvatar
-- When no photo: sets `icon = { type: 'text', value: initials }`
-- Home screen shortcut will show initials on colored background
+### 4. Update Notification Helper Intent Builder
+**File:** `native/android/app/src/main/java/app/onetap/shortcuts/NotificationHelper.java`
 
-### 3. `ContactAvatar.tsx`
-- Exported `getInitials()` function for reuse
-- Displays photo > initials > fallback icon
+Update the `buildActionIntent` method for contacts to use `ACTION_CALL`:
+- Current: `Intent.ACTION_DIAL`
+- New: `Intent.ACTION_CALL`
 
-### 4. `shortcutManager.ts` - Already working
-- Handles `icon.type === 'text'` by passing `iconText` to native
-- Native `createTextIcon()` renders initials on adaptive icon canvas
+## Technical Details
 
-## Testing Checklist
+### Android Intent Actions
+- **`ACTION_DIAL`**: Opens the dialer app with the number pre-filled but does NOT place the call
+- **`ACTION_CALL`**: Directly places the phone call without user confirmation
 
-### Home Screen Shortcuts
-- [ ] Pick contact WITH photo → shortcut icon shows photo
-- [ ] Pick contact WITHOUT photo → shortcut icon shows initials (e.g., "JD")
-- [ ] Pick contact without name → shortcut icon shows 📞 or 💬
+### Permission Requirement
+The `CALL_PHONE` permission is a "dangerous" permission in Android, meaning:
+- On Android 6.0+ (API 23+), runtime permission is required
+- The user will be prompted to grant permission the first time a call shortcut is tapped
+- This is a one-time prompt; once granted, all subsequent calls work seamlessly
 
-### Scheduled Reminders  
-- [ ] Create reminder with contact photo → avatar shows photo
-- [ ] Create reminder without photo → avatar shows initials
-- [ ] Reminder list, action sheet, editor all show correct avatar
+### Web Fallback Behavior
+The web fallback (`window.open('tel:...')` in `useMissedNotifications.ts` and `shortcutPluginWeb.ts`) will continue to work as-is. On mobile web browsers, `tel:` links typically open the dialer since web apps cannot directly place calls for security reasons. This is acceptable for the web fallback path.
 
-**Run `npx cap sync` after pulling changes.**
+## User Experience Flow
+
+**Before (current):**
+1. User taps contact One Tap Access shortcut
+2. Dialer opens with number pre-filled
+3. User taps call button to place call
+4. Call is placed
+
+**After (proposed):**
+1. User taps contact One Tap Access shortcut
+2. (First time only) User grants CALL_PHONE permission if not already granted
+3. Call is placed directly
+
+## Edge Cases Handled
+
+- **Permission denied**: If user denies CALL_PHONE permission, the call intent will fail gracefully. The native side should handle `SecurityException` and potentially fall back to `ACTION_DIAL`.
+- **Web fallback**: Web users will continue to see the dialer open (expected browser behavior)
+- **Recurring reminders**: Work identically - tap notification, call is placed directly
+
+## Files Changed Summary
+| File | Change |
+|------|--------|
+| `AndroidManifest.xml` | Add `CALL_PHONE` permission |
+| `shortcutManager.ts` | Change intent action to `ACTION_CALL` |
+| `NotificationClickActivity.java` | Change intent to `ACTION_CALL` |
+| `NotificationHelper.java` | Change intent to `ACTION_CALL` |
