@@ -84,6 +84,8 @@ interface NotificationsPageProps {
   onCreatorOpenChange?: (isOpen: boolean) => void;
   /** Called when the editor is opened or closed */
   onEditorOpenChange?: (isOpen: boolean) => void;
+  /** Called when user wants to open the shortcuts list */
+  onOpenShortcuts?: () => void;
 }
 
 interface PermissionStatus {
@@ -116,6 +118,7 @@ export function NotificationsPage({
   onInitialDestinationConsumed,
   onCreatorOpenChange,
   onEditorOpenChange,
+  onOpenShortcuts,
 }: NotificationsPageProps) {
   const { t } = useTranslation();
   const { 
@@ -632,7 +635,7 @@ export function NotificationsPage({
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
-            <AppMenu onOpenTrash={() => setIsTrashOpen(true)} onOpenSettings={() => setShowSettings(true)} />
+            <AppMenu onOpenTrash={() => setIsTrashOpen(true)} onOpenSettings={() => setShowSettings(true)} onOpenShortcuts={onOpenShortcuts} />
           </div>
         </div>
         

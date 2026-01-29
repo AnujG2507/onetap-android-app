@@ -13,6 +13,7 @@ import { OnboardingFlow } from '@/components/OnboardingFlow';
 import { LanguageSelectionStep } from '@/components/LanguageSelectionStep';
 import { MessageChooserSheet } from '@/components/MessageChooserSheet';
 import { ShortcutEditSheet } from '@/components/ShortcutEditSheet';
+import { ShortcutsList } from '@/components/ShortcutsList';
 import { useOnboarding } from '@/hooks/useOnboarding';
 import { useBackButton } from '@/hooks/useBackButton';
 import { useAuth } from '@/hooks/useAuth';
@@ -62,6 +63,7 @@ const Index = () => {
   const [slideDirection, setSlideDirection] = useState<'left' | 'right' | null>(null);
   const [activeActionsCount, setActiveActionsCount] = useState(() => getActiveCount());
   const [pendingReminderDestination, setPendingReminderDestination] = useState<ScheduledActionDestination | null>(null);
+  const [shortcutsListOpen, setShortcutsListOpen] = useState(false);
   const lastSharedIdRef = useRef<string | null>(null);
   const previousTabRef = useRef<TabType>('access');
 
@@ -450,6 +452,7 @@ const Index = () => {
               handleTabChange('reminders');
             }}
             onPickerOpenChange={setIsAccessPickerOpen}
+            onOpenShortcuts={() => setShortcutsListOpen(true)}
           />
         </div>
       )}
@@ -468,6 +471,7 @@ const Index = () => {
             onInitialDestinationConsumed={() => setPendingReminderDestination(null)}
             onCreatorOpenChange={setIsRemindersCreatorOpen}
             onEditorOpenChange={setIsRemindersEditorOpen}
+            onOpenShortcuts={() => setShortcutsListOpen(true)}
           />
         </div>
       )}
@@ -484,6 +488,7 @@ const Index = () => {
             onSelectionModeChange={setIsBookmarkSelectionMode}
             clearSelectionSignal={bookmarkClearSignal}
             onActionSheetOpenChange={setIsBookmarkActionSheetOpen}
+            onOpenShortcuts={() => setShortcutsListOpen(true)}
           />
         </div>
       )}
@@ -495,7 +500,7 @@ const Index = () => {
           className={`flex-1 flex flex-col ${getSlideAnimation()}`}
           {...swipeHandlers}
         >
-          <ProfilePage />
+          <ProfilePage onOpenShortcuts={() => setShortcutsListOpen(true)} />
         </div>
       )}
 
@@ -554,6 +559,16 @@ const Index = () => {
         isOpen={!!editingShortcut}
         onClose={() => setEditingShortcut(null)}
         onSave={handleSaveShortcutEdit}
+      />
+
+      {/* Shortcuts List (accessed from menu) */}
+      <ShortcutsList
+        isOpen={shortcutsListOpen}
+        onClose={() => setShortcutsListOpen(false)}
+        onCreateReminder={(destination) => {
+          setPendingReminderDestination(destination);
+          handleTabChange('reminders');
+        }}
       />
     </div>
   );

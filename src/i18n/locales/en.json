@@ -46,8 +46,16 @@
   },
   "menu": {
     "title": "Menu",
+    "shortcuts": "My Shortcuts",
     "trash": "Trash",
     "settings": "Settings"
+  },
+  "shortcuts": {
+    "title": "My Shortcuts",
+    "empty": "No shortcuts yet",
+    "emptyDesc": "Create shortcuts from the Access tab",
+    "taps": "taps",
+    "tap": "tap"
   },
   "contact": {
     "call": "Call",

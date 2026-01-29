@@ -9,6 +9,7 @@ import {
   AlertTriangle,
   Settings,
   ChevronRight,
+  Zap,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -29,18 +30,21 @@ import { useRTL } from '@/hooks/useRTL';
 type ThemeOption = 'light' | 'dark' | 'system';
 
 const SWIPE_THRESHOLD = 50;
+const SHORTCUTS_STORAGE_KEY = 'quicklaunch_shortcuts';
 
 interface AppMenuProps {
   onOpenTrash: () => void;
   onOpenSettings: () => void;
+  onOpenShortcuts?: () => void;
 }
 
-export function AppMenu({ onOpenTrash, onOpenSettings }: AppMenuProps) {
+export function AppMenu({ onOpenTrash, onOpenSettings, onOpenShortcuts }: AppMenuProps) {
   const { t } = useTranslation();
   const { menuSide, shouldCloseOnSwipe } = useRTL();
   const [open, setOpen] = useState(false);
   const [trashCount, setTrashCount] = useState(getTrashCount());
   const [expiringCount, setExpiringCount] = useState(0);
+  const [shortcutsCount, setShortcutsCount] = useState(0);
   const { theme, setTheme } = useTheme();
   
   // Swipe gesture tracking
@@ -58,21 +62,30 @@ export function AppMenu({ onOpenTrash, onOpenSettings }: AppMenuProps) {
   const handleCloseMenu = useCallback(() => setOpen(false), []);
   useSheetBackHandler('app-menu-sheet', open, handleCloseMenu);
 
-  // Check for expiring items on mount and when menu opens
-  const checkExpiringItems = () => {
+  // Check for expiring items and shortcuts count on mount and when menu opens
+  const checkCounts = () => {
     const trashLinks = getTrashLinks();
     const expiringSoon = trashLinks.filter(link => getDaysRemaining(link.deletedAt, link.retentionDays) <= 3);
     setExpiringCount(expiringSoon.length);
     setTrashCount(trashLinks.length);
+    
+    // Get shortcuts count from localStorage
+    try {
+      const stored = localStorage.getItem(SHORTCUTS_STORAGE_KEY);
+      const shortcuts = stored ? JSON.parse(stored) : [];
+      setShortcutsCount(Array.isArray(shortcuts) ? shortcuts.length : 0);
+    } catch {
+      setShortcutsCount(0);
+    }
   };
 
   useEffect(() => {
-    checkExpiringItems();
+    checkCounts();
   }, []);
 
   useEffect(() => {
     if (open) {
-      checkExpiringItems();
+      checkCounts();
     }
   }, [open]);
 
@@ -128,6 +141,27 @@ export function AppMenu({ onOpenTrash, onOpenSettings }: AppMenuProps) {
         </SheetHeader>
 
         <div className="flex flex-col gap-1 flex-1">
+          {/* My Shortcuts - only show if handler provided */}
+          {onOpenShortcuts && (
+            <Button
+              variant="ghost"
+              className="w-full justify-start h-12 ps-3 pe-3"
+              onClick={() => handleMenuItem(onOpenShortcuts)}
+            >
+              <div className="flex items-center gap-3 flex-1">
+                <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Zap className="h-4 w-4 text-primary" />
+                </div>
+                <span className="font-medium">{t('menu.shortcuts')}</span>
+              </div>
+              {shortcutsCount > 0 && (
+                <span className="h-5 min-w-5 px-1.5 rounded-full bg-primary text-[11px] font-semibold text-primary-foreground flex items-center justify-center">
+                  {shortcutsCount > 99 ? '99+' : shortcutsCount}
+                </span>
+              )}
+            </Button>
+          )}
+
           {/* Trash */}
           <Button
             variant="ghost"
