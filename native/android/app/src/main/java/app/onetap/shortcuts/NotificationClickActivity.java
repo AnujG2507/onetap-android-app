@@ -152,6 +152,19 @@ public class NotificationClickActivity extends Activity {
                     String phoneNumber = data.getString("phoneNumber");
                     actionIntent = new Intent(Intent.ACTION_CALL);
                     actionIntent.setData(Uri.parse("tel:" + phoneNumber));
+                    
+                    // Try direct call, fall back to dialer if permission denied
+                    try {
+                        actionIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        startActivity(actionIntent);
+                        Log.d(TAG, "Executed direct call to: " + phoneNumber);
+                        return; // Success, exit early
+                    } catch (SecurityException se) {
+                        Log.w(TAG, "CALL_PHONE permission denied, falling back to dialer", se);
+                        // Fall back to dialer (no permission required)
+                        actionIntent = new Intent(Intent.ACTION_DIAL);
+                        actionIntent.setData(Uri.parse("tel:" + phoneNumber));
+                    }
                     break;
                     
                 case "file":
