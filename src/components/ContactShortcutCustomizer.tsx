@@ -188,6 +188,7 @@ export function ContactShortcutCustomizer({
                     setPhoneNumber('');
                     setPickedContact(null);
                     setContactPhoto(null);
+                    setName('');
                     // Reset icon to default
                     setIcon({ type: 'emoji', value: mode === 'dial' ? '📞' : '💬' });
                   }}
