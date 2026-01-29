@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Zap, ChevronRight, RefreshCw, Search, X, Link2, FileIcon, MessageCircle, Phone, BarChart3, Clock, ArrowDownAZ } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import {
   Sheet,
   SheetContent,
@@ -111,6 +112,65 @@ function ShortcutIcon({ shortcut }: { shortcut: ShortcutData }) {
     <div className="h-12 w-12 rounded-xl bg-muted flex items-center justify-center">
       <Zap className="h-5 w-5 text-muted-foreground" />
     </div>
+  );
+}
+
+// Individual shortcut list item with expand-on-tap for title
+function ShortcutListItem({ 
+  shortcut, 
+  onTap, 
+  t 
+}: { 
+  shortcut: ShortcutData; 
+  onTap: (shortcut: ShortcutData) => void;
+  t: (key: string) => string;
+}) {
+  const [isTitleExpanded, setIsTitleExpanded] = useState(false);
+  const typeLabel = getShortcutTypeLabel(shortcut, t);
+  const target = getShortcutTarget(shortcut);
+  const usageCount = shortcut.usageCount || 0;
+  
+  return (
+    <button
+      key={shortcut.id}
+      onClick={() => onTap(shortcut)}
+      className="w-full max-w-full overflow-hidden flex items-center gap-3 p-3 rounded-xl border border-border/60 bg-card mb-2 hover:bg-muted/50 active:bg-muted transition-colors text-start shadow-sm"
+    >
+      <div className="shrink-0">
+        <ShortcutIcon shortcut={shortcut} />
+      </div>
+      
+      {/* Text content - strictly constrained to prevent overflow */}
+      <div className="flex-1 min-w-0 overflow-hidden">
+        <div className="flex items-start gap-2 max-w-full min-w-0">
+          <p 
+            className={cn(
+              "font-medium flex-1 cursor-pointer",
+              isTitleExpanded ? "break-all" : "truncate"
+            )}
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsTitleExpanded(!isTitleExpanded);
+            }}
+          >
+            {shortcut.name}
+          </p>
+          {/* Tap count badge - inline with name for visibility */}
+          <Badge 
+            variant="outline" 
+            className="shrink-0 flex-none text-[10px] px-1.5 py-0 h-5 font-semibold bg-primary/5 border-primary/20 text-primary whitespace-nowrap"
+          >
+            {usageCount} {usageCount === 1 ? t('shortcuts.tap') : t('shortcuts.taps')}
+          </Badge>
+        </div>
+        <p className="text-xs text-muted-foreground truncate">
+          {typeLabel}
+          {target && ` · ${target}`}
+        </p>
+      </div>
+      
+      <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 flex-none rtl:rotate-180" />
+    </button>
   );
 }
 
@@ -505,45 +565,14 @@ export function ShortcutsList({ isOpen, onClose, onCreateReminder }: ShortcutsLi
           ) : (
             <ScrollArea className="flex-1">
               <div className="p-2">
-                {filteredShortcuts.map((shortcut) => {
-                  const typeLabel = getShortcutTypeLabel(shortcut, t);
-                  const target = getShortcutTarget(shortcut);
-                  const usageCount = shortcut.usageCount || 0;
-                  
-                    return (
-                      <button
-                        key={shortcut.id}
-                        onClick={() => handleShortcutTap(shortcut)}
-                        className="w-full max-w-full overflow-hidden flex items-center gap-3 p-3 rounded-xl border border-border/60 bg-card mb-2 hover:bg-muted/50 active:bg-muted transition-colors text-start shadow-sm"
-                      >
-                        <div className="shrink-0">
-                          <ShortcutIcon shortcut={shortcut} />
-                        </div>
-                        
-                        {/* Text content - strictly constrained to prevent overflow */}
-                        <div className="flex-1 min-w-0 overflow-hidden">
-                          <div className="flex items-center gap-2 max-w-full min-w-0">
-                            <p className="font-medium flex-1 truncate">
-                              {shortcut.name}
-                            </p>
-                            {/* Tap count badge - inline with name for visibility */}
-                            <Badge 
-                              variant="outline" 
-                              className="shrink-0 flex-none text-[10px] px-1.5 py-0 h-5 font-semibold bg-primary/5 border-primary/20 text-primary whitespace-nowrap"
-                            >
-                              {usageCount} {usageCount === 1 ? t('shortcuts.tap') : t('shortcuts.taps')}
-                            </Badge>
-                          </div>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {typeLabel}
-                            {target && ` · ${target}`}
-                          </p>
-                        </div>
-                        
-                        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 flex-none rtl:rotate-180" />
-                      </button>
-                    );
-                })}
+                {filteredShortcuts.map((shortcut) => (
+                  <ShortcutListItem
+                    key={shortcut.id}
+                    shortcut={shortcut}
+                    onTap={handleShortcutTap}
+                    t={t}
+                  />
+                ))}
               </div>
             </ScrollArea>
           )}

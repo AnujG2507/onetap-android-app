@@ -32,6 +32,7 @@ export function TrashItem({ link, onRestore, onDelete }: TrashItemProps) {
   const [swipeX, setSwipeX] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
   const [isUrlExpanded, setIsUrlExpanded] = useState(false);
+  const [isTitleExpanded, setIsTitleExpanded] = useState(false);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
   const isHorizontalSwipe = useRef<boolean | null>(null);
@@ -186,7 +187,16 @@ export function TrashItem({ link, onRestore, onDelete }: TrashItemProps) {
 
         {/* Content */}
         <div className="flex-1 min-w-0 overflow-hidden">
-          <p className="text-sm font-medium text-foreground truncate">
+          <p 
+            className={cn(
+              "text-sm font-medium text-foreground cursor-pointer",
+              isTitleExpanded ? "break-all" : "truncate"
+            )}
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsTitleExpanded(!isTitleExpanded);
+            }}
+          >
             {link.title}
           </p>
           <div 

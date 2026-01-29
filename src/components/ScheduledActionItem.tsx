@@ -63,6 +63,7 @@ export function ScheduledActionItem({
   const { isRTL, isDeleteSwipe, getSwipeTransform } = useRTL();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const [isTitleExpanded, setIsTitleExpanded] = useState(false);
   
   // Swipe state
   const [swipeX, setSwipeX] = useState(0);
@@ -309,7 +310,20 @@ export function ScheduledActionItem({
 
             {/* Content */}
             <div className="flex-1 min-w-0 overflow-hidden">
-              <p className="font-medium text-sm truncate">{action.name}</p>
+              <p 
+                className={cn(
+                  "font-medium text-sm cursor-pointer",
+                  isTitleExpanded ? "break-all" : "truncate"
+                )}
+                onClick={(e) => {
+                  if (isSelectionMode) return;
+                  e.stopPropagation();
+                  setIsTitleExpanded(!isTitleExpanded);
+                  triggerHaptic('light');
+                }}
+              >
+                {action.name}
+              </p>
               {action.description && (
                 <div 
                   className={cn(
