@@ -2,6 +2,7 @@ import { Capacitor } from '@capacitor/core';
 import { toast } from 'sonner';
 import { Clipboard } from '@capacitor/clipboard';
 import i18n from '@/i18n';
+import ShortcutPlugin from '@/plugins/ShortcutPlugin';
 import type { ShortcutData } from '@/types/shortcut';
 
 /**
@@ -43,14 +44,22 @@ export function buildWhatsAppUrl(options: WhatsAppExecutionOptions): string {
  * Returns true if successfully opened, false otherwise
  */
 export async function openWhatsAppChat(options: WhatsAppExecutionOptions): Promise<boolean> {
-  const url = buildWhatsAppUrl(options);
-  
   try {
-    // Use window.open for both web and native
-    // On Android, this will trigger the intent system
-    window.open(url, '_system');
-    console.log('[WhatsApp] Opened chat', options.message ? 'with message prefill' : 'only');
-    return true;
+    if (Capacitor.isNativePlatform()) {
+      // Use native plugin for more reliable handling
+      const result = await ShortcutPlugin.openWhatsApp({
+        phoneNumber: options.phoneNumber,
+        message: options.message,
+      });
+      console.log('[WhatsApp] Opened via native plugin', options.message ? 'with message prefill' : 'only');
+      return result.success;
+    } else {
+      // Web fallback - use window.open
+      const url = buildWhatsAppUrl(options);
+      window.open(url, '_blank');
+      console.log('[WhatsApp] Opened via web', options.message ? 'with message prefill' : 'only');
+      return true;
+    }
   } catch (error) {
     console.error('[WhatsApp] Failed to open:', error);
     return false;

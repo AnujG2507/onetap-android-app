@@ -21,6 +21,8 @@ export interface ShortcutPluginInterface {
     // Flag to use PDF proxy activity
     usePDFProxy?: boolean;
     resumeEnabled?: boolean;
+    // Extra data for special intents (e.g., WhatsApp quick messages)
+    extras?: Record<string, string | undefined>;
   }): Promise<{ success: boolean; error?: string }>;
 
   checkShortcutSupport(): Promise<{ supported: boolean; canPin: boolean }>;
@@ -190,6 +192,34 @@ export interface ShortcutPluginInterface {
     success: boolean; 
     ids: string[]; 
     error?: string 
+  }>;
+
+  // ========== WhatsApp Pending Action ==========
+
+  // Get pending WhatsApp action (from multi-message shortcut that opened the app).
+  getPendingWhatsAppAction(): Promise<{
+    success: boolean;
+    hasPending: boolean;
+    phoneNumber?: string;
+    messagesJson?: string;
+    contactName?: string;
+    error?: string;
+  }>;
+
+  // Clear pending WhatsApp action after handling.
+  clearPendingWhatsAppAction(): Promise<{
+    success: boolean;
+    error?: string;
+  }>;
+
+  // Open WhatsApp with optional message prefill.
+  // Used after message is selected from the JS chooser.
+  openWhatsApp(options: {
+    phoneNumber: string;
+    message?: string;
+  }): Promise<{
+    success: boolean;
+    error?: string;
   }>;
 }
 

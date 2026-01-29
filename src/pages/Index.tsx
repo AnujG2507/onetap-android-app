@@ -11,12 +11,14 @@ import { NotificationsPage } from '@/components/NotificationsPage';
 import { SharedUrlActionSheet } from '@/components/SharedUrlActionSheet';
 import { OnboardingFlow } from '@/components/OnboardingFlow';
 import { LanguageSelectionStep } from '@/components/LanguageSelectionStep';
+import { MessageChooserSheet } from '@/components/MessageChooserSheet';
 import { useOnboarding } from '@/hooks/useOnboarding';
 import { useBackButton } from '@/hooks/useBackButton';
 import { useAuth } from '@/hooks/useAuth';
 import { useAutoSync } from '@/hooks/useAutoSync';
 import { useDeepLink } from '@/hooks/useDeepLink';
 import { useOAuthRecovery } from '@/hooks/useOAuthRecovery';
+import { usePendingWhatsAppAction } from '@/hooks/usePendingWhatsAppAction';
 import { OAuthRecoveryBanner } from '@/components/auth/OAuthRecoveryBanner';
 import { useSharedContent } from '@/hooks/useSharedContent';
 import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
@@ -75,6 +77,14 @@ const Index = () => {
   
   // Handle OAuth recovery after app kill during sign-in
   const { state: oauthRecoveryState, retry: retryOAuth, dismiss: dismissOAuthRecovery } = useOAuthRecovery();
+  
+  // Handle pending WhatsApp actions from multi-message shortcuts
+  const {
+    pendingAction: pendingWhatsAppAction,
+    handleMessageSelected: handleWhatsAppMessageSelected,
+    handleOpenChatOnly: handleWhatsAppOpenChatOnly,
+    clearPendingAction: clearWhatsAppPendingAction,
+  } = usePendingWhatsAppAction();
   
   // Handle shared content from Android Share Sheet (always active regardless of tab)
   const { sharedContent, sharedAction, isLoading: isLoadingShared, clearSharedContent } = useSharedContent();
@@ -489,6 +499,18 @@ const Index = () => {
           onDismiss={handleDismissSharedUrl}
         />
       )}
+
+      {/* WhatsApp Message Chooser (for multi-message shortcuts) */}
+      <MessageChooserSheet
+        open={!!pendingWhatsAppAction}
+        onOpenChange={(open) => {
+          if (!open) clearWhatsAppPendingAction();
+        }}
+        messages={pendingWhatsAppAction?.messages || []}
+        contactName={pendingWhatsAppAction?.contactName}
+        onSelectMessage={handleWhatsAppMessageSelected}
+        onOpenChatOnly={handleWhatsAppOpenChatOnly}
+      />
     </div>
   );
 };

@@ -18,6 +18,9 @@ export class ShortcutPluginWeb implements ShortcutPluginInterface {
     fileMimeType?: string;
     fileSize?: number;
     useVideoProxy?: boolean;
+    usePDFProxy?: boolean;
+    resumeEnabled?: boolean;
+    extras?: Record<string, string | undefined>;
   }): Promise<{ success: boolean; error?: string }> {
     console.log('[ShortcutPlugin Web] Creating shortcut:', options);
 
@@ -376,5 +379,42 @@ export class ShortcutPluginWeb implements ShortcutPluginInterface {
     // On web, click tracking is handled directly in the web plugin via markNotificationClicked
     // Return empty array since web doesn't need this bridge
     return { success: true, ids: [] };
+  }
+
+  // ========== WhatsApp Pending Action (Web Fallback) ==========
+
+  async getPendingWhatsAppAction(): Promise<{
+    success: boolean;
+    hasPending: boolean;
+    phoneNumber?: string;
+    messagesJson?: string;
+    contactName?: string;
+    error?: string;
+  }> {
+    console.log('[ShortcutPluginWeb] getPendingWhatsAppAction called (web fallback)');
+    // On web, there's no proxy activity flow
+    return { success: true, hasPending: false };
+  }
+
+  async clearPendingWhatsAppAction(): Promise<{ success: boolean; error?: string }> {
+    console.log('[ShortcutPluginWeb] clearPendingWhatsAppAction called (web fallback)');
+    return { success: true };
+  }
+
+  async openWhatsApp(options: {
+    phoneNumber: string;
+    message?: string;
+  }): Promise<{ success: boolean; error?: string }> {
+    console.log('[ShortcutPluginWeb] openWhatsApp called (web fallback)', options.phoneNumber);
+    
+    const cleanNumber = options.phoneNumber.replace(/[^0-9]/g, '');
+    let url = `https://wa.me/${cleanNumber}`;
+    
+    if (options.message) {
+      url += `?text=${encodeURIComponent(options.message)}`;
+    }
+    
+    window.open(url, '_blank');
+    return { success: true };
   }
 }

@@ -58,12 +58,15 @@ import app.onetap.shortcuts.NativeVideoPlayerActivity;
 import app.onetap.shortcuts.PDFProxyActivity;
 import app.onetap.shortcuts.VideoProxyActivity;
 import app.onetap.shortcuts.ContactProxyActivity;
+import app.onetap.shortcuts.WhatsAppProxyActivity;
 import app.onetap.shortcuts.ScheduledActionReceiver;
 import app.onetap.shortcuts.NotificationHelper;
 import app.onetap.shortcuts.NotificationClickActivity;
 
 import app.onetap.shortcuts.MainActivity;
 import android.content.SharedPreferences;
+import org.json.JSONArray;
+import org.json.JSONException;
 import android.appwidget.AppWidgetManager;
 import android.content.ComponentName;
 
@@ -141,6 +144,23 @@ public class ShortcutPlugin extends Plugin {
         Boolean usePDFProxy = call.getBoolean("usePDFProxy", false);
         Boolean resumeEnabled = call.getBoolean("resumeEnabled", false);
         
+        // WhatsApp proxy extras (from intent extras in JS)
+        String whatsappPhoneNumber = null;
+        String whatsappQuickMessages = null;
+        String whatsappContactName = null;
+        
+        // Parse extras if present
+        try {
+            JSObject extras = call.getObject("extras");
+            if (extras != null) {
+                whatsappPhoneNumber = extras.optString("phone_number", null);
+                whatsappQuickMessages = extras.optString("quick_messages", null);
+                whatsappContactName = extras.optString("contact_name", null);
+            }
+        } catch (Exception e) {
+            android.util.Log.w("ShortcutPlugin", "Error parsing extras: " + e.getMessage());
+        }
+        
         // Check for base64 file data from web picker
         String fileData = call.getString("fileData");
         String fileName = call.getString("fileName");
@@ -152,7 +172,7 @@ public class ShortcutPlugin extends Plugin {
             ", intentData=" + intentData + ", intentType=" + intentType + 
             ", hasFileData=" + (fileData != null) + ", fileSize=" + fileSize +
             ", useVideoProxy=" + useVideoProxy + ", usePDFProxy=" + usePDFProxy +
-            ", resumeEnabled=" + resumeEnabled);
+            ", resumeEnabled=" + resumeEnabled + ", intentAction=" + intentAction);
 
         if (id == null || label == null) {
             android.util.Log.e("ShortcutPlugin", "Missing required parameters");
@@ -170,6 +190,9 @@ public class ShortcutPlugin extends Plugin {
         final Boolean finalUsePDFProxy = usePDFProxy;
         final Boolean finalResumeEnabled = resumeEnabled;
         final String finalFileData = fileData;
+        final String finalWhatsappPhoneNumber = whatsappPhoneNumber;
+        final String finalWhatsappQuickMessages = whatsappQuickMessages;
+        final String finalWhatsappContactName = whatsappContactName;
         final String finalFileName = fileName;
         final String finalFileMimeType = fileMimeType;
         final long finalFileSize = fileSize;
@@ -283,6 +306,16 @@ public class ShortcutPlugin extends Plugin {
                     // Extract phone number from tel: URI and pass as extra
                     String phoneNumber = finalDataUri.getSchemeSpecificPart();
                     intent.putExtra(ContactProxyActivity.EXTRA_PHONE_NUMBER, phoneNumber);
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                } else if ("app.onetap.WHATSAPP_MESSAGE".equals(finalIntentAction)) {
+                    // WhatsApp shortcuts with multiple messages - route through WhatsAppProxyActivity
+                    android.util.Log.d("ShortcutPlugin", "Using WhatsAppProxyActivity for multi-message WhatsApp shortcut");
+                    intent = new Intent(context, WhatsAppProxyActivity.class);
+                    intent.setAction("app.onetap.WHATSAPP_MESSAGE");
+                    intent.setData(finalDataUri);
+                    intent.putExtra(WhatsAppProxyActivity.EXTRA_PHONE_NUMBER, finalWhatsappPhoneNumber);
+                    intent.putExtra(WhatsAppProxyActivity.EXTRA_QUICK_MESSAGES, finalWhatsappQuickMessages);
+                    intent.putExtra(WhatsAppProxyActivity.EXTRA_CONTACT_NAME, finalWhatsappContactName);
                     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 } else {
                     intent = createCompatibleIntent(context, finalIntentAction, finalDataUri, finalIntentType);
@@ -2584,6 +2617,132 @@ public class ShortcutPlugin extends Plugin {
             JSObject result = new JSObject();
             result.put("success", false);
             result.put("ids", new JSArray());
+            result.put("error", e.getMessage());
+            call.resolve(result);
+        }
+    }
+
+    // ========== WhatsApp Pending Action ==========
+
+    /**
+     * Get pending WhatsApp action (from multi-message shortcut).
+     * Called by JS layer on app startup to show message chooser if needed.
+     */
+    @PluginMethod
+    public void getPendingWhatsAppAction(PluginCall call) {
+        android.util.Log.d("ShortcutPlugin", "getPendingWhatsAppAction called");
+
+        try {
+            Context context = getContext();
+            if (context == null) {
+                JSObject result = new JSObject();
+                result.put("success", false);
+                result.put("hasPending", false);
+                result.put("error", "Context is null");
+                call.resolve(result);
+                return;
+            }
+
+            WhatsAppProxyActivity.PendingWhatsAppAction pending = WhatsAppProxyActivity.getPendingAction(context);
+            
+            JSObject result = new JSObject();
+            result.put("success", true);
+            
+            if (pending != null) {
+                result.put("hasPending", true);
+                result.put("phoneNumber", pending.phoneNumber);
+                result.put("messagesJson", pending.messagesJson);
+                result.put("contactName", pending.contactName);
+                android.util.Log.d("ShortcutPlugin", "Found pending WhatsApp action for: " + pending.phoneNumber);
+            } else {
+                result.put("hasPending", false);
+                android.util.Log.d("ShortcutPlugin", "No pending WhatsApp action");
+            }
+            
+            call.resolve(result);
+        } catch (Exception e) {
+            android.util.Log.e("ShortcutPlugin", "Error getting pending WhatsApp action: " + e.getMessage());
+            JSObject result = new JSObject();
+            result.put("success", false);
+            result.put("hasPending", false);
+            result.put("error", e.getMessage());
+            call.resolve(result);
+        }
+    }
+
+    /**
+     * Clear pending WhatsApp action after it has been handled.
+     */
+    @PluginMethod
+    public void clearPendingWhatsAppAction(PluginCall call) {
+        android.util.Log.d("ShortcutPlugin", "clearPendingWhatsAppAction called");
+
+        try {
+            Context context = getContext();
+            if (context == null) {
+                JSObject result = new JSObject();
+                result.put("success", false);
+                result.put("error", "Context is null");
+                call.resolve(result);
+                return;
+            }
+
+            WhatsAppProxyActivity.clearPendingAction(context);
+            
+            JSObject result = new JSObject();
+            result.put("success", true);
+            call.resolve(result);
+        } catch (Exception e) {
+            android.util.Log.e("ShortcutPlugin", "Error clearing pending WhatsApp action: " + e.getMessage());
+            JSObject result = new JSObject();
+            result.put("success", false);
+            result.put("error", e.getMessage());
+            call.resolve(result);
+        }
+    }
+
+    /**
+     * Open WhatsApp with optional message prefill.
+     * Used after message is selected from the JS chooser.
+     */
+    @PluginMethod
+    public void openWhatsApp(PluginCall call) {
+        android.util.Log.d("ShortcutPlugin", "openWhatsApp called");
+
+        String phoneNumber = call.getString("phoneNumber");
+        String message = call.getString("message");
+
+        if (phoneNumber == null || phoneNumber.isEmpty()) {
+            JSObject result = new JSObject();
+            result.put("success", false);
+            result.put("error", "Phone number is required");
+            call.resolve(result);
+            return;
+        }
+
+        try {
+            String cleanNumber = phoneNumber.replaceAll("[^0-9]", "");
+            String url = "https://wa.me/" + cleanNumber;
+            
+            if (message != null && !message.isEmpty()) {
+                url += "?text=" + java.net.URLEncoder.encode(message, "UTF-8");
+            }
+
+            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            
+            getActivity().startActivity(intent);
+            
+            android.util.Log.d("ShortcutPlugin", "Opened WhatsApp for: " + cleanNumber + 
+                (message != null ? " with message prefill" : " without message"));
+
+            JSObject result = new JSObject();
+            result.put("success", true);
+            call.resolve(result);
+        } catch (Exception e) {
+            android.util.Log.e("ShortcutPlugin", "Error opening WhatsApp: " + e.getMessage());
+            JSObject result = new JSObject();
+            result.put("success", false);
             result.put("error", e.getMessage());
             call.resolve(result);
         }

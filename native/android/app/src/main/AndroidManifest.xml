@@ -185,6 +185,14 @@
             android:noHistory="true"
             android:excludeFromRecents="true" />
 
+        <!-- WhatsApp Proxy Activity - handles multi-message WhatsApp shortcuts -->
+        <activity
+            android:name=".WhatsAppProxyActivity"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:exported="false"
+            android:noHistory="true"
+            android:excludeFromRecents="true" />
+
         <!-- Scheduled Actions: Alarm Receiver -->
         <receiver
             android:name=".ScheduledActionReceiver"

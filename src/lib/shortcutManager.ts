@@ -31,18 +31,36 @@ export function buildContentIntent(shortcut: ShortcutData): ShortcutIntent {
     const phoneNumber = shortcut.phoneNumber?.replace(/[^0-9]/g, '') || '';
     
     switch (shortcut.messageApp) {
-      case 'whatsapp':
+      case 'whatsapp': {
         // WhatsApp uses wa.me for universal linking
-        // Note: Message is NOT included in the intent data here
-        // For shortcuts with quickMessages, the execution logic handles message selection
-        return {
-          action: 'android.intent.action.VIEW',
-          data: `https://wa.me/${phoneNumber}`,
-          extras: {
-            // Pass quickMessages as JSON for native handling
-            quick_messages: shortcut.quickMessages ? JSON.stringify(shortcut.quickMessages) : undefined,
-          },
-        };
+        const messages = shortcut.quickMessages || [];
+        
+        if (messages.length === 0) {
+          // No messages - open chat directly
+          return {
+            action: 'android.intent.action.VIEW',
+            data: `https://wa.me/${phoneNumber}`,
+          };
+        } else if (messages.length === 1) {
+          // Single message - prefill the message in the URL
+          const encodedMessage = encodeURIComponent(messages[0]);
+          return {
+            action: 'android.intent.action.VIEW',
+            data: `https://wa.me/${phoneNumber}?text=${encodedMessage}`,
+          };
+        } else {
+          // Multiple messages - route through WhatsApp proxy for chooser
+          return {
+            action: 'app.onetap.WHATSAPP_MESSAGE',
+            data: `whatsapp://${phoneNumber}`,
+            extras: {
+              phone_number: phoneNumber,
+              quick_messages: JSON.stringify(messages),
+              contact_name: shortcut.contactName || shortcut.name,
+            },
+          };
+        }
+      }
       case 'telegram':
         return {
           action: 'android.intent.action.VIEW',
@@ -320,7 +338,7 @@ export async function createHomeScreenShortcut(
       fileOptions.fileSize = fileSize;
     }
     
-    const params = {
+    const params: Parameters<typeof ShortcutPlugin.createPinnedShortcut>[0] = {
       id: shortcut.id,
       label: shortcut.name,
       ...iconOptions,
@@ -328,6 +346,7 @@ export async function createHomeScreenShortcut(
       intentAction: intent.action,
       intentData: intent.data,
       intentType: intent.type,
+      extras: intent.extras, // WhatsApp extras for multi-message shortcuts
       useVideoProxy, // Signal to use VideoProxyActivity for videos
       usePDFProxy, // Signal to use PDFProxyActivity for PDFs
       resumeEnabled: shortcut.resumeEnabled, // PDF resume support
