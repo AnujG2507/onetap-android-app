@@ -514,23 +514,23 @@ export function ShortcutsList({ isOpen, onClose, onCreateReminder }: ShortcutsLi
                       <button
                         key={shortcut.id}
                         onClick={() => handleShortcutTap(shortcut)}
-                        className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 active:bg-muted transition-colors text-start"
+                        className="w-full flex items-center gap-3 p-3 rounded-xl border border-border/60 bg-card mb-2 hover:bg-muted/50 active:bg-muted transition-colors text-start shadow-sm"
                       >
                         <ShortcutIcon shortcut={shortcut} />
                         
-                        {/* Text content - constrained width to prevent overflow */}
+                        {/* Text content - strictly constrained to prevent overflow */}
                         <div className="flex-1 min-w-0 overflow-hidden">
                           <div className="flex items-center gap-2">
                             <p className="font-medium truncate flex-1 min-w-0">{shortcut.name}</p>
                             {/* Tap count badge - inline with name for visibility */}
                             <Badge 
                               variant="outline" 
-                              className="shrink-0 text-[10px] px-1.5 py-0 h-5 font-semibold bg-primary/5 border-primary/20 text-primary"
+                              className="shrink-0 text-[10px] px-1.5 py-0 h-5 font-semibold bg-primary/5 border-primary/20 text-primary whitespace-nowrap"
                             >
                               {usageCount} {usageCount === 1 ? t('shortcuts.tap') : t('shortcuts.taps')}
                             </Badge>
                           </div>
-                          <p className="text-xs text-muted-foreground truncate max-w-full">
+                          <p className="text-xs text-muted-foreground truncate">
                             {typeLabel}
                             {target && ` · ${target}`}
                           </p>
