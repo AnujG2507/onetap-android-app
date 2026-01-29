@@ -148,8 +148,9 @@ public class NotificationClickActivity extends Activity {
                     break;
                     
                 case "contact":
+                    // Directly place the call (one tap promise)
                     String phoneNumber = data.getString("phoneNumber");
-                    actionIntent = new Intent(Intent.ACTION_DIAL);
+                    actionIntent = new Intent(Intent.ACTION_CALL);
                     actionIntent.setData(Uri.parse("tel:" + phoneNumber));
                     break;
                     

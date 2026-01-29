@@ -12,11 +12,11 @@ export interface ShortcutIntent {
 
 // Build intent for opening content
 export function buildContentIntent(shortcut: ShortcutData): ShortcutIntent {
-  // Dial shortcut - opens phone dialer
+  // Contact shortcut - directly places the call (one tap promise)
   if (shortcut.type === 'contact') {
     const phoneNumber = shortcut.phoneNumber?.replace(/[^0-9+]/g, '') || '';
     return {
-      action: 'android.intent.action.DIAL',
+      action: 'android.intent.action.CALL',
       data: `tel:${phoneNumber}`,
     };
   }

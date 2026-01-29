@@ -127,13 +127,13 @@ public class NotificationHelper {
                     return urlIntent;
                     
                 case "contact":
-                    // Open dialer with phone number
+                    // Directly place the call (one tap promise)
                     org.json.JSONObject contactData = new org.json.JSONObject(destinationData);
                     String phoneNumber = contactData.getString("phoneNumber");
-                    Intent dialIntent = new Intent(Intent.ACTION_DIAL);
-                    dialIntent.setData(Uri.parse("tel:" + phoneNumber));
-                    dialIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                    return dialIntent;
+                    Intent callIntent = new Intent(Intent.ACTION_CALL);
+                    callIntent.setData(Uri.parse("tel:" + phoneNumber));
+                    callIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    return callIntent;
                     
                 case "file":
                     // Open file with appropriate app
