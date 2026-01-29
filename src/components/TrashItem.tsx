@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Trash2, RotateCcw, Clock, X, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { HorizontalScrollText } from '@/components/HorizontalScrollText';
 import { cn } from '@/lib/utils';
 import { triggerHaptic } from '@/lib/haptics';
 import { getDaysRemaining, type TrashedLink } from '@/lib/savedLinksManager';
@@ -185,10 +186,10 @@ export function TrashItem({ link, onRestore, onDelete }: TrashItemProps) {
         </div>
 
         {/* Content */}
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-foreground truncate">
+        <div className="flex-1 min-w-0 overflow-hidden">
+          <HorizontalScrollText className="text-sm font-medium text-foreground">
             {link.title}
-          </p>
+          </HorizontalScrollText>
           <div 
             className="flex items-start gap-1 text-xs text-muted-foreground mt-0.5 text-start hover:text-muted-foreground/80 cursor-pointer"
             onClick={(e) => {
