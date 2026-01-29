@@ -206,8 +206,8 @@ export function ShortcutsList({ isOpen, onClose, onCreateReminder }: ShortcutsLi
     // File types would need native handling
   }, [incrementUsage]);
   
-  const handleSaveEdit = useCallback((id: string, updates: Parameters<typeof updateShortcut>[1]) => {
-    updateShortcut(id, updates);
+  const handleSaveEdit = useCallback(async (id: string, updates: Parameters<typeof updateShortcut>[1]) => {
+    return await updateShortcut(id, updates);
   }, [updateShortcut]);
   
   return (

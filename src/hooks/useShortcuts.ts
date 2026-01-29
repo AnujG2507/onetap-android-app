@@ -193,7 +193,7 @@ export function useShortcuts() {
   const updateShortcut = useCallback(async (
     id: string,
     updates: Partial<Pick<ShortcutData, 'name' | 'icon' | 'quickMessages' | 'phoneNumber' | 'resumeEnabled'>>
-  ) => {
+  ): Promise<{ success: boolean; nativeUpdateFailed?: boolean }> => {
     // Update localStorage first
     const updated = shortcuts.map(s => 
       s.id === id ? { ...s, ...updates } : s
@@ -226,14 +226,19 @@ export function useShortcuts() {
           });
           if (result.success) {
             console.log('[useShortcuts] Updated pinned shortcut on home screen:', id);
+            return { success: true };
           } else {
             console.warn('[useShortcuts] Failed to update pinned shortcut:', result.error);
+            return { success: true, nativeUpdateFailed: true };
           }
         }
       } catch (error) {
         console.warn('[useShortcuts] Error updating pinned shortcut:', error);
+        return { success: true, nativeUpdateFailed: true };
       }
     }
+    
+    return { success: true };
   }, [shortcuts, saveShortcuts]);
 
   const getShortcut = useCallback((id: string): ShortcutData | undefined => {

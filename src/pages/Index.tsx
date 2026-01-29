@@ -136,8 +136,8 @@ const Index = () => {
   }, [pendingEditId, getShortcut, clearPendingEdit]);
 
   // Handler for saving shortcut edits
-  const handleSaveShortcutEdit = useCallback((id: string, updates: Parameters<typeof updateShortcut>[1]) => {
-    updateShortcut(id, updates);
+  const handleSaveShortcutEdit = useCallback(async (id: string, updates: Parameters<typeof updateShortcut>[1]) => {
+    return await updateShortcut(id, updates);
   }, [updateShortcut]);
 
   // Handler for deleting shortcut from action sheet

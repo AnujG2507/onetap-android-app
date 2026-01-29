@@ -17,7 +17,7 @@ interface ShortcutEditSheetProps {
   shortcut: ShortcutData | null;
   isOpen: boolean;
   onClose: () => void;
-  onSave: (id: string, updates: Partial<Pick<ShortcutData, 'name' | 'icon' | 'quickMessages' | 'resumeEnabled'>>) => void;
+  onSave: (id: string, updates: Partial<Pick<ShortcutData, 'name' | 'icon' | 'quickMessages' | 'resumeEnabled'>>) => Promise<{ success: boolean; nativeUpdateFailed?: boolean }>;
   onReAddToHomeScreen?: (shortcut: ShortcutData) => void;
 }
 
@@ -73,23 +73,51 @@ export function ShortcutEditSheet({
     }
   }, [isOpen, registerSheet, unregisterSheet, onClose]);
 
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     if (!shortcut) return;
     
-    onSave(shortcut.id, {
+    const result = await onSave(shortcut.id, {
       name,
       icon,
       quickMessages: quickMessages.length > 0 ? quickMessages : undefined,
       resumeEnabled: shortcut.fileType === 'pdf' ? resumeEnabled : undefined,
     });
 
-    // Show toast - home screen updates automatically now
-    toast({
-      title: t('shortcutEdit.saved'),
-    });
+    // Smart feedback based on native update result
+    if (Capacitor.isNativePlatform() && result?.nativeUpdateFailed && onReAddToHomeScreen) {
+      // Native update failed - prompt user to re-add
+      const updatedShortcut: ShortcutData = {
+        ...shortcut,
+        name,
+        icon,
+        quickMessages: quickMessages.length > 0 ? quickMessages : undefined,
+        resumeEnabled: shortcut.fileType === 'pdf' ? resumeEnabled : undefined,
+      };
+      
+      toast({
+        title: t('shortcutEdit.saved'),
+        description: t('shortcutEdit.homeScreenUpdateFailed'),
+        action: (
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => onReAddToHomeScreen(updatedShortcut)}
+            className="shrink-0"
+          >
+            {t('shortcutEdit.reAdd')}
+          </Button>
+        ),
+        duration: 8000, // Longer duration to give user time to act
+      });
+    } else {
+      // Success or not on native - simple toast
+      toast({
+        title: t('shortcutEdit.saved'),
+      });
+    }
 
     onClose();
-  }, [shortcut, name, icon, quickMessages, resumeEnabled, hasIconOrNameChanged, onSave, onClose, toast, t]);
+  }, [shortcut, name, icon, quickMessages, resumeEnabled, onSave, onReAddToHomeScreen, onClose, toast, t]);
 
   const handleReAdd = useCallback(() => {
     if (!shortcut || !onReAddToHomeScreen) return;

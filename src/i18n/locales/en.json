@@ -766,7 +766,9 @@
     "resumeReadingDesc": "Open to the last page you viewed",
     "saved": "Changes saved",
     "reAddHint": "Re-add to home screen to see updated icon/name",
-    "reAddToHomeScreen": "Re-add to Home Screen"
+    "reAddToHomeScreen": "Re-add to Home Screen",
+    "homeScreenUpdateFailed": "Home screen couldn't update automatically",
+    "reAdd": "Re-add"
   },
   "shortcutAction": {
     "open": "Open",
