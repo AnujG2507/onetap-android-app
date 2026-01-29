@@ -145,7 +145,7 @@ function ShortcutListItem({
         <div className="flex items-start gap-2 max-w-full min-w-0">
           <p 
             className={cn(
-              "font-medium flex-1 cursor-pointer",
+              "font-medium flex-1 min-w-0 cursor-pointer",
               isTitleExpanded ? "break-all" : "truncate"
             )}
             onClick={(e) => {
