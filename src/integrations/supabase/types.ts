@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           created_at: string
           description: string | null
+          entity_id: string
           favicon: string | null
           folder: string
           id: string
@@ -29,6 +30,7 @@ export type Database = {
         Insert: {
           created_at?: string
           description?: string | null
+          entity_id: string
           favicon?: string | null
           folder?: string
           id?: string
@@ -40,6 +42,7 @@ export type Database = {
         Update: {
           created_at?: string
           description?: string | null
+          entity_id?: string
           favicon?: string | null
           folder?: string
           id?: string
@@ -55,6 +58,7 @@ export type Database = {
           created_at: string
           deleted_at: string
           description: string | null
+          entity_id: string
           folder: string
           id: string
           original_created_at: string
@@ -68,6 +72,7 @@ export type Database = {
           created_at?: string
           deleted_at?: string
           description?: string | null
+          entity_id: string
           folder?: string
           id?: string
           original_created_at?: string
@@ -81,6 +86,7 @@ export type Database = {
           created_at?: string
           deleted_at?: string
           description?: string | null
+          entity_id?: string
           folder?: string
           id?: string
           original_created_at?: string
