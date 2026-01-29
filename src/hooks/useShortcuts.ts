@@ -1,9 +1,11 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { App } from '@capacitor/app';
+import { toast } from 'sonner';
 import type { ShortcutData, ContentSource, ShortcutIcon, MessageApp } from '@/types/shortcut';
 import ShortcutPlugin from '@/plugins/ShortcutPlugin';
 import { usageHistoryManager } from '@/lib/usageHistoryManager';
+import i18n from '@/i18n';
 
 const STORAGE_KEY = 'quicklaunch_shortcuts';
 
@@ -243,6 +245,14 @@ export function useShortcuts() {
         const result = await ShortcutPlugin.disablePinnedShortcut({ id });
         if (result.success) {
           console.log('[useShortcuts] Disabled pinned shortcut from home screen:', id);
+          
+          // Android cannot programmatically remove pinned shortcuts from home screen
+          // Show a toast informing the user they need to manually remove the icon
+          if (result.requiresManualRemoval) {
+            toast.info(i18n.t('shortcuts.manualRemovalRequired'), {
+              duration: 5000,
+            });
+          }
         } else {
           console.warn('[useShortcuts] Failed to disable pinned shortcut:', result.error);
         }

@@ -2897,9 +2897,17 @@ public class ShortcutPlugin extends Plugin {
     }
 
     /**
-     * Disable and remove a pinned shortcut from the home screen.
-     * Uses ShortcutManager.disableShortcuts() which removes the shortcut
-     * from the launcher and prevents it from being pinned again.
+     * Disable and clean up a pinned shortcut.
+     * 
+     * IMPORTANT: Android does NOT allow apps to programmatically remove/unpin shortcuts
+     * from the home screen. This is a security restriction.
+     * 
+     * What this method does:
+     * 1. disableShortcuts() - Marks the shortcut as disabled so it shows a "deleted" message if tapped
+     * 2. removeDynamicShortcuts() - Removes from dynamic shortcuts list
+     * 3. removeLongLivedShortcuts() (API 30+) - Cleans up cached shortcut data
+     * 
+     * The user must manually remove the shortcut icon from their home screen.
      */
     @PluginMethod
     public void disablePinnedShortcut(PluginCall call) {
@@ -2942,24 +2950,42 @@ public class ShortcutPlugin extends Plugin {
                 return;
             }
 
-            // Disable the shortcut - this removes it from the home screen
-            // The message is shown if user tries to use a disabled shortcut
             List<String> shortcutIds = new ArrayList<>();
             shortcutIds.add(shortcutId);
             
-            manager.disableShortcuts(shortcutIds, "This shortcut has been deleted");
-            
+            // Step 1: Disable the shortcut - shows message if user taps the orphaned icon
+            manager.disableShortcuts(shortcutIds, "This shortcut has been deleted. Please remove it from your home screen.");
             android.util.Log.d("ShortcutPlugin", "Disabled pinned shortcut: " + shortcutId);
+            
+            // Step 2: Remove from dynamic shortcuts (cleanup)
+            try {
+                manager.removeDynamicShortcuts(shortcutIds);
+                android.util.Log.d("ShortcutPlugin", "Removed from dynamic shortcuts: " + shortcutId);
+            } catch (Exception e) {
+                android.util.Log.w("ShortcutPlugin", "removeDynamicShortcuts failed (may not exist): " + e.getMessage());
+            }
+            
+            // Step 3: Remove long-lived shortcut cache (API 30+)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                try {
+                    manager.removeLongLivedShortcuts(shortcutIds);
+                    android.util.Log.d("ShortcutPlugin", "Removed long-lived shortcut: " + shortcutId);
+                } catch (Exception e) {
+                    android.util.Log.w("ShortcutPlugin", "removeLongLivedShortcuts failed: " + e.getMessage());
+                }
+            }
 
             JSObject result = new JSObject();
             result.put("success", true);
+            // Flag indicating the user needs to manually remove the icon
+            result.put("requiresManualRemoval", true);
             call.resolve(result);
         } catch (Exception e) {
             android.util.Log.e("ShortcutPlugin", "Error disabling shortcut: " + e.getMessage());
             JSObject result = new JSObject();
             result.put("success", false);
             result.put("error", e.getMessage());
-        call.resolve(result);
+            call.resolve(result);
         }
     }
 

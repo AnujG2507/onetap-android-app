@@ -68,7 +68,8 @@
     "searchResults": "{{count}} shortcuts",
     "noMatch": "No shortcuts match your filter",
     "clearFilters": "Clear filters",
-    "syncTooltip": "Sync with home screen"
+    "syncTooltip": "Sync with home screen",
+    "manualRemovalRequired": "Please manually remove the shortcut icon from your home screen"
   },
   "contact": {
     "call": "Call",
