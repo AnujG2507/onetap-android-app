@@ -1,104 +1,59 @@
 
-# Plan: Fix Text Overflow in My Shortcuts and Similar Components
+# Plan: Consistent Overflow Handling for Name and Metadata Rows
 
-## Problem Analysis
+## Problem
 
-Based on the screenshot, the issue is that the shortcut metadata text (e.g., "Link · accubate-prod-public.s3.ap-south-1.amazonaws.co...") is overflowing horizontally, pushing the tap count badge ("0 taps") partially off-screen.
-
-The root cause is that the current CSS layout doesn't properly constrain the content within the parent container. Even with `min-w-0` and `truncate` applied, the flex row containing the badge needs additional constraints.
+In the My Shortcuts list, while the name row now uses `HorizontalScrollText`, the **Type + Target metadata row** (e.g., "Link · very-long-domain-name.com") still uses basic `truncate` which can fail to constrain overflow in certain flex layouts.
 
 ## Solution
 
-Apply a two-row layout where:
-1. **Row 1**: Shortcut name (truncated) + tap count badge (fixed width, always visible)
-2. **Row 2**: Type label + target URL (truncated, contained within bounds)
+Apply the same `HorizontalScrollText` component to **both** the name and the metadata row in `ShortcutsList.tsx`. This ensures:
 
-The key fix is moving the badge to be inline with the name (on the same row) and ensuring both rows have proper overflow handling.
+1. **Consistent behavior**: Both rows can be horizontally scrolled to reveal full content
+2. **No layout overflow**: The container bounds are strictly enforced
+3. **Better UX**: Users can swipe to see full type + target instead of it being cut off with ellipsis
 
 ## Files to Modify
 
-### 1. `src/components/ShortcutsList.tsx` (Primary Fix)
+### `src/components/ShortcutsList.tsx`
 
-**Current Issue**: The name row with badge doesn't properly constrain when text is long.
-
-**Fix**:
-- Ensure the parent container has explicit width constraints
-- Use `overflow-hidden` at multiple levels
-- Apply proper flex constraints so the name truncates before pushing the badge off-screen
-
-**Layout Change**:
-```
-Before:
-+--------------------------------------------------+
-| [Icon] | Name                        | 0 taps |>|
-|        | Link · very-long-url-that-overflows...  |
-+--------------------------------------------------+
-
-After:
-+--------------------------------------------------+
-| [Icon] | Name...              | 0 taps         |>|
-|        | Link · very-long...                     |
-+--------------------------------------------------+
+**Current (lines 538-541):**
+```tsx
+<span className="text-xs text-muted-foreground truncate block max-w-full">
+  {typeLabel}
+  {target && ` · ${target}`}
+</span>
 ```
 
-### 2. Similar Patterns to Audit (No changes needed based on review)
-
-The following components were reviewed and already handle text overflow correctly:
-
-| Component | Status | Notes |
-|-----------|--------|-------|
-| `BookmarkItem.tsx` | OK | Uses `min-w-0` + `truncate`, URL has chevron expansion |
-| `ScheduledActionItem.tsx` | OK | Uses `min-w-0` + `truncate` |
-| `TrashItem.tsx` | OK | Uses `min-w-0` + `truncate`, URL has chevron expansion |
-| `ClipboardSuggestion.tsx` | OK | Uses `min-w-0` + `truncate` |
-| `SharedUrlActionSheet.tsx` | OK | Uses `min-w-0` + `truncate` |
-| `ShortcutActionSheet.tsx` | Minor | Could add `truncate` to header, but low priority |
-
-## Technical Details
-
-### CSS Classes to Apply
-
-```
-Parent container (the button):
-  - w-full (ensures full width)
-  - overflow-hidden (clips overflowing children)
-
-Text content wrapper:
-  - flex-1 min-w-0 overflow-hidden (allows shrinking below content size)
-
-Name row (with badge):
-  - flex items-center gap-2 (horizontal layout)
-  
-Name text:
-  - font-medium truncate flex-1 min-w-0 (truncates when space is limited)
-
-Badge:
-  - shrink-0 (never shrinks, always visible)
-  - whitespace-nowrap (prevents text wrapping inside badge)
-
-Metadata row:
-  - text-xs text-muted-foreground truncate (single line, truncated)
+**Proposed:**
+```tsx
+<HorizontalScrollText className="text-xs text-muted-foreground">
+  {typeLabel}
+  {target && ` · ${target}`}
+</HorizontalScrollText>
 ```
 
-### Key Insight
+## Visual Result
 
-The issue occurs because:
-1. The parent `button` doesn't have `overflow-hidden`
-2. The flex container grows beyond the viewport when content is long
+```
+┌────────────────────────────────────────────────────────┐
+│ [Icon] │ Shortcut Name...→        │ 5 taps │    >     │
+│        │ Link · very-long-targ...→                    │
+└────────────────────────────────────────────────────────┘
+         ↑                          ↑
+         Swipe to scroll            Swipe to scroll
+```
 
-Adding `overflow-hidden` to the button element will clip any content that exceeds its bounds, forcing the truncation to work properly.
+Both text rows can now be independently scrolled horizontally to reveal full content, while fixed elements (icon, badge, chevron) remain visible.
 
-## Implementation Steps
+## Additional Consideration
 
-1. Add `overflow-hidden` to the main button element in `ShortcutsList.tsx`
-2. Verify the name properly truncates before pushing the badge off-screen
-3. Ensure the metadata row (type + target) stays within bounds
+The parent `div` (line 526) already has `max-w-full min-w-0` constraints, which should work properly with `HorizontalScrollText`. If needed, we can also add explicit width constraints to the button container.
 
-## Testing
+## Testing Checklist
 
-After implementation:
-1. Open My Shortcuts on Android
-2. Verify shortcuts with long names show truncated names with visible tap count
-3. Verify shortcuts with long URLs show truncated URLs
-4. Ensure the chevron icon remains visible on the right side
-5. Test with different shortcut types (links, contacts, files)
+- Shortcuts with long names display correctly with horizontal scroll
+- Shortcuts with long URLs/targets display correctly with horizontal scroll  
+- Tap count badge always remains visible
+- Chevron icon always remains visible
+- Both rows can be scrolled independently
