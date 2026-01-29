@@ -22,7 +22,6 @@ import { getSettings } from '@/lib/settingsManager';
 import { detectPlatform } from '@/lib/platformIcons';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import { useRTL } from '@/hooks/useRTL';
-import { HorizontalScrollText } from '@/components/HorizontalScrollText';
 
 interface BookmarkItemProps {
   link: SavedLink;
@@ -321,9 +320,9 @@ export function BookmarkItem({
           
           {/* Content */}
           <div className="flex-1 min-w-0 overflow-hidden">
-            <HorizontalScrollText className="font-medium text-foreground">
+            <p className="font-medium text-foreground truncate">
               {link.title}
-            </HorizontalScrollText>
+            </p>
             <div 
               className={cn(
                 "flex items-start gap-1 text-xs text-muted-foreground mt-0.5 text-start",

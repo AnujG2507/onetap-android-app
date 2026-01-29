@@ -12,7 +12,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { HorizontalScrollText } from '@/components/HorizontalScrollText';
 import { useShortcuts } from '@/hooks/useShortcuts';
 import { useSheetBackHandler } from '@/hooks/useSheetBackHandler';
 import { ShortcutActionSheet } from '@/components/ShortcutActionSheet';
@@ -524,9 +523,9 @@ export function ShortcutsList({ isOpen, onClose, onCreateReminder }: ShortcutsLi
                         {/* Text content - strictly constrained to prevent overflow */}
                         <div className="flex-1 min-w-0 overflow-hidden">
                           <div className="flex items-center gap-2 max-w-full min-w-0">
-                            <HorizontalScrollText className="font-medium flex-1">
+                            <p className="font-medium flex-1 truncate">
                               {shortcut.name}
-                            </HorizontalScrollText>
+                            </p>
                             {/* Tap count badge - inline with name for visibility */}
                             <Badge 
                               variant="outline" 
@@ -535,10 +534,10 @@ export function ShortcutsList({ isOpen, onClose, onCreateReminder }: ShortcutsLi
                               {usageCount} {usageCount === 1 ? t('shortcuts.tap') : t('shortcuts.taps')}
                             </Badge>
                           </div>
-                          <HorizontalScrollText className="text-xs text-muted-foreground">
+                          <p className="text-xs text-muted-foreground truncate">
                             {typeLabel}
                             {target && ` · ${target}`}
-                          </HorizontalScrollText>
+                          </p>
                         </div>
                         
                         <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 flex-none rtl:rotate-180" />

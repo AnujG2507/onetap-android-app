@@ -25,7 +25,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { HorizontalScrollText } from '@/components/HorizontalScrollText';
 import { cn } from '@/lib/utils';
 import { formatTriggerTime, formatRecurrence } from '@/lib/scheduledActionsManager';
 import { ContactAvatar } from '@/components/ContactAvatar';
@@ -310,7 +309,7 @@ export function ScheduledActionItem({
 
             {/* Content */}
             <div className="flex-1 min-w-0 overflow-hidden">
-              <HorizontalScrollText className="font-medium text-sm">{action.name}</HorizontalScrollText>
+              <p className="font-medium text-sm truncate">{action.name}</p>
               {action.description && (
                 <div 
                   className={cn(
@@ -346,12 +345,12 @@ export function ScheduledActionItem({
                   </div>
                 </div>
               )}
-              <HorizontalScrollText className={cn(
-                "text-xs mt-0.5",
+              <p className={cn(
+                "text-xs mt-0.5 truncate",
                 isExpired ? "text-destructive" : "text-muted-foreground"
               )}>
                 {isExpired ? t('scheduledActionItem.expired') + ' — ' : ''}{formatTriggerTime(action.triggerTime)}
-              </HorizontalScrollText>
+              </p>
               <div className="flex items-center gap-1.5 mt-1.5 text-xs text-muted-foreground">
                 {getRecurrenceIcon(action.recurrence)}
                 <span>{formatRecurrence(action.recurrence)}</span>
