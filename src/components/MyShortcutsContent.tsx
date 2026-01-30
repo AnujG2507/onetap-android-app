@@ -8,6 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { ImageWithFallback } from '@/components/ui/image-with-fallback';
+import { buildImageSources } from '@/lib/imageUtils';
 import { useShortcuts } from '@/hooks/useShortcuts';
 import { ShortcutActionSheet } from '@/components/ShortcutActionSheet';
 import { ShortcutEditSheet } from '@/components/ShortcutEditSheet';
@@ -64,10 +66,22 @@ function getShortcutTarget(shortcut: ShortcutData): string | null {
   return null;
 }
 
-// Render shortcut icon
+// Render shortcut icon with bulletproof image loading
 function ShortcutIcon({ shortcut }: { shortcut: ShortcutData }) {
-  const [imageError, setImageError] = useState(false);
   const { icon } = shortcut;
+  
+  // Build priority-ordered list of image sources for thumbnail icons
+  const imageSources = useMemo(() => {
+    if (icon.type !== 'thumbnail') return [];
+    return buildImageSources(icon.value, shortcut.thumbnailData);
+  }, [icon.type, icon.value, shortcut.thumbnailData]);
+  
+  // Default fallback component
+  const fallbackIcon = (
+    <div className="h-12 w-12 rounded-xl bg-muted flex items-center justify-center">
+      <Zap className="h-5 w-5 text-muted-foreground" />
+    </div>
+  );
   
   if (icon.type === 'emoji') {
     return (
@@ -77,20 +91,18 @@ function ShortcutIcon({ shortcut }: { shortcut: ShortcutData }) {
     );
   }
   
-  if (icon.type === 'thumbnail') {
-    const thumbnailSrc = icon.value || shortcut.thumbnailData;
-    if (thumbnailSrc && !imageError) {
-      return (
-        <div className="h-12 w-12 rounded-xl overflow-hidden bg-muted">
-          <img 
-            src={thumbnailSrc} 
-            alt={shortcut.name}
-            className="h-full w-full object-cover"
-            onError={() => setImageError(true)}
-          />
-        </div>
-      );
-    }
+  if (icon.type === 'thumbnail' && imageSources.length > 0) {
+    return (
+      <div className="h-12 w-12 rounded-xl overflow-hidden bg-muted">
+        <ImageWithFallback
+          sources={imageSources}
+          fallback={<Zap className="h-5 w-5 text-muted-foreground" />}
+          alt={shortcut.name}
+          className="h-full w-full object-cover"
+          containerClassName="h-full w-full flex items-center justify-center"
+        />
+      </div>
+    );
   }
   
   if (icon.type === 'text') {
@@ -103,12 +115,8 @@ function ShortcutIcon({ shortcut }: { shortcut: ShortcutData }) {
     );
   }
   
-  // Default fallback (also used when thumbnail fails to load)
-  return (
-    <div className="h-12 w-12 rounded-xl bg-muted flex items-center justify-center">
-      <Zap className="h-5 w-5 text-muted-foreground" />
-    </div>
-  );
+  // Default fallback
+  return fallbackIcon;
 }
 
 // Check if target is "long" (more than ~20 chars)

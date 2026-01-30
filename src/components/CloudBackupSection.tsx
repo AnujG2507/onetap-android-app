@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Cloud, RefreshCw, LogOut, Loader2, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -7,13 +7,20 @@ import { useAuth } from '@/hooks/useAuth';
 import { guardedSync, guardedUpload, guardedDownload } from '@/lib/cloudSync';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { ImageWithFallback } from '@/components/ui/image-with-fallback';
+import { isValidImageSource } from '@/lib/imageUtils';
 
 export function CloudBackupSection() {
   const { user, loading: authLoading, isAuthenticated, signInWithGoogle, signOut } = useAuth();
   const [isSyncing, setIsSyncing] = useState(false);
   const [showRecovery, setShowRecovery] = useState(false);
   const [isRecoveryAction, setIsRecoveryAction] = useState(false);
-  const [avatarError, setAvatarError] = useState(false);
+  
+  // Validate avatar URL before attempting to load
+  const validAvatarUrl = useMemo(() => {
+    const url = user?.user_metadata?.avatar_url;
+    return url && isValidImageSource(url) ? url : null;
+  }, [user?.user_metadata?.avatar_url]);
 
   const handleSignIn = async () => {
     try {
@@ -211,12 +218,14 @@ export function CloudBackupSection() {
       <div className="px-3 py-2 mb-2">
         <div className="flex items-center gap-2">
           <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
-            {user?.user_metadata?.avatar_url && !avatarError ? (
-              <img 
-                src={user.user_metadata.avatar_url} 
-                alt="Profile" 
+            {validAvatarUrl ? (
+              <ImageWithFallback
+                sources={[validAvatarUrl]}
+                fallback={<Cloud className="h-4 w-4 text-primary" />}
+                alt="Profile"
                 className="h-full w-full object-cover"
-                onError={() => setAvatarError(true)}
+                containerClassName="h-full w-full flex items-center justify-center"
+                showSkeleton={false}
               />
             ) : (
               <Cloud className="h-4 w-4 text-primary" />

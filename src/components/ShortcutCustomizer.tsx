@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Check, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -7,7 +7,9 @@ import { Switch } from '@/components/ui/switch';
 import { Progress } from '@/components/ui/progress';
 import { IconPicker } from './IconPicker';
 import { ContentPreview } from './ContentPreview';
+import { ImageWithFallback } from '@/components/ui/image-with-fallback';
 import { getContentName, generateThumbnail, getPlatformEmoji, getFileTypeEmoji } from '@/lib/contentResolver';
+import { buildImageSources } from '@/lib/imageUtils';
 import type { ContentSource, ShortcutIcon } from '@/types/shortcut';
 import { FILE_SIZE_THRESHOLD } from '@/types/shortcut';
 
@@ -54,12 +56,12 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
   const [isLoadingThumbnail, setIsLoadingThumbnail] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [creationProgress, setCreationProgress] = useState(0);
-  const [iconLoadError, setIconLoadError] = useState(false);
   
-  // Reset icon error when icon changes
-  useEffect(() => {
-    setIconLoadError(false);
-  }, [icon.value]);
+  // Build priority-ordered list of preview image sources
+  const previewSources = useMemo(() => {
+    if (icon.type !== 'thumbnail') return [];
+    return buildImageSources(icon.value, thumbnail);
+  }, [icon.type, icon.value, thumbnail]);
   
   useEffect(() => {
     setIsLoadingThumbnail(true);
@@ -225,16 +227,20 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
                   <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                 </div>
               )}
-              {!isLoadingThumbnail && icon.type === 'thumbnail' && !iconLoadError && (
-                <img 
-                  src={icon.value} 
-                  alt="" 
+              {!isLoadingThumbnail && icon.type === 'thumbnail' && previewSources.length > 0 && (
+                <ImageWithFallback
+                  sources={previewSources}
+                  fallback={<span className="text-2xl">📱</span>}
+                  alt=""
                   className="h-full w-full object-cover"
-                  onError={() => setIconLoadError(true)}
+                  showSkeleton={false}
                 />
               )}
-              {!isLoadingThumbnail && (icon.type === 'emoji' || (icon.type === 'thumbnail' && iconLoadError)) && (
-                <span className="text-2xl">{iconLoadError ? '📱' : icon.value}</span>
+              {!isLoadingThumbnail && icon.type === 'thumbnail' && previewSources.length === 0 && (
+                <span className="text-2xl">📱</span>
+              )}
+              {!isLoadingThumbnail && icon.type === 'emoji' && (
+                <span className="text-2xl">{icon.value}</span>
               )}
               {!isLoadingThumbnail && icon.type === 'text' && (
                 <span className="text-xl font-bold text-primary-foreground">

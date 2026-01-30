@@ -1,9 +1,11 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Image as ImageIcon, Type, Smile, X, ImageOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { triggerSelectionFeedback } from '@/lib/haptics';
 import { Input } from '@/components/ui/input';
+import { ImageWithFallback } from '@/components/ui/image-with-fallback';
+import { isValidImageSource, buildImageSources } from '@/lib/imageUtils';
 import type { ShortcutIcon, IconType } from '@/types/shortcut';
 
 interface IconPickerProps {
@@ -30,14 +32,24 @@ export function IconPicker({ thumbnail, selectedIcon, onSelect }: IconPickerProp
   const [textValue, setTextValue] = useState(
     selectedIcon.type === 'text' ? selectedIcon.value : ''
   );
-  const [thumbnailError, setThumbnailError] = useState(false);
+  const [thumbnailFailed, setThumbnailFailed] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isUserScrolling = useRef(true);
   
-  // Reset thumbnail error when thumbnail changes
+  // Validate thumbnail before showing thumbnail option
+  const validThumbnail = useMemo(() => 
+    thumbnail && isValidImageSource(thumbnail) ? thumbnail : null,
+  [thumbnail]);
+  
+  // Build image sources for the thumbnail preview
+  const thumbnailSources = useMemo(() => 
+    buildImageSources(selectedIcon.type === 'thumbnail' ? selectedIcon.value : null, validThumbnail),
+  [selectedIcon.type, selectedIcon.value, validThumbnail]);
+  
+  // Reset thumbnail failed state when thumbnail changes
   useEffect(() => {
-    setThumbnailError(false);
+    setThumbnailFailed(false);
   }, [thumbnail]);
 
   // Scroll to selected emoji when switching to emoji type or on selection
@@ -112,8 +124,9 @@ export function IconPicker({ thumbnail, selectedIcon, onSelect }: IconPickerProp
     }, 100);
   }, [selectedIcon.value, onSelect]);
 
+  // Only show thumbnail option if we have a valid thumbnail and it hasn't failed
   const iconTypes: { type: IconType; icon: React.ReactNode; label: string }[] = [
-    ...(thumbnail && !thumbnailError ? [{ type: 'thumbnail' as IconType, icon: <ImageIcon className="h-5 w-5" />, label: t('iconPicker.image') }] : []),
+    ...(validThumbnail && !thumbnailFailed ? [{ type: 'thumbnail' as IconType, icon: <ImageIcon className="h-5 w-5" />, label: t('iconPicker.image') }] : []),
     { type: 'emoji', icon: <Smile className="h-5 w-5" />, label: t('iconPicker.emoji') },
     { type: 'text', icon: <Type className="h-5 w-5" />, label: t('iconPicker.text') },
   ];
@@ -161,15 +174,18 @@ export function IconPicker({ thumbnail, selectedIcon, onSelect }: IconPickerProp
               selectedIcon.type === 'thumbnail' ? 'p-0 overflow-hidden' : 'bg-primary'
             )}
           >
-            {selectedIcon.type === 'thumbnail' && !thumbnailError && (
-              <img
-                src={selectedIcon.value}
+            {selectedIcon.type === 'thumbnail' && thumbnailSources.length > 0 && (
+              <ImageWithFallback
+                sources={thumbnailSources}
+                fallback={<ImageOff className="h-6 w-6 text-primary-foreground/50" />}
                 alt="Icon preview"
                 className="h-full w-full object-cover"
-                onError={() => setThumbnailError(true)}
+                containerClassName="h-full w-full flex items-center justify-center"
+                onAllFailed={() => setThumbnailFailed(true)}
+                showSkeleton={false}
               />
             )}
-            {selectedIcon.type === 'thumbnail' && thumbnailError && (
+            {selectedIcon.type === 'thumbnail' && thumbnailSources.length === 0 && (
               <ImageOff className="h-6 w-6 text-primary-foreground/50" />
             )}
             {selectedIcon.type === 'text' && (
