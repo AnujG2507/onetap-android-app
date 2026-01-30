@@ -3,7 +3,7 @@ import { Globe, GripVertical, ChevronDown, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { ExpandableText } from '@/components/ui/expandable-text';
+import { TruncatedText } from '@/components/ui/expandable-text';
 import { cn } from '@/lib/utils';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -328,13 +328,9 @@ export function BookmarkItem({
           
           {/* Content */}
           <div className="flex-1 min-w-0 overflow-hidden">
-            <ExpandableText
+            <TruncatedText
               text={link.title}
-              charLimit={30}
-              className="w-full"
-              textClassName="font-medium text-foreground"
-              disabled={isSelectionMode}
-              onClick={() => triggerHaptic('light')}
+              className="font-medium text-foreground"
             />
             <div 
               className={cn(

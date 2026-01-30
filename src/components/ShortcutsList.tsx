@@ -8,8 +8,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import { ExpandableText } from '@/components/ui/expandable-text';
-import { triggerHaptic } from '@/lib/haptics';
+import { TruncatedText } from '@/components/ui/expandable-text';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -143,13 +142,10 @@ function ShortcutListItem({
       
       {/* Text content - takes remaining space, strictly constrained */}
       <div className="flex-1 min-w-0 overflow-hidden">
-        {/* Title row with chevron for long titles */}
-        <ExpandableText
+        {/* Title row */}
+        <TruncatedText
           text={shortcut.name}
-          charLimit={30}
-          className="w-full"
-          textClassName="font-medium"
-          onClick={() => triggerHaptic('light')}
+          className="font-medium w-full"
         />
         
         {/* Metadata row - type, target, and badge */}
