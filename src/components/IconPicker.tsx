@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Image as ImageIcon, Type, Smile, X, ImageOff, Globe } from 'lucide-react';
+import { Image as ImageIcon, Type, Smile, X, ImageOff, Globe, ChevronDown, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { triggerSelectionFeedback } from '@/lib/haptics';
 import { Input } from '@/components/ui/input';
 import { ImageWithFallback } from '@/components/ui/image-with-fallback';
 import { PlatformIcon } from '@/components/PlatformIcon';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { isValidImageSource, buildImageSources } from '@/lib/imageUtils';
 import { detectPlatform, type PlatformInfo } from '@/lib/platformIcons';
 import { getPlatformColor } from '@/lib/platformColors';
@@ -38,6 +39,9 @@ export function IconPicker({ thumbnail, platformIcon, faviconUrl, selectedIcon, 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isUserScrolling = useRef(true);
+  
+  // Collapse by default for recognized platforms (auto-detected icon)
+  const [isExpanded, setIsExpanded] = useState(!platformIcon);
   
   // Validate thumbnail before showing thumbnail option
   const validThumbnail = useMemo(() => 
@@ -157,153 +161,198 @@ export function IconPicker({ thumbnail, platformIcon, faviconUrl, selectedIcon, 
     { type: 'text', icon: <Type className="h-5 w-5" />, label: t('iconPicker.text') },
   ];
 
+  // For recognized platforms, show a compact collapsed state with expand option
+  const hasAutoDetectedIcon = !!(platformIcon && platformInfo);
+
   return (
-    <div className="space-y-4">
-      <p className="text-sm font-medium text-foreground">{t('iconPicker.icon')}</p>
-      
-      {/* Icon type selector */}
-      <div className="flex gap-2">
-        {iconTypes.map(({ type, icon, label }) => (
-          <button
-            key={type}
-            onClick={() => {
-              if (type === 'platform' && platformIcon) {
-                onSelect({ type: 'platform', value: platformIcon });
-              } else if (type === 'favicon' && faviconUrl) {
-                onSelect({ type: 'favicon', value: faviconUrl });
-              } else if (type === 'thumbnail' && thumbnail) {
-                onSelect({ type: 'thumbnail', value: thumbnail });
-              } else if (type === 'emoji') {
-                onSelect({ type: 'emoji', value: COMMON_EMOJIS[0] });
-              } else if (type === 'text') {
-                onSelect({ type: 'text', value: textValue || 'A' });
-              }
-            }}
-            className={cn(
-              "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-colors",
-              selectedIcon.type === type
-                ? "bg-primary text-primary-foreground"
-                : "bg-secondary text-secondary-foreground"
-            )}
-          >
-            {icon}
-            {label}
-          </button>
-        ))}
-      </div>
-      
-      {/* Icon preview - for platform, favicon, thumbnail, and text types */}
-      {selectedIcon.type !== 'emoji' && (
-        <div 
-          key={`preview-${selectedIcon.type}`}
-          className="flex justify-center py-4 animate-fade-in"
-        >
-          <div
-            className={cn(
-              "h-16 w-16 rounded-2xl flex items-center justify-center elevation-2 overflow-hidden",
-              selectedIcon.type === 'thumbnail' ? 'p-0' : '',
-              // Platform and favicon get white/neutral background to match native adaptive icons
-              (selectedIcon.type === 'platform' || selectedIcon.type === 'favicon') && 'bg-white dark:bg-gray-100 shadow-sm',
-              // Thumbnail and text get bg-primary
-              (selectedIcon.type === 'thumbnail' || selectedIcon.type === 'text') && 'bg-primary'
-            )}
-          >
-            {selectedIcon.type === 'platform' && platformInfo && (
-              <PlatformIcon platform={platformInfo} size="lg" brandColored />
-            )}
-            {selectedIcon.type === 'favicon' && (
-              <img 
-                src={selectedIcon.value} 
-                alt="Website icon" 
-                className="h-[70%] w-[70%] object-contain"
-              />
-            )}
-            {selectedIcon.type === 'thumbnail' && thumbnailSources.length > 0 && (
-              <ImageWithFallback
-                sources={thumbnailSources}
-                fallback={<ImageOff className="h-6 w-6 text-primary-foreground/50" />}
-                alt="Icon preview"
-                className="h-full w-full object-cover"
-                containerClassName="h-full w-full flex items-center justify-center"
-                onAllFailed={() => setThumbnailFailed(true)}
-                showSkeleton={false}
-              />
-            )}
-            {selectedIcon.type === 'thumbnail' && thumbnailSources.length === 0 && (
-              <ImageOff className="h-6 w-6 text-primary-foreground/50" />
-            )}
-            {selectedIcon.type === 'text' && (
-              <span className="text-2xl font-bold text-primary-foreground">
-                {selectedIcon.value.slice(0, 2).toUpperCase()}
+    <div className="space-y-3">
+      <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
+        {/* Collapsed state for recognized platforms - shows auto-detected badge */}
+        {hasAutoDetectedIcon && !isExpanded && (
+          <CollapsibleTrigger asChild>
+            <button className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-muted/50 hover:bg-muted transition-colors text-left">
+              <div className="flex items-center gap-3">
+                {/* Mini platform icon preview */}
+                <div className="h-10 w-10 rounded-xl bg-white dark:bg-gray-100 flex items-center justify-center shadow-sm overflow-hidden">
+                  <PlatformIcon platform={platformInfo} size="md" brandColored />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium text-foreground">{t('iconPicker.icon')}</span>
+                  <span className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Check className="h-3 w-3 text-primary" />
+                    {t('iconPicker.autoDetected', { platform: platformInfo.name })}
+                  </span>
+                </div>
+              </div>
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            </button>
+          </CollapsibleTrigger>
+        )}
+
+        {/* Expanded state header for recognized platforms */}
+        {hasAutoDetectedIcon && isExpanded && (
+          <CollapsibleTrigger asChild>
+            <button className="w-full flex items-center justify-between gap-2 py-1 text-left">
+              <p className="text-sm font-medium text-foreground">{t('iconPicker.icon')}</p>
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                {t('iconPicker.collapse')}
+                <ChevronDown className="h-3 w-3 rotate-180 transition-transform" />
               </span>
-            )}
-          </div>
-        </div>
-      )}
-      
-      {/* Emoji picker - native horizontal scroll */}
-      {selectedIcon.type === 'emoji' && (
-        <div 
-          key="emoji-scroll"
-          className="py-4 animate-fade-in relative"
-        >
-          {/* Left fade gradient */}
-          <div className="absolute left-0 top-0 bottom-0 w-12 bg-gradient-to-r from-background to-transparent z-10 pointer-events-none" />
-          
-          {/* Right fade gradient */}
-          <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-background to-transparent z-10 pointer-events-none" />
-          
-          <div 
-            ref={scrollContainerRef}
-            onScroll={handleScroll}
-            className="flex gap-2 overflow-x-auto scrollbar-hide snap-x snap-mandatory px-[calc(50%-28px)]"
-          >
-            {COMMON_EMOJIS.map((emoji) => (
+            </button>
+          </CollapsibleTrigger>
+        )}
+
+        {/* Regular header for non-platform icons */}
+        {!hasAutoDetectedIcon && (
+          <p className="text-sm font-medium text-foreground">{t('iconPicker.icon')}</p>
+        )}
+
+        <CollapsibleContent className="space-y-4 data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up">
+          {/* Icon type selector */}
+          <div className="flex gap-2 pt-2">
+            {iconTypes.map(({ type, icon, label }) => (
               <button
-                key={emoji}
-                onClick={() => onSelect({ type: 'emoji', value: emoji })}
+                key={type}
+                onClick={() => {
+                  if (type === 'platform' && platformIcon) {
+                    onSelect({ type: 'platform', value: platformIcon });
+                  } else if (type === 'favicon' && faviconUrl) {
+                    onSelect({ type: 'favicon', value: faviconUrl });
+                  } else if (type === 'thumbnail' && thumbnail) {
+                    onSelect({ type: 'thumbnail', value: thumbnail });
+                  } else if (type === 'emoji') {
+                    onSelect({ type: 'emoji', value: COMMON_EMOJIS[0] });
+                  } else if (type === 'text') {
+                    onSelect({ type: 'text', value: textValue || 'A' });
+                  }
+                }}
                 className={cn(
-                  "h-14 w-14 shrink-0 rounded-xl text-2xl flex items-center justify-center transition-all duration-200 snap-center",
-                  selectedIcon.value === emoji
-                    ? "scale-110 bg-primary/15 ring-2 ring-primary"
-                    : "scale-90 opacity-50 bg-secondary hover:opacity-75"
+                  "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-colors",
+                  selectedIcon.type === type
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-secondary text-secondary-foreground"
                 )}
               >
-                {emoji}
+                {icon}
+                {label}
               </button>
             ))}
           </div>
-        </div>
-      )}
-      
-      {selectedIcon.type === 'text' && (
-        <div key="text-input" className="animate-fade-in relative">
-          <Input
-            value={textValue}
-            onChange={(e) => {
-              const value = e.target.value.slice(0, 2);
-              setTextValue(value);
-              onSelect({ type: 'text', value: value || 'A' });
-            }}
-            placeholder={t('iconPicker.textPlaceholder')}
-            maxLength={2}
-            className="text-center text-lg font-medium h-12 pr-10"
-          />
-          {textValue && (
-            <button
-              type="button"
-              onClick={() => {
-                setTextValue('');
-                onSelect({ type: 'text', value: 'A' });
-              }}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
-              aria-label={t('common.clearText')}
+          
+          {/* Icon preview - for platform, favicon, thumbnail, and text types */}
+          {selectedIcon.type !== 'emoji' && (
+            <div 
+              key={`preview-${selectedIcon.type}`}
+              className="flex justify-center py-4 animate-fade-in"
             >
-              <X className="h-4 w-4" />
-            </button>
+              <div
+                className={cn(
+                  "h-16 w-16 rounded-2xl flex items-center justify-center elevation-2 overflow-hidden",
+                  selectedIcon.type === 'thumbnail' ? 'p-0' : '',
+                  // Platform and favicon get white/neutral background to match native adaptive icons
+                  (selectedIcon.type === 'platform' || selectedIcon.type === 'favicon') && 'bg-white dark:bg-gray-100 shadow-sm',
+                  // Thumbnail and text get bg-primary
+                  (selectedIcon.type === 'thumbnail' || selectedIcon.type === 'text') && 'bg-primary'
+                )}
+              >
+                {selectedIcon.type === 'platform' && platformInfo && (
+                  <PlatformIcon platform={platformInfo} size="lg" brandColored />
+                )}
+                {selectedIcon.type === 'favicon' && (
+                  <img 
+                    src={selectedIcon.value} 
+                    alt="Website icon" 
+                    className="h-[70%] w-[70%] object-contain"
+                  />
+                )}
+                {selectedIcon.type === 'thumbnail' && thumbnailSources.length > 0 && (
+                  <ImageWithFallback
+                    sources={thumbnailSources}
+                    fallback={<ImageOff className="h-6 w-6 text-primary-foreground/50" />}
+                    alt="Icon preview"
+                    className="h-full w-full object-cover"
+                    containerClassName="h-full w-full flex items-center justify-center"
+                    onAllFailed={() => setThumbnailFailed(true)}
+                    showSkeleton={false}
+                  />
+                )}
+                {selectedIcon.type === 'thumbnail' && thumbnailSources.length === 0 && (
+                  <ImageOff className="h-6 w-6 text-primary-foreground/50" />
+                )}
+                {selectedIcon.type === 'text' && (
+                  <span className="text-2xl font-bold text-primary-foreground">
+                    {selectedIcon.value.slice(0, 2).toUpperCase()}
+                  </span>
+                )}
+              </div>
+            </div>
           )}
-        </div>
-      )}
+          
+          {/* Emoji picker - native horizontal scroll */}
+          {selectedIcon.type === 'emoji' && (
+            <div 
+              key="emoji-scroll"
+              className="py-4 animate-fade-in relative"
+            >
+              {/* Left fade gradient */}
+              <div className="absolute left-0 top-0 bottom-0 w-12 bg-gradient-to-r from-background to-transparent z-10 pointer-events-none" />
+              
+              {/* Right fade gradient */}
+              <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-background to-transparent z-10 pointer-events-none" />
+              
+              <div 
+                ref={scrollContainerRef}
+                onScroll={handleScroll}
+                className="flex gap-2 overflow-x-auto scrollbar-hide snap-x snap-mandatory px-[calc(50%-28px)]"
+              >
+                {COMMON_EMOJIS.map((emoji) => (
+                  <button
+                    key={emoji}
+                    onClick={() => onSelect({ type: 'emoji', value: emoji })}
+                    className={cn(
+                      "h-14 w-14 shrink-0 rounded-xl text-2xl flex items-center justify-center transition-all duration-200 snap-center",
+                      selectedIcon.value === emoji
+                        ? "scale-110 bg-primary/15 ring-2 ring-primary"
+                        : "scale-90 opacity-50 bg-secondary hover:opacity-75"
+                    )}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {selectedIcon.type === 'text' && (
+            <div key="text-input" className="animate-fade-in relative">
+              <Input
+                value={textValue}
+                onChange={(e) => {
+                  const value = e.target.value.slice(0, 2);
+                  setTextValue(value);
+                  onSelect({ type: 'text', value: value || 'A' });
+                }}
+                placeholder={t('iconPicker.textPlaceholder')}
+                maxLength={2}
+                className="text-center text-lg font-medium h-12 pr-10"
+              />
+              {textValue && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTextValue('');
+                    onSelect({ type: 'text', value: 'A' });
+                  }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
+                  aria-label={t('common.clearText')}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          )}
+        </CollapsibleContent>
+      </Collapsible>
     </div>
   );
 }

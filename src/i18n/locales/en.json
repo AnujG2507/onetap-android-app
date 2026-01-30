@@ -506,7 +506,9 @@
     "emoji": "Emoji",
     "text": "Text",
     "website": "Website",
-    "textPlaceholder": "1-2 characters"
+    "textPlaceholder": "1-2 characters",
+    "autoDetected": "Auto-detected: {{platform}}",
+    "collapse": "Collapse"
   },
   "toasts": {
     "linkSaved": "Link saved to library!",
