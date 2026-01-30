@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useMemo } from 'react';
 import { formatContentInfo, detectFileType } from '@/lib/contentResolver';
 import type { ContentSource } from '@/types/shortcut';
 import { cn } from '@/lib/utils';
+import { ImageWithFallback } from '@/components/ui/image-with-fallback';
+import { buildImageSources } from '@/lib/imageUtils';
 
 interface ContentPreviewProps {
   source: ContentSource;
@@ -9,10 +11,14 @@ interface ContentPreviewProps {
 }
 
 export function ContentPreview({ source, className }: ContentPreviewProps) {
-  const [imageError, setImageError] = useState(false);
   const info = formatContentInfo(source);
   const isImage = source.mimeType?.startsWith('image/');
-  const fileType = detectFileType(source.mimeType, source.name);
+
+  // Build priority-ordered list of image sources
+  const imageSources = useMemo(() => {
+    if (!isImage) return [];
+    return buildImageSources(source.uri, source.thumbnailData);
+  }, [isImage, source.uri, source.thumbnailData]);
 
   return (
     <div
@@ -23,12 +29,12 @@ export function ContentPreview({ source, className }: ContentPreviewProps) {
     >
       {/* Thumbnail or emoji icon */}
       <div className="flex-shrink-0 h-12 w-12 rounded-lg overflow-hidden bg-primary/10 flex items-center justify-center">
-        {isImage && source.uri && !imageError ? (
-          <img
-            src={source.uri}
+        {isImage && imageSources.length > 0 ? (
+          <ImageWithFallback
+            sources={imageSources}
+            fallback={<span className="text-2xl">{info.emoji}</span>}
             alt=""
             className="h-full w-full object-cover"
-            onError={() => setImageError(true)}
           />
         ) : (
           <span className="text-2xl">{info.emoji}</span>

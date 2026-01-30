@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Edit, Trash2, Bell, ExternalLink, Phone, MessageCircle, FileText, Link, Image, Video } from 'lucide-react';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
@@ -16,6 +16,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useState, useEffect } from 'react';
 import { useSheetRegistry } from '@/contexts/SheetRegistryContext';
+import { ImageWithFallback } from '@/components/ui/image-with-fallback';
+import { buildImageSources } from '@/lib/imageUtils';
 import type { ShortcutData } from '@/types/shortcut';
 
 interface ShortcutActionSheetProps {
@@ -40,12 +42,12 @@ export function ShortcutActionSheet({
   const { t } = useTranslation();
   const { registerSheet, unregisterSheet } = useSheetRegistry();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [iconError, setIconError] = useState(false);
 
-  // Reset icon error when shortcut changes
-  useEffect(() => {
-    setIconError(false);
-  }, [shortcut?.id]);
+  // Build priority-ordered list of icon sources
+  const iconSources = useMemo(() => {
+    if (!shortcut || shortcut.icon.type !== 'thumbnail') return [];
+    return buildImageSources(shortcut.thumbnailData, shortcut.icon.value);
+  }, [shortcut?.id, shortcut?.thumbnailData, shortcut?.icon.type, shortcut?.icon.value]);
 
   // Register with sheet registry for back button handling
   useEffect(() => {
@@ -133,12 +135,14 @@ export function ShortcutActionSheet({
                   shortcut.icon.value
                 ) : shortcut.icon.type === 'text' ? (
                   <span className="text-sm font-bold">{shortcut.icon.value.slice(0, 2)}</span>
-                ) : (shortcut.thumbnailData || shortcut.icon.value) && !iconError ? (
-                  <img 
-                    src={shortcut.thumbnailData || shortcut.icon.value} 
-                    alt="" 
+                ) : iconSources.length > 0 ? (
+                  <ImageWithFallback
+                    sources={iconSources}
+                    fallback={getShortcutIcon()}
+                    alt=""
                     className="w-full h-full object-cover"
-                    onError={() => setIconError(true)}
+                    containerClassName="w-full h-full flex items-center justify-center"
+                    showSkeleton={false}
                   />
                 ) : (
                   getShortcutIcon()

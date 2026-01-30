@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { User, Cloud, Upload, Download, RefreshCw, LogOut, HardDrive, Clock, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,8 @@ import { Label } from '@/components/ui/label';
 import { UsageInsights } from '@/components/UsageInsights';
 import { TutorialCoachMarks } from '@/components/TutorialCoachMarks';
 import { SyncStatusIndicator } from '@/components/SyncStatusIndicator';
+import { ImageWithFallback } from '@/components/ui/image-with-fallback';
+import { isValidImageSource } from '@/lib/imageUtils';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -316,9 +318,14 @@ export function ProfilePage({}: ProfilePageProps = {}) {
 
   // Signed in state
   const userMeta = user.user_metadata;
-  const avatarUrl = userMeta?.avatar_url || userMeta?.picture;
+  const rawAvatarUrl = userMeta?.avatar_url || userMeta?.picture;
   const fullName = userMeta?.full_name || userMeta?.name || 'User';
   const email = user.email || '';
+  
+  // Validate avatar URL before attempting to load
+  const validAvatarUrl = useMemo(() => 
+    rawAvatarUrl && isValidImageSource(rawAvatarUrl) ? rawAvatarUrl : null,
+  [rawAvatarUrl]);
 
   return (
     <div className="flex-1 flex flex-col p-4 pb-20 overflow-y-auto">
@@ -337,13 +344,18 @@ export function ProfilePage({}: ProfilePageProps = {}) {
       <Card id="tutorial-user-card" className="mb-4">
         <CardContent className="pt-6">
           <div className="flex items-center gap-4">
-            {avatarUrl && !avatarError ? (
-              <img 
-                src={avatarUrl} 
-                alt={fullName} 
-                className="w-16 h-16 rounded-full"
+            {validAvatarUrl ? (
+              <ImageWithFallback
+                sources={[validAvatarUrl]}
+                fallback={
+                  <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                    <User className="w-8 h-8 text-primary" />
+                  </div>
+                }
+                alt={fullName}
+                className="w-16 h-16 rounded-full object-cover"
                 referrerPolicy="no-referrer"
-                onError={() => setAvatarError(true)}
+                showSkeleton={false}
               />
             ) : (
               <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
