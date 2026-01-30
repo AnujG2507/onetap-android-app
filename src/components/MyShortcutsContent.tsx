@@ -11,7 +11,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { ImageWithFallback } from '@/components/ui/image-with-fallback';
 import { buildImageSources } from '@/lib/imageUtils';
 import { useShortcuts } from '@/hooks/useShortcuts';
-import { getPlatformColor } from '@/lib/platformColors';
+import { detectPlatform } from '@/lib/platformIcons';
+import { PlatformIcon } from '@/components/PlatformIcon';
 import { ShortcutActionSheet } from '@/components/ShortcutActionSheet';
 import { ShortcutEditSheet } from '@/components/ShortcutEditSheet';
 import type { ShortcutData } from '@/types/shortcut';
@@ -93,24 +94,25 @@ function ShortcutIcon({ shortcut }: { shortcut: ShortcutData }) {
   }
   
   if (icon.type === 'platform') {
-    const colorInfo = getPlatformColor(icon.value);
-    return (
-      <div 
-        className="h-12 w-12 rounded-xl flex items-center justify-center text-lg"
-        style={{ backgroundColor: colorInfo.bgColor, color: colorInfo.textColor }}
-      >
-        {colorInfo.letter}
-      </div>
-    );
+    const platform = detectPlatform(`https://${icon.value}.com`);
+    if (platform) {
+      return (
+        <div className="h-12 w-12 rounded-xl flex items-center justify-center overflow-hidden">
+          <PlatformIcon platform={platform} size="lg" noBg />
+        </div>
+      );
+    }
+    // Fallback to muted icon if detection fails
+    return fallbackIcon;
   }
   
   if (icon.type === 'favicon') {
     return (
-      <div className="h-12 w-12 rounded-xl bg-blue-500 flex items-center justify-center overflow-hidden">
+      <div className="h-12 w-12 rounded-xl flex items-center justify-center overflow-hidden">
         <img 
           src={icon.value} 
           alt="" 
-          className="h-6 w-6 object-contain"
+          className="h-full w-full object-contain"
           onError={(e) => {
             e.currentTarget.style.display = 'none';
           }}
