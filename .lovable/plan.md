@@ -1,148 +1,232 @@
 
-# Remove Telegram, Signal, and Slack Support
 
-## Summary
+# Fix Icon Inconsistency in Shortcut Creation Journey
 
-Remove all code related to Telegram, Signal, and Slack messaging shortcuts since the app specializes in WhatsApp. This cleanup simplifies the codebase and focuses on the core functionality.
+## Problem Summary
 
-## Code to Remove/Modify
+The screenshot shows three different LinkedIn icon representations on the same screen:
+1. **ContentPreview (top)**: Briefcase emoji 💼 
+2. **IconPicker (middle)**: Nearly invisible white "in" logo on white background
+3. **Preview (bottom)**: Correct blue LinkedIn icon
 
-### 1. TypeScript Types
+## Root Cause Analysis
 
-**File: `src/types/shortcut.ts`**
+### Icon #2 (Middle) - Why It's White
 
-| Change | Before | After |
-|--------|--------|-------|
-| `MessageApp` type | `'whatsapp' \| 'telegram' \| 'signal' \| 'slack'` | `'whatsapp'` |
-| `slackUserId` field | Present | **Remove** |
-| `slackTeamId` field | Present | **Remove** |
-| Comment update | "For dial and WhatsApp/Telegram/Signal" | "For dial and WhatsApp" |
+In `IconPicker.tsx`, the platform icon preview uses:
+```tsx
+// Container: white background
+(selectedIcon.type === 'platform' || selectedIcon.type === 'favicon') && 'bg-white dark:bg-gray-100 shadow-sm'
 
-### 2. Platform Icons
+// Icon: renders with noBg prop
+<PlatformIcon platform={platformInfo} size="lg" noBg />
+```
 
-**File: `src/lib/platformIcons.ts`**
+The `noBg` mode in `PlatformIcon` renders the SVG with `platform.textColor` which is `text-white` for LinkedIn. White SVG on white background = invisible/barely visible.
 
-| Change | Lines | Description |
-|--------|-------|-------------|
-| Remove `telegram` from icon type | Line 8 | Remove from union type |
-| Remove `slack` from icon type | Line 8 | Remove from union type |
-| Remove Telegram pattern | Lines 70-72 | Remove platform detection |
-| Remove Slack pattern | Lines 97-100 | Remove platform detection |
+### Icon #1 (Top) - Why It's an Emoji
 
-### 3. Shortcut Manager
+`ContentPreview` uses `formatContentInfo()` which calls `getPlatformEmoji()` returning the briefcase emoji from `PLATFORM_EMOJI_MAP['linkedin']` = '💼'. It never uses `PlatformIcon`.
 
-**File: `src/lib/shortcutManager.ts`**
+### Icon #3 (Bottom) - Why It Works
 
-| Change | Lines | Description |
-|--------|-------|-------------|
-| Remove Telegram case | Lines 62-68 | Remove switch case |
-| Remove Signal case | Lines 70-76 | Remove switch case |
-| Remove Slack case | Lines 78-86 | Remove switch case |
+The Preview section uses `PlatformIcon` WITHOUT the `noBg` prop, so it renders with the proper branded background (`bg-blue-700`) and white icon.
 
-### 4. Hooks
+## Solution: Brand-Colored Icons on Neutral Background
 
-**File: `src/hooks/useShortcuts.ts`**
+The goal is to match the native Android adaptive icon appearance: **brand-colored logos on white/neutral backgrounds**. This ensures:
+- Visual parity with what users see on their home screen
+- Consistency across the entire creation journey
+- Proper contrast for all platform colors
 
-| Change | Lines | Description |
-|--------|-------|-------------|
-| Remove `slackDetails` parameter | Line 225 | Remove from `createMessageShortcut` |
-| Remove `slackTeamId`/`slackUserId` assignments | Lines 238-239 | Remove fields |
-| Remove from `updateShortcut` updates type | Line 313 | Remove Slack fields |
-| Remove from update call | Lines 345-346 | Remove Slack data passing |
+### Technical Changes
 
-### 5. Access Flow Component
+#### 1. Create a New `PlatformIcon` Mode
 
-**File: `src/components/AccessFlow.tsx`**
+Add a new rendering mode that draws the SVG with the platform's brand color (not white) on transparent/neutral background.
 
-| Change | Lines | Description |
-|--------|-------|-------------|
-| Remove `slackTeamId`/`slackUserId` from handler params | Lines 276-277 | Remove fields |
-| Remove Slack details passing | Lines 302-304 | Remove conditional |
+**File: `src/components/PlatformIcon.tsx`**
 
-### 6. Plugin Interfaces
+Add a `brandColored` prop that renders the SVG using the brand's primary color as fill:
 
-**File: `src/plugins/ShortcutPlugin.ts`**
+```tsx
+interface PlatformIconProps {
+  platform: PlatformInfo;
+  size?: 'sm' | 'md' | 'lg';
+  className?: string;
+  noBg?: boolean;
+  brandColored?: boolean; // NEW: renders brand-colored icon on transparent bg
+}
 
-| Change | Lines | Description |
-|--------|-------|-------------|
-| Update `messageApp` comment | Line 273 | Change to just `'whatsapp'` |
-| Remove `slackTeamId` property | Line 279 | Remove |
-| Remove `slackUserId` property | Line 280 | Remove |
+// In component:
+if (brandColored) {
+  const colorInfo = getPlatformColor(platform.icon);
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      style={{ color: colorInfo.bgColor }} // Use brand color as fill
+      className={cn(FULL_SIZE_CLASSES[size], className)}
+    >
+      {iconPath}
+    </svg>
+  );
+}
+```
 
-**File: `src/plugins/shortcutPluginWeb.ts`**
+#### 2. Update IconPicker Preview
 
-| Change | Lines | Description |
-|--------|-------|-------------|
-| Remove `messageApp` optional param | Line 469 | Remove (or keep for WhatsApp only) |
-| Clean up unused properties | ~Lines 465-475 | Simplify interface |
+**File: `src/components/IconPicker.tsx`**
 
-### 7. Native Android Code
+Replace `noBg` with `brandColored` for platform icon preview:
 
-**File: `native/android/app/src/main/java/app/onetap/shortcuts/plugins/ShortcutPlugin.java`**
+```tsx
+{selectedIcon.type === 'platform' && platformInfo && (
+  <PlatformIcon platform={platformInfo} size="lg" brandColored />
+)}
+```
 
-| Change | Lines | Description |
-|--------|-------|-------------|
-| Update comment | Line 346 | Remove Telegram/Signal/Slack mentions |
-| Remove Telegram icon path | Lines 1714-1716+ | Remove from `getPlatformPath()` |
-| Remove Telegram color | Line 1960 | Remove from `getPlatformColor()` |
-| Remove Slack color | Line 1967 | Remove from `getPlatformColor()` |
-| Remove Telegram fallback | Line 1999 | Remove from `getPlatformFallback()` |
-| Remove Slack fallback | Line 2006 | Remove from `getPlatformFallback()` |
-| Remove `slackTeamId`/`slackUserId` handling | Lines 3706-3708 | Remove variables |
-| Remove from `buildIntentForUpdate` signature | Lines 3821-3822 | Remove params |
-| Remove Telegram/Signal/Slack cases | Lines 3892-3906 | Remove switch cases |
+#### 3. Update MyShortcutsContent
 
-**File: `native/android/app/src/main/java/app/onetap/shortcuts/MessageProxyActivity.java`**
+**File: `src/components/MyShortcutsContent.tsx`**
 
-| Change | Lines | Description |
-|--------|-------|-------------|
-| Update JavaDoc | Lines 10-13 | Remove Telegram/Signal/Slack mentions |
+Replace `noBg` with `brandColored` for the shortcut list:
 
-### 8. Action Sheet Labels
+```tsx
+if (icon.type === 'platform') {
+  const platform = detectPlatform(`https://${icon.value}.com`);
+  if (platform) {
+    return (
+      <div className="h-12 w-12 rounded-xl bg-white dark:bg-gray-100 flex items-center justify-center overflow-hidden shadow-sm">
+        <PlatformIcon platform={platform} size="lg" brandColored />
+      </div>
+    );
+  }
+}
+```
 
-**File: `src/components/ShortcutActionSheet.tsx`**
+#### 4. Update ShortcutCustomizer Preview
 
-| Change | Lines | Description |
-|--------|-------|-------------|
-| Remove generic "Message" label fallback | Lines 112 | Since only WhatsApp is supported |
+**File: `src/components/ShortcutCustomizer.tsx`**
 
-### 9. Translation Keys (optional cleanup)
+Update the preview section to use `brandColored` and set proper background:
 
-**File: `src/i18n/locales/en.json`**
+```tsx
+{!isLoadingThumbnail && icon.type === 'platform' && detectedPlatform && (
+  <PlatformIcon platform={detectedPlatform} size="md" brandColored />
+)}
+```
 
-| Change | Description |
-|--------|-------------|
-| `typeMessage` key | Could remove if no longer needed (only WhatsApp remains) |
+Update the preview container to use white background for platform icons:
+```tsx
+<div
+  className="h-14 w-14 rounded-2xl flex items-center justify-center elevation-2 overflow-hidden relative"
+  style={
+    icon.type === 'platform' 
+      ? { backgroundColor: '#FFFFFF' }
+      : icon.type === 'thumbnail' 
+        ? {} 
+        : { backgroundColor: 'hsl(var(--primary))' }
+  }
+>
+```
 
-## Files Summary
+#### 5. Update ContentPreview to Use Platform Icons
 
-| File | Action |
-|------|--------|
-| `src/types/shortcut.ts` | Simplify `MessageApp` type, remove Slack fields |
-| `src/lib/platformIcons.ts` | Remove Telegram/Slack from platform detection |
-| `src/lib/shortcutManager.ts` | Remove Telegram/Signal/Slack cases |
-| `src/hooks/useShortcuts.ts` | Remove Slack-related parameters and fields |
-| `src/components/AccessFlow.tsx` | Remove Slack handling |
-| `src/plugins/ShortcutPlugin.ts` | Remove Slack properties |
-| `src/plugins/shortcutPluginWeb.ts` | Simplify interface |
-| `native/.../ShortcutPlugin.java` | Remove messaging platform code |
-| `native/.../MessageProxyActivity.java` | Update documentation |
-| `src/components/ShortcutActionSheet.tsx` | Simplify type label logic |
+**File: `src/components/ContentPreview.tsx`**
 
-## What Stays
+Import and use `PlatformIcon` for recognized URLs instead of emojis:
 
-- **WhatsApp shortcuts**: Full support with quick messages
-- **Contact dial shortcuts**: Direct call functionality  
-- **Platform icons for Telegram/Slack URLs**: Keep these in `platformIcons.ts` since users may still bookmark Telegram/Slack **websites** - this is different from messaging integration
-- **MessageProxyActivity**: Still needed for WhatsApp 0-1 message shortcuts
+```tsx
+import { detectPlatform } from '@/lib/platformIcons';
+import { PlatformIcon } from '@/components/PlatformIcon';
 
-## Impact
+// In component:
+const platform = (source.type === 'url' || source.type === 'share') 
+  ? detectPlatform(source.uri) 
+  : null;
 
-- **Reduced code complexity**: ~100 lines removed
-- **Cleaner type definitions**: No unused optional fields
-- **Focused product**: Clear WhatsApp specialization
-- **No user-facing changes**: These features were never exposed in the UI
+// In render:
+<div className="flex-shrink-0 h-12 w-12 rounded-lg overflow-hidden bg-white flex items-center justify-center shadow-sm">
+  {platform ? (
+    <PlatformIcon platform={platform} size="lg" brandColored />
+  ) : isImage && imageSources.length > 0 ? (
+    <ImageWithFallback ... />
+  ) : (
+    <span className="text-2xl">{info.emoji}</span>
+  )}
+</div>
+```
 
-## Notes
+## Streamlining the Journey
 
-The platform icon detection for Telegram and Slack **websites** (telegram.org, slack.com) will be preserved in `platformIcons.ts` since users may still create URL shortcuts to these sites. The removal only affects the **messaging integration** code paths.
+### Content Reduction Opportunities
+
+1. **Remove ContentPreview for recognized URLs**: Since IconPicker already shows the platform icon, ContentPreview duplicates information. For recognized platforms, we could simplify to just show domain name without the icon.
+
+2. **Simplify icon picker for platforms**: When a platform is detected, auto-select the platform icon and collapse the icon picker section (user can expand if they want to change).
+
+3. **Pre-fill name intelligently**: For recognized platforms, use "{Platform} Link" as default name (already implemented).
+
+### Proposed Streamlined Flow
+
+For recognized platforms (YouTube, LinkedIn, etc.):
+
+```text
+┌─────────────────────────────────────┐
+│  Set up access                      │
+├─────────────────────────────────────┤
+│  ┌─────────┐                        │
+│  │   in    │  linkedin.com          │
+│  └─────────┘                        │
+├─────────────────────────────────────┤
+│  NAME                               │
+│  [LinkedIn Link            ][×]     │
+├─────────────────────────────────────┤
+│  ICON (optional - collapsed)        │
+│  ○ Auto-detected: LinkedIn   [▼]    │
+├─────────────────────────────────────┤
+│  PREVIEW                            │
+│     ┌─────┐                         │
+│     │ in  │                         │
+│     └─────┘                         │
+│  LinkedIn Link                      │
+├─────────────────────────────────────┤
+│  [✓ Add to Home Screen]             │
+└─────────────────────────────────────┘
+```
+
+Key simplifications:
+- **Single unified icon** throughout the page (brand-colored on white)
+- **Icon picker collapsed by default** for recognized platforms
+- **Fewer visual elements** = reduced cognitive load
+
+## Files to Modify
+
+| File | Changes |
+|------|---------|
+| `src/components/PlatformIcon.tsx` | Add `brandColored` prop for brand-colored SVG rendering |
+| `src/components/IconPicker.tsx` | Use `brandColored` instead of `noBg` |
+| `src/components/MyShortcutsContent.tsx` | Use `brandColored` instead of `noBg` |
+| `src/components/ShortcutCustomizer.tsx` | Update preview to use `brandColored` with white bg |
+| `src/components/ContentPreview.tsx` | Use `PlatformIcon` for recognized URLs |
+
+## Visual Result
+
+After implementation:
+
+| Location | Icon Appearance |
+|----------|----------------|
+| ContentPreview (top) | LinkedIn blue "in" logo on white |
+| IconPicker (middle) | LinkedIn blue "in" logo on white |
+| Preview (bottom) | LinkedIn blue "in" logo on white |
+| My Shortcuts list | LinkedIn blue "in" logo on white |
+| Android home screen | LinkedIn blue "in" logo on white (adaptive mask) |
+
+**Complete visual consistency throughout the entire user journey.**
+
+## Technical Notes
+
+1. The `brandColored` mode uses `PLATFORM_COLORS[platformKey].bgColor` as the SVG fill color
+2. White background ensures contrast for all platform colors (including light ones like Snapchat yellow)
+3. This matches the native Android implementation which was updated to use brand colors on white adaptive backgrounds
+
