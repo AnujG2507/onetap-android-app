@@ -3,6 +3,7 @@ import { Globe, GripVertical, ChevronDown, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { ExpandableText } from '@/components/ui/expandable-text';
 import { cn } from '@/lib/utils';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -65,7 +66,6 @@ export function BookmarkItem({
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false);
   const [isUrlExpanded, setIsUrlExpanded] = useState(false);
-  const [isTitleExpanded, setIsTitleExpanded] = useState(false);
   
   // Swipe state
   const [swipeX, setSwipeX] = useState(0);
@@ -328,19 +328,14 @@ export function BookmarkItem({
           
           {/* Content */}
           <div className="flex-1 min-w-0 overflow-hidden">
-            <p 
-              className={cn(
-                "font-medium text-foreground cursor-pointer min-w-0",
-                isTitleExpanded ? "break-all" : "truncate"
-              )}
-              onClick={(e) => {
-                if (isSelectionMode) return;
-                e.stopPropagation();
-                setIsTitleExpanded(!isTitleExpanded);
-              }}
-            >
-              {link.title}
-            </p>
+            <ExpandableText
+              text={link.title}
+              charLimit={30}
+              className="w-full"
+              textClassName="font-medium text-foreground"
+              disabled={isSelectionMode}
+              onClick={() => triggerHaptic('light')}
+            />
             <div 
               className={cn(
                 "flex items-start gap-1 text-xs text-muted-foreground mt-0.5 text-start",

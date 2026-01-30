@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Trash2, RotateCcw, Clock, X, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { ExpandableText } from '@/components/ui/expandable-text';
 import { cn } from '@/lib/utils';
 import { triggerHaptic } from '@/lib/haptics';
 import { getDaysRemaining, type TrashedLink } from '@/lib/savedLinksManager';
@@ -32,7 +33,6 @@ export function TrashItem({ link, onRestore, onDelete }: TrashItemProps) {
   const [swipeX, setSwipeX] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
   const [isUrlExpanded, setIsUrlExpanded] = useState(false);
-  const [isTitleExpanded, setIsTitleExpanded] = useState(false);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
   const isHorizontalSwipe = useRef<boolean | null>(null);
@@ -187,18 +187,13 @@ export function TrashItem({ link, onRestore, onDelete }: TrashItemProps) {
 
         {/* Content */}
         <div className="flex-1 min-w-0 overflow-hidden">
-          <p 
-            className={cn(
-              "text-sm font-medium text-foreground cursor-pointer min-w-0",
-              isTitleExpanded ? "break-all" : "truncate"
-            )}
-            onClick={(e) => {
-              e.stopPropagation();
-              setIsTitleExpanded(!isTitleExpanded);
-            }}
-          >
-            {link.title}
-          </p>
+          <ExpandableText
+            text={link.title}
+            charLimit={30}
+            className="w-full"
+            textClassName="text-sm font-medium text-foreground"
+            onClick={() => triggerHaptic('light')}
+          />
           <div 
             className="flex items-start gap-1 text-xs text-muted-foreground mt-0.5 text-start hover:text-muted-foreground/80 cursor-pointer"
             onClick={(e) => {

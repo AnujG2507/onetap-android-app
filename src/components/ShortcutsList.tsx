@@ -8,6 +8,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
+import { ExpandableText } from '@/components/ui/expandable-text';
+import { triggerHaptic } from '@/lib/haptics';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -115,7 +117,7 @@ function ShortcutIcon({ shortcut }: { shortcut: ShortcutData }) {
   );
 }
 
-// Individual shortcut list item with expand-on-tap for title
+// Individual shortcut list item with expandable title
 function ShortcutListItem({ 
   shortcut, 
   onTap, 
@@ -125,7 +127,6 @@ function ShortcutListItem({
   onTap: (shortcut: ShortcutData) => void;
   t: (key: string) => string;
 }) {
-  const [isTitleExpanded, setIsTitleExpanded] = useState(false);
   const typeLabel = getShortcutTypeLabel(shortcut, t);
   const target = getShortcutTarget(shortcut);
   const usageCount = shortcut.usageCount || 0;
@@ -142,19 +143,14 @@ function ShortcutListItem({
       
       {/* Text content - takes remaining space, strictly constrained */}
       <div className="flex-1 min-w-0 overflow-hidden">
-        {/* Title row */}
-        <p 
-          className={cn(
-            "font-medium w-full cursor-pointer",
-            isTitleExpanded ? "break-all whitespace-normal" : "truncate"
-          )}
-          onClick={(e) => {
-            e.stopPropagation();
-            setIsTitleExpanded(!isTitleExpanded);
-          }}
-        >
-          {shortcut.name}
-        </p>
+        {/* Title row with chevron for long titles */}
+        <ExpandableText
+          text={shortcut.name}
+          charLimit={30}
+          className="w-full"
+          textClassName="font-medium"
+          onClick={() => triggerHaptic('light')}
+        />
         
         {/* Metadata row - type, target, and badge */}
         <div className="flex items-center gap-2 mt-0.5 w-full overflow-hidden">

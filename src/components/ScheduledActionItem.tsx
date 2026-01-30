@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
+import { ExpandableText } from '@/components/ui/expandable-text';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -63,7 +64,6 @@ export function ScheduledActionItem({
   const { isRTL, isDeleteSwipe, getSwipeTransform } = useRTL();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
-  const [isTitleExpanded, setIsTitleExpanded] = useState(false);
   
   // Swipe state
   const [swipeX, setSwipeX] = useState(0);
@@ -310,20 +310,14 @@ export function ScheduledActionItem({
 
             {/* Content */}
             <div className="flex-1 min-w-0 overflow-hidden max-w-full">
-              <p 
-                className={cn(
-                  "font-medium text-sm min-w-0 cursor-pointer",
-                  isTitleExpanded ? "break-all" : "truncate"
-                )}
-                onClick={(e) => {
-                  if (isSelectionMode) return;
-                  e.stopPropagation();
-                  setIsTitleExpanded(!isTitleExpanded);
-                  triggerHaptic('light');
-                }}
-              >
-                {action.name}
-              </p>
+              <ExpandableText
+                text={action.name}
+                charLimit={30}
+                className="w-full"
+                textClassName="font-medium text-sm"
+                disabled={isSelectionMode}
+                onClick={() => triggerHaptic('light')}
+              />
               {action.description && (
                 <div 
                   className={cn(
