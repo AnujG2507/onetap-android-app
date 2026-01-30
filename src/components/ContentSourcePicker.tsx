@@ -99,7 +99,10 @@ export function ContentSourcePicker({
   };
 
   return (
-    <div className="flex flex-col gap-4 p-5 pb-28 animate-fade-in">
+    <div className={cn(
+      "flex flex-col gap-4 p-5 animate-fade-in",
+      activePicker || activeSecondaryPicker ? "pb-44" : "pb-28"
+    )}>
       {/* Main Card: Create a Shortcut */}
       <div className="rounded-2xl bg-card elevation-1 p-4">
         <h2 className="text-base font-medium text-foreground mb-4">
@@ -227,8 +230,10 @@ export function ContentSourcePicker({
         </div>
       </div>
 
-      {/* My Shortcuts Button - Part of content flow */}
-      <MyShortcutsButton />
+      {/* My Shortcuts Button - Fixed above bottom nav */}
+      <div className="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom)+0.75rem)] left-0 right-0 px-5 z-10">
+        <MyShortcutsButton />
+      </div>
     </div>
   );
 }
