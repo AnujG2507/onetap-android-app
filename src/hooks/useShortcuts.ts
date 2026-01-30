@@ -304,7 +304,7 @@ export function useShortcuts() {
 
   const updateShortcut = useCallback(async (
     id: string,
-    updates: Partial<Pick<ShortcutData, 'name' | 'icon' | 'quickMessages' | 'phoneNumber' | 'resumeEnabled'>>
+    updates: Partial<Pick<ShortcutData, 'name' | 'icon' | 'quickMessages' | 'phoneNumber' | 'resumeEnabled' | 'slackTeamId' | 'slackUserId'>>
   ): Promise<{ success: boolean; nativeUpdateFailed?: boolean }> => {
     // Update localStorage first
     const updated = shortcuts.map(s => 
@@ -335,6 +335,9 @@ export function useShortcuts() {
             contentUri: shortcut.contentUri,
             mimeType: shortcut.mimeType,
             contactName: shortcut.contactName || shortcut.name,
+            // Slack-specific data
+            slackTeamId: shortcut.slackTeamId,
+            slackUserId: shortcut.slackUserId,
           });
           if (result.success) {
             console.log('[useShortcuts] Updated pinned shortcut on home screen:', id);

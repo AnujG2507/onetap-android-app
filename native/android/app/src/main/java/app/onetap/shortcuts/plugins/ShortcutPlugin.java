@@ -3068,6 +3068,10 @@ public class ShortcutPlugin extends Plugin {
         String mimeType = call.getString("mimeType");
         String contactName = call.getString("contactName");
         
+        // Slack-specific properties
+        String slackTeamId = call.getString("slackTeamId");
+        String slackUserId = call.getString("slackUserId");
+        
         // Parse quick messages array
         JSArray quickMessagesArray = call.getArray("quickMessages");
         String quickMessagesJson = null;
@@ -3131,7 +3135,8 @@ public class ShortcutPlugin extends Plugin {
 
             // Build intent based on shortcut type
             Intent intent = buildIntentForUpdate(context, shortcutType, messageApp, phoneNumber, 
-                quickMessagesJson, contactName, resumeEnabled, contentUri, mimeType, label, shortcutId);
+                quickMessagesJson, contactName, resumeEnabled, contentUri, mimeType, label, shortcutId,
+                slackTeamId, slackUserId);
 
             // Build updated ShortcutInfo with same ID
             ShortcutInfo.Builder builder = new ShortcutInfo.Builder(context, shortcutId)
@@ -3173,10 +3178,13 @@ public class ShortcutPlugin extends Plugin {
     /**
      * Build intent for updatePinnedShortcut based on shortcut type.
      * Returns null if no intent rebuild is needed (icon/label only update).
+     * 
+     * IMPORTANT: All proxy intents MUST include shortcut_id for tap tracking!
      */
     private Intent buildIntentForUpdate(Context context, String shortcutType, String messageApp,
             String phoneNumber, String quickMessagesJson, String contactName,
-            Boolean resumeEnabled, String contentUri, String mimeType, String label, String shortcutId) {
+            Boolean resumeEnabled, String contentUri, String mimeType, String label, String shortcutId,
+            String slackTeamId, String slackUserId) {
         
         if (shortcutType == null) {
             // No type specified, can't rebuild intent
@@ -3186,22 +3194,91 @@ public class ShortcutPlugin extends Plugin {
         Intent intent = null;
         
         if ("message".equals(shortcutType) && "whatsapp".equals(messageApp)) {
-            // WhatsApp shortcut - route through WhatsAppProxyActivity
-            android.util.Log.d("ShortcutPlugin", "Building WhatsApp intent for update");
-            intent = new Intent(context, WhatsAppProxyActivity.class);
-            intent.setAction("app.onetap.WHATSAPP_MESSAGE");
-            // Set data to a unique URI for this shortcut
-            intent.setData(Uri.parse("onetap://whatsapp/" + shortcutId));
-            if (phoneNumber != null) {
-                intent.putExtra(WhatsAppProxyActivity.EXTRA_PHONE_NUMBER, phoneNumber);
-            }
+            // WhatsApp shortcut - route based on message count
+            int messageCount = 0;
             if (quickMessagesJson != null) {
+                try {
+                    org.json.JSONArray arr = new org.json.JSONArray(quickMessagesJson);
+                    messageCount = arr.length();
+                } catch (Exception e) {
+                    android.util.Log.w("ShortcutPlugin", "Error parsing quickMessages for count: " + e.getMessage());
+                }
+            }
+            
+            if (messageCount >= 2) {
+                // Multi-message: use WhatsAppProxyActivity (shows dialog)
+                android.util.Log.d("ShortcutPlugin", "Building WhatsApp multi-message intent for update");
+                intent = new Intent(context, WhatsAppProxyActivity.class);
+                intent.setAction("app.onetap.WHATSAPP_MESSAGE");
+                intent.setData(Uri.parse("onetap://whatsapp/" + shortcutId));
+                if (phoneNumber != null) {
+                    intent.putExtra(WhatsAppProxyActivity.EXTRA_PHONE_NUMBER, phoneNumber);
+                }
                 intent.putExtra(WhatsAppProxyActivity.EXTRA_QUICK_MESSAGES, quickMessagesJson);
+                if (contactName != null) {
+                    intent.putExtra(WhatsAppProxyActivity.EXTRA_CONTACT_NAME, contactName);
+                }
+                // Add shortcut_id for tap tracking
+                intent.putExtra(WhatsAppProxyActivity.EXTRA_SHORTCUT_ID, shortcutId);
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            } else {
+                // 0-1 message: use MessageProxyActivity (direct launch)
+                android.util.Log.d("ShortcutPlugin", "Building WhatsApp single-message intent for update");
+                intent = new Intent(context, MessageProxyActivity.class);
+                intent.setAction("app.onetap.OPEN_MESSAGE");
+                
+                // Build WhatsApp URL
+                String message = null;
+                if (messageCount == 1) {
+                    try {
+                        org.json.JSONArray arr = new org.json.JSONArray(quickMessagesJson);
+                        message = arr.getString(0);
+                    } catch (Exception e) {}
+                }
+                String url = "https://wa.me/" + (phoneNumber != null ? phoneNumber : "");
+                if (message != null && !message.isEmpty()) {
+                    try {
+                        url += "?text=" + java.net.URLEncoder.encode(message, "UTF-8");
+                    } catch (Exception e) {}
+                }
+                
+                intent.setData(Uri.parse(url));
+                intent.putExtra(MessageProxyActivity.EXTRA_URL, url);
+                intent.putExtra(MessageProxyActivity.EXTRA_SHORTCUT_ID, shortcutId);
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             }
-            if (contactName != null) {
-                intent.putExtra(WhatsAppProxyActivity.EXTRA_CONTACT_NAME, contactName);
+            
+        } else if ("message".equals(shortcutType) && messageApp != null) {
+            // Non-WhatsApp message shortcuts (Telegram, Signal, Slack)
+            android.util.Log.d("ShortcutPlugin", "Building " + messageApp + " message intent for update");
+            
+            String url = null;
+            switch (messageApp) {
+                case "telegram":
+                    if (phoneNumber != null) {
+                        url = "tg://resolve?phone=" + phoneNumber;
+                    }
+                    break;
+                case "signal":
+                    if (phoneNumber != null) {
+                        url = "sgnl://signal.me/#p/+" + phoneNumber;
+                    }
+                    break;
+                case "slack":
+                    if (slackTeamId != null && slackUserId != null) {
+                        url = "slack://user?team=" + slackTeamId + "&id=" + slackUserId;
+                    }
+                    break;
             }
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            
+            if (url != null) {
+                intent = new Intent(context, MessageProxyActivity.class);
+                intent.setAction("app.onetap.OPEN_MESSAGE");
+                intent.setData(Uri.parse(url));
+                intent.putExtra(MessageProxyActivity.EXTRA_URL, url);
+                intent.putExtra(MessageProxyActivity.EXTRA_SHORTCUT_ID, shortcutId);
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            }
             
         } else if ("contact".equals(shortcutType)) {
             // Contact dial shortcut - route through ContactProxyActivity
@@ -3212,10 +3289,22 @@ public class ShortcutPlugin extends Plugin {
                 intent.setData(Uri.parse("tel:" + phoneNumber));
                 intent.putExtra(ContactProxyActivity.EXTRA_PHONE_NUMBER, phoneNumber);
             }
+            // Add shortcut_id for tap tracking
+            intent.putExtra(ContactProxyActivity.EXTRA_SHORTCUT_ID, shortcutId);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            
+        } else if ("link".equals(shortcutType) && contentUri != null) {
+            // Link shortcut - route through LinkProxyActivity
+            android.util.Log.d("ShortcutPlugin", "Building Link intent for update");
+            intent = new Intent(context, LinkProxyActivity.class);
+            intent.setAction("app.onetap.OPEN_LINK");
+            intent.setData(Uri.parse(contentUri));
+            intent.putExtra(LinkProxyActivity.EXTRA_URL, contentUri);
+            intent.putExtra(LinkProxyActivity.EXTRA_SHORTCUT_ID, shortcutId);
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             
         } else if ("file".equals(shortcutType) && contentUri != null && mimeType != null && mimeType.equals("application/pdf")) {
-            // PDF file - route through PDFProxyActivity if resume is relevant
+            // PDF file - route through PDFProxyActivity
             android.util.Log.d("ShortcutPlugin", "Building PDF intent for update, resumeEnabled=" + resumeEnabled);
             intent = new Intent(context, PDFProxyActivity.class);
             intent.setAction("app.onetap.OPEN_PDF");
@@ -3232,11 +3321,11 @@ public class ShortcutPlugin extends Plugin {
             intent.setAction("app.onetap.OPEN_VIDEO");
             intent.setDataAndType(Uri.parse(contentUri), mimeType);
             intent.putExtra("shortcut_title", label);
+            // Add shortcut_id for tap tracking
+            intent.putExtra("shortcut_id", shortcutId);
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         }
-        // For link/file types that don't need special handling, we don't rebuild the intent
-        // The original intent remains valid
         
         return intent;
     }
