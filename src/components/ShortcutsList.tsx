@@ -116,92 +116,57 @@ function ShortcutIcon({ shortcut }: { shortcut: ShortcutData }) {
   );
 }
 
-// Individual shortcut list item - bulletproof overflow with inline styles
-function ShortcutListItem({ 
-  shortcut, 
-  onTap, 
-  t 
-}: { 
-  shortcut: ShortcutData; 
+// Individual shortcut list item - grid-based, hard overflow guarantees
+function ShortcutListItem({
+  shortcut,
+  onTap,
+  t,
+}: {
+  shortcut: ShortcutData;
   onTap: (shortcut: ShortcutData) => void;
   t: (key: string) => string;
 }) {
   const typeLabel = getShortcutTypeLabel(shortcut, t);
   const target = getShortcutTarget(shortcut);
   const usageCount = shortcut.usageCount || 0;
-  
+
   return (
     <button
       onClick={() => onTap(shortcut)}
-      className="w-full flex items-center gap-3 p-3 rounded-xl border border-border/60 bg-card mb-2 hover:bg-muted/50 active:bg-muted transition-colors text-start shadow-sm"
-      style={{ maxWidth: '100%', overflow: 'hidden' }}
+      className="w-full grid grid-cols-[48px_minmax(0,1fr)_16px] items-center gap-3 p-3 rounded-xl border border-border/60 bg-card mb-2 hover:bg-muted/50 active:bg-muted transition-colors text-start shadow-sm overflow-hidden"
     >
-      {/* Icon - fixed 48px, never shrinks */}
+      {/* Icon - fixed 48px */}
       <div className="shrink-0">
         <ShortcutIcon shortcut={shortcut} />
       </div>
-      
-      {/* Text content - constrained width via calc */}
-      <div 
-        className="flex flex-col gap-0.5"
-        style={{ 
-          flex: '1 1 0%', 
-          minWidth: 0, 
-          maxWidth: 'calc(100% - 48px - 16px - 24px)',
-          overflow: 'hidden' 
-        }}
-      >
-        {/* Title - single line with ellipsis */}
-        <span 
-          className="font-medium"
-          style={{ 
-            display: 'block',
-            overflow: 'hidden', 
-            textOverflow: 'ellipsis', 
-            whiteSpace: 'nowrap',
-            maxWidth: '100%'
-          }}
-        >
+
+      {/* Text column - must be minmax(0,1fr) to enable truncation */}
+      <div className="min-w-0 overflow-hidden flex flex-col">
+        {/* Title */}
+        <span className="font-medium truncate">
           {shortcut.name}
         </span>
-        
-        {/* Metadata row: Type, Target (truncated), Badge */}
-        <div 
-          className="flex items-center gap-2"
-          style={{ overflow: 'hidden', maxWidth: '100%' }}
-        >
-          {/* Type label - fixed, never truncates */}
-          <span className="text-xs text-muted-foreground shrink-0">
+
+        {/* Meta row: Type | Target (truncates) | Badge */}
+        <div className="mt-0.5 min-w-0 overflow-hidden grid grid-cols-[minmax(0,40%)_minmax(0,1fr)_auto] items-center gap-2">
+          <span className="text-xs text-muted-foreground truncate">
             {typeLabel}
           </span>
-          
-          {/* Target - truncates if too long */}
-          {target && (
-            <span 
-              className="text-xs text-muted-foreground"
-              style={{ 
-                overflow: 'hidden', 
-                textOverflow: 'ellipsis', 
-                whiteSpace: 'nowrap',
-                flex: '1 1 0%',
-                minWidth: 0
-              }}
-            >
-              · {target}
-            </span>
-          )}
-          
-          {/* Usage badge - fixed, never shrinks */}
-          <Badge 
-            variant="outline" 
+
+          <span className="text-xs text-muted-foreground truncate">
+            {target ? `· ${target}` : ''}
+          </span>
+
+          <Badge
+            variant="outline"
             className="shrink-0 text-[10px] px-1.5 py-0 h-5 font-semibold bg-primary/5 border-primary/20 text-primary whitespace-nowrap"
           >
             {usageCount} {usageCount === 1 ? t('shortcuts.tap') : t('shortcuts.taps')}
           </Badge>
         </div>
       </div>
-      
-      {/* Chevron - fixed, never shrinks */}
+
+      {/* Chevron - fixed */}
       <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 rtl:rotate-180" />
     </button>
   );
