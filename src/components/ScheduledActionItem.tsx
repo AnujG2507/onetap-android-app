@@ -1,5 +1,5 @@
 // Individual scheduled action item with selection mode and swipe-to-delete
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -29,6 +29,8 @@ import {
 import { cn } from '@/lib/utils';
 import { formatTriggerTime, formatRecurrence } from '@/lib/scheduledActionsManager';
 import { ContactAvatar } from '@/components/ContactAvatar';
+import { PlatformIcon } from '@/components/PlatformIcon';
+import { detectPlatform } from '@/lib/platformIcons';
 import type { ScheduledAction, RecurrenceType } from '@/types/scheduledAction';
 import { triggerHaptic } from '@/lib/haptics';
 import { useRTL } from '@/hooks/useRTL';
@@ -78,11 +80,32 @@ export function ScheduledActionItem({
   const isLongPressRef = useRef(false);
   const hasMovedRef = useRef(false);
 
+  // Detect platform for URL destinations
+  const platform = useMemo(() => {
+    if (action.destination.type === 'url') {
+      return detectPlatform(action.destination.uri);
+    }
+    return null;
+  }, [action.destination]);
+  
+  // Check if URL destination has a platform icon
+  const isPlatformUrl = action.destination.type === 'url' && platform !== null;
+
   const getDestinationIcon = () => {
     switch (action.destination.type) {
       case 'file':
         return <FileText className="h-5 w-5" />;
       case 'url':
+        // Show branded platform icon for recognized URLs
+        if (platform) {
+          return (
+            <PlatformIcon 
+              platform={platform} 
+              size="md"
+              className="h-full w-full"
+            />
+          );
+        }
         return <Link className="h-5 w-5" />;
       case 'contact':
         // Contact avatar handles its own background
@@ -301,9 +324,11 @@ export function ScheduledActionItem({
             {/* Destination icon */}
             <div className={cn(
               "flex h-10 w-10 items-center justify-center rounded-xl shrink-0 overflow-hidden",
-              // Only apply background if NOT a contact with avatar (photo or initials)
-              !isContactWithAvatar && (action.enabled && !isExpired ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"),
-              isContactWithAvatar && !action.enabled && "opacity-60"
+              // Platform icons and contact avatars have their own background
+              isPlatformUrl && "p-0",
+              // Only apply background if NOT a platform URL and NOT a contact with avatar
+              !isPlatformUrl && !isContactWithAvatar && (action.enabled && !isExpired ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"),
+              (isContactWithAvatar || isPlatformUrl) && !action.enabled && "opacity-60"
             )}>
               {getDestinationIcon()}
             </div>

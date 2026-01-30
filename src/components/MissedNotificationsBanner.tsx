@@ -1,7 +1,7 @@
 // Missed Notifications Banner
 // Shows a dismissible banner when there are past-due scheduled actions
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -20,6 +20,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useMissedNotifications } from '@/hooks/useMissedNotifications';
 import { formatTriggerTime } from '@/lib/scheduledActionsManager';
 import { triggerHaptic } from '@/lib/haptics';
+import { detectPlatform } from '@/lib/platformIcons';
+import { PlatformIcon } from '@/components/PlatformIcon';
 import type { ScheduledAction } from '@/types/scheduledAction';
 
 interface MissedNotificationsBannerProps {
@@ -65,13 +67,30 @@ export function MissedNotificationsBanner({ className }: MissedNotificationsBann
 
   const getDestinationIcon = (action: ScheduledAction) => {
     switch (action.destination.type) {
-      case 'url':
+      case 'url': {
+        // Check for platform-specific icon
+        const platform = detectPlatform(action.destination.uri);
+        if (platform) {
+          return (
+            <PlatformIcon 
+              platform={platform} 
+              size="sm"
+              className="h-full w-full"
+            />
+          );
+        }
         return <ExternalLink className="h-4 w-4" />;
+      }
       case 'contact':
         return <Phone className="h-4 w-4" />;
       case 'file':
         return <FileText className="h-4 w-4" />;
     }
+  };
+
+  // Check if URL destination has a platform icon
+  const hasPlatformIcon = (action: ScheduledAction) => {
+    return action.destination.type === 'url' && detectPlatform(action.destination.uri) !== null;
   };
 
   const getDestinationLabel = (action: ScheduledAction) => {
@@ -146,7 +165,7 @@ export function MissedNotificationsBanner({ className }: MissedNotificationsBann
                       className="flex items-center gap-3 p-2 rounded-lg bg-background/50 hover:bg-background/80 transition-colors cursor-pointer"
                       onClick={() => handleExecute(action)}
                     >
-                      <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                      <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 overflow-hidden ${hasPlatformIcon(action) ? '' : 'bg-muted'}`}>
                         {getDestinationIcon(action)}
                       </div>
                       <div className="flex-1 min-w-0">

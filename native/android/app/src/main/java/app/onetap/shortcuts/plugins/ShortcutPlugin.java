@@ -15,7 +15,10 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Matrix;
 import android.graphics.Paint;
+import android.graphics.Path;
+import android.graphics.RectF;
 import android.graphics.drawable.Icon;
 import android.media.MediaMetadataRetriever;
 import android.net.Uri;
@@ -1416,17 +1419,16 @@ public class ShortcutPlugin extends Plugin {
         return Icon.createWithResource(getContext(), android.R.drawable.ic_menu_add);
     }
     
-    // Create branded platform icon with platform-specific colors
+    // Create branded platform icon with platform-specific colors and actual logo paths
     private Icon createPlatformIcon(String platformKey) {
         // Adaptive icon size: 108dp * 2 = 216px for foreground layer
         int adaptiveSize = 216;
         Bitmap bitmap = Bitmap.createBitmap(adaptiveSize, adaptiveSize, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(bitmap);
         
-        // Get platform-specific color and letter
+        // Get platform-specific color
         int bgColor = getPlatformColor(platformKey);
-        String letter = getPlatformLetter(platformKey);
-        boolean useWhiteText = shouldUseWhiteText(platformKey);
+        boolean useWhiteIcon = shouldUseWhiteText(platformKey);
         
         // Fill entire canvas with platform brand color
         Paint bgPaint = new Paint();
@@ -1434,18 +1436,429 @@ public class ShortcutPlugin extends Plugin {
         bgPaint.setStyle(Paint.Style.FILL);
         canvas.drawRect(0, 0, adaptiveSize, adaptiveSize, bgPaint);
         
-        // Draw platform letter/symbol centered
+        // Try to get platform SVG path
+        Path iconPath = getPlatformPath(platformKey);
+        
+        if (iconPath != null) {
+            // Draw the actual logo path
+            Paint iconPaint = new Paint();
+            iconPaint.setColor(useWhiteIcon ? Color.WHITE : Color.BLACK);
+            iconPaint.setAntiAlias(true);
+            iconPaint.setStyle(Paint.Style.FILL);
+            
+            // Scale and center the path
+            RectF pathBounds = new RectF();
+            iconPath.computeBounds(pathBounds, true);
+            
+            float iconSize = adaptiveSize * 0.45f;
+            float scaleX = iconSize / pathBounds.width();
+            float scaleY = iconSize / pathBounds.height();
+            float scale = Math.min(scaleX, scaleY);
+            
+            Matrix matrix = new Matrix();
+            matrix.setScale(scale, scale);
+            matrix.postTranslate(
+                (adaptiveSize - pathBounds.width() * scale) / 2 - pathBounds.left * scale,
+                (adaptiveSize - pathBounds.height() * scale) / 2 - pathBounds.top * scale
+            );
+            iconPath.transform(matrix);
+            
+            canvas.drawPath(iconPath, iconPaint);
+            android.util.Log.d("ShortcutPlugin", "Created platform icon with SVG path for: " + platformKey);
+        } else {
+            // Fallback to letter/symbol for unsupported platforms
+            drawPlatformLetter(canvas, platformKey, adaptiveSize, useWhiteIcon);
+            android.util.Log.d("ShortcutPlugin", "Created platform icon with letter for: " + platformKey);
+        }
+        
+        return Icon.createWithAdaptiveBitmap(bitmap);
+    }
+    
+    // Draw fallback letter/symbol for platforms without SVG paths
+    private void drawPlatformLetter(Canvas canvas, String platformKey, int size, boolean useWhite) {
+        String letter = getPlatformLetter(platformKey);
         Paint textPaint = new Paint();
-        textPaint.setColor(useWhiteText ? Color.WHITE : Color.BLACK);
-        textPaint.setTextSize(adaptiveSize * 0.4f);
+        textPaint.setColor(useWhite ? Color.WHITE : Color.BLACK);
+        textPaint.setTextSize(size * 0.4f);
         textPaint.setTextAlign(Paint.Align.CENTER);
         textPaint.setAntiAlias(true);
         textPaint.setFakeBoldText(true);
-        float y = (adaptiveSize / 2f) - ((textPaint.descent() + textPaint.ascent()) / 2);
-        canvas.drawText(letter, adaptiveSize / 2f, y, textPaint);
+        float y = (size / 2f) - ((textPaint.descent() + textPaint.ascent()) / 2);
+        canvas.drawText(letter, size / 2f, y, textPaint);
+    }
+    
+    // Get platform SVG path for actual logo rendering (top 15+ platforms)
+    private Path getPlatformPath(String platformKey) {
+        Path path = new Path();
         
-        android.util.Log.d("ShortcutPlugin", "Created platform icon for: " + platformKey);
-        return Icon.createWithAdaptiveBitmap(bitmap);
+        switch (platformKey) {
+            case "youtube":
+                // YouTube play button - simplified version (viewBox 0 0 24 24)
+                path.moveTo(19.615f, 3.184f);
+                path.cubicTo(16.011f, 2.938f, 7.984f, 2.939f, 4.385f, 3.184f);
+                path.cubicTo(0.488f, 3.45f, 0.029f, 5.804f, 0f, 12f);
+                path.cubicTo(0.029f, 18.185f, 0.484f, 20.549f, 4.385f, 20.816f);
+                path.cubicTo(7.985f, 21.061f, 16.011f, 21.062f, 19.615f, 20.816f);
+                path.cubicTo(23.512f, 20.55f, 23.971f, 18.196f, 24f, 12f);
+                path.cubicTo(23.971f, 5.815f, 23.516f, 3.451f, 19.615f, 3.184f);
+                path.close();
+                // Play triangle
+                path.moveTo(9f, 16f);
+                path.lineTo(9f, 8f);
+                path.lineTo(17f, 12f);
+                path.close();
+                return path;
+                
+            case "netflix":
+                // Netflix N logo (viewBox 0 0 24 24)
+                path.moveTo(5.398f, 0f);
+                path.lineTo(5.398f, 0.006f);
+                path.cubicTo(8.426f, 8.562f, 10.768f, 15.181f, 13.746f, 23.602f);
+                path.cubicTo(16.09f, 23.66f, 18.596f, 24f, 18.6f, 24f);
+                path.cubicTo(15.8f, 16.076f, 12.677f, 7.253f, 10.113f, 0f);
+                path.close();
+                path.moveTo(13.887f, 0f);
+                path.lineTo(13.887f, 9.63f);
+                path.lineTo(18.6f, 22.951f);
+                path.cubicTo(18.557f, 15.091f, 18.596f, 7.038f, 18.602f, 0.001f);
+                path.close();
+                path.moveTo(5.398f, 1.05f);
+                path.lineTo(5.398f, 24f);
+                path.cubicTo(7.271f, 23.775f, 8.208f, 23.688f, 10.113f, 23.602f);
+                path.lineTo(10.113f, 14.382f);
+                path.close();
+                return path;
+                
+            case "instagram":
+                // Instagram camera (viewBox 0 0 24 24)
+                path.addRoundRect(new RectF(2, 2, 22, 22), 5, 5, Path.Direction.CW);
+                // Inner circle (cut out - we'll draw strokes instead)
+                Path innerPath = new Path();
+                innerPath.addCircle(12, 12, 4, Path.Direction.CW);
+                path.op(innerPath, Path.Op.DIFFERENCE);
+                // Top-right dot
+                path.addCircle(17.5f, 6.5f, 1.5f, Path.Direction.CW);
+                return path;
+                
+            case "twitter":
+                // X/Twitter logo (viewBox 0 0 24 24)
+                path.moveTo(18.244f, 2.25f);
+                path.lineTo(21.552f, 2.25f);
+                path.lineTo(14.325f, 10.51f);
+                path.lineTo(22.827f, 21.75f);
+                path.lineTo(16.17f, 21.75f);
+                path.lineTo(10.956f, 14.933f);
+                path.lineTo(4.99f, 21.75f);
+                path.lineTo(1.68f, 21.75f);
+                path.lineTo(9.41f, 12.915f);
+                path.lineTo(1.254f, 2.25f);
+                path.lineTo(8.08f, 2.25f);
+                path.lineTo(12.793f, 8.481f);
+                path.close();
+                path.moveTo(17.083f, 19.77f);
+                path.lineTo(18.916f, 19.77f);
+                path.lineTo(7.084f, 4.126f);
+                path.lineTo(5.117f, 4.126f);
+                path.close();
+                return path;
+                
+            case "spotify":
+                // Spotify logo (viewBox 0 0 24 24)
+                path.addCircle(12, 12, 12, Path.Direction.CW);
+                // We'll use strokes for the waves, so return circle only
+                // For solid fill, we create approximated wave paths
+                Path wavePath = new Path();
+                // Top wave
+                wavePath.moveTo(6.5f, 9.5f);
+                wavePath.cubicTo(9.5f, 8f, 14.5f, 8f, 17.5f, 9.5f);
+                wavePath.lineTo(17.5f, 10.5f);
+                wavePath.cubicTo(14.5f, 9f, 9.5f, 9f, 6.5f, 10.5f);
+                wavePath.close();
+                // Middle wave
+                wavePath.moveTo(7f, 12f);
+                wavePath.cubicTo(9.5f, 10.8f, 14.5f, 10.8f, 17f, 12f);
+                wavePath.lineTo(17f, 13f);
+                wavePath.cubicTo(14.5f, 11.8f, 9.5f, 11.8f, 7f, 13f);
+                wavePath.close();
+                // Bottom wave
+                wavePath.moveTo(7.5f, 14.5f);
+                wavePath.cubicTo(9.5f, 13.5f, 14.5f, 13.5f, 16.5f, 14.5f);
+                wavePath.lineTo(16.5f, 15.5f);
+                wavePath.cubicTo(14.5f, 14.5f, 9.5f, 14.5f, 7.5f, 15.5f);
+                wavePath.close();
+                path.op(wavePath, Path.Op.DIFFERENCE);
+                return path;
+                
+            case "whatsapp":
+                // WhatsApp phone icon (viewBox 0 0 24 24)
+                path.moveTo(17.472f, 14.382f);
+                path.cubicTo(17.175f, 14.233f, 15.714f, 13.515f, 15.442f, 13.415f);
+                path.cubicTo(15.169f, 13.316f, 14.971f, 13.267f, 14.772f, 13.565f);
+                path.cubicTo(14.575f, 13.862f, 14.005f, 14.531f, 13.832f, 14.729f);
+                path.cubicTo(13.659f, 14.928f, 13.485f, 14.952f, 13.188f, 14.804f);
+                path.cubicTo(12.891f, 14.654f, 11.933f, 14.341f, 10.798f, 13.329f);
+                path.cubicTo(9.915f, 12.541f, 9.318f, 11.568f, 9.145f, 11.27f);
+                path.cubicTo(8.972f, 10.973f, 9.127f, 10.812f, 9.275f, 10.664f);
+                path.cubicTo(9.409f, 10.531f, 9.573f, 10.317f, 9.721f, 10.144f);
+                path.cubicTo(9.87f, 9.97f, 9.919f, 9.846f, 10.019f, 9.647f);
+                path.cubicTo(10.118f, 9.449f, 10.069f, 9.276f, 9.994f, 9.127f);
+                path.cubicTo(9.919f, 8.978f, 9.325f, 7.515f, 9.078f, 6.92f);
+                path.cubicTo(8.836f, 6.341f, 8.591f, 6.42f, 8.409f, 6.41f);
+                path.cubicTo(8.236f, 6.402f, 8.038f, 6.4f, 7.839f, 6.4f);
+                path.cubicTo(7.641f, 6.4f, 7.319f, 6.474f, 7.047f, 6.772f);
+                path.cubicTo(6.775f, 7.069f, 6.007f, 7.788f, 6.007f, 9.251f);
+                path.cubicTo(6.007f, 10.713f, 7.072f, 12.126f, 7.22f, 12.325f);
+                path.cubicTo(7.369f, 12.523f, 9.316f, 15.525f, 12.297f, 16.812f);
+                path.cubicTo(13.006f, 17.118f, 13.559f, 17.301f, 13.991f, 17.437f);
+                path.cubicTo(14.703f, 17.664f, 15.351f, 17.632f, 15.862f, 17.555f);
+                path.cubicTo(16.433f, 17.47f, 17.62f, 16.836f, 17.868f, 16.142f);
+                path.cubicTo(18.116f, 15.448f, 18.116f, 14.853f, 18.041f, 14.729f);
+                path.cubicTo(17.967f, 14.605f, 17.769f, 14.531f, 17.472f, 14.382f);
+                path.close();
+                // Outer circle
+                path.moveTo(12.051f, 21.785f);
+                path.lineTo(12.047f, 21.785f);
+                path.cubicTo(10.314f, 21.785f, 8.616f, 21.333f, 7.016f, 20.407f);
+                path.lineTo(6.655f, 20.193f);
+                path.lineTo(2.914f, 21.175f);
+                path.lineTo(3.912f, 17.527f);
+                path.lineTo(3.677f, 17.153f);
+                path.cubicTo(2.671f, 15.362f, 2.167f, 13.363f, 2.168f, 11.293f);
+                path.cubicTo(2.169f, 5.843f, 6.604f, 1.409f, 12.056f, 1.409f);
+                path.cubicTo(14.696f, 1.409f, 17.178f, 2.439f, 19.044f, 4.307f);
+                path.cubicTo(20.91f, 6.175f, 21.937f, 8.659f, 21.937f, 11.301f);
+                path.cubicTo(21.934f, 16.751f, 17.5f, 21.185f, 12.052f, 21.185f);
+                path.close();
+                return path;
+                
+            case "telegram":
+                // Telegram paper plane (viewBox 0 0 24 24)
+                path.addCircle(12, 12, 12, Path.Direction.CW);
+                // Paper plane cutout
+                Path planePath = new Path();
+                planePath.moveTo(16.906f, 7.224f);
+                planePath.cubicTo(17.006f, 7.222f, 17.227f, 7.247f, 17.371f, 7.364f);
+                planePath.cubicTo(17.488f, 7.461f, 17.522f, 7.594f, 17.542f, 7.689f);
+                planePath.cubicTo(17.558f, 7.782f, 17.578f, 7.995f, 17.562f, 8.161f);
+                planePath.cubicTo(17.382f, 10.059f, 16.6f, 14.663f, 16.202f, 16.788f);
+                planePath.cubicTo(16.034f, 17.688f, 15.703f, 17.989f, 15.382f, 18.018f);
+                planePath.cubicTo(14.686f, 18.083f, 14.157f, 17.558f, 13.482f, 17.116f);
+                planePath.cubicTo(12.426f, 16.423f, 11.829f, 15.992f, 10.804f, 15.316f);
+                planePath.cubicTo(9.619f, 14.536f, 10.387f, 14.106f, 11.062f, 13.406f);
+                planePath.cubicTo(11.239f, 13.222f, 14.309f, 10.429f, 14.369f, 10.176f);
+                planePath.cubicTo(14.376f, 10.144f, 14.383f, 10.026f, 14.313f, 9.964f);
+                planePath.cubicTo(14.243f, 9.902f, 14.139f, 9.923f, 14.064f, 9.94f);
+                planePath.cubicTo(13.958f, 9.964f, 12.271f, 11.08f, 9.003f, 13.285f);
+                planePath.cubicTo(8.523f, 13.615f, 8.09f, 13.775f, 7.701f, 13.765f);
+                planePath.cubicTo(7.273f, 13.757f, 6.449f, 13.524f, 5.836f, 13.325f);
+                planePath.cubicTo(5.084f, 13.08f, 4.487f, 12.951f, 4.539f, 12.536f);
+                planePath.cubicTo(4.566f, 12.32f, 4.864f, 12.099f, 5.432f, 11.873f);
+                planePath.cubicTo(8.93f, 10.349f, 11.262f, 9.344f, 12.43f, 8.859f);
+                planePath.cubicTo(15.762f, 7.473f, 16.455f, 7.232f, 16.906f, 7.224f);
+                planePath.close();
+                path.op(planePath, Path.Op.DIFFERENCE);
+                return path;
+                
+            case "facebook":
+                // Facebook F logo (viewBox 0 0 24 24)
+                path.addCircle(12, 12, 12, Path.Direction.CW);
+                Path fPath = new Path();
+                fPath.moveTo(15.75f, 5.25f);
+                fPath.lineTo(13.5f, 5.25f);
+                fPath.cubicTo(12.12f, 5.25f, 10.5f, 5.85f, 10.5f, 8.1f);
+                fPath.lineTo(10.5f, 9.75f);
+                fPath.lineTo(8.25f, 9.75f);
+                fPath.lineTo(8.25f, 12.75f);
+                fPath.lineTo(10.5f, 12.75f);
+                fPath.lineTo(10.5f, 21f);
+                fPath.lineTo(13.5f, 21f);
+                fPath.lineTo(13.5f, 12.75f);
+                fPath.lineTo(15.45f, 12.75f);
+                fPath.lineTo(15.75f, 9.75f);
+                fPath.lineTo(13.5f, 9.75f);
+                fPath.lineTo(13.5f, 8.4f);
+                fPath.cubicTo(13.5f, 7.65f, 13.8f, 7.5f, 14.25f, 7.5f);
+                fPath.lineTo(15.75f, 7.5f);
+                fPath.close();
+                path.op(fPath, Path.Op.DIFFERENCE);
+                return path;
+                
+            case "linkedin":
+                // LinkedIn logo (viewBox 0 0 24 24)
+                path.addRoundRect(new RectF(0, 0, 24, 24), 2, 2, Path.Direction.CW);
+                Path liPath = new Path();
+                // "in" text area cutouts
+                liPath.addCircle(6.5f, 6.5f, 2f, Path.Direction.CW);
+                liPath.addRect(new RectF(4.5f, 9f, 8.5f, 20f), Path.Direction.CW);
+                liPath.addRect(new RectF(10f, 9f, 14f, 20f), Path.Direction.CW);
+                liPath.moveTo(14f, 13f);
+                liPath.cubicTo(14f, 11f, 15.5f, 9f, 18f, 9f);
+                liPath.lineTo(20f, 9f);
+                liPath.lineTo(20f, 20f);
+                liPath.lineTo(16f, 20f);
+                liPath.lineTo(16f, 14f);
+                liPath.cubicTo(16f, 13f, 15.5f, 12f, 14f, 13f);
+                path.op(liPath, Path.Op.DIFFERENCE);
+                return path;
+                
+            case "github":
+                // GitHub octocat (viewBox 0 0 24 24)
+                path.moveTo(12f, 0.297f);
+                path.cubicTo(5.37f, 0.297f, 0f, 5.67f, 0f, 12.297f);
+                path.cubicTo(0f, 17.6f, 3.438f, 22.097f, 8.205f, 23.682f);
+                path.cubicTo(8.805f, 23.795f, 9.025f, 23.424f, 9.025f, 23.105f);
+                path.cubicTo(9.025f, 22.82f, 9.015f, 22.065f, 9.01f, 21.065f);
+                path.cubicTo(5.672f, 21.789f, 4.968f, 19.455f, 4.968f, 19.455f);
+                path.cubicTo(4.422f, 18.07f, 3.633f, 17.7f, 3.633f, 17.7f);
+                path.cubicTo(2.546f, 16.956f, 3.717f, 16.971f, 3.717f, 16.971f);
+                path.cubicTo(4.922f, 17.055f, 5.555f, 18.207f, 5.555f, 18.207f);
+                path.cubicTo(6.625f, 20.042f, 8.364f, 19.512f, 9.05f, 19.205f);
+                path.cubicTo(9.158f, 18.429f, 9.467f, 17.9f, 9.81f, 17.6f);
+                path.cubicTo(7.145f, 17.3f, 4.344f, 16.268f, 4.344f, 11.67f);
+                path.cubicTo(4.344f, 10.36f, 4.809f, 9.29f, 5.579f, 8.45f);
+                path.cubicTo(5.444f, 8.147f, 5.039f, 6.927f, 5.684f, 5.274f);
+                path.cubicTo(5.684f, 5.274f, 6.689f, 4.952f, 8.984f, 6.504f);
+                path.cubicTo(9.944f, 6.237f, 10.964f, 6.105f, 11.984f, 6.099f);
+                path.cubicTo(13.004f, 6.105f, 14.024f, 6.237f, 14.984f, 6.504f);
+                path.cubicTo(17.264f, 4.952f, 18.269f, 5.274f, 18.269f, 5.274f);
+                path.cubicTo(18.914f, 6.927f, 18.509f, 8.147f, 18.389f, 8.45f);
+                path.cubicTo(19.154f, 9.29f, 19.619f, 10.36f, 19.619f, 11.67f);
+                path.cubicTo(19.619f, 16.28f, 16.814f, 17.295f, 14.144f, 17.59f);
+                path.cubicTo(14.564f, 17.95f, 14.954f, 18.686f, 14.954f, 19.81f);
+                path.cubicTo(14.954f, 21.416f, 14.939f, 22.706f, 14.939f, 23.096f);
+                path.cubicTo(14.939f, 23.411f, 15.149f, 23.786f, 15.764f, 23.666f);
+                path.cubicTo(20.565f, 22.092f, 24f, 17.592f, 24f, 12.297f);
+                path.cubicTo(24f, 5.67f, 18.627f, 0.297f, 12f, 0.297f);
+                path.close();
+                return path;
+                
+            case "tiktok":
+                // TikTok logo (viewBox 0 0 24 24)
+                path.moveTo(12.525f, 0.02f);
+                path.cubicTo(13.835f, 0f, 15.135f, 0.01f, 16.435f, 0f);
+                path.cubicTo(16.515f, 1.53f, 17.065f, 3.09f, 18.185f, 4.17f);
+                path.cubicTo(19.305f, 5.28f, 20.885f, 5.79f, 22.425f, 5.96f);
+                path.lineTo(22.425f, 9.99f);
+                path.cubicTo(20.985f, 9.94f, 19.535f, 9.64f, 18.225f, 9.02f);
+                path.cubicTo(17.655f, 8.76f, 17.125f, 8.43f, 16.605f, 8.09f);
+                path.cubicTo(16.595f, 11.01f, 16.615f, 13.93f, 16.585f, 16.84f);
+                path.cubicTo(16.505f, 18.24f, 16.045f, 19.63f, 15.235f, 20.78f);
+                path.cubicTo(13.925f, 22.7f, 11.655f, 23.95f, 9.325f, 23.99f);
+                path.cubicTo(7.895f, 24.07f, 6.465f, 23.68f, 5.245f, 22.96f);
+                path.cubicTo(3.225f, 21.77f, 1.805f, 19.59f, 1.595f, 17.25f);
+                path.cubicTo(1.575f, 16.75f, 1.565f, 16.25f, 1.585f, 15.76f);
+                path.cubicTo(1.765f, 13.86f, 2.705f, 12.04f, 4.165f, 10.8f);
+                path.cubicTo(5.825f, 9.36f, 8.145f, 8.67f, 10.315f, 9.08f);
+                path.cubicTo(10.335f, 10.56f, 10.275f, 12.04f, 10.275f, 13.52f);
+                path.cubicTo(9.285f, 13.2f, 8.125f, 13.29f, 7.255f, 13.89f);
+                path.cubicTo(6.625f, 14.3f, 6.145f, 14.93f, 5.895f, 15.64f);
+                path.cubicTo(5.685f, 16.15f, 5.745f, 16.71f, 5.755f, 17.25f);
+                path.cubicTo(5.995f, 18.89f, 7.575f, 20.27f, 9.255f, 20.12f);
+                path.cubicTo(10.375f, 20.11f, 11.445f, 19.46f, 12.025f, 18.51f);
+                path.cubicTo(12.215f, 18.18f, 12.425f, 17.84f, 12.435f, 17.45f);
+                path.cubicTo(12.535f, 15.66f, 12.495f, 13.88f, 12.505f, 12.09f);
+                path.cubicTo(12.515f, 8.06f, 12.495f, 4.04f, 12.525f, 0.02f);
+                path.close();
+                return path;
+                
+            case "reddit":
+                // Reddit alien (simplified - viewBox 0 0 24 24)
+                path.addCircle(12, 12, 12, Path.Direction.CW);
+                // Eyes and face cutouts
+                Path redditPath = new Path();
+                redditPath.addCircle(8f, 13.5f, 1.5f, Path.Direction.CW);
+                redditPath.addCircle(16f, 13.5f, 1.5f, Path.Direction.CW);
+                path.op(redditPath, Path.Op.DIFFERENCE);
+                return path;
+                
+            case "discord":
+                // Discord logo (viewBox 0 0 24 24)
+                path.moveTo(20.317f, 4.3698f);
+                path.cubicTo(18.7873f, 3.6535f, 17.147f, 3.1193f, 15.4319f, 2.8186f);
+                path.cubicTo(15.4233f, 2.8157f, 15.4141f, 2.8188f, 15.4085f, 2.8277f);
+                path.cubicTo(15.1975f, 3.203f, 14.9638f, 3.6925f, 14.8002f, 4.0772f);
+                path.cubicTo(12.9555f, 3.801f, 11.12f, 3.801f, 9.3134f, 4.0772f);
+                path.cubicTo(9.1498f, 3.6839f, 8.9076f, 3.203f, 8.6957f, 2.8277f);
+                path.cubicTo(8.6901f, 2.8197f, 8.6809f, 2.8166f, 8.6724f, 2.8186f);
+                path.cubicTo(6.9581f, 3.1184f, 5.3178f, 3.6526f, 3.7872f, 4.3689f);
+                path.cubicTo(3.782f, 4.3709f, 3.7776f, 4.3746f, 3.7745f, 4.3793f);
+                path.cubicTo(0.5334f, 9.0458f, -0.319f, 13.5799f, 0.0992f, 18.0578f);
+                path.cubicTo(0.1004f, 18.0701f, 0.1072f, 18.0819f, 0.1169f, 18.0894f);
+                path.cubicTo(2.1697f, 19.597f, 4.1582f, 20.5122f, 6.1098f, 21.1188f);
+                path.cubicTo(6.1183f, 21.1217f, 6.1276f, 21.1188f, 6.134f, 21.1108f);
+                path.cubicTo(6.5956f, 20.4804f, 7.0071f, 19.8156f, 7.36f, 19.1166f);
+                path.cubicTo(7.3681f, 19.1002f, 7.3604f, 19.0811f, 7.3433f, 19.0738f);
+                path.cubicTo(6.6905f, 18.8262f, 6.0688f, 18.5243f, 5.4711f, 18.1815f);
+                path.cubicTo(5.4522f, 18.1704f, 5.4507f, 18.1427f, 5.4683f, 18.1291f);
+                path.cubicTo(5.5941f, 18.0348f, 5.72f, 17.9368f, 5.8401f, 17.8377f);
+                path.cubicTo(5.8483f, 17.8309f, 5.8595f, 17.8295f, 5.869f, 17.8339f);
+                path.cubicTo(9.7968f, 19.6272f, 14.0468f, 19.6272f, 17.9304f, 17.8339f);
+                path.cubicTo(17.9399f, 17.8286f, 17.9511f, 17.83f, 17.9601f, 17.8368f);
+                path.cubicTo(18.0803f, 17.9359f, 18.2061f, 18.0348f, 18.3329f, 18.1291f);
+                path.cubicTo(18.3505f, 18.1427f, 18.3498f, 18.1704f, 18.3309f, 18.1815f);
+                path.cubicTo(17.7332f, 18.5309f, 17.1115f, 18.8262f, 16.4579f, 19.0729f);
+                path.cubicTo(16.4408f, 19.0802f, 16.434f, 19.1002f, 16.442f, 19.1166f);
+                path.cubicTo(16.8024f, 19.8147f, 17.2139f, 20.4795f, 17.667f, 21.1099f);
+                path.cubicTo(17.6726f, 21.1188f, 17.6827f, 21.1217f, 17.6912f, 21.1188f);
+                path.cubicTo(19.6521f, 20.5122f, 21.6406f, 19.597f, 23.6934f, 18.0894f);
+                path.cubicTo(23.7039f, 18.0819f, 23.7099f, 18.0709f, 23.7111f, 18.0586f);
+                path.cubicTo(24.2115f, 12.881f, 22.8729f, 8.3839f, 20.2626f, 4.3793f);
+                path.cubicTo(20.2602f, 4.3746f, 20.2558f, 4.3709f, 20.2498f, 4.3689f);
+                path.close();
+                path.moveTo(8.02f, 15.3312f);
+                path.cubicTo(6.8375f, 15.3312f, 5.8631f, 14.2455f, 5.8631f, 12.9122f);
+                path.cubicTo(5.8631f, 11.579f, 6.8186f, 10.4933f, 8.0201f, 10.4933f);
+                path.cubicTo(9.2309f, 10.4933f, 10.1958f, 11.5885f, 10.1769f, 12.9122f);
+                path.cubicTo(10.1769f, 14.2455f, 9.2214f, 15.3312f, 8.02f, 15.3312f);
+                path.close();
+                path.moveTo(15.9948f, 15.3312f);
+                path.cubicTo(14.8123f, 15.3312f, 13.8379f, 14.2455f, 13.8379f, 12.9122f);
+                path.cubicTo(13.8379f, 11.579f, 14.7933f, 10.4933f, 15.9948f, 10.4933f);
+                path.cubicTo(17.2056f, 10.4933f, 18.1705f, 11.5885f, 18.1516f, 12.9122f);
+                path.cubicTo(18.1516f, 14.2455f, 17.2056f, 15.3312f, 15.9948f, 15.3312f);
+                path.close();
+                return path;
+                
+            case "pinterest":
+                // Pinterest P logo (viewBox 0 0 24 24)
+                path.addCircle(12, 12, 12, Path.Direction.CW);
+                Path pPath = new Path();
+                pPath.moveTo(9.04f, 21.54f);
+                pPath.cubicTo(8.71f, 20.59f, 8.5f, 19.58f, 8.42f, 18.54f);
+                pPath.lineTo(9.91f, 12.48f);
+                pPath.cubicTo(9.42f, 11.56f, 9.16f, 10.53f, 9.16f, 9.44f);
+                pPath.cubicTo(9.16f, 6.75f, 10.63f, 4.95f, 12.58f, 4.95f);
+                pPath.cubicTo(14.14f, 4.95f, 15.03f, 6.05f, 15.03f, 7.42f);
+                pPath.cubicTo(15.03f, 8.97f, 14.13f, 11.27f, 13.65f, 13.39f);
+                pPath.cubicTo(13.25f, 15.14f, 14.46f, 16.58f, 16.18f, 16.58f);
+                pPath.cubicTo(19.28f, 16.58f, 21.31f, 12.57f, 21.31f, 7.85f);
+                pPath.cubicTo(21.31f, 3.83f, 18.36f, 1.13f, 13.99f, 1.13f);
+                pPath.cubicTo(8.84f, 1.13f, 5.71f, 4.87f, 5.71f, 9.05f);
+                pPath.cubicTo(5.71f, 10.58f, 6.27f, 12.01f, 7.14f, 12.98f);
+                pPath.close();
+                path.op(pPath, Path.Op.DIFFERENCE);
+                return path;
+                
+            case "amazon":
+                // Amazon smile logo (simplified - viewBox 0 0 24 24)
+                path.moveTo(0.045f, 18.02f);
+                path.cubicTo(0.117f, 17.904f, 0.232f, 17.896f, 0.393f, 17.998f);
+                path.cubicTo(4.029f, 20.108f, 7.987f, 21.164f, 12.263f, 21.164f);
+                path.cubicTo(15.115f, 21.164f, 17.931f, 20.631f, 20.71f, 19.569f);
+                path.lineTo(21.025f, 19.429f);
+                path.cubicTo(21.163f, 19.369f, 21.259f, 19.329f, 21.318f, 19.299f);
+                path.cubicTo(21.544f, 19.211f, 21.708f, 19.253f, 21.843f, 19.429f);
+                path.cubicTo(21.963f, 19.603f, 21.933f, 19.765f, 21.723f, 19.909f);
+                path.cubicTo(21.467f, 20.099f, 21.123f, 20.319f, 20.717f, 20.563f);
+                path.cubicTo(19.473f, 21.306f, 18.077f, 21.879f, 16.532f, 22.289f);
+                path.cubicTo(14.413f, 22.849f, 12.222f, 22.929f, 9.996f, 22.549f);
+                path.cubicTo(7.556f, 22.139f, 5.311f, 21.208f, 3.293f, 19.777f);
+                path.close();
+                return path;
+                
+            default:
+                return null; // Fall back to letter
+        }
     }
     
     // Get platform brand color
@@ -1487,7 +1900,7 @@ public class ShortcutPlugin extends Plugin {
         }
     }
     
-    // Get platform letter/symbol for icon
+    // Get platform letter/symbol for fallback icon
     private String getPlatformLetter(String platformKey) {
         switch (platformKey) {
             case "youtube": return "▶";
@@ -1526,14 +1939,14 @@ public class ShortcutPlugin extends Plugin {
         }
     }
     
-    // Determine if platform should use white or black text
+    // Determine if platform should use white or black icon/text
     private boolean shouldUseWhiteText(String platformKey) {
         switch (platformKey) {
             case "amazon":
             case "snapchat":
-                return false; // Use black text on light backgrounds
+                return false; // Use black icon on light backgrounds
             default:
-                return true; // Use white text on dark backgrounds
+                return true; // Use white icon on dark backgrounds
         }
     }
     
