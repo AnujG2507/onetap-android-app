@@ -1,132 +1,140 @@
 
 
-# Remove Background Colors from URL/Platform/Favicon Icons
+# Remove Background Colors from Home Screen Shortcut Icons
 
 ## Summary
 
-Remove the colored backgrounds from platform icons, favicons, and URL-based icons across the app. Let the icons take the entire icon space for a more authentic, native look.
+Update the native Android icon rendering code to display platform icons and favicons with **transparent backgrounds** at **full size** on the home screen, matching the in-app UI changes.
 
-## Current Behavior
+## Current Behavior (Native Android)
 
-- **Platform icons** (YouTube, Netflix, etc.): Rendered inside a colored background container (e.g., red for YouTube, black for Netflix)
-- **Favicon icons**: Rendered with a blue `#3B82F6` background
-- All icons are constrained to a smaller size within the container
+| Icon Type | Background | Icon Size |
+|-----------|------------|-----------|
+| Platform icons (YouTube, Netflix, etc.) | Brand color fill (red, black, etc.) | 45% of container |
+| Favicon icons | Blue `#3B82F6` fill | 45% of container |
 
 ## Proposed Behavior
 
-- **Platform icons**: Render the branded logo at full size with its native colors, no container background
-- **Favicon icons**: Render the favicon at full size, no blue background
-- Icons will fill the entire 12x12 (or 16x16 for previews) container space
+| Icon Type | Background | Icon Size |
+|-----------|------------|-----------|
+| Platform icons | **Transparent** | Full size (~80% of safe zone) |
+| Favicon icons | **Transparent** | Full size (~80% of safe zone) |
 
-## Files to Modify
+## File to Modify
 
 | File | Changes |
 |------|---------|
-| `src/components/MyShortcutsContent.tsx` | Remove `bg-blue-500` from favicon, use `PlatformIcon` component instead of letter rendering for platform icons |
-| `src/components/IconPicker.tsx` | Remove background colors from platform/favicon preview containers |
-| `src/components/PlatformIcon.tsx` | Add a `noBg` prop to allow rendering without the background container |
+| `native/android/app/src/main/java/app/onetap/shortcuts/plugins/ShortcutPlugin.java` | Update `createFaviconIcon()` and `createPlatformIcon()` methods |
 
-## Technical Details
+## Implementation Details
 
-### 1. Update PlatformIcon Component
+### 1. Update `createFaviconIcon()` Method
 
-Add an optional `noBg` prop to render just the SVG without the background:
+**Current**:
+```java
+// Fill background with blue
+Paint bgPaint = new Paint();
+bgPaint.setColor(Color.parseColor("#3B82F6"));
+canvas.drawRect(0, 0, adaptiveSize, adaptiveSize, bgPaint);
 
-```typescript
-interface PlatformIconProps {
-  platform: PlatformInfo;
-  size?: 'sm' | 'md' | 'lg';
-  className?: string;
-  noBg?: boolean; // New prop
-}
-
-export function PlatformIcon({ platform, size = 'md', noBg = false, className }: PlatformIconProps) {
-  const iconPath = platform.icon ? ICON_PATHS[platform.icon] : null;
-
-  if (noBg) {
-    // Render just the SVG, sized to fill container
-    return iconPath ? (
-      <svg
-        viewBox="0 0 24 24"
-        fill="currentColor"
-        className={cn(SIZE_CLASSES[size], platform.textColor, className)}
-      >
-        {iconPath}
-      </svg>
-    ) : null;
-  }
-
-  // Existing rendering with background
-  return (
-    <div className={cn(...)}>
-      ...
-    </div>
-  );
-}
+// Scale favicon to 45%
+float iconSize = adaptiveSize * 0.45f;
 ```
 
-### 2. Update MyShortcutsContent.tsx
+**Proposed**:
+```java
+// Transparent background - just clear the canvas
+// Bitmap.Config.ARGB_8888 already supports transparency
+// No background fill needed
 
-For platform icons - use `PlatformIcon` with `noBg`:
-```typescript
-if (icon.type === 'platform') {
-  const platform = detectPlatform(`https://${icon.value}.com`);
-  if (platform) {
-    return (
-      <div className="h-12 w-12 rounded-xl flex items-center justify-center overflow-hidden">
-        <PlatformIcon platform={platform} size="lg" noBg />
-      </div>
-    );
-  }
-  // Fallback to letter if detection fails
-}
+// Scale favicon to fill most of the safe zone (80%)
+float iconSize = adaptiveSize * 0.80f;
 ```
 
-For favicon icons - remove blue background:
-```typescript
-if (icon.type === 'favicon') {
-  return (
-    <div className="h-12 w-12 rounded-xl flex items-center justify-center overflow-hidden">
-      <img 
-        src={icon.value} 
-        alt="" 
-        className="h-full w-full object-contain"
-        onError={(e) => e.currentTarget.style.display = 'none'}
-      />
-    </div>
-  );
-}
+### 2. Update `createPlatformIcon()` Method
+
+**Current**:
+```java
+// Fill entire canvas with platform brand color
+int bgColor = getPlatformColor(platformKey);
+Paint bgPaint = new Paint();
+bgPaint.setColor(bgColor);
+canvas.drawRect(0, 0, adaptiveSize, adaptiveSize, bgPaint);
+
+// Scale icon to 45%
+float iconSize = adaptiveSize * 0.45f;
 ```
 
-### 3. Update IconPicker.tsx Preview
+**Proposed**:
+```java
+// Transparent background - no fill
+// The icon will be drawn in its brand color directly
 
-Remove background styling from platform and favicon preview containers:
-```typescript
-<div className="h-16 w-16 rounded-2xl flex items-center justify-center elevation-2 overflow-hidden">
-  {selectedIcon.type === 'platform' && platformInfo && (
-    <PlatformIcon platform={platformInfo} size="lg" noBg />
-  )}
-  {selectedIcon.type === 'favicon' && (
-    <img 
-      src={selectedIcon.value} 
-      alt="Website icon" 
-      className="h-full w-full object-contain"
-    />
-  )}
-  ...
-</div>
+// Draw icon in brand color at full size
+Paint iconPaint = new Paint();
+iconPaint.setColor(getPlatformColor(platformKey)); // Brand color for the icon itself
+iconPaint.setAntiAlias(true);
+iconPaint.setStyle(Paint.Style.FILL);
+
+// Scale icon to fill most of the safe zone (80%)
+float iconSize = adaptiveSize * 0.80f;
 ```
+
+### 3. Platform Icon Colors
+
+When using transparent backgrounds, the icon paths themselves need to be colored:
+
+| Platform | Icon Color |
+|----------|------------|
+| YouTube | Red `#FF0000` |
+| Netflix | Red `#E50914` |
+| Spotify | Green `#1DB954` |
+| WhatsApp | Green `#25D366` |
+| Instagram | Gradient or pink `#E4405F` |
+| Twitter/X | Black `#000000` |
+| Facebook | Blue `#1877F2` |
 
 ## Visual Comparison
 
-| Location | Before | After |
-|----------|--------|-------|
-| My Shortcuts list (platform) | Red bg + small YouTube icon | Full-size YouTube logo |
-| My Shortcuts list (favicon) | Blue bg + small favicon | Full-size favicon |
-| IconPicker preview (platform) | Colored bg + icon | Just the icon at full size |
-| IconPicker preview (favicon) | Blue bg + favicon | Just the favicon at full size |
+```text
+BEFORE (Platform Icon - YouTube):
+┌─────────────────┐
+│█████████████████│ ← Red background fills canvas
+│████████▲████████│ ← Small white play icon (45%)
+│███████▲▲▲███████│
+│█████████████████│
+└─────────────────┘
 
-## Native Android Consideration
+AFTER (Platform Icon - YouTube):
+┌─────────────────┐
+│                 │ ← Transparent (launcher shape visible)
+│    ▓▓▓▓▓▓▓▓▓    │
+│    ▓▓▓▶▓▓▓▓    │ ← Full-size red YouTube logo (80%)
+│    ▓▓▓▓▓▓▓▓▓    │
+│                 │
+└─────────────────┘
 
-Note: This change affects only the **in-app UI**. The native Android home screen shortcuts will continue to use the adaptive icon system with colored backgrounds as required by Android's icon specifications. This is intentional - Android home screen icons need backgrounds for consistency with other app icons.
+BEFORE (Favicon):
+┌─────────────────┐
+│█████████████████│ ← Blue #3B82F6 background
+│███████░░████████│ ← Small favicon (45%)
+│█████████████████│
+└─────────────────┘
+
+AFTER (Favicon):
+┌─────────────────┐
+│                 │ ← Transparent
+│    ░░░░░░░░░    │
+│    ░░░██░░░░    │ ← Full-size favicon (80%)
+│    ░░░░░░░░░    │
+│                 │
+└─────────────────┘
+```
+
+## Technical Notes
+
+1. **Bitmap Creation**: Use `Bitmap.Config.ARGB_8888` which already supports alpha transparency
+2. **No Background Paint**: Skip the `canvas.drawRect()` call for background fill
+3. **Safe Zone**: Android adaptive icons have a safe zone of ~66% in the center - using 80% of the canvas ensures the icon fills most of the visible area across all launcher shapes
+4. **Launcher Compatibility**: Most modern launchers will show the launcher's default background shape behind transparent adaptive icons
 
