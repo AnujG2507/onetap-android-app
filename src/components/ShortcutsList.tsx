@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Zap, ChevronRight, RefreshCw, Search, X, Link2, FileIcon, MessageCircle, Phone, BarChart3, Clock, ArrowDownAZ } from 'lucide-react';
+import { Zap, ChevronRight, ChevronDown, RefreshCw, Search, X, Link2, FileIcon, MessageCircle, Phone, BarChart3, Clock, ArrowDownAZ } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   Sheet,
@@ -116,6 +116,9 @@ function ShortcutIcon({ shortcut }: { shortcut: ShortcutData }) {
   );
 }
 
+// Check if target is "long" (more than ~20 chars)
+const TARGET_EXPAND_THRESHOLD = 20;
+
 // Individual shortcut list item - grid-based, hard overflow guarantees
 function ShortcutListItem({
   shortcut,
@@ -126,9 +129,16 @@ function ShortcutListItem({
   onTap: (shortcut: ShortcutData) => void;
   t: (key: string) => string;
 }) {
+  const [isTargetExpanded, setIsTargetExpanded] = useState(false);
   const typeLabel = getShortcutTypeLabel(shortcut, t);
   const target = getShortcutTarget(shortcut);
   const usageCount = shortcut.usageCount || 0;
+  const isTargetLong = target && target.length > TARGET_EXPAND_THRESHOLD;
+
+  const handleExpandClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsTargetExpanded((prev) => !prev);
+  };
 
   return (
     <button
@@ -147,15 +157,41 @@ function ShortcutListItem({
           {shortcut.name}
         </span>
 
-        {/* Meta row: Type | Target (truncates) | Badge */}
+        {/* Meta row: Type | Target (truncates unless expanded) | Expand button | Badge */}
         <div className="mt-0.5 min-w-0 overflow-hidden flex items-center gap-1.5">
           <span className="text-xs text-muted-foreground shrink-0">
             {typeLabel}
           </span>
 
-          <span className="text-xs text-muted-foreground truncate flex-1 min-w-0">
-            {target ? `· ${target}` : ''}
-          </span>
+          {target && (
+            <span 
+              className={cn(
+                "text-xs text-muted-foreground flex-1 min-w-0",
+                !isTargetExpanded && "truncate"
+              )}
+              style={isTargetExpanded ? { wordBreak: 'break-all' } : undefined}
+            >
+              · {target}
+            </span>
+          )}
+
+          {isTargetLong && (
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={handleExpandClick}
+              onKeyDown={(e) => e.key === 'Enter' && handleExpandClick(e as unknown as React.MouseEvent)}
+              className="shrink-0 p-0.5 rounded hover:bg-muted/80 transition-colors cursor-pointer"
+              aria-label={isTargetExpanded ? t('common.collapse') : t('common.expand')}
+            >
+              <ChevronDown 
+                className={cn(
+                  "h-3.5 w-3.5 text-muted-foreground transition-transform duration-200",
+                  isTargetExpanded && "rotate-180"
+                )} 
+              />
+            </span>
+          )}
 
           <Badge
             variant="outline"
