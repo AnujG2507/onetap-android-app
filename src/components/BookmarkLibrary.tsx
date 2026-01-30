@@ -88,8 +88,6 @@ interface BookmarkLibraryProps {
   clearSelectionSignal?: number;
   /** Called when the action sheet is opened or closed */
   onActionSheetOpenChange?: (isOpen: boolean) => void;
-  /** Called when user wants to open the shortcuts list */
-  onOpenShortcuts?: () => void;
 }
 
 export function BookmarkLibrary({ 
@@ -97,7 +95,6 @@ export function BookmarkLibrary({
   onSelectionModeChange, 
   clearSelectionSignal,
   onActionSheetOpenChange,
-  onOpenShortcuts,
 }: BookmarkLibraryProps) {
   const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
@@ -649,7 +646,7 @@ export function BookmarkLibrary({
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
-            <AppMenu onOpenTrash={() => setIsTrashOpen(true)} onOpenSettings={() => setShowSettings(true)} onOpenShortcuts={onOpenShortcuts} />
+            <AppMenu onOpenTrash={() => setIsTrashOpen(true)} onOpenSettings={() => setShowSettings(true)} />
           </div>
         </div>
         <h1 className="text-2xl font-semibold text-foreground leading-tight tracking-tight">

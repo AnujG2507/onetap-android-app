@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Image, Video, FileText, Bookmark, Music, Phone, Link, FolderOpen, MessageCircle, X, Home, Bell } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { MyShortcutsButton } from '@/components/MyShortcutsButton';
 import type { FileTypeFilter } from '@/lib/contentResolver';
 
 export type ContactMode = 'dial' | 'message';
@@ -98,7 +99,7 @@ export function ContentSourcePicker({
   };
 
   return (
-    <div className="flex flex-col gap-4 p-5 pb-24 animate-fade-in">
+    <div className="flex flex-col gap-4 p-5 pb-28 animate-fade-in">
       {/* Main Card: Create a Shortcut */}
       <div className="rounded-2xl bg-card elevation-1 p-4">
         <h2 className="text-base font-medium text-foreground mb-4">
@@ -224,6 +225,11 @@ export function ContentSourcePicker({
             )}
           </AnimatePresence>
         </div>
+      </div>
+
+      {/* My Shortcuts Button - Fixed near bottom nav */}
+      <div className="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom)+0.75rem)] left-0 right-0 px-5 z-10">
+        <MyShortcutsButton />
       </div>
     </div>
   );

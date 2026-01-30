@@ -15,6 +15,7 @@ import NotFound from "./pages/NotFound";
 const VideoPlayer = lazy(() => import("./pages/VideoPlayer"));
 const PDFViewer = lazy(() => import("./pages/PDFViewer"));
 const AuthCallback = lazy(() => import("./pages/AuthCallback"));
+const MyShortcuts = lazy(() => import("./pages/MyShortcuts"));
 
 const queryClient = new QueryClient();
 
@@ -52,6 +53,11 @@ const App = () => (
                 <Route path="/auth-callback" element={
                   <Suspense fallback={<PageLoader />}>
                     <AuthCallback />
+                  </Suspense>
+                } />
+                <Route path="/my-shortcuts" element={
+                  <Suspense fallback={<PageLoader />}>
+                    <MyShortcuts />
                   </Suspense>
                 } />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

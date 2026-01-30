@@ -50,8 +50,6 @@ interface AccessFlowProps {
   onCreateReminder?: (destination: ScheduledActionDestination) => void;
   /** Called when the inline content picker is opened or closed */
   onPickerOpenChange?: (isOpen: boolean) => void;
-  /** Called when user wants to open the shortcuts list */
-  onOpenShortcuts?: () => void;
 }
 
 export function AccessFlow({ 
@@ -63,7 +61,6 @@ export function AccessFlow({
   onGoToNotifications,
   onCreateReminder,
   onPickerOpenChange,
-  onOpenShortcuts,
 }: AccessFlowProps) {
   const [step, setStep] = useState<AccessStep>('source');
   const [contentSource, setContentSource] = useState<ContentSource | null>(null);
@@ -429,7 +426,7 @@ export function AccessFlow({
                 <Zap className="h-5 w-5 text-primary" />
                 <h1 className="text-xl font-semibold text-foreground">{t('access.title')}</h1>
               </div>
-              <AppMenu onOpenTrash={() => setIsTrashOpen(true)} onOpenSettings={() => setShowSettings(true)} onOpenShortcuts={onOpenShortcuts} />
+              <AppMenu onOpenTrash={() => setIsTrashOpen(true)} onOpenSettings={() => setShowSettings(true)} />
             </div>
           </header>
           <ContentSourcePicker

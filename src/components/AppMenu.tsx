@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { 
   Menu, 
@@ -35,11 +36,11 @@ const SHORTCUTS_STORAGE_KEY = 'quicklaunch_shortcuts';
 interface AppMenuProps {
   onOpenTrash: () => void;
   onOpenSettings: () => void;
-  onOpenShortcuts?: () => void;
 }
 
-export function AppMenu({ onOpenTrash, onOpenSettings, onOpenShortcuts }: AppMenuProps) {
+export function AppMenu({ onOpenTrash, onOpenSettings }: AppMenuProps) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { menuSide, shouldCloseOnSwipe } = useRTL();
   const [open, setOpen] = useState(false);
   const [trashCount, setTrashCount] = useState(getTrashCount());
@@ -141,26 +142,24 @@ export function AppMenu({ onOpenTrash, onOpenSettings, onOpenShortcuts }: AppMen
         </SheetHeader>
 
         <div className="flex flex-col gap-1 flex-1">
-          {/* My Shortcuts - only show if handler provided */}
-          {onOpenShortcuts && (
-            <Button
-              variant="ghost"
-              className="w-full justify-start h-12 ps-3 pe-3"
-              onClick={() => handleMenuItem(onOpenShortcuts)}
-            >
-              <div className="flex items-center gap-3 flex-1">
-                <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <Zap className="h-4 w-4 text-primary" />
-                </div>
-                <span className="font-medium">{t('menu.shortcuts')}</span>
+          {/* My Shortcuts */}
+          <Button
+            variant="ghost"
+            className="w-full justify-start h-12 ps-3 pe-3"
+            onClick={() => handleMenuItem(() => navigate('/my-shortcuts'))}
+          >
+            <div className="flex items-center gap-3 flex-1">
+              <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Zap className="h-4 w-4 text-primary" />
               </div>
-              {shortcutsCount > 0 && (
-                <span className="h-5 min-w-5 px-1.5 rounded-full bg-primary text-[11px] font-semibold text-primary-foreground flex items-center justify-center">
-                  {shortcutsCount > 99 ? '99+' : shortcutsCount}
-                </span>
-              )}
-            </Button>
-          )}
+              <span className="font-medium">{t('menu.shortcuts')}</span>
+            </div>
+            {shortcutsCount > 0 && (
+              <span className="h-5 min-w-5 px-1.5 rounded-full bg-primary text-[11px] font-semibold text-primary-foreground flex items-center justify-center">
+                {shortcutsCount > 99 ? '99+' : shortcutsCount}
+              </span>
+            )}
+          </Button>
 
           {/* Trash */}
           <Button

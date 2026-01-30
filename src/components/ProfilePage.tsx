@@ -32,12 +32,9 @@ import { AppMenu } from './AppMenu';
 import { TrashSheet } from './TrashSheet';
 import { SettingsPage } from './SettingsPage';
 
-interface ProfilePageProps {
-  /** Called when user wants to open the shortcuts list */
-  onOpenShortcuts?: () => void;
-}
+interface ProfilePageProps {}
 
-export function ProfilePage({ onOpenShortcuts }: ProfilePageProps = {}) {
+export function ProfilePage({}: ProfilePageProps = {}) {
   const { t } = useTranslation();
   const { user, loading, signInWithGoogle, signOut } = useAuth();
   const { toast } = useToast();
@@ -256,7 +253,7 @@ export function ProfilePage({ onOpenShortcuts }: ProfilePageProps = {}) {
             </div>
             <h1 className="text-xl font-semibold text-foreground">{t('tabs.profile')}</h1>
           </div>
-          <AppMenu onOpenTrash={() => setIsTrashOpen(true)} onOpenSettings={() => setShowSettings(true)} onOpenShortcuts={onOpenShortcuts} />
+          <AppMenu onOpenTrash={() => setIsTrashOpen(true)} onOpenSettings={() => setShowSettings(true)} />
         </header>
 
         <div id="tutorial-user-card" className="flex-1 flex flex-col items-center justify-center gap-6 max-w-sm mx-auto text-center mb-6">
@@ -332,7 +329,7 @@ export function ProfilePage({ onOpenShortcuts }: ProfilePageProps = {}) {
           </div>
           <h1 className="text-xl font-semibold text-foreground">{t('tabs.profile')}</h1>
         </div>
-        <AppMenu onOpenTrash={() => setIsTrashOpen(true)} onOpenSettings={() => setShowSettings(true)} onOpenShortcuts={onOpenShortcuts} />
+        <AppMenu onOpenTrash={() => setIsTrashOpen(true)} onOpenSettings={() => setShowSettings(true)} />
       </header>
 
       {/* User Info Card */}

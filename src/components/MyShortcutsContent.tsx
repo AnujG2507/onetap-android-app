@@ -3,28 +3,18 @@ import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import { Zap, ChevronRight, ChevronDown, RefreshCw, Search, X, Link2, FileIcon, MessageCircle, Phone, BarChart3, Clock, ArrowDownAZ } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet';
-
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useShortcuts } from '@/hooks/useShortcuts';
-import { useSheetBackHandler } from '@/hooks/useSheetBackHandler';
 import { ShortcutActionSheet } from '@/components/ShortcutActionSheet';
 import { ShortcutEditSheet } from '@/components/ShortcutEditSheet';
 import type { ShortcutData } from '@/types/shortcut';
 import type { ScheduledActionDestination } from '@/types/scheduledAction';
 
-interface ShortcutsListProps {
-  isOpen: boolean;
-  onClose: () => void;
+export interface MyShortcutsContentProps {
   onCreateReminder: (destination: ScheduledActionDestination) => void;
 }
 
@@ -289,7 +279,7 @@ function SortButton({
   );
 }
 
-export function ShortcutsList({ isOpen, onClose, onCreateReminder }: ShortcutsListProps) {
+export function MyShortcutsContent({ onCreateReminder }: MyShortcutsContentProps) {
   const { t } = useTranslation();
   const { shortcuts, deleteShortcut, updateShortcut, incrementUsage, syncWithHomeScreen, refreshFromStorage } = useShortcuts();
   const [selectedShortcut, setSelectedShortcut] = useState<ShortcutData | null>(null);
@@ -304,28 +294,15 @@ export function ShortcutsList({ isOpen, onClose, onCreateReminder }: ShortcutsLi
     return (saved as SortMode) || 'usage';
   });
   
-  // Register with back handler
-  useSheetBackHandler('shortcuts-list-sheet', isOpen, onClose);
-  
-  // Sync with home screen when sheet opens
+  // Sync with home screen on mount
   useEffect(() => {
-    if (isOpen) {
-      syncWithHomeScreen();
-    }
-  }, [isOpen, syncWithHomeScreen]);
+    syncWithHomeScreen();
+  }, [syncWithHomeScreen]);
   
   // Persist sort mode
   useEffect(() => {
     localStorage.setItem(SORT_MODE_KEY, sortMode);
   }, [sortMode]);
-  
-  // Reset filters when sheet closes
-  useEffect(() => {
-    if (!isOpen) {
-      setSearchQuery('');
-      setTypeFilter('all');
-    }
-  }, [isOpen]);
   
   // Calculate counts for each filter type
   const typeCounts = useMemo(() => {
@@ -421,9 +398,8 @@ export function ShortcutsList({ isOpen, onClose, onCreateReminder }: ShortcutsLi
     setSelectedShortcut(null);
   }, [deleteShortcut]);
   
-  const handleCreateReminder = useCallback((shortcut: ShortcutData) => {
+  const handleCreateReminderFromShortcut = useCallback((shortcut: ShortcutData) => {
     setSelectedShortcut(null);
-    onClose();
     
     let destination: ScheduledActionDestination;
     if (shortcut.type === 'contact' || shortcut.type === 'message') {
@@ -442,10 +418,8 @@ export function ShortcutsList({ isOpen, onClose, onCreateReminder }: ShortcutsLi
       };
     }
     
-    setTimeout(() => {
-      onCreateReminder(destination);
-    }, 200);
-  }, [onClose, onCreateReminder]);
+    onCreateReminder(destination);
+  }, [onCreateReminder]);
   
   const handleOpen = useCallback((shortcut: ShortcutData) => {
     incrementUsage(shortcut.id);
@@ -475,148 +449,144 @@ export function ShortcutsList({ isOpen, onClose, onCreateReminder }: ShortcutsLi
   
   return (
     <>
-      <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
-        <SheetContent side="bottom" className="h-[85vh] p-0 flex flex-col overflow-hidden w-full max-w-full">
-          <SheetHeader className="p-4 pb-2 border-b flex flex-row items-center justify-between">
-            <SheetTitle className="text-start">{t('shortcuts.title')}</SheetTitle>
-            <div className="flex items-center gap-2">
-              <TooltipProvider delayDuration={0}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={handleManualRefresh}
-                      disabled={isSyncing}
-                      className="h-8 w-8"
-                    >
-                      <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    <p>{t('shortcuts.syncTooltip')}</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Header with refresh button */}
+        <div className="px-4 py-3 border-b flex items-center justify-end">
+          <TooltipProvider delayDuration={0}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleManualRefresh}
+                  disabled={isSyncing}
+                  className="h-8 w-8"
+                >
+                  <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p>{t('shortcuts.syncTooltip')}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+        
+        {/* Search and Filter Controls */}
+        {shortcuts.length > 0 && (
+          <div className="px-4 py-3 space-y-3 border-b">
+            {/* Search Input */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder={t('shortcuts.searchPlaceholder')}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 pr-9"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
             </div>
-          </SheetHeader>
-          
-          {/* Search and Filter Controls */}
-          {shortcuts.length > 0 && (
-            <div className="px-4 py-3 space-y-3 border-b">
-              {/* Search Input */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="text"
-                  placeholder={t('shortcuts.searchPlaceholder')}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 pr-9"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-              
-              {/* Type Filter Chips */}
-              <ScrollArea className="w-full">
-                <div className="flex gap-2 pb-1 w-max pe-4">
-                  {TYPE_FILTERS.map(({ value, labelKey, icon }) => (
-                    <TypeFilterChip
-                      key={value}
-                      value={value}
-                      label={t(labelKey)}
-                      icon={icon}
-                      isActive={typeFilter === value}
-                      count={typeCounts[value]}
-                      onClick={() => setTypeFilter(value)}
-                    />
-                  ))}
-                </div>
-                <ScrollBar orientation="horizontal" />
-              </ScrollArea>
-              
-              {/* Sort Controls and Result Count */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1">
-                  <SortButton
-                    mode="usage"
-                    currentMode={sortMode}
-                    icon={<BarChart3 className="h-4 w-4" />}
-                    tooltip={t('shortcuts.sortMostUsed')}
-                    onClick={() => setSortMode('usage')}
-                  />
-                  <SortButton
-                    mode="newest"
-                    currentMode={sortMode}
-                    icon={<Clock className="h-4 w-4" />}
-                    tooltip={t('shortcuts.sortNewest')}
-                    onClick={() => setSortMode('newest')}
-                  />
-                  <SortButton
-                    mode="alphabetical"
-                    currentMode={sortMode}
-                    icon={<ArrowDownAZ className="h-4 w-4" />}
-                    tooltip={t('shortcuts.sortAZ')}
-                    onClick={() => setSortMode('alphabetical')}
-                  />
-                </div>
-                
-                {hasActiveFilters && (
-                  <span className="text-sm text-muted-foreground">
-                    {t('shortcuts.searchResults', { count: filteredShortcuts.length })}
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
-          
-          {shortcuts.length === 0 ? (
-            // Global empty state - no shortcuts at all
-            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
-              <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                <Zap className="h-8 w-8 text-primary" />
-              </div>
-              <h3 className="text-lg font-medium mb-1">{t('shortcuts.empty')}</h3>
-              <p className="text-sm text-muted-foreground">{t('shortcuts.emptyDesc')}</p>
-            </div>
-          ) : filteredShortcuts.length === 0 ? (
-            // No results for filter/search
-            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
-              <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mb-4">
-                <Search className="h-8 w-8 text-muted-foreground" />
-              </div>
-              <h3 className="text-lg font-medium mb-1">{t('shortcuts.noMatch')}</h3>
-              <Button
-                variant="link"
-                onClick={handleClearFilters}
-                className="text-primary"
-              >
-                {t('shortcuts.clearFilters')}
-              </Button>
-            </div>
-          ) : (
-          <ScrollArea className="flex-1 w-full" viewportClassName="overflow-x-hidden">
-              <div className="p-2">
-                {filteredShortcuts.map((shortcut) => (
-                  <ShortcutListItem
-                    key={shortcut.id}
-                    shortcut={shortcut}
-                    onTap={handleShortcutTap}
-                    t={t}
+            
+            {/* Type Filter Chips */}
+            <ScrollArea className="w-full">
+              <div className="flex gap-2 pb-1 w-max pe-4">
+                {TYPE_FILTERS.map(({ value, labelKey, icon }) => (
+                  <TypeFilterChip
+                    key={value}
+                    value={value}
+                    label={t(labelKey)}
+                    icon={icon}
+                    isActive={typeFilter === value}
+                    count={typeCounts[value]}
+                    onClick={() => setTypeFilter(value)}
                   />
                 ))}
               </div>
+              <ScrollBar orientation="horizontal" />
             </ScrollArea>
-          )}
-        </SheetContent>
-      </Sheet>
+            
+            {/* Sort Controls and Result Count */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1">
+                <SortButton
+                  mode="usage"
+                  currentMode={sortMode}
+                  icon={<BarChart3 className="h-4 w-4" />}
+                  tooltip={t('shortcuts.sortMostUsed')}
+                  onClick={() => setSortMode('usage')}
+                />
+                <SortButton
+                  mode="newest"
+                  currentMode={sortMode}
+                  icon={<Clock className="h-4 w-4" />}
+                  tooltip={t('shortcuts.sortNewest')}
+                  onClick={() => setSortMode('newest')}
+                />
+                <SortButton
+                  mode="alphabetical"
+                  currentMode={sortMode}
+                  icon={<ArrowDownAZ className="h-4 w-4" />}
+                  tooltip={t('shortcuts.sortAZ')}
+                  onClick={() => setSortMode('alphabetical')}
+                />
+              </div>
+              
+              {hasActiveFilters && (
+                <span className="text-sm text-muted-foreground">
+                  {t('shortcuts.searchResults', { count: filteredShortcuts.length })}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+        
+        {shortcuts.length === 0 ? (
+          // Global empty state - no shortcuts at all
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+            <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+              <Zap className="h-8 w-8 text-primary" />
+            </div>
+            <h3 className="text-lg font-medium mb-1">{t('shortcuts.empty')}</h3>
+            <p className="text-sm text-muted-foreground">{t('shortcuts.emptyDesc')}</p>
+          </div>
+        ) : filteredShortcuts.length === 0 ? (
+          // No results for filter/search
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+            <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mb-4">
+              <Search className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <h3 className="text-lg font-medium mb-1">{t('shortcuts.noMatch')}</h3>
+            <Button
+              variant="link"
+              onClick={handleClearFilters}
+              className="text-primary"
+            >
+              {t('shortcuts.clearFilters')}
+            </Button>
+          </div>
+        ) : (
+          <ScrollArea className="flex-1 w-full" viewportClassName="overflow-x-hidden">
+            <div className="p-2">
+              {filteredShortcuts.map((shortcut) => (
+                <ShortcutListItem
+                  key={shortcut.id}
+                  shortcut={shortcut}
+                  onTap={handleShortcutTap}
+                  t={t}
+                />
+              ))}
+            </div>
+          </ScrollArea>
+        )}
+      </div>
       
       {/* Action Sheet */}
       <ShortcutActionSheet
@@ -626,7 +596,7 @@ export function ShortcutsList({ isOpen, onClose, onCreateReminder }: ShortcutsLi
         onOpen={handleOpen}
         onEdit={handleEdit}
         onDelete={handleDelete}
-        onCreateReminder={handleCreateReminder}
+        onCreateReminder={handleCreateReminderFromShortcut}
       />
       
       {/* Edit Sheet */}

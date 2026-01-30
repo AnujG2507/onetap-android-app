@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { App } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { BottomNav, TabType } from '@/components/BottomNav';
 import { BookmarkLibrary } from '@/components/BookmarkLibrary';
 import { AccessFlow, AccessStep, ContentSourceType } from '@/components/AccessFlow';
@@ -13,7 +13,6 @@ import { OnboardingFlow } from '@/components/OnboardingFlow';
 import { LanguageSelectionStep } from '@/components/LanguageSelectionStep';
 import { MessageChooserSheet } from '@/components/MessageChooserSheet';
 import { ShortcutEditSheet } from '@/components/ShortcutEditSheet';
-import { ShortcutsList } from '@/components/ShortcutsList';
 import { useOnboarding } from '@/hooks/useOnboarding';
 import { useBackButton } from '@/hooks/useBackButton';
 import { useAuth } from '@/hooks/useAuth';
@@ -63,7 +62,6 @@ const Index = () => {
   const [slideDirection, setSlideDirection] = useState<'left' | 'right' | null>(null);
   const [activeActionsCount, setActiveActionsCount] = useState(() => getActiveCount());
   const [pendingReminderDestination, setPendingReminderDestination] = useState<ScheduledActionDestination | null>(null);
-  const [shortcutsListOpen, setShortcutsListOpen] = useState(false);
   const lastSharedIdRef = useRef<string | null>(null);
   const previousTabRef = useRef<TabType>('access');
 
@@ -71,6 +69,7 @@ const Index = () => {
   const { isComplete: onboardingComplete, hasSelectedLanguage, markLanguageSelected, currentStep, nextStep, skipOnboarding, completeOnboarding } = useOnboarding();
 
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const { toast } = useToast();
   const { closeTopSheet } = useSheetRegistry();
@@ -114,12 +113,25 @@ const Index = () => {
   useEffect(() => {
     const handleManageShortcuts = () => {
       console.log('[Index] Opening shortcuts list via deep link');
-      setShortcutsListOpen(true);
+      navigate('/my-shortcuts');
     };
     
     window.addEventListener('onetap:manage-shortcuts', handleManageShortcuts);
     return () => window.removeEventListener('onetap:manage-shortcuts', handleManageShortcuts);
-  }, []);
+  }, [navigate]);
+
+  // Handle incoming navigation state (e.g., from MyShortcuts page creating a reminder)
+  useEffect(() => {
+    const state = location.state as { pendingReminder?: ScheduledActionDestination; activeTab?: TabType } | null;
+    if (state?.pendingReminder) {
+      setPendingReminderDestination(state.pendingReminder);
+      if (state.activeTab) {
+        setActiveTab(state.activeTab);
+      }
+      // Clear the state
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, navigate, location.pathname]);
 
   // Handle pending shortcut edit from home screen long-press
   useEffect(() => {
@@ -463,7 +475,6 @@ const Index = () => {
               handleTabChange('reminders');
             }}
             onPickerOpenChange={setIsAccessPickerOpen}
-            onOpenShortcuts={() => setShortcutsListOpen(true)}
           />
         </div>
       )}
@@ -482,7 +493,6 @@ const Index = () => {
             onInitialDestinationConsumed={() => setPendingReminderDestination(null)}
             onCreatorOpenChange={setIsRemindersCreatorOpen}
             onEditorOpenChange={setIsRemindersEditorOpen}
-            onOpenShortcuts={() => setShortcutsListOpen(true)}
           />
         </div>
       )}
@@ -499,7 +509,6 @@ const Index = () => {
             onSelectionModeChange={setIsBookmarkSelectionMode}
             clearSelectionSignal={bookmarkClearSignal}
             onActionSheetOpenChange={setIsBookmarkActionSheetOpen}
-            onOpenShortcuts={() => setShortcutsListOpen(true)}
           />
         </div>
       )}
@@ -511,7 +520,7 @@ const Index = () => {
           className={`flex-1 flex flex-col ${getSlideAnimation()}`}
           {...swipeHandlers}
         >
-          <ProfilePage onOpenShortcuts={() => setShortcutsListOpen(true)} />
+          <ProfilePage />
         </div>
       )}
 
@@ -572,15 +581,6 @@ const Index = () => {
         onSave={handleSaveShortcutEdit}
       />
 
-      {/* Shortcuts List (accessed from menu) */}
-      <ShortcutsList
-        isOpen={shortcutsListOpen}
-        onClose={() => setShortcutsListOpen(false)}
-        onCreateReminder={(destination) => {
-          setPendingReminderDestination(destination);
-          handleTabChange('reminders');
-        }}
-      />
     </div>
   );
 };
