@@ -1,6 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
+    <!-- Base application theme -->
+    <style name="AppTheme" parent="Theme.Material3.DayNight.NoActionBar">
+    </style>
+
+    <!-- Launch activity theme (no action bar) -->
+    <style name="AppTheme.NoActionBarLaunch" parent="Theme.Material3.DayNight.NoActionBar">
+    </style>
+
     <!-- Message Chooser Dialog Theme - Premium Aesthetic -->
     <style name="MessageChooserDialog" parent="@android:style/Theme.Material.Light.Dialog">
         <item name="android:windowBackground">@drawable/dialog_rounded_bg</item>
