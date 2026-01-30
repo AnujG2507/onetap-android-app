@@ -202,24 +202,18 @@ export function IconPicker({ thumbnail, platformIcon, faviconUrl, selectedIcon, 
             className={cn(
               "h-16 w-16 rounded-2xl flex items-center justify-center elevation-2 overflow-hidden",
               selectedIcon.type === 'thumbnail' ? 'p-0' : '',
-              selectedIcon.type === 'platform' || selectedIcon.type === 'favicon' ? '' : 'bg-primary'
+              // Only thumbnail and text get bg-primary, platform/favicon have no background
+              selectedIcon.type !== 'platform' && selectedIcon.type !== 'favicon' && 'bg-primary'
             )}
-            style={
-              selectedIcon.type === 'platform' && platformInfo 
-                ? { backgroundColor: platformInfo.bgColor.startsWith('bg-') ? undefined : platformInfo.bgColor }
-                : selectedIcon.type === 'favicon'
-                  ? { backgroundColor: '#3B82F6' } // Blue-500 matching native
-                  : undefined
-            }
           >
             {selectedIcon.type === 'platform' && platformInfo && (
-              <PlatformIcon platform={platformInfo} size="lg" />
+              <PlatformIcon platform={platformInfo} size="lg" noBg />
             )}
             {selectedIcon.type === 'favicon' && (
               <img 
                 src={selectedIcon.value} 
                 alt="Website icon" 
-                className="h-8 w-8 object-contain"
+                className="h-full w-full object-contain"
               />
             )}
             {selectedIcon.type === 'thumbnail' && thumbnailSources.length > 0 && (

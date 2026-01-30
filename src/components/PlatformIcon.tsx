@@ -5,6 +5,7 @@ interface PlatformIconProps {
   platform: PlatformInfo;
   size?: 'sm' | 'md' | 'lg';
   className?: string;
+  noBg?: boolean; // Render just the SVG without background container
 }
 
 // SVG paths for platform icons (simplified, recognizable versions)
@@ -133,9 +134,31 @@ const ICON_SIZE_CLASSES = {
   lg: 'h-6 w-6',
 };
 
-export function PlatformIcon({ platform, size = 'md', className }: PlatformIconProps) {
+// Full-size icon classes for noBg mode (fills container)
+const FULL_SIZE_CLASSES = {
+  sm: 'h-6 w-6',
+  md: 'h-10 w-10',
+  lg: 'h-12 w-12',
+};
+
+export function PlatformIcon({ platform, size = 'md', noBg = false, className }: PlatformIconProps) {
   const iconPath = platform.icon ? ICON_PATHS[platform.icon] : null;
 
+  // noBg mode: render just the SVG at full container size, no background
+  if (noBg) {
+    if (!iconPath) return null;
+    return (
+      <svg
+        viewBox="0 0 24 24"
+        fill="currentColor"
+        className={cn(FULL_SIZE_CLASSES[size], platform.textColor, className)}
+      >
+        {iconPath}
+      </svg>
+    );
+  }
+
+  // Default mode: with background container
   return (
     <div
       className={cn(
