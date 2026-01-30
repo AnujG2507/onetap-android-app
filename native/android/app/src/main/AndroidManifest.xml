@@ -203,6 +203,7 @@
             android:name=".WhatsAppProxyActivity"
             android:theme="@android:style/Theme.Material.Light.Dialog"
             android:exported="false"
+            android:noHistory="true"
             android:excludeFromRecents="true" />
 
         <!-- Link Proxy Activity - tracks link shortcut taps before opening browser -->
