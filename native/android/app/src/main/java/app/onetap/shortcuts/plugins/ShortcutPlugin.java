@@ -2609,6 +2609,47 @@ public class ShortcutPlugin extends Plugin {
         }
     }
 
+    /**
+     * Sync theme preference to SharedPreferences for native dialogs/activities.
+     */
+    @PluginMethod
+    public void syncTheme(PluginCall call) {
+        android.util.Log.d("ShortcutPlugin", "syncTheme called");
+
+        try {
+            Context context = getContext();
+            if (context == null) {
+                JSObject result = new JSObject();
+                result.put("success", false);
+                result.put("error", "Context is null");
+                call.resolve(result);
+                return;
+            }
+
+            String theme = call.getString("theme", "system");
+            String resolvedTheme = call.getString("resolvedTheme", "light");
+
+            // Store in SharedPreferences for native component access
+            SharedPreferences prefs = context.getSharedPreferences("app_settings", Context.MODE_PRIVATE);
+            prefs.edit()
+                .putString("theme", theme)
+                .putString("resolvedTheme", resolvedTheme)
+                .apply();
+
+            android.util.Log.d("ShortcutPlugin", "Theme synced: " + theme + " (resolved: " + resolvedTheme + ")");
+
+            JSObject result = new JSObject();
+            result.put("success", true);
+            call.resolve(result);
+        } catch (Exception e) {
+            android.util.Log.e("ShortcutPlugin", "Error syncing theme: " + e.getMessage());
+            JSObject result = new JSObject();
+            result.put("success", false);
+            result.put("error", e.getMessage());
+            call.resolve(result);
+        }
+    }
+
     // ========== Notification Click Tracking ==========
 
     /**

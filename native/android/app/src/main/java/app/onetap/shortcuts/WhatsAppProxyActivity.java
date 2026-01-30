@@ -2,8 +2,11 @@ package app.onetap.shortcuts;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
+import android.content.res.Configuration;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
@@ -51,24 +54,30 @@ public class WhatsAppProxyActivity extends Activity {
     public static final String EXTRA_CONTACT_NAME = "contact_name";
     public static final String EXTRA_SHORTCUT_ID = "shortcut_id";
     
-    // Premium color palette (matching app design system)
-    private static final int COLOR_PRIMARY = Color.parseColor("#0080FF");
-    private static final int COLOR_PRIMARY_LIGHT = Color.parseColor("#E6F2FF");
-    private static final int COLOR_PRIMARY_BORDER = Color.parseColor("#B3D9FF");
+    // WhatsApp Green (brand color, same in both themes)
     private static final int COLOR_WHATSAPP = Color.parseColor("#25D366");
-    private static final int COLOR_BG = Color.parseColor("#FFFFFF");
-    private static final int COLOR_SURFACE = Color.parseColor("#FAFAFA");
-    private static final int COLOR_BORDER = Color.parseColor("#E5E5E5");
-    private static final int COLOR_TEXT = Color.parseColor("#1A1A1A");
-    private static final int COLOR_TEXT_MUTED = Color.parseColor("#6B7280");
-    private static final int COLOR_DIVIDER = Color.parseColor("#E0E0E0");
-    private static final int COLOR_RIPPLE = Color.parseColor("#20000000");
+    
+    // Theme-aware colors (set in onCreate based on theme)
+    private int colorPrimary;
+    private int colorPrimaryLight;
+    private int colorPrimaryBorder;
+    private int colorBg;
+    private int colorSurface;
+    private int colorBorder;
+    private int colorText;
+    private int colorTextMuted;
+    private int colorDivider;
+    private int colorRipple;
+    private boolean isDarkTheme;
     
     private AlertDialog dialog;
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        
+        // Initialize theme-aware colors
+        initializeThemeColors();
         
         Intent intent = getIntent();
         String phoneNumber = intent.getStringExtra(EXTRA_PHONE_NUMBER);
@@ -105,6 +114,51 @@ public class WhatsAppProxyActivity extends Activity {
         showPremiumMessageChooserDialog(phoneNumber, messages, contactName);
     }
     
+    /**
+     * Initialize colors based on app theme setting (synced from WebView).
+     */
+    private void initializeThemeColors() {
+        // Read theme from SharedPreferences (synced from JS via ShortcutPlugin.syncTheme)
+        SharedPreferences prefs = getSharedPreferences("app_settings", Context.MODE_PRIVATE);
+        String resolvedTheme = prefs.getString("resolvedTheme", null);
+        
+        // Fall back to system theme if no preference is set
+        if (resolvedTheme == null) {
+            int nightModeFlags = getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
+            isDarkTheme = (nightModeFlags == Configuration.UI_MODE_NIGHT_YES);
+        } else {
+            isDarkTheme = "dark".equals(resolvedTheme);
+        }
+        
+        Log.d(TAG, "Using theme: " + (isDarkTheme ? "dark" : "light"));
+        
+        if (isDarkTheme) {
+            // Dark theme colors
+            colorPrimary = Color.parseColor("#3399FF");       // Lighter blue for dark mode
+            colorPrimaryLight = Color.parseColor("#1A3A5C");  // Dark blue-gray
+            colorPrimaryBorder = Color.parseColor("#2A5A8C");
+            colorBg = Color.parseColor("#1A1A1A");
+            colorSurface = Color.parseColor("#252525");
+            colorBorder = Color.parseColor("#3A3A3A");
+            colorText = Color.parseColor("#F5F5F5");
+            colorTextMuted = Color.parseColor("#9CA3AF");
+            colorDivider = Color.parseColor("#3A3A3A");
+            colorRipple = Color.parseColor("#30FFFFFF");
+        } else {
+            // Light theme colors
+            colorPrimary = Color.parseColor("#0080FF");
+            colorPrimaryLight = Color.parseColor("#E6F2FF");
+            colorPrimaryBorder = Color.parseColor("#B3D9FF");
+            colorBg = Color.parseColor("#FFFFFF");
+            colorSurface = Color.parseColor("#FAFAFA");
+            colorBorder = Color.parseColor("#E5E5E5");
+            colorText = Color.parseColor("#1A1A1A");
+            colorTextMuted = Color.parseColor("#6B7280");
+            colorDivider = Color.parseColor("#E0E0E0");
+            colorRipple = Color.parseColor("#20000000");
+        }
+    }
+    
     private String[] parseMessages(String messagesJson) {
         if (messagesJson == null || messagesJson.isEmpty()) {
             return new String[0];
@@ -126,11 +180,11 @@ public class WhatsAppProxyActivity extends Activity {
     private void showPremiumMessageChooserDialog(String phoneNumber, String[] messages, String contactName) {
         ScrollView scrollView = new ScrollView(this);
         scrollView.setFillViewport(true);
-        scrollView.setBackgroundColor(COLOR_BG);
+        scrollView.setBackgroundColor(colorBg);
         
         LinearLayout mainLayout = new LinearLayout(this);
         mainLayout.setOrientation(LinearLayout.VERTICAL);
-        mainLayout.setBackgroundColor(COLOR_BG);
+        mainLayout.setBackgroundColor(colorBg);
         
         // WhatsApp green accent bar at top
         View accentBar = new View(this);
@@ -182,9 +236,9 @@ public class WhatsAppProxyActivity extends Activity {
         dialog.setOnShowListener(d -> {
             if (dialog.getWindow() != null) {
                 GradientDrawable background = new GradientDrawable();
-                background.setColor(COLOR_BG);
+                background.setColor(colorBg);
                 background.setCornerRadius(dpToPx(20));
-                background.setStroke(dpToPx(1), COLOR_BORDER);
+                background.setStroke(dpToPx(1), colorBorder);
                 dialog.getWindow().setBackgroundDrawable(background);
             }
         });
@@ -200,7 +254,7 @@ public class WhatsAppProxyActivity extends Activity {
             : "Choose a message";
         title.setText(titleText);
         title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20);
-        title.setTextColor(COLOR_TEXT);
+        title.setTextColor(colorText);
         title.setTypeface(null, Typeface.BOLD);
         title.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(
@@ -213,7 +267,7 @@ public class WhatsAppProxyActivity extends Activity {
         TextView subtitle = new TextView(this);
         subtitle.setText("Choose an option");
         subtitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-        subtitle.setTextColor(COLOR_TEXT_MUTED);
+        subtitle.setTextColor(colorTextMuted);
         subtitle.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams subtitleParams = new LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -231,7 +285,7 @@ public class WhatsAppProxyActivity extends Activity {
         card.setFocusable(true);
         
         // Premium background with ripple
-        card.setBackground(createRippleDrawable(COLOR_PRIMARY_LIGHT, COLOR_PRIMARY_BORDER, dpToPx(12)));
+        card.setBackground(createRippleDrawable(colorPrimaryLight, colorPrimaryBorder, dpToPx(12)));
         
         // Left content
         LinearLayout leftContent = new LinearLayout(this);
@@ -243,14 +297,14 @@ public class WhatsAppProxyActivity extends Activity {
         TextView cardTitle = new TextView(this);
         cardTitle.setText("Open chat");
         cardTitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
-        cardTitle.setTextColor(COLOR_PRIMARY);
+        cardTitle.setTextColor(colorPrimary);
         cardTitle.setTypeface(null, Typeface.BOLD);
         leftContent.addView(cardTitle);
         
         TextView cardSubtitle = new TextView(this);
         cardSubtitle.setText("Start typing a new message");
         cardSubtitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
-        cardSubtitle.setTextColor(COLOR_TEXT_MUTED);
+        cardSubtitle.setTextColor(colorTextMuted);
         LinearLayout.LayoutParams cardSubtitleParams = new LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         cardSubtitleParams.topMargin = dpToPx(2);
@@ -263,7 +317,7 @@ public class WhatsAppProxyActivity extends Activity {
         TextView arrow = new TextView(this);
         arrow.setText("→");
         arrow.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18);
-        arrow.setTextColor(COLOR_PRIMARY);
+        arrow.setTextColor(colorPrimary);
         card.addView(arrow);
         
         card.setOnClickListener(v -> {
@@ -289,7 +343,7 @@ public class WhatsAppProxyActivity extends Activity {
         dividerLayout.setLayoutParams(dividerLayoutParams);
         
         View leftLine = new View(this);
-        leftLine.setBackgroundColor(COLOR_DIVIDER);
+        leftLine.setBackgroundColor(colorDivider);
         LinearLayout.LayoutParams lineParams = new LinearLayout.LayoutParams(0, dpToPx(1), 1f);
         leftLine.setLayoutParams(lineParams);
         dividerLayout.addView(leftLine);
@@ -297,11 +351,11 @@ public class WhatsAppProxyActivity extends Activity {
         TextView dividerText = new TextView(this);
         dividerText.setText("  Quick messages  ");
         dividerText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-        dividerText.setTextColor(COLOR_TEXT_MUTED);
+        dividerText.setTextColor(colorTextMuted);
         dividerLayout.addView(dividerText);
         
         View rightLine = new View(this);
-        rightLine.setBackgroundColor(COLOR_DIVIDER);
+        rightLine.setBackgroundColor(colorDivider);
         rightLine.setLayoutParams(new LinearLayout.LayoutParams(0, dpToPx(1), 1f));
         dividerLayout.addView(rightLine);
         
@@ -325,7 +379,7 @@ public class WhatsAppProxyActivity extends Activity {
             : message;
         messageText.setText("\"" + displayMessage + "\"");
         messageText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
-        messageText.setTextColor(COLOR_TEXT);
+        messageText.setTextColor(colorText);
         messageText.setMaxLines(3);
         messageText.setEllipsize(android.text.TextUtils.TruncateAt.END);
         messageText.setPadding(dpToPx(8), 0, 0, 0); // Space for accent bar
@@ -350,7 +404,7 @@ public class WhatsAppProxyActivity extends Activity {
         TextView cancelButton = new TextView(this);
         cancelButton.setText("Cancel");
         cancelButton.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
-        cancelButton.setTextColor(COLOR_TEXT_MUTED);
+        cancelButton.setTextColor(colorTextMuted);
         cancelButton.setGravity(Gravity.CENTER);
         cancelButton.setPadding(dpToPx(16), dpToPx(16), dpToPx(16), dpToPx(8));
         cancelButton.setClickable(true);
@@ -362,7 +416,7 @@ public class WhatsAppProxyActivity extends Activity {
         RoundRectShape roundRectShape = new RoundRectShape(radii, null, null);
         ShapeDrawable maskDrawable = new ShapeDrawable(roundRectShape);
         RippleDrawable ripple = new RippleDrawable(
-            ColorStateList.valueOf(COLOR_RIPPLE),
+            ColorStateList.valueOf(colorRipple),
             null,
             maskDrawable
         );
@@ -395,7 +449,7 @@ public class WhatsAppProxyActivity extends Activity {
         ShapeDrawable maskDrawable = new ShapeDrawable(roundRectShape);
         
         return new RippleDrawable(
-            ColorStateList.valueOf(COLOR_RIPPLE),
+            ColorStateList.valueOf(colorRipple),
             contentDrawable,
             maskDrawable
         );
@@ -406,13 +460,13 @@ public class WhatsAppProxyActivity extends Activity {
         
         // Base background
         GradientDrawable baseDrawable = new GradientDrawable();
-        baseDrawable.setColor(COLOR_BG);
+        baseDrawable.setColor(colorBg);
         baseDrawable.setCornerRadius(cornerRadius);
-        baseDrawable.setStroke(dpToPx(1), COLOR_BORDER);
+        baseDrawable.setStroke(dpToPx(1), colorBorder);
         
         // Left accent bar
         GradientDrawable accentDrawable = new GradientDrawable();
-        accentDrawable.setColor(COLOR_PRIMARY);
+        accentDrawable.setColor(colorPrimary);
         float[] accentRadii = {cornerRadius, cornerRadius, 0, 0, 0, 0, cornerRadius, cornerRadius};
         accentDrawable.setCornerRadii(accentRadii);
         
@@ -428,7 +482,7 @@ public class WhatsAppProxyActivity extends Activity {
         ShapeDrawable maskDrawable = new ShapeDrawable(roundRectShape);
         
         return new RippleDrawable(
-            ColorStateList.valueOf(COLOR_RIPPLE),
+            ColorStateList.valueOf(colorRipple),
             layerDrawable,
             maskDrawable
         );

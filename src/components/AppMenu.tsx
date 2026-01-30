@@ -27,6 +27,8 @@ import { useTheme } from 'next-themes';
 import { useSheetBackHandler } from '@/hooks/useSheetBackHandler';
 import { CloudBackupSection } from './CloudBackupSection';
 import { useRTL } from '@/hooks/useRTL';
+import { Capacitor } from '@capacitor/core';
+import ShortcutPlugin from '@/plugins/ShortcutPlugin';
 
 type ThemeOption = 'light' | 'dark' | 'system';
 
@@ -46,11 +48,22 @@ export function AppMenu({ onOpenTrash, onOpenSettings }: AppMenuProps) {
   const [trashCount, setTrashCount] = useState(getTrashCount());
   const [expiringCount, setExpiringCount] = useState(0);
   const [shortcutsCount, setShortcutsCount] = useState(0);
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, resolvedTheme } = useTheme();
   
   // Swipe gesture tracking
   const touchStartX = useRef<number | null>(null);
   const touchCurrentX = useRef<number | null>(null);
+
+  // Sync theme to native SharedPreferences for native dialogs
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform() || !theme) return;
+    
+    const themeValue = theme as 'light' | 'dark' | 'system';
+    const resolved = (resolvedTheme || 'light') as 'light' | 'dark';
+    
+    ShortcutPlugin.syncTheme({ theme: themeValue, resolvedTheme: resolved })
+      .catch(err => console.warn('[AppMenu] Failed to sync theme to native:', err));
+  }, [theme, resolvedTheme]);
 
   // Theme options with translated labels
   const themeOptions: { value: ThemeOption; label: string; icon: React.ReactNode }[] = [

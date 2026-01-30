@@ -372,6 +372,12 @@ export class ShortcutPluginWeb implements ShortcutPluginInterface {
     return { success: true };
   }
 
+  async syncTheme(options: { theme: 'light' | 'dark' | 'system'; resolvedTheme: 'light' | 'dark' }): Promise<{ success: boolean; error?: string }> {
+    console.log('[ShortcutPluginWeb] syncTheme called (web fallback)');
+    // No-op on web - theme sync is for native dialogs
+    return { success: true };
+  }
+
   // ========== Notification Click Tracking (Web Fallback) ==========
 
   async getClickedNotificationIds(): Promise<{ success: boolean; ids: string[]; error?: string }> {

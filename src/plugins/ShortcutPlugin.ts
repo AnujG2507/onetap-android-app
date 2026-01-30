@@ -184,6 +184,10 @@ export interface ShortcutPluginInterface {
   // Sync app settings to native SharedPreferences for native components (video player, etc.)
   syncSettings(options: { settings: string }): Promise<{ success: boolean; error?: string }>;
 
+  // Sync theme preference to native for dialogs and activities
+  syncTheme(options: { theme: 'light' | 'dark' | 'system'; resolvedTheme: 'light' | 'dark' }): Promise<{ success: boolean; error?: string }>;
+
+
   // ========== Notification Click Tracking ==========
 
   // Get clicked notification IDs from native SharedPreferences and clear the list.
