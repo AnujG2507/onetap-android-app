@@ -1,170 +1,214 @@
 
+
 ## Goal
-Fix native Android tap tracking for ALL shortcut types, ensuring taps from home screen shortcuts are properly counted regardless of the shortcut type.
+Replace the current "load entire app + show sheet" flow for WhatsApp message selection with a lightweight native Android dialog that appears directly over the home screen, without loading the WebView/React app at all.
 
-## Problem Summary
-Currently, several shortcut types bypass proxy activities and go directly to external apps, meaning their taps are never recorded:
+## Current Flow (Problem)
+When a WhatsApp shortcut with 2+ messages is tapped:
+1. `WhatsAppProxyActivity` receives the tap
+2. It stores pending action in SharedPreferences
+3. It launches `MainActivity` (full WebView app)
+4. App loads React, hooks detect pending action
+5. `MessageChooserSheet` appears as a bottom sheet
+6. User selects message, WhatsApp opens
 
-1. WhatsApp shortcuts with 0 or 1 message (uses direct wa.me links)
-2. Telegram shortcuts
-3. Signal shortcuts  
-4. Slack shortcuts
+**Pain point**: Steps 3-5 take 1-3 seconds and feel heavy for a simple selection.
 
-These shortcuts use `android.intent.action.VIEW` with app-specific URLs and open directly without any proxy activity to record the tap.
+## Proposed Flow (Solution)
+When a WhatsApp shortcut with 2+ messages is tapped:
+1. `WhatsAppProxyActivity` receives the tap
+2. It shows a native Android dialog directly (no app launch)
+3. User taps a message option
+4. WhatsApp opens immediately
+5. Activity finishes
 
-## Solution
+**Result**: ~200ms from tap to dialog, feels instant.
 
-### Option A: Create a Universal Message Proxy Activity (Recommended)
-Create a single `MessageProxyActivity` that handles all messaging shortcuts (WhatsApp, Telegram, Signal, Slack) and records taps before forwarding to the appropriate app.
+## Technical Implementation
 
-**Advantages:**
-- Single point of tracking for all message types
-- Clean separation of concerns
-- Consistent with existing proxy pattern
+### 1. Create Native Dialog Layout
+Create `res/layout/dialog_message_chooser.xml` with:
+- Title showing contact name
+- "Open chat" option (no message)
+- Scrollable list of message options
+- Cancel button
 
-### Option B: Extend LinkProxyActivity
-Route all message shortcuts through `LinkProxyActivity` since they all use URLs.
+### 2. Modify WhatsAppProxyActivity
+Transform from a transparent "pass-through" activity to a dialog-themed activity:
+- Apply `Theme.Material.Light.Dialog` or `Theme.AppCompat.Light.Dialog`
+- Build dialog UI programmatically or inflate layout
+- Handle button clicks directly in the activity
+- Open WhatsApp and finish on selection
 
-**Disadvantage:** Mixing concerns - link shortcuts and message shortcuts have different semantics.
+### 3. Update AndroidManifest
+Change the theme for `WhatsAppProxyActivity` from `Theme.Translucent.NoTitleBar` to a dialog theme.
 
-## Recommended Implementation (Option A)
+### 4. Remove/Simplify JS-Side Handling
+- The `usePendingWhatsAppAction` hook becomes unused for new shortcuts
+- Keep backward compatibility for any existing pending actions
+- `MessageChooserSheet` can remain for potential future use or be deprecated
 
-### 1. Create MessageProxyActivity.java
-A new transparent activity that:
-- Receives shortcut tap with message app URL and shortcut ID
-- Records tap via `NativeUsageTracker.recordTap()`
-- Opens the URL in the appropriate app
-- Finishes immediately
+## File Changes
 
-### 2. Update ShortcutPlugin.java
-In `createPinnedShortcut()`, add handling for message shortcuts:
-- Detect when intent action is `ACTION_VIEW` with messaging URLs (wa.me, tg://, sgnl://, slack://)
-- Route through `MessageProxyActivity` instead of `createCompatibleIntent()`
-- Pass shortcut ID as extra for tracking
+### New Files
+1. **`native/android/app/src/main/res/layout/dialog_message_chooser.xml`**
+   - Native layout for the message chooser dialog
+   - Material Design styling
 
-### 3. Update shortcutManager.ts
-Change the intent action for all message shortcuts to use a custom action:
-- `app.onetap.OPEN_MESSAGE` for all messaging shortcuts
-- This ensures they route through the proxy on the native side
+2. **`native/android/app/src/main/res/values/styles.xml`** (create if not exists)
+   - Custom dialog theme with rounded corners and proper styling
 
-### 4. Register Activity in AndroidManifest.xml
-Add the new `MessageProxyActivity` to the manifest with appropriate intent filters.
+### Modified Files
+1. **`native/android/app/src/main/java/app/onetap/shortcuts/WhatsAppProxyActivity.java`**
+   - Change from transparent pass-through to dialog-based selection
+   - Remove SharedPreferences storage logic
+   - Add dialog creation and button handling
+   - Keep usage tracking (already works)
+
+2. **`native/android/app/src/main/AndroidManifest.xml`**
+   - Update `WhatsAppProxyActivity` theme to dialog style
+
+### Files to Review (may deprecate later)
+- `src/hooks/usePendingWhatsAppAction.ts` - Will no longer be triggered
+- `src/components/MessageChooserSheet.tsx` - Will no longer be used
+
+## UI Design for Native Dialog
+
+The dialog will match the app's calm, premium aesthetic:
+
+```
+┌─────────────────────────────────────┐
+│  💬 Message for John               │
+├─────────────────────────────────────┤
+│  ┌─────────────────────────────┐   │
+│  │ 📱 Open chat                │   │
+│  │    Start fresh, type your   │   │
+│  │    own message              │   │
+│  └─────────────────────────────┘   │
+│                                     │
+│  ──── or use a quick message ────  │
+│                                     │
+│  ┌─────────────────────────────┐   │
+│  │ 💬 "Hey! Are you free       │   │
+│  │    today?"                  │   │
+│  └─────────────────────────────┘   │
+│                                     │
+│  ┌─────────────────────────────┐   │
+│  │ 💬 "On my way!"             │   │
+│  └─────────────────────────────┘   │
+│                                     │
+│         [ Cancel ]                  │
+└─────────────────────────────────────┘
+```
 
 ## Technical Details
 
-### MessageProxyActivity.java
+### WhatsAppProxyActivity Changes
+
 ```java
-public class MessageProxyActivity extends Activity {
-    public static final String EXTRA_SHORTCUT_ID = "shortcut_id";
-    public static final String EXTRA_URL = "url";
+public class WhatsAppProxyActivity extends Activity {
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         
-        Intent intent = getIntent();
-        String url = intent.getStringExtra(EXTRA_URL);
-        String shortcutId = intent.getStringExtra(EXTRA_SHORTCUT_ID);
+        // Parse intent extras
+        String phoneNumber = getIntent().getStringExtra(EXTRA_PHONE_NUMBER);
+        String messagesJson = getIntent().getStringExtra(EXTRA_QUICK_MESSAGES);
+        String contactName = getIntent().getStringExtra(EXTRA_CONTACT_NAME);
+        String shortcutId = getIntent().getStringExtra(EXTRA_SHORTCUT_ID);
         
-        // Track the tap
-        if (shortcutId != null && !shortcutId.isEmpty()) {
+        // Track usage
+        if (shortcutId != null) {
             NativeUsageTracker.recordTap(this, shortcutId);
         }
         
-        // Open the URL
-        if (url != null) {
-            Intent viewIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-            viewIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            startActivity(viewIntent);
+        // Parse messages
+        String[] messages = parseMessages(messagesJson);
+        
+        // Show dialog directly
+        showMessageChooserDialog(phoneNumber, messages, contactName);
+    }
+    
+    private void showMessageChooserDialog(String phoneNumber, String[] messages, String contactName) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this, R.style.MessageChooserDialog);
+        
+        // Build dialog with custom layout
+        View dialogView = getLayoutInflater().inflate(R.layout.dialog_message_chooser, null);
+        
+        // Set up title
+        TextView title = dialogView.findViewById(R.id.dialog_title);
+        title.setText(contactName != null ? "Message for " + contactName : "Choose message");
+        
+        // Set up "Open chat" option
+        View openChatOption = dialogView.findViewById(R.id.open_chat_option);
+        openChatOption.setOnClickListener(v -> {
+            openWhatsApp(phoneNumber, null);
+        });
+        
+        // Populate message options
+        LinearLayout messagesContainer = dialogView.findViewById(R.id.messages_container);
+        for (String message : messages) {
+            View messageOption = createMessageOption(message);
+            messageOption.setOnClickListener(v -> {
+                openWhatsApp(phoneNumber, message);
+            });
+            messagesContainer.addView(messageOption);
         }
         
+        builder.setView(dialogView);
+        builder.setNegativeButton("Cancel", (d, w) -> finish());
+        builder.setOnCancelListener(d -> finish());
+        
+        AlertDialog dialog = builder.create();
+        dialog.show();
+    }
+    
+    private void openWhatsApp(String phoneNumber, String message) {
+        String url = "https://wa.me/" + phoneNumber.replaceAll("[^0-9]", "");
+        if (message != null) {
+            url += "?text=" + URLEncoder.encode(message, "UTF-8");
+        }
+        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+        startActivity(intent);
         finish();
     }
 }
 ```
 
-### Changes to shortcutManager.ts
-```typescript
-// Message shortcuts - ALL route through MessageProxyActivity
-if (shortcut.type === 'message' && shortcut.messageApp) {
-  const phoneNumber = shortcut.phoneNumber?.replace(/[^0-9]/g, '') || '';
-  let url: string;
-  
-  switch (shortcut.messageApp) {
-    case 'whatsapp':
-      const messages = shortcut.quickMessages || [];
-      if (messages.length > 1) {
-        // Multi-message still uses WhatsAppProxyActivity
-        return {
-          action: 'app.onetap.WHATSAPP_MESSAGE',
-          ...
-        };
-      }
-      url = messages.length === 1 
-        ? `https://wa.me/${phoneNumber}?text=${encodeURIComponent(messages[0])}`
-        : `https://wa.me/${phoneNumber}`;
-      break;
-    case 'telegram':
-      url = `tg://resolve?phone=${phoneNumber}`;
-      break;
-    case 'signal':
-      url = `sgnl://signal.me/#p/+${phoneNumber}`;
-      break;
-    case 'slack':
-      url = shortcut.slackTeamId && shortcut.slackUserId
-        ? `slack://user?team=${shortcut.slackTeamId}&id=${shortcut.slackUserId}`
-        : 'slack://';
-      break;
-  }
-  
-  return {
-    action: 'app.onetap.OPEN_MESSAGE',
-    data: url,
-    extras: { url },
-  };
-}
+### Dialog Theme (styles.xml)
+
+```xml
+<style name="MessageChooserDialog" parent="Theme.AppCompat.Light.Dialog">
+    <item name="android:windowBackground">@drawable/dialog_rounded_bg</item>
+    <item name="android:windowIsFloating">true</item>
+    <item name="android:windowNoTitle">true</item>
+    <item name="android:backgroundDimEnabled">true</item>
+</style>
 ```
 
-### Changes to ShortcutPlugin.java
-Add handling in `createPinnedShortcut()`:
-```java
-} else if ("app.onetap.OPEN_MESSAGE".equals(finalIntentAction)) {
-    android.util.Log.d("ShortcutPlugin", "Using MessageProxyActivity for message shortcut");
-    intent = new Intent(context, MessageProxyActivity.class);
-    intent.setAction("app.onetap.OPEN_MESSAGE");
-    intent.setData(finalDataUri);
-    intent.putExtra(MessageProxyActivity.EXTRA_URL, finalDataUri.toString());
-    intent.putExtra(MessageProxyActivity.EXTRA_SHORTCUT_ID, finalId);
-    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-}
-```
+## Benefits
 
-## Files to Change
+1. **Speed**: Dialog appears in ~200ms vs 1-3 seconds for full app load
+2. **Simplicity**: No React/WebView overhead for simple selection
+3. **Native feel**: Uses platform-native dialog patterns
+4. **Battery/memory**: Minimal resource usage
+5. **Reliability**: No dependency on WebView state or app initialization
 
-### New Files
-1. `native/android/app/src/main/java/app/onetap/shortcuts/MessageProxyActivity.java`
+## Backward Compatibility
 
-### Modified Files
-1. `src/lib/shortcutManager.ts` - Update `buildContentIntent()` for message shortcuts
-2. `native/android/app/src/main/java/app/onetap/shortcuts/plugins/ShortcutPlugin.java` - Add message proxy routing
-3. `native/android/app/src/main/AndroidManifest.xml` - Register MessageProxyActivity
+- Existing shortcuts continue to work (intent format unchanged)
+- JS-side hooks remain for any edge cases or future features
+- No migration needed for existing users
 
 ## Testing Checklist
-After implementation, verify tap tracking works for:
-- [x] Link shortcuts (already working via LinkProxyActivity)
-- [x] Video shortcuts (already working via VideoProxyActivity)
-- [x] PDF shortcuts (already working via PDFProxyActivity)
-- [x] Contact call shortcuts (already working via ContactProxyActivity)
-- [x] WhatsApp shortcuts (0 messages) - FIXED via MessageProxyActivity
-- [x] WhatsApp shortcuts (1 message) - FIXED via MessageProxyActivity
-- [x] WhatsApp shortcuts (2+ messages) - already working via WhatsAppProxyActivity
-- [x] Telegram shortcuts - FIXED via MessageProxyActivity
-- [x] Signal shortcuts - FIXED via MessageProxyActivity
-- [x] Slack shortcuts - FIXED via MessageProxyActivity
 
-## Sync Verification
-Ensure `syncNativeUsageEvents()` in `useShortcuts.ts` properly syncs events:
-- On app startup
-- On app foreground (already implemented)
+After implementation:
+- [ ] Tap WhatsApp shortcut with 2+ messages - dialog appears instantly
+- [ ] Tap "Open chat" - WhatsApp opens without message
+- [ ] Tap a message option - WhatsApp opens with that message pre-filled
+- [ ] Tap Cancel - dialog dismisses, returns to home screen
+- [ ] Tap outside dialog - dialog dismisses
+- [ ] Usage tracking still records the tap
+- [ ] Dialog styling matches app aesthetic
 
-## Implementation Status: COMPLETE ✓
