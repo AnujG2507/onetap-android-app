@@ -180,8 +180,8 @@ export function IconPicker({ thumbnail, platformIcon, faviconUrl, selectedIcon, 
           >
             <div className="flex items-center gap-3">
               {/* Mini platform icon preview */}
-              <div className="h-10 w-10 rounded-xl bg-white dark:bg-gray-100 flex items-center justify-center shadow-sm overflow-hidden">
-                <PlatformIcon platform={platformInfo} size="md" brandColored />
+              <div className="h-10 w-10 rounded-xl overflow-hidden">
+                <PlatformIcon platform={platformInfo} size="md" />
               </div>
               <div className="flex flex-col">
                 <span className="text-sm font-medium text-foreground">{t('iconPicker.icon')}</span>
@@ -275,14 +275,14 @@ export function IconPicker({ thumbnail, platformIcon, faviconUrl, selectedIcon, 
                 className={cn(
                   "h-16 w-16 rounded-2xl flex items-center justify-center elevation-2 overflow-hidden",
                   selectedIcon.type === 'thumbnail' ? 'p-0' : '',
-                  // Platform and favicon get white/neutral background to match native adaptive icons
-                  (selectedIcon.type === 'platform' || selectedIcon.type === 'favicon') && 'bg-white dark:bg-gray-100 shadow-sm',
+                  // Favicon gets white/neutral background for transparency handling
+                  selectedIcon.type === 'favicon' && 'bg-white dark:bg-gray-100 shadow-sm',
                   // Thumbnail and text get bg-primary
                   (selectedIcon.type === 'thumbnail' || selectedIcon.type === 'text') && 'bg-primary'
                 )}
               >
                 {selectedIcon.type === 'platform' && platformInfo && (
-                  <PlatformIcon platform={platformInfo} size="lg" brandColored />
+                  <PlatformIcon platform={platformInfo} size="lg" />
                 )}
                 {selectedIcon.type === 'favicon' && (
                   <img 

@@ -96,11 +96,7 @@ function ShortcutIcon({ shortcut }: { shortcut: ShortcutData }) {
   if (icon.type === 'platform') {
     const platform = detectPlatform(`https://${icon.value}.com`);
     if (platform) {
-      return (
-        <div className="h-12 w-12 rounded-xl bg-white dark:bg-gray-100 flex items-center justify-center overflow-hidden shadow-sm">
-          <PlatformIcon platform={platform} size="lg" brandColored />
-        </div>
-      );
+      return <PlatformIcon platform={platform} size="lg" className="rounded-xl" />;
     }
     // Fallback to muted icon if detection fails
     return fallbackIcon;
