@@ -1,121 +1,168 @@
 
-
 ## Goal
-Convert the My Shortcuts sheet into a full-fledged page (single source of truth) and add a dedicated button in the Access tab to open it, positioned near the navigation bar for easy access.
+Fix native Android tap tracking for ALL shortcut types, ensuring taps from home screen shortcuts are properly counted regardless of the shortcut type.
 
-## Current State Analysis
-- **ShortcutsList.tsx** is currently a sheet component (`<Sheet>`) that opens from:
-  - AppMenu (hamburger menu) via `onOpenShortcuts` callback
-  - Deep link event `onetap:manage-shortcuts`
-- **Index.tsx** manages the `shortcutsListOpen` state and renders the `<ShortcutsList>` sheet
-- The component contains all the UI logic: search, type filters, sort controls, list rendering, action sheet, and edit sheet
+## Problem Summary
+Currently, several shortcut types bypass proxy activities and go directly to external apps, meaning their taps are never recorded:
 
-## Architecture Changes
+1. WhatsApp shortcuts with 0 or 1 message (uses direct wa.me links)
+2. Telegram shortcuts
+3. Signal shortcuts  
+4. Slack shortcuts
 
-### 1. Create New Page: `src/pages/MyShortcuts.tsx`
-- A new route `/my-shortcuts` for the dedicated page
-- This page will use `useNavigate` for back navigation
-- Contains a header with back button and title
-- Wraps the core shortcuts content
+These shortcuts use `android.intent.action.VIEW` with app-specific URLs and open directly without any proxy activity to record the tap.
 
-### 2. Refactor `ShortcutsList.tsx` into `MyShortcutsContent.tsx`
-- Extract the core content (search, filters, list, empty states) into a reusable component
-- Remove the `<Sheet>` wrapper - the component becomes a pure content component
-- Accept props for reminder creation callback and navigation-aware back handling
-- Both the new page and any future inline usage can import this single source
+## Solution
 
-### 3. Update Routing in `App.tsx`
-- Add new route `/my-shortcuts` pointing to the new page (lazy-loaded)
+### Option A: Create a Universal Message Proxy Activity (Recommended)
+Create a single `MessageProxyActivity` that handles all messaging shortcuts (WhatsApp, Telegram, Signal, Slack) and records taps before forwarding to the appropriate app.
 
-### 4. Add Dedicated Button in Access Tab
-- Add a floating action button (FAB) or fixed button near the bottom nav in `ContentSourcePicker.tsx`
-- Positioned above the nav bar, distinct from other content
-- Shows the Zap icon and shortcuts count badge
-- Uses prominent styling to be distinguished from other options
+**Advantages:**
+- Single point of tracking for all message types
+- Clean separation of concerns
+- Consistent with existing proxy pattern
 
-### 5. Update Navigation Flow
-- **From Access Tab**: Tapping the new button navigates to `/my-shortcuts`
-- **From AppMenu**: Keep the existing menu item but navigate to the route instead of opening a sheet
-- **Deep link**: Update to navigate to the route
-- **Back navigation**: Return to the previous screen via router
+### Option B: Extend LinkProxyActivity
+Route all message shortcuts through `LinkProxyActivity` since they all use URLs.
 
-## File Changes
+**Disadvantage:** Mixing concerns - link shortcuts and message shortcuts have different semantics.
 
-### New Files
-1. **`src/pages/MyShortcuts.tsx`** - New page component with header and content
-2. **`src/components/MyShortcutsContent.tsx`** - Extracted core content (renamed from sheet logic)
+## Recommended Implementation (Option A)
 
-### Modified Files
-1. **`src/App.tsx`** - Add route `/my-shortcuts`
-2. **`src/components/AccessFlow.tsx`** - Change `onOpenShortcuts` to use navigation
-3. **`src/pages/Index.tsx`** - Remove sheet state, update handlers to use navigation
-4. **`src/components/AppMenu.tsx`** - Update to use navigation
-5. **`src/components/ContentSourcePicker.tsx`** - Add dedicated "My Shortcuts" button near bottom
-6. **`src/components/ShortcutsList.tsx`** - Refactor to extract content, then delete or keep as thin wrapper if needed
+### 1. Create MessageProxyActivity.java
+A new transparent activity that:
+- Receives shortcut tap with message app URL and shortcut ID
+- Records tap via `NativeUsageTracker.recordTap()`
+- Opens the URL in the appropriate app
+- Finishes immediately
 
-### Deleted Files
-- **`src/components/ShortcutsList.tsx`** - After extracting content to new component
+### 2. Update ShortcutPlugin.java
+In `createPinnedShortcut()`, add handling for message shortcuts:
+- Detect when intent action is `ACTION_VIEW` with messaging URLs (wa.me, tg://, sgnl://, slack://)
+- Route through `MessageProxyActivity` instead of `createCompatibleIntent()`
+- Pass shortcut ID as extra for tracking
 
-## UI Design for Access Tab Button
+### 3. Update shortcutManager.ts
+Change the intent action for all message shortcuts to use a custom action:
+- `app.onetap.OPEN_MESSAGE` for all messaging shortcuts
+- This ensures they route through the proxy on the native side
 
-The button will be placed in a fixed position at the bottom of the Access tab content, above the bottom navigation bar:
-
-```
-┌─────────────────────────────────┐
-│  Access Tab Header              │
-├─────────────────────────────────┤
-│                                 │
-│  Content Source Picker Grid     │
-│  (Photo, Video, Audio, etc.)    │
-│                                 │
-│  Secondary Options              │
-│  (Browse Files, Saved Bookmarks)│
-│                                 │
-├─────────────────────────────────┤
-│  ⚡ My Shortcuts [badge]   →    │  <-- Distinguished button
-├─────────────────────────────────┤
-│  BottomNav (Tabs)               │
-└─────────────────────────────────┘
-```
-
-Button styling:
-- Full-width card with gradient background
-- Primary accent color
-- Zap icon + "My Shortcuts" label + count badge + chevron
-- Elevated with shadow to stand out
+### 4. Register Activity in AndroidManifest.xml
+Add the new `MessageProxyActivity` to the manifest with appropriate intent filters.
 
 ## Technical Details
 
-### MyShortcutsContent Props
-```typescript
-interface MyShortcutsContentProps {
-  onCreateReminder: (destination: ScheduledActionDestination) => void;
-  onNavigateBack?: () => void; // For page back button
-  showHeader?: boolean; // Page provides its own header
+### MessageProxyActivity.java
+```java
+public class MessageProxyActivity extends Activity {
+    public static final String EXTRA_SHORTCUT_ID = "shortcut_id";
+    public static final String EXTRA_URL = "url";
+    
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        
+        Intent intent = getIntent();
+        String url = intent.getStringExtra(EXTRA_URL);
+        String shortcutId = intent.getStringExtra(EXTRA_SHORTCUT_ID);
+        
+        // Track the tap
+        if (shortcutId != null && !shortcutId.isEmpty()) {
+            NativeUsageTracker.recordTap(this, shortcutId);
+        }
+        
+        // Open the URL
+        if (url != null) {
+            Intent viewIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+            viewIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(viewIntent);
+        }
+        
+        finish();
+    }
 }
 ```
 
-### Navigation Updates
-- Replace `setShortcutsListOpen(true)` with `navigate('/my-shortcuts')`
-- Pass reminder callback via route state or context
-- Use `useNavigate` for back button in the new page
+### Changes to shortcutManager.ts
+```typescript
+// Message shortcuts - ALL route through MessageProxyActivity
+if (shortcut.type === 'message' && shortcut.messageApp) {
+  const phoneNumber = shortcut.phoneNumber?.replace(/[^0-9]/g, '') || '';
+  let url: string;
+  
+  switch (shortcut.messageApp) {
+    case 'whatsapp':
+      const messages = shortcut.quickMessages || [];
+      if (messages.length > 1) {
+        // Multi-message still uses WhatsAppProxyActivity
+        return {
+          action: 'app.onetap.WHATSAPP_MESSAGE',
+          ...
+        };
+      }
+      url = messages.length === 1 
+        ? `https://wa.me/${phoneNumber}?text=${encodeURIComponent(messages[0])}`
+        : `https://wa.me/${phoneNumber}`;
+      break;
+    case 'telegram':
+      url = `tg://resolve?phone=${phoneNumber}`;
+      break;
+    case 'signal':
+      url = `sgnl://signal.me/#p/+${phoneNumber}`;
+      break;
+    case 'slack':
+      url = shortcut.slackTeamId && shortcut.slackUserId
+        ? `slack://user?team=${shortcut.slackTeamId}&id=${shortcut.slackUserId}`
+        : 'slack://';
+      break;
+  }
+  
+  return {
+    action: 'app.onetap.OPEN_MESSAGE',
+    data: url,
+    extras: { url },
+  };
+}
+```
 
-### State Management for Reminders
-When creating a reminder from shortcuts:
-1. Navigate back to Index
-2. Set `pendingReminderDestination` state
-3. Switch to reminders tab
-This can be achieved via:
-- Route state: `navigate('/', { state: { reminder: destination, tab: 'reminders' } })`
-- Or use a global context/store
+### Changes to ShortcutPlugin.java
+Add handling in `createPinnedShortcut()`:
+```java
+} else if ("app.onetap.OPEN_MESSAGE".equals(finalIntentAction)) {
+    android.util.Log.d("ShortcutPlugin", "Using MessageProxyActivity for message shortcut");
+    intent = new Intent(context, MessageProxyActivity.class);
+    intent.setAction("app.onetap.OPEN_MESSAGE");
+    intent.setData(finalDataUri);
+    intent.putExtra(MessageProxyActivity.EXTRA_URL, finalDataUri.toString());
+    intent.putExtra(MessageProxyActivity.EXTRA_SHORTCUT_ID, finalId);
+    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+}
+```
 
-## Implementation Order
-1. Create `MyShortcutsContent.tsx` by extracting content from `ShortcutsList.tsx`
-2. Create `MyShortcuts.tsx` page using the new content component
-3. Add route to `App.tsx`
-4. Add the dedicated button to `ContentSourcePicker.tsx`
-5. Update `AccessFlow.tsx` to pass navigation callback
-6. Update `Index.tsx` to handle incoming state and remove sheet
-7. Update `AppMenu.tsx` to use navigation
-8. Delete the old `ShortcutsList.tsx`
+## Files to Change
 
+### New Files
+1. `native/android/app/src/main/java/app/onetap/shortcuts/MessageProxyActivity.java`
+
+### Modified Files
+1. `src/lib/shortcutManager.ts` - Update `buildContentIntent()` for message shortcuts
+2. `native/android/app/src/main/java/app/onetap/shortcuts/plugins/ShortcutPlugin.java` - Add message proxy routing
+3. `native/android/app/src/main/AndroidManifest.xml` - Register MessageProxyActivity
+
+## Testing Checklist
+After implementation, verify tap tracking works for:
+- [ ] Link shortcuts (already working via LinkProxyActivity)
+- [ ] Video shortcuts (already working via VideoProxyActivity)
+- [ ] PDF shortcuts (already working via PDFProxyActivity)
+- [ ] Contact call shortcuts (already working via ContactProxyActivity)
+- [ ] WhatsApp shortcuts (0 messages) - NEW
+- [ ] WhatsApp shortcuts (1 message) - NEW
+- [ ] WhatsApp shortcuts (2+ messages) - already working via WhatsAppProxyActivity
+- [ ] Telegram shortcuts - NEW
+- [ ] Signal shortcuts - NEW
+- [ ] Slack shortcuts - NEW
+
+## Sync Verification
+Ensure `syncNativeUsageEvents()` in `useShortcuts.ts` properly syncs events:
+- On app startup
+- On app foreground (already implemented)
