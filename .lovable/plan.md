@@ -1,189 +1,193 @@
 
-# Plan: Redesign List Item Layout for Proper Overflow Handling
+
+# Plan: Fix Home Screen Sync to Work Reactively
 
 ## Problem Summary
 
-List items across the app (BookmarkItem, ScheduledActionItem, ShortcutListItem, TrashItem) have layout issues where:
+The "My Shortcuts" list only syncs with the Android home screen on app restart. The sync button and shortcut creation don't trigger proper reloads because:
 
-1. The outermost container can overflow the screen width
-2. When titles are collapsed (truncated), they still appear "too big" and push right-side elements (badges, chevrons, switches) off-screen
-3. The `min-w-0` utility is applied but nested flex structures break the constraint inheritance
+1. **Multiple hook instances don't share state** - `useShortcuts()` is called independently in `AccessFlow.tsx`, `ShortcutsList.tsx`, and `Index.tsx`. Each creates its own `useState` initialized from localStorage, but they don't sync when another instance writes.
 
-## Root Cause Analysis
+2. **`syncWithHomeScreen` reads stale state** - The function uses its closure's `shortcuts` array instead of reading fresh data from localStorage.
 
-The issue stems from nested flex containers where:
+3. **No event-based sync between components** - When `AccessFlow` creates a shortcut, `ShortcutsList` doesn't know about it until the page is fully reloaded.
 
-```
-Parent [w-full]
-  -> Flex Container [flex, items-start, gap-3]
-       -> Icon [shrink-0, h-10, w-10]
-       -> Content [flex-1, min-w-0] <-- This works
-            -> Title [truncate] <-- This should truncate but...
-            -> Badge/Meta Row [flex]
-                 -> Badge [shrink-0] <-- This pushes content
-       -> Right Actions [shrink-0] <-- These compete for space
-```
-
-The problem: When there are `shrink-0` elements (badges, chevrons, switches) alongside `flex-1` content, the content area doesn't shrink properly because `min-w-0` only applies to direct flex children, not nested elements.
-
-## Solution: Constrained Content Layout
-
-Apply a consistent pattern across all list items:
-
-1. **Explicit width calculation** on the content container using `calc(100% - fixed_elements_width)`
-2. **Add `overflow-hidden`** at every level that contains text
-3. **Ensure `min-w-0`** is on every flex child that can contain text
-4. **Move badges/metadata to a new line** to prevent horizontal overflow
-
-### Layout Pattern
+## Technical Root Cause
 
 ```
-Container [w-full, overflow-hidden]
-  -> Inner Flex [flex, items-start, gap-3, min-w-0]
-       -> Icon [shrink-0, w-10]
-       -> Content [flex-1, min-w-0, overflow-hidden]
-            -> Title Row
-                 -> Title [min-w-0, truncate OR break-all]
-            -> URL/Subtitle [line-clamp-2, break-all]
-            -> Metadata Row (new line, wrap allowed)
-       -> Actions [shrink-0, ml-auto]
+AccessFlow               ShortcutsList              Index
+    |                         |                        |
+useShortcuts()           useShortcuts()          useShortcuts()
+    |                         |                        |
+[state: [A, B]]         [state: [A, B]]          [state: [A, B]]
+    |                         |                        |
+createShortcut(C)             |                        |
+    |                         |                        |
+localStorage: [A, B, C]       |                        |
+[state: [A, B, C]] ✓    [state: [A, B]] ✗       [state: [A, B]] ✗
 ```
+
+## Solution
+
+### 1. Add Custom Event Broadcasting
+
+When shortcuts are modified, dispatch a custom event so all hook instances can refresh their state from localStorage.
+
+### 2. Add Event Listener in Hook
+
+Each hook instance listens for the custom event and reloads from localStorage when fired.
+
+### 3. Fix `syncWithHomeScreen` to Read Fresh Data
+
+Instead of using the closure's `shortcuts` state, read directly from localStorage to ensure we have the latest data.
+
+### 4. Emit Events After Shortcut Creation
+
+After a shortcut is created in `AccessFlow`, emit the event so `ShortcutsList` updates immediately.
 
 ## File Changes
 
-### 1. `src/components/BookmarkItem.tsx`
+### File: `src/hooks/useShortcuts.ts`
 
-**Lines 307**: Add `min-w-0 overflow-hidden` to the clickable container
-**Lines 330-334**: Ensure title has proper constraints
+#### Change 1: Add event broadcasting in `saveShortcuts`
 
-```tsx
-// Line 307: Clickable content area
-className="flex-1 flex items-start gap-3 min-w-0 overflow-hidden text-start active:scale-[0.99] transition-transform select-none cursor-pointer"
-
-// Line 331-334: Title element with explicit min-w-0
-<p 
-  className={cn(
-    "font-medium text-foreground cursor-pointer min-w-0",
-    isTitleExpanded ? "break-all" : "truncate"
-  )}
+```typescript
+// Lines 36-42 - Enhanced saveShortcuts with event dispatch
+const saveShortcuts = useCallback((data: ShortcutData[]) => {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  setShortcuts(data);
+  
+  // Sync to Android widgets
+  syncToWidgets(data);
+  
+  // Broadcast change to other hook instances
+  window.dispatchEvent(new CustomEvent('shortcuts-changed', { detail: data }));
+}, [syncToWidgets]);
 ```
 
-### 2. `src/components/ScheduledActionItem.tsx`
+#### Change 2: Add listener for cross-instance sync
 
-**Lines 286**: The main flex container needs `min-w-0` on the content wrapper
-**Lines 312-326**: Title already has `min-w-0`, ensure parent has overflow constraint
+```typescript
+// After line 141 (after initial sync effect) - Add new effect to listen for changes
+useEffect(() => {
+  const handleShortcutsChanged = (event: CustomEvent<ShortcutData[]>) => {
+    // Update local state from event payload (avoids re-reading localStorage)
+    setShortcuts(event.detail);
+  };
 
-```tsx
-// Line 286: Main flex container
-<div className="flex items-start gap-3 min-w-0">
-
-// Line 312: Content wrapper - add overflow-hidden
-<div className="flex-1 min-w-0 overflow-hidden">
-
-// Line 362-371: Recurrence info row - ensure it doesn't overflow
-<div className="flex items-center gap-1.5 mt-1.5 text-xs text-muted-foreground min-w-0 overflow-hidden">
+  window.addEventListener('shortcuts-changed', handleShortcutsChanged as EventListener);
+  
+  return () => {
+    window.removeEventListener('shortcuts-changed', handleShortcutsChanged as EventListener);
+  };
+}, []);
 ```
 
-**Lines 374-386**: The toggle switch container needs to stay fixed width
+#### Change 3: Fix `syncWithHomeScreen` to read fresh data
 
-```tsx
-// Toggle switch container - ensure shrink-0 and fixed positioning
-<div 
-  className="flex items-center shrink-0 relative z-10 pt-2 ml-2" 
-  onClick={handleToggleSwitch}
->
+```typescript
+// Lines 44-71 - Fix syncWithHomeScreen to read from localStorage
+const syncWithHomeScreen = useCallback(async () => {
+  if (!Capacitor.isNativePlatform()) return;
+  
+  try {
+    const { ids } = await ShortcutPlugin.getPinnedShortcutIds();
+    
+    // Read fresh data from localStorage instead of stale closure state
+    const stored = localStorage.getItem(STORAGE_KEY);
+    const currentShortcuts: ShortcutData[] = stored ? JSON.parse(stored) : [];
+    
+    // If no pinned shortcuts returned (empty array), skip sync
+    if (ids.length === 0 && currentShortcuts.length > 0) {
+      console.log('[useShortcuts] No pinned shortcuts returned, skipping sync');
+      return;
+    }
+    
+    const pinnedSet = new Set(ids);
+    
+    // Keep only shortcuts that are still pinned on home screen
+    const synced = currentShortcuts.filter(s => pinnedSet.has(s.id));
+    
+    if (synced.length !== currentShortcuts.length) {
+      const removedCount = currentShortcuts.length - synced.length;
+      console.log(`[useShortcuts] Synced with home screen, removed ${removedCount} orphaned shortcuts`);
+      saveShortcuts(synced);
+    } else {
+      // Even if no orphans removed, update state from localStorage to pick up any new shortcuts
+      setShortcuts(currentShortcuts);
+    }
+  } catch (error) {
+    console.warn('[useShortcuts] Failed to sync with home screen:', error);
+  }
+}, [saveShortcuts]); // Removed `shortcuts` dependency - now reads fresh from localStorage
 ```
 
-### 3. `src/components/ShortcutsList.tsx` (ShortcutListItem)
+#### Change 4: Add `refreshFromStorage` function for manual refresh
 
-**Lines 137**: Button container - ensure overflow is handled
-**Lines 144-165**: Restructure to prevent badge from pushing title off-screen
+```typescript
+// Add new function for explicitly refreshing state from storage
+const refreshFromStorage = useCallback(() => {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    const data: ShortcutData[] = stored ? JSON.parse(stored) : [];
+    setShortcuts(data);
+    return data;
+  } catch {
+    return [];
+  }
+}, []);
 
-```tsx
-// Line 137: Button container with strict overflow
-<button className="w-full flex items-center gap-3 p-3 rounded-xl border border-border/60 bg-card mb-2 hover:bg-muted/50 active:bg-muted transition-colors text-start shadow-sm overflow-hidden min-w-0">
-
-// Lines 144-170: Restructured content area
-<div className="flex-1 min-w-0 overflow-hidden">
-  <div className="flex items-center gap-2 min-w-0">
-    <p 
-      className={cn(
-        "font-medium min-w-0 cursor-pointer",
-        isTitleExpanded ? "break-all" : "truncate"
-      )}
-      onClick={(e) => {
-        e.stopPropagation();
-        setIsTitleExpanded(!isTitleExpanded);
-      }}
-    >
-      {shortcut.name}
-    </p>
-  </div>
-  {/* Badge moved to second row to prevent overflow */}
-  <div className="flex items-center gap-2 mt-1">
-    <p className="text-xs text-muted-foreground truncate min-w-0 flex-1">
-      {typeLabel}
-      {target && ` · ${target}`}
-    </p>
-    <Badge 
-      variant="outline" 
-      className="shrink-0 text-[10px] px-1.5 py-0 h-5 font-semibold bg-primary/5 border-primary/20 text-primary whitespace-nowrap"
-    >
-      {usageCount} {usageCount === 1 ? t('shortcuts.tap') : t('shortcuts.taps')}
-    </Badge>
-  </div>
-</div>
-
-// Line 172: Chevron stays at the end
-<ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 rtl:rotate-180" />
+// Return it in the hook's return object
+return {
+  shortcuts,
+  createShortcut,
+  createContactShortcut,
+  deleteShortcut,
+  incrementUsage,
+  updateShortcut,
+  getShortcut,
+  syncWithHomeScreen,
+  refreshFromStorage, // New
+};
 ```
 
-### 4. `src/components/TrashItem.tsx`
+### File: `src/components/ShortcutsList.tsx`
 
-**Lines 162**: Main content container needs overflow control
-**Lines 189-201**: Title needs min-w-0
+#### Change 1: Use refreshFromStorage in manual refresh handler
 
-```tsx
-// Line 162: Main content flex
-<div className="flex items-start gap-3 p-3 bg-muted/50 border border-border/50 min-w-0 overflow-hidden">
+```typescript
+// Line 258 - Add refreshFromStorage to destructured values
+const { shortcuts, deleteShortcut, updateShortcut, incrementUsage, syncWithHomeScreen, refreshFromStorage } = useShortcuts();
 
-// Line 189: Content container
-<div className="flex-1 min-w-0 overflow-hidden">
-
-// Lines 190-201: Title with proper constraints
-<p 
-  className={cn(
-    "text-sm font-medium text-foreground cursor-pointer min-w-0",
-    isTitleExpanded ? "break-all" : "truncate"
-  )}
->
+// Lines 350-358 - Enhanced manual refresh handler
+const handleManualRefresh = useCallback(async () => {
+  setIsSyncing(true);
+  try {
+    // First refresh from localStorage to pick up any new shortcuts from other components
+    refreshFromStorage();
+    // Then sync with home screen to remove orphans
+    await syncWithHomeScreen();
+  } finally {
+    setTimeout(() => setIsSyncing(false), 500);
+  }
+}, [refreshFromStorage, syncWithHomeScreen]);
 ```
 
-**Lines 242-259**: Action buttons container stays fixed
+## Summary of Changes
 
-```tsx
-// Action buttons container - fixed width
-<div className="flex items-center gap-1 shrink-0 flex-none">
-```
-
-## Summary of Key Changes
-
-| File | Lines | Change |
-|------|-------|--------|
-| BookmarkItem.tsx | 307 | Add `min-w-0 overflow-hidden` to clickable area |
-| BookmarkItem.tsx | 331 | Add `min-w-0` to title element |
-| ScheduledActionItem.tsx | 286 | Add `min-w-0` to main flex container |
-| ScheduledActionItem.tsx | 376 | Add `ml-2` spacing before switch |
-| ShortcutsList.tsx | 137 | Add `overflow-hidden min-w-0` to button |
-| ShortcutsList.tsx | 145-165 | Move badge to second row, restructure layout |
-| TrashItem.tsx | 162 | Add `min-w-0 overflow-hidden` to main container |
-| TrashItem.tsx | 191 | Add `min-w-0` to title element |
+| File | Change | Purpose |
+|------|--------|---------|
+| `src/hooks/useShortcuts.ts` | Add `shortcuts-changed` event dispatch | Notify other hook instances of changes |
+| `src/hooks/useShortcuts.ts` | Add event listener for `shortcuts-changed` | React to changes from other instances |
+| `src/hooks/useShortcuts.ts` | Fix `syncWithHomeScreen` to read fresh data | Avoid stale closure state |
+| `src/hooks/useShortcuts.ts` | Add `refreshFromStorage` function | Manual state refresh capability |
+| `src/components/ShortcutsList.tsx` | Use `refreshFromStorage` in sync handler | Ensure sync button gets latest data |
 
 ## Testing Checklist
 
-- Create items with very long titles (50+ characters with no spaces)
-- Verify collapsed titles show ellipsis and don't push other elements off-screen
-- Tap to expand titles - verify they wrap without horizontal scrolling
-- Check all four item types: Bookmarks, Trash, Reminders, Shortcuts
-- Test on narrow viewport (320px width)
-- Verify right-side elements (badges, switches, chevrons) remain visible
+1. **Create a shortcut** from the Access flow, then immediately open "My Shortcuts" - the new shortcut should appear without app restart
+2. **Tap the sync button** in "My Shortcuts" - verify it shows the spinner and updates the list
+3. **Delete a shortcut** from the home screen, then tap sync - verify it's removed from the list
+4. **Create multiple shortcuts** in succession, then open list - all should appear
+5. **Test on app resume** - create shortcut, background app, return, open list - shortcut should be there
+
