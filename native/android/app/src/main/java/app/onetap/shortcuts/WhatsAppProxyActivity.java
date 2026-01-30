@@ -3,13 +3,20 @@ package app.onetap.shortcuts;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
+import android.content.res.ColorStateList;
 import android.graphics.Color;
+import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.LayerDrawable;
+import android.graphics.drawable.RippleDrawable;
+import android.graphics.drawable.ShapeDrawable;
+import android.graphics.drawable.shapes.RoundRectShape;
 import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
 import android.util.TypedValue;
 import android.view.Gravity;
+import android.view.HapticFeedbackConstants;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
@@ -43,6 +50,19 @@ public class WhatsAppProxyActivity extends Activity {
     public static final String EXTRA_QUICK_MESSAGES = "quick_messages";
     public static final String EXTRA_CONTACT_NAME = "contact_name";
     public static final String EXTRA_SHORTCUT_ID = "shortcut_id";
+    
+    // Premium color palette (matching app design system)
+    private static final int COLOR_PRIMARY = Color.parseColor("#0080FF");
+    private static final int COLOR_PRIMARY_LIGHT = Color.parseColor("#E6F2FF");
+    private static final int COLOR_PRIMARY_BORDER = Color.parseColor("#B3D9FF");
+    private static final int COLOR_WHATSAPP = Color.parseColor("#25D366");
+    private static final int COLOR_BG = Color.parseColor("#FFFFFF");
+    private static final int COLOR_SURFACE = Color.parseColor("#FAFAFA");
+    private static final int COLOR_BORDER = Color.parseColor("#E5E5E5");
+    private static final int COLOR_TEXT = Color.parseColor("#1A1A1A");
+    private static final int COLOR_TEXT_MUTED = Color.parseColor("#6B7280");
+    private static final int COLOR_DIVIDER = Color.parseColor("#E0E0E0");
+    private static final int COLOR_RIPPLE = Color.parseColor("#20000000");
     
     private AlertDialog dialog;
     
@@ -81,8 +101,8 @@ public class WhatsAppProxyActivity extends Activity {
             return;
         }
         
-        // Show native dialog directly - no app launch needed!
-        showMessageChooserDialog(phoneNumber, messages, contactName);
+        // Show premium dialog directly
+        showPremiumMessageChooserDialog(phoneNumber, messages, contactName);
     }
     
     private String[] parseMessages(String messagesJson) {
@@ -103,103 +123,54 @@ public class WhatsAppProxyActivity extends Activity {
         }
     }
     
-    private void showMessageChooserDialog(String phoneNumber, String[] messages, String contactName) {
-        // Build dialog content programmatically for better control
+    private void showPremiumMessageChooserDialog(String phoneNumber, String[] messages, String contactName) {
         ScrollView scrollView = new ScrollView(this);
         scrollView.setFillViewport(true);
+        scrollView.setBackgroundColor(COLOR_BG);
         
         LinearLayout mainLayout = new LinearLayout(this);
         mainLayout.setOrientation(LinearLayout.VERTICAL);
+        mainLayout.setBackgroundColor(COLOR_BG);
+        
+        // WhatsApp green accent bar at top
+        View accentBar = new View(this);
+        accentBar.setBackgroundColor(COLOR_WHATSAPP);
+        LinearLayout.LayoutParams accentParams = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, dpToPx(4));
+        accentBar.setLayoutParams(accentParams);
+        mainLayout.addView(accentBar);
+        
+        // Content container with padding
+        LinearLayout contentLayout = new LinearLayout(this);
+        contentLayout.setOrientation(LinearLayout.VERTICAL);
         int padding = dpToPx(20);
-        mainLayout.setPadding(padding, padding, padding, padding);
+        contentLayout.setPadding(padding, dpToPx(16), padding, padding);
         
-        // Title
-        TextView title = new TextView(this);
-        title.setText(contactName != null && !contactName.isEmpty() 
-            ? "💬 Message for " + contactName 
-            : "💬 Choose message");
-        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18);
-        title.setTextColor(Color.parseColor("#1a1a1a"));
-        title.setTypeface(null, android.graphics.Typeface.BOLD);
-        LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        titleParams.bottomMargin = dpToPx(16);
-        title.setLayoutParams(titleParams);
-        mainLayout.addView(title);
+        // Header section
+        addHeaderSection(contentLayout, contactName);
         
-        // Open Chat option
-        LinearLayout openChatOption = createOptionCard(
-            "📱 Open chat",
-            "Start fresh, type your own message"
-        );
-        openChatOption.setOnClickListener(v -> {
-            dismissDialog();
-            openWhatsApp(phoneNumber, null);
-        });
-        LinearLayout.LayoutParams openChatParams = new LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        openChatParams.bottomMargin = dpToPx(12);
-        openChatOption.setLayoutParams(openChatParams);
-        mainLayout.addView(openChatOption);
+        // Open Chat card (primary action)
+        addOpenChatCard(contentLayout, phoneNumber);
         
-        // Divider with text
-        LinearLayout dividerLayout = new LinearLayout(this);
-        dividerLayout.setOrientation(LinearLayout.HORIZONTAL);
-        dividerLayout.setGravity(Gravity.CENTER_VERTICAL);
-        LinearLayout.LayoutParams dividerLayoutParams = new LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        dividerLayoutParams.bottomMargin = dpToPx(12);
-        dividerLayout.setLayoutParams(dividerLayoutParams);
+        // Divider with "Quick messages" text
+        addDividerSection(contentLayout);
         
-        View leftLine = new View(this);
-        leftLine.setBackgroundColor(Color.parseColor("#e0e0e0"));
-        LinearLayout.LayoutParams lineParams = new LinearLayout.LayoutParams(0, dpToPx(1), 1f);
-        leftLine.setLayoutParams(lineParams);
-        dividerLayout.addView(leftLine);
-        
-        TextView dividerText = new TextView(this);
-        dividerText.setText("  or use a quick message  ");
-        dividerText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-        dividerText.setTextColor(Color.parseColor("#888888"));
-        dividerLayout.addView(dividerText);
-        
-        View rightLine = new View(this);
-        rightLine.setBackgroundColor(Color.parseColor("#e0e0e0"));
-        rightLine.setLayoutParams(new LinearLayout.LayoutParams(0, dpToPx(1), 1f));
-        dividerLayout.addView(rightLine);
-        
-        mainLayout.addView(dividerLayout);
-        
-        // Message options
+        // Message cards
         for (int i = 0; i < messages.length; i++) {
-            final String message = messages[i];
-            LinearLayout messageOption = createMessageOptionCard(message);
-            messageOption.setOnClickListener(v -> {
-                dismissDialog();
-                openWhatsApp(phoneNumber, message);
-            });
-            
-            LinearLayout.LayoutParams messageParams = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-            if (i < messages.length - 1) {
-                messageParams.bottomMargin = dpToPx(8);
-            }
-            messageOption.setLayoutParams(messageParams);
-            mainLayout.addView(messageOption);
+            addMessageCard(contentLayout, phoneNumber, messages[i], i == messages.length - 1);
         }
         
+        // Cancel button
+        addCancelButton(contentLayout);
+        
+        mainLayout.addView(contentLayout);
         scrollView.addView(mainLayout);
         
-        // Create dialog
-        AlertDialog.Builder builder = new AlertDialog.Builder(this, android.R.style.Theme_Material_Light_Dialog);
+        // Create dialog with premium styling
+        AlertDialog.Builder builder = new AlertDialog.Builder(this, R.style.MessageChooserDialog);
         builder.setView(scrollView);
-        builder.setNegativeButton("Cancel", (d, w) -> {
-            dismissDialog();
-            finish();
-        });
         builder.setOnCancelListener(d -> finish());
         builder.setOnDismissListener(d -> {
-            // Only finish if dialog was dismissed without action
             if (!isFinishing()) {
                 finish();
             }
@@ -207,12 +178,13 @@ public class WhatsAppProxyActivity extends Activity {
         
         dialog = builder.create();
         
-        // Style the dialog window
+        // Additional window styling
         dialog.setOnShowListener(d -> {
             if (dialog.getWindow() != null) {
                 GradientDrawable background = new GradientDrawable();
-                background.setColor(Color.WHITE);
-                background.setCornerRadius(dpToPx(16));
+                background.setColor(COLOR_BG);
+                background.setCornerRadius(dpToPx(20));
+                background.setStroke(dpToPx(1), COLOR_BORDER);
                 dialog.getWindow().setBackgroundDrawable(background);
             }
         });
@@ -220,65 +192,246 @@ public class WhatsAppProxyActivity extends Activity {
         dialog.show();
     }
     
-    private LinearLayout createOptionCard(String titleText, String subtitleText) {
+    private void addHeaderSection(LinearLayout parent, String contactName) {
+        // Title
+        TextView title = new TextView(this);
+        String titleText = contactName != null && !contactName.isEmpty() 
+            ? "Message " + contactName 
+            : "Choose a message";
+        title.setText(titleText);
+        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20);
+        title.setTextColor(COLOR_TEXT);
+        title.setTypeface(null, Typeface.BOLD);
+        title.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        titleParams.bottomMargin = dpToPx(4);
+        title.setLayoutParams(titleParams);
+        parent.addView(title);
+        
+        // Subtitle
+        TextView subtitle = new TextView(this);
+        subtitle.setText("Choose an option");
+        subtitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+        subtitle.setTextColor(COLOR_TEXT_MUTED);
+        subtitle.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams subtitleParams = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        subtitleParams.bottomMargin = dpToPx(20);
+        subtitle.setLayoutParams(subtitleParams);
+        parent.addView(subtitle);
+    }
+    
+    private void addOpenChatCard(LinearLayout parent, String phoneNumber) {
         LinearLayout card = new LinearLayout(this);
-        card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(dpToPx(16), dpToPx(16), dpToPx(16), dpToPx(16));
+        card.setOrientation(LinearLayout.HORIZONTAL);
+        card.setPadding(dpToPx(16), dpToPx(14), dpToPx(16), dpToPx(14));
+        card.setGravity(Gravity.CENTER_VERTICAL);
         card.setClickable(true);
         card.setFocusable(true);
         
-        // Background with rounded corners
-        GradientDrawable bg = new GradientDrawable();
-        bg.setColor(Color.parseColor("#f5f5f5"));
-        bg.setCornerRadius(dpToPx(12));
-        card.setBackground(bg);
+        // Premium background with ripple
+        card.setBackground(createRippleDrawable(COLOR_PRIMARY_LIGHT, COLOR_PRIMARY_BORDER, dpToPx(12)));
         
-        TextView title = new TextView(this);
-        title.setText(titleText);
-        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
-        title.setTextColor(Color.parseColor("#1a1a1a"));
-        title.setTypeface(null, android.graphics.Typeface.BOLD);
-        card.addView(title);
+        // Left content
+        LinearLayout leftContent = new LinearLayout(this);
+        leftContent.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams leftParams = new LinearLayout.LayoutParams(
+            0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        leftContent.setLayoutParams(leftParams);
         
-        TextView subtitle = new TextView(this);
-        subtitle.setText(subtitleText);
-        subtitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
-        subtitle.setTextColor(Color.parseColor("#666666"));
-        LinearLayout.LayoutParams subtitleParams = new LinearLayout.LayoutParams(
+        TextView cardTitle = new TextView(this);
+        cardTitle.setText("Open chat");
+        cardTitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        cardTitle.setTextColor(COLOR_PRIMARY);
+        cardTitle.setTypeface(null, Typeface.BOLD);
+        leftContent.addView(cardTitle);
+        
+        TextView cardSubtitle = new TextView(this);
+        cardSubtitle.setText("Start typing a new message");
+        cardSubtitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        cardSubtitle.setTextColor(COLOR_TEXT_MUTED);
+        LinearLayout.LayoutParams cardSubtitleParams = new LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        subtitleParams.topMargin = dpToPx(4);
-        subtitle.setLayoutParams(subtitleParams);
-        card.addView(subtitle);
+        cardSubtitleParams.topMargin = dpToPx(2);
+        cardSubtitle.setLayoutParams(cardSubtitleParams);
+        leftContent.addView(cardSubtitle);
         
-        return card;
+        card.addView(leftContent);
+        
+        // Arrow icon (chevron right)
+        TextView arrow = new TextView(this);
+        arrow.setText("→");
+        arrow.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18);
+        arrow.setTextColor(COLOR_PRIMARY);
+        card.addView(arrow);
+        
+        card.setOnClickListener(v -> {
+            v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
+            dismissDialog();
+            openWhatsApp(phoneNumber, null);
+        });
+        
+        LinearLayout.LayoutParams cardParams = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        cardParams.bottomMargin = dpToPx(16);
+        card.setLayoutParams(cardParams);
+        parent.addView(card);
     }
     
-    private LinearLayout createMessageOptionCard(String message) {
+    private void addDividerSection(LinearLayout parent) {
+        LinearLayout dividerLayout = new LinearLayout(this);
+        dividerLayout.setOrientation(LinearLayout.HORIZONTAL);
+        dividerLayout.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams dividerLayoutParams = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        dividerLayoutParams.bottomMargin = dpToPx(16);
+        dividerLayout.setLayoutParams(dividerLayoutParams);
+        
+        View leftLine = new View(this);
+        leftLine.setBackgroundColor(COLOR_DIVIDER);
+        LinearLayout.LayoutParams lineParams = new LinearLayout.LayoutParams(0, dpToPx(1), 1f);
+        leftLine.setLayoutParams(lineParams);
+        dividerLayout.addView(leftLine);
+        
+        TextView dividerText = new TextView(this);
+        dividerText.setText("  Quick messages  ");
+        dividerText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        dividerText.setTextColor(COLOR_TEXT_MUTED);
+        dividerLayout.addView(dividerText);
+        
+        View rightLine = new View(this);
+        rightLine.setBackgroundColor(COLOR_DIVIDER);
+        rightLine.setLayoutParams(new LinearLayout.LayoutParams(0, dpToPx(1), 1f));
+        dividerLayout.addView(rightLine);
+        
+        parent.addView(dividerLayout);
+    }
+    
+    private void addMessageCard(LinearLayout parent, String phoneNumber, String message, boolean isLast) {
         LinearLayout card = new LinearLayout(this);
-        card.setOrientation(LinearLayout.VERTICAL);
+        card.setOrientation(LinearLayout.HORIZONTAL);
         card.setPadding(dpToPx(16), dpToPx(14), dpToPx(16), dpToPx(14));
         card.setClickable(true);
         card.setFocusable(true);
         
-        // Background with rounded corners
-        GradientDrawable bg = new GradientDrawable();
-        bg.setColor(Color.parseColor("#f5f5f5"));
-        bg.setCornerRadius(dpToPx(12));
-        card.setBackground(bg);
+        // Create layered background with left accent bar
+        card.setBackground(createMessageCardBackground());
         
+        // Message text
         TextView messageText = new TextView(this);
-        // Truncate long messages for display
         String displayMessage = message.length() > 80 
             ? message.substring(0, 77) + "..." 
             : message;
-        messageText.setText("💬 \"" + displayMessage + "\"");
+        messageText.setText("\"" + displayMessage + "\"");
         messageText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
-        messageText.setTextColor(Color.parseColor("#1a1a1a"));
+        messageText.setTextColor(COLOR_TEXT);
         messageText.setMaxLines(3);
         messageText.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        messageText.setPadding(dpToPx(8), 0, 0, 0); // Space for accent bar
         card.addView(messageText);
         
-        return card;
+        card.setOnClickListener(v -> {
+            v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
+            dismissDialog();
+            openWhatsApp(phoneNumber, message);
+        });
+        
+        LinearLayout.LayoutParams cardParams = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        if (!isLast) {
+            cardParams.bottomMargin = dpToPx(10);
+        }
+        card.setLayoutParams(cardParams);
+        parent.addView(card);
+    }
+    
+    private void addCancelButton(LinearLayout parent) {
+        TextView cancelButton = new TextView(this);
+        cancelButton.setText("Cancel");
+        cancelButton.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        cancelButton.setTextColor(COLOR_TEXT_MUTED);
+        cancelButton.setGravity(Gravity.CENTER);
+        cancelButton.setPadding(dpToPx(16), dpToPx(16), dpToPx(16), dpToPx(8));
+        cancelButton.setClickable(true);
+        cancelButton.setFocusable(true);
+        
+        // Subtle ripple effect
+        float[] radii = new float[8];
+        for (int i = 0; i < 8; i++) radii[i] = dpToPx(8);
+        RoundRectShape roundRectShape = new RoundRectShape(radii, null, null);
+        ShapeDrawable maskDrawable = new ShapeDrawable(roundRectShape);
+        RippleDrawable ripple = new RippleDrawable(
+            ColorStateList.valueOf(COLOR_RIPPLE),
+            null,
+            maskDrawable
+        );
+        cancelButton.setBackground(ripple);
+        
+        cancelButton.setOnClickListener(v -> {
+            v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
+            dismissDialog();
+            finish();
+        });
+        
+        LinearLayout.LayoutParams cancelParams = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        cancelParams.topMargin = dpToPx(8);
+        cancelButton.setLayoutParams(cancelParams);
+        parent.addView(cancelButton);
+    }
+    
+    private RippleDrawable createRippleDrawable(int backgroundColor, int borderColor, int cornerRadius) {
+        // Content drawable (background)
+        GradientDrawable contentDrawable = new GradientDrawable();
+        contentDrawable.setColor(backgroundColor);
+        contentDrawable.setCornerRadius(cornerRadius);
+        contentDrawable.setStroke(dpToPx(1), borderColor);
+        
+        // Mask for ripple bounds
+        float[] radii = new float[8];
+        for (int i = 0; i < 8; i++) radii[i] = cornerRadius;
+        RoundRectShape roundRectShape = new RoundRectShape(radii, null, null);
+        ShapeDrawable maskDrawable = new ShapeDrawable(roundRectShape);
+        
+        return new RippleDrawable(
+            ColorStateList.valueOf(COLOR_RIPPLE),
+            contentDrawable,
+            maskDrawable
+        );
+    }
+    
+    private RippleDrawable createMessageCardBackground() {
+        int cornerRadius = dpToPx(12);
+        
+        // Base background
+        GradientDrawable baseDrawable = new GradientDrawable();
+        baseDrawable.setColor(COLOR_BG);
+        baseDrawable.setCornerRadius(cornerRadius);
+        baseDrawable.setStroke(dpToPx(1), COLOR_BORDER);
+        
+        // Left accent bar
+        GradientDrawable accentDrawable = new GradientDrawable();
+        accentDrawable.setColor(COLOR_PRIMARY);
+        float[] accentRadii = {cornerRadius, cornerRadius, 0, 0, 0, 0, cornerRadius, cornerRadius};
+        accentDrawable.setCornerRadii(accentRadii);
+        
+        // Combine layers
+        LayerDrawable layerDrawable = new LayerDrawable(new android.graphics.drawable.Drawable[]{baseDrawable, accentDrawable});
+        layerDrawable.setLayerWidth(1, dpToPx(3));
+        layerDrawable.setLayerGravity(1, Gravity.LEFT);
+        
+        // Mask for ripple bounds
+        float[] radii = new float[8];
+        for (int i = 0; i < 8; i++) radii[i] = cornerRadius;
+        RoundRectShape roundRectShape = new RoundRectShape(radii, null, null);
+        ShapeDrawable maskDrawable = new ShapeDrawable(roundRectShape);
+        
+        return new RippleDrawable(
+            ColorStateList.valueOf(COLOR_RIPPLE),
+            layerDrawable,
+            maskDrawable
+        );
     }
     
     private void dismissDialog() {
