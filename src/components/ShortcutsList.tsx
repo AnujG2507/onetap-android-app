@@ -132,20 +132,21 @@ function ShortcutListItem({
   
   return (
     <button
-      key={shortcut.id}
       onClick={() => onTap(shortcut)}
-      className="w-full flex items-center gap-3 p-3 rounded-xl border border-border/60 bg-card mb-2 hover:bg-muted/50 active:bg-muted transition-colors text-start shadow-sm overflow-hidden min-w-0"
+      className="w-full max-w-full flex items-center gap-3 p-3 rounded-xl border border-border/60 bg-card mb-2 hover:bg-muted/50 active:bg-muted transition-colors text-start shadow-sm box-border"
     >
-      <div className="shrink-0 flex-none">
+      {/* Icon - fixed size, never shrinks */}
+      <div className="shrink-0 w-12 h-12">
         <ShortcutIcon shortcut={shortcut} />
       </div>
       
-      {/* Text content - strictly constrained to prevent overflow */}
+      {/* Text content - takes remaining space, strictly constrained */}
       <div className="flex-1 min-w-0 overflow-hidden">
+        {/* Title row */}
         <p 
           className={cn(
-            "font-medium min-w-0 cursor-pointer",
-            isTitleExpanded ? "break-all" : "truncate"
+            "font-medium w-full cursor-pointer",
+            isTitleExpanded ? "break-all whitespace-normal" : "truncate"
           )}
           onClick={(e) => {
             e.stopPropagation();
@@ -154,22 +155,24 @@ function ShortcutListItem({
         >
           {shortcut.name}
         </p>
-        {/* Metadata row with badge - on second line to protect title space */}
-        <div className="flex items-center gap-2 mt-0.5 min-w-0">
-          <p className="text-xs text-muted-foreground truncate min-w-0 flex-1">
+        
+        {/* Metadata row - type, target, and badge */}
+        <div className="flex items-center gap-2 mt-0.5 w-full overflow-hidden">
+          <span className="text-xs text-muted-foreground truncate min-w-0 flex-shrink">
             {typeLabel}
             {target && ` · ${target}`}
-          </p>
+          </span>
           <Badge 
             variant="outline" 
-            className="shrink-0 flex-none text-[10px] px-1.5 py-0 h-5 font-semibold bg-primary/5 border-primary/20 text-primary whitespace-nowrap"
+            className="shrink-0 text-[10px] px-1.5 py-0 h-5 font-semibold bg-primary/5 border-primary/20 text-primary whitespace-nowrap ml-auto"
           >
             {usageCount} {usageCount === 1 ? t('shortcuts.tap') : t('shortcuts.taps')}
           </Badge>
         </div>
       </div>
       
-      <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 flex-none rtl:rotate-180" />
+      {/* Chevron - fixed size, never shrinks */}
+      <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 rtl:rotate-180" />
     </button>
   );
 }
@@ -440,7 +443,7 @@ export function ShortcutsList({ isOpen, onClose, onCreateReminder }: ShortcutsLi
   return (
     <>
       <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
-        <SheetContent side="bottom" className="h-[85vh] p-0 flex flex-col">
+        <SheetContent side="bottom" className="h-[85vh] p-0 flex flex-col overflow-hidden">
           <SheetHeader className="p-4 pb-2 border-b flex flex-row items-center justify-between">
             <SheetTitle className="text-start">{t('shortcuts.title')}</SheetTitle>
             <div className="flex items-center gap-2">
@@ -566,8 +569,8 @@ export function ShortcutsList({ isOpen, onClose, onCreateReminder }: ShortcutsLi
               </Button>
             </div>
           ) : (
-          <ScrollArea className="flex-1 min-w-0">
-              <div className="p-2 overflow-hidden min-w-0">
+          <ScrollArea className="flex-1 w-full overflow-hidden">
+              <div className="p-2 w-full max-w-full overflow-hidden">
                 {filteredShortcuts.map((shortcut) => (
                   <ShortcutListItem
                     key={shortcut.id}
