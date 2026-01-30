@@ -148,12 +148,12 @@ function ShortcutListItem({
         </span>
 
         {/* Meta row: Type | Target (truncates) | Badge */}
-        <div className="mt-0.5 min-w-0 overflow-hidden grid grid-cols-[minmax(0,40%)_minmax(0,1fr)_auto] items-center gap-2">
-          <span className="text-xs text-muted-foreground truncate">
+        <div className="mt-0.5 min-w-0 overflow-hidden flex items-center gap-1.5">
+          <span className="text-xs text-muted-foreground shrink-0">
             {typeLabel}
           </span>
 
-          <span className="text-xs text-muted-foreground truncate">
+          <span className="text-xs text-muted-foreground truncate flex-1 min-w-0">
             {target ? `· ${target}` : ''}
           </span>
 
