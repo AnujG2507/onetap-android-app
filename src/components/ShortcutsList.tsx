@@ -134,7 +134,7 @@ function ShortcutListItem({
     <button
       key={shortcut.id}
       onClick={() => onTap(shortcut)}
-      className="w-full flex items-center gap-3 p-3 rounded-xl border border-border/60 bg-card mb-2 hover:bg-muted/50 active:bg-muted transition-colors text-start shadow-sm overflow-hidden"
+      className="w-full flex items-center gap-3 p-3 rounded-xl border border-border/60 bg-card mb-2 hover:bg-muted/50 active:bg-muted transition-colors text-start shadow-sm overflow-hidden min-w-0"
     >
       <div className="shrink-0 flex-none">
         <ShortcutIcon shortcut={shortcut} />
