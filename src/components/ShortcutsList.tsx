@@ -116,7 +116,7 @@ function ShortcutIcon({ shortcut }: { shortcut: ShortcutData }) {
   );
 }
 
-// Individual shortcut list item - bulletproof overflow handling
+// Individual shortcut list item - bulletproof overflow with inline styles
 function ShortcutListItem({ 
   shortcut, 
   onTap, 
@@ -133,28 +133,68 @@ function ShortcutListItem({
   return (
     <button
       onClick={() => onTap(shortcut)}
-      className="w-full flex items-center gap-3 p-3 rounded-xl border border-border/60 bg-card mb-2 hover:bg-muted/50 active:bg-muted transition-colors text-start shadow-sm overflow-hidden"
+      className="w-full flex items-center gap-3 p-3 rounded-xl border border-border/60 bg-card mb-2 hover:bg-muted/50 active:bg-muted transition-colors text-start shadow-sm"
+      style={{ maxWidth: '100%', overflow: 'hidden' }}
     >
       {/* Icon - fixed 48px, never shrinks */}
       <div className="shrink-0">
         <ShortcutIcon shortcut={shortcut} />
       </div>
       
-      {/* Text content - must shrink, clips overflow */}
-      <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
-        {/* Title - single line, truncates */}
-        <span className="font-medium truncate w-full block">
+      {/* Text content - constrained width via calc */}
+      <div 
+        className="flex flex-col gap-0.5"
+        style={{ 
+          flex: '1 1 0%', 
+          minWidth: 0, 
+          maxWidth: 'calc(100% - 48px - 16px - 24px)',
+          overflow: 'hidden' 
+        }}
+      >
+        {/* Title - single line with ellipsis */}
+        <span 
+          className="font-medium"
+          style={{ 
+            display: 'block',
+            overflow: 'hidden', 
+            textOverflow: 'ellipsis', 
+            whiteSpace: 'nowrap',
+            maxWidth: '100%'
+          }}
+        >
           {shortcut.name}
         </span>
         
-        {/* Metadata row */}
-        <div className="flex items-center gap-2 mt-0.5 overflow-hidden w-full">
-          <span className="text-xs text-muted-foreground truncate flex-1 min-w-0">
-            {typeLabel}{target && ` · ${target}`}
+        {/* Metadata row: Type, Target (truncated), Badge */}
+        <div 
+          className="flex items-center gap-2"
+          style={{ overflow: 'hidden', maxWidth: '100%' }}
+        >
+          {/* Type label - fixed, never truncates */}
+          <span className="text-xs text-muted-foreground shrink-0">
+            {typeLabel}
           </span>
+          
+          {/* Target - truncates if too long */}
+          {target && (
+            <span 
+              className="text-xs text-muted-foreground"
+              style={{ 
+                overflow: 'hidden', 
+                textOverflow: 'ellipsis', 
+                whiteSpace: 'nowrap',
+                flex: '1 1 0%',
+                minWidth: 0
+              }}
+            >
+              · {target}
+            </span>
+          )}
+          
+          {/* Usage badge - fixed, never shrinks */}
           <Badge 
             variant="outline" 
-            className="shrink-0 text-[10px] px-1.5 py-0 h-5 font-semibold bg-primary/5 border-primary/20 text-primary"
+            className="shrink-0 text-[10px] px-1.5 py-0 h-5 font-semibold bg-primary/5 border-primary/20 text-primary whitespace-nowrap"
           >
             {usageCount} {usageCount === 1 ? t('shortcuts.tap') : t('shortcuts.taps')}
           </Badge>
