@@ -1,262 +1,292 @@
 
+# Image Preview Audit and Fix Plan
 
-# Tap Tracking Analysis - Issues and Fixes
+## Overview
+This plan addresses image preview display issues across the entire app by implementing graceful error handling, loading states, and fallback visuals consistently.
 
-## Executive Summary
+## Audit Findings
 
-The tap tracking system has gaps where certain shortcut types are not properly recording usage events when tapped from the home screen. This analysis identifies **5 specific issues** that need to be fixed.
+After reviewing all 13 components that render `<img>` elements, I identified the following categories:
 
-## How Tap Tracking Works
+### Components WITH proper error handling:
+| Component | Error Handler |
+|-----------|---------------|
+| `ContactAvatar.tsx` | `onError` hides image, shows fallback |
+| `BookmarkItem.tsx` | `onError` hides image, shows Globe icon |
+| `ClipboardSuggestion.tsx` | `onError` hides favicon |
+| `SharedUrlActionSheet.tsx` | `onError` hides thumbnail/favicon |
+| `TrashItem.tsx` | `onError` hides favicon |
 
-```text
-Home Screen Tap
-      │
-      ▼
-┌─────────────────┐
-│  Proxy Activity │ ← Records tap via NativeUsageTracker.recordTap()
-└─────────────────┘
-      │
-      ▼
-┌─────────────────┐
-│  Target Action  │ ← Opens browser, calls phone, launches WhatsApp, etc.
-└─────────────────┘
-      │
-      ▼ (On next app launch)
-┌─────────────────┐
-│  JS Syncs       │ ← getNativeUsageEvents() retrieves and clears stored events
-│  Usage Events   │
-└─────────────────┘
+### Components MISSING error handling (requiring fixes):
+| Component | Issue |
+|-----------|-------|
+| `ContentPreview.tsx` | No error handler for image previews |
+| `ShortcutCustomizer.tsx` | No error handler for icon preview |
+| `IconPicker.tsx` | No error handler for thumbnail preview |
+| `ShortcutActionSheet.tsx` | No error handler for shortcut icon |
+| `MyShortcutsContent.tsx` | No error handler for shortcut thumbnails |
+| `BookmarkDragOverlay.tsx` | No error handler for favicon |
+| `ProfilePage.tsx` | No error handler for avatar |
+| `CloudBackupSection.tsx` | No error handler for avatar |
+
+---
+
+## Implementation Plan
+
+### 1. ContentPreview.tsx
+**Problem:** Image source URIs (especially `content://` URIs on Android) may fail to load.
+
+**Fix:**
+- Add `onError` handler to hide the image and show the emoji fallback
+- Add loading state with skeleton placeholder
+
+```tsx
+const [imageError, setImageError] = useState(false);
+
+{isImage && source.uri && !imageError ? (
+  <img
+    src={source.uri}
+    alt=""
+    className="h-full w-full object-cover"
+    onError={() => setImageError(true)}
+  />
+) : (
+  <span className="text-2xl">{info.emoji}</span>
+)}
 ```
 
-## Current Proxy Coverage
+---
 
-| Shortcut Type | Proxy Activity | Tracking Status |
-|---------------|----------------|-----------------|
-| Video | VideoProxyActivity | Working |
-| PDF | PDFProxyActivity | Working |
-| Contact (Call) | ContactProxyActivity | Working |
-| WhatsApp (2+ messages) | WhatsAppProxyActivity | Working |
-| WhatsApp (0-1 message) | MessageProxyActivity | Working |
-| Telegram | MessageProxyActivity | Working |
-| Signal | MessageProxyActivity | Working |
-| Slack | MessageProxyActivity | Working |
-| Link (URL) | LinkProxyActivity | Working |
+### 2. ShortcutCustomizer.tsx
+**Problem:** Thumbnail icons may fail to load (lines 222-223), showing broken image.
 
-## Issues Identified
+**Fix:**
+- Add `onError` handler to fall back to emoji icon
+- Track icon load failures in state
 
-### Issue 1: Missing `shortcut_id` in `buildIntentForUpdate` for Several Proxy Types
+```tsx
+const [iconLoadError, setIconLoadError] = useState(false);
 
-**Severity: High**
+// Reset error when icon changes
+useEffect(() => {
+  setIconLoadError(false);
+}, [icon]);
 
-When shortcuts are updated via `updatePinnedShortcut()`, the `buildIntentForUpdate()` method rebuilds the intent but **fails to include `shortcut_id`** for several proxy types:
-
-**Affected proxies:**
-- `WhatsAppProxyActivity` - Missing `EXTRA_SHORTCUT_ID`
-- `ContactProxyActivity` - Missing `EXTRA_SHORTCUT_ID`
-- `VideoProxyActivity` - Missing `shortcut_id` extra
-
-**Impact:** Shortcuts that are edited (name, icon, phone number changes) lose their tap tracking capability. The proxy activity receives the tap but `shortcutId` is null, so `NativeUsageTracker.recordTap()` is not called.
-
-**Root Cause:** Lines 3188-3237 in `ShortcutPlugin.java` - the `buildIntentForUpdate()` method builds intents but doesn't pass the shortcut ID to all proxies.
-
-### Issue 2: `buildIntentForUpdate` Always Routes WhatsApp to Multi-Message Proxy
-
-**Severity: Medium**
-
-The `buildIntentForUpdate()` method at line 3188 routes ALL WhatsApp shortcuts (type="message" + messageApp="whatsapp") to `WhatsAppProxyActivity`, regardless of message count:
-
-```java
-if ("message".equals(shortcutType) && "whatsapp".equals(messageApp)) {
-    // Always goes to WhatsAppProxyActivity
-}
+{!isLoadingThumbnail && icon.type === 'thumbnail' && !iconLoadError && (
+  <img 
+    src={icon.value} 
+    alt="" 
+    className="h-full w-full object-cover"
+    onError={() => setIconLoadError(true)}
+  />
+)}
+{!isLoadingThumbnail && (icon.type === 'emoji' || iconLoadError) && (
+  <span className="text-2xl">{iconLoadError ? '📱' : icon.value}</span>
+)}
 ```
 
-**Problem:** WhatsApp shortcuts with 0-1 messages should route through `MessageProxyActivity` (as they do during creation), but after an update they're incorrectly routed to `WhatsAppProxyActivity`.
+---
 
-**Impact:** Behavior inconsistency after editing a WhatsApp shortcut. The multi-message dialog may appear unexpectedly for single-message shortcuts.
+### 3. IconPicker.tsx
+**Problem:** Thumbnail preview at lines 158-163 has no error handling.
 
-### Issue 3: `buildIntentForUpdate` Missing Link Shortcut Support
+**Fix:**
+- Add `onError` handler to hide image and show fallback icon
 
-**Severity: High**
+```tsx
+const [thumbnailError, setThumbnailError] = useState(false);
 
-The `buildIntentForUpdate()` method has no case for `type="link"` shortcuts. It only handles:
-- message + whatsapp
-- contact
-- file (PDF)
-- file (video)
-
-**Problem:** When a link shortcut is edited, `buildIntentForUpdate()` returns `null`, so the shortcut's intent is not updated. The next tap may still work (original intent preserved), but the shortcut_id won't be refreshed if it was somehow lost.
-
-More importantly, line 3238's comment says "For link/file types that don't need special handling, we don't rebuild the intent" - but this is wrong because link shortcuts DO need their proxy activity with shortcut_id.
-
-### Issue 4: `buildIntentForUpdate` Missing Non-WhatsApp Message Support
-
-**Severity: High**
-
-The `buildIntentForUpdate()` method only handles WhatsApp message shortcuts. Other messaging apps (Telegram, Signal, Slack) are not handled:
-
-**Current logic:**
-```java
-if ("message".equals(shortcutType) && "whatsapp".equals(messageApp)) {
-    // Only handles WhatsApp
-}
+{selectedIcon.type === 'thumbnail' && !thumbnailError && (
+  <img
+    src={selectedIcon.value}
+    alt="Icon preview"
+    className="h-full w-full object-cover"
+    onError={() => setThumbnailError(true)}
+  />
+)}
+{selectedIcon.type === 'thumbnail' && thumbnailError && (
+  <Image className="h-6 w-6 text-primary-foreground/50" />
+)}
 ```
 
-**Missing cases:**
-- Telegram (`messageApp="telegram"`)
-- Signal (`messageApp="signal"`)  
-- Slack (`messageApp="slack"`)
+---
 
-**Impact:** Editing a Telegram/Signal/Slack shortcut results in `null` intent, breaking the proxy routing and losing tap tracking.
+### 4. ShortcutActionSheet.tsx
+**Problem:** Shortcut icon preview at lines 130-135 shows broken image if thumbnail fails.
 
-### Issue 5: JS `useShortcuts.updateShortcut` Doesn't Pass `slackTeamId`/`slackUserId`
+**Fix:**
+- Add state to track load failures
+- Fall back to type-based icon
 
-**Severity: Low**
+```tsx
+const [iconError, setIconError] = useState(false);
 
-The `updateShortcut` function in `useShortcuts.ts` doesn't pass Slack-specific fields to `updatePinnedShortcut`:
+// Reset when shortcut changes
+useEffect(() => {
+  setIconError(false);
+}, [shortcut?.id]);
 
-```typescript
-// Current code (line 322-338)
-const result = await ShortcutPlugin.updatePinnedShortcut({
-  id,
-  label: shortcut.name,
-  // ...
-  phoneNumber: shortcut.phoneNumber,
-  quickMessages: shortcut.quickMessages,
-  messageApp: shortcut.messageApp,
-  // Missing: slackTeamId, slackUserId
-});
+{(shortcut.thumbnailData || shortcut.icon.value) && !iconError ? (
+  <img 
+    src={shortcut.thumbnailData || shortcut.icon.value} 
+    alt="" 
+    className="w-full h-full object-cover"
+    onError={() => setIconError(true)}
+  />
+) : (
+  getShortcutIcon()
+)}
 ```
 
-**Impact:** Slack shortcuts can't be properly updated because the team/user IDs aren't passed to the native layer for intent rebuilding.
+---
 
-## Recommended Fixes
+### 5. MyShortcutsContent.tsx
+**Problem:** ShortcutIcon component at lines 79-91 has no error handling for thumbnails.
 
-### Fix 1: Add `shortcut_id` to All Proxies in `buildIntentForUpdate`
+**Fix:**
+- Add state to ShortcutIcon for image load errors
+- Fall back to Zap icon on failure
 
-Add the shortcut ID extra to each proxy intent:
-
-```java
-// For WhatsAppProxyActivity
-intent.putExtra(WhatsAppProxyActivity.EXTRA_SHORTCUT_ID, shortcutId);
-
-// For ContactProxyActivity  
-intent.putExtra(ContactProxyActivity.EXTRA_SHORTCUT_ID, shortcutId);
-
-// For VideoProxyActivity
-intent.putExtra("shortcut_id", shortcutId);
-```
-
-### Fix 2: Add Logic to Route WhatsApp Based on Message Count
-
-Update the WhatsApp handling in `buildIntentForUpdate()` to check the number of messages:
-
-```java
-if ("message".equals(shortcutType) && "whatsapp".equals(messageApp)) {
-    int messageCount = 0;
-    if (quickMessagesJson != null) {
-        try {
-            JSONArray arr = new JSONArray(quickMessagesJson);
-            messageCount = arr.length();
-        } catch (Exception e) {}
+```tsx
+function ShortcutIcon({ shortcut }: { shortcut: ShortcutData }) {
+  const [imageError, setImageError] = useState(false);
+  const { icon } = shortcut;
+  
+  // ... existing emoji/text handling ...
+  
+  if (icon.type === 'thumbnail') {
+    const thumbnailSrc = icon.value || shortcut.thumbnailData;
+    if (thumbnailSrc && !imageError) {
+      return (
+        <div className="h-12 w-12 rounded-xl overflow-hidden bg-muted">
+          <img 
+            src={thumbnailSrc} 
+            alt={shortcut.name}
+            className="h-full w-full object-cover"
+            onError={() => setImageError(true)}
+          />
+        </div>
+      );
     }
-    
-    if (messageCount >= 2) {
-        // Multi-message: use WhatsAppProxyActivity
-        intent = new Intent(context, WhatsAppProxyActivity.class);
-        // ... existing code
-    } else {
-        // 0-1 message: use MessageProxyActivity
-        intent = new Intent(context, MessageProxyActivity.class);
-        intent.setAction("app.onetap.OPEN_MESSAGE");
-        String url = buildWhatsAppUrl(phoneNumber, quickMessagesJson);
-        intent.setData(Uri.parse(url));
-        intent.putExtra(MessageProxyActivity.EXTRA_URL, url);
-        intent.putExtra(MessageProxyActivity.EXTRA_SHORTCUT_ID, shortcutId);
-    }
+  }
+  
+  // Default fallback
+  return (
+    <div className="h-12 w-12 rounded-xl bg-muted flex items-center justify-center">
+      <Zap className="h-5 w-5 text-muted-foreground" />
+    </div>
+  );
 }
 ```
 
-### Fix 3: Add Link Shortcut Support
+---
 
-Add a case for link shortcuts:
+### 6. BookmarkDragOverlay.tsx
+**Problem:** Favicon at lines 43-48 has no error handling.
 
-```java
-else if ("link".equals(shortcutType) && contentUri != null) {
-    intent = new Intent(context, LinkProxyActivity.class);
-    intent.setAction("app.onetap.OPEN_LINK");
-    intent.setData(Uri.parse(contentUri));
-    intent.putExtra(LinkProxyActivity.EXTRA_URL, contentUri);
-    intent.putExtra(LinkProxyActivity.EXTRA_SHORTCUT_ID, shortcutId);
-    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-}
+**Fix:**
+- Add `onError` handler consistent with BookmarkItem
+
+```tsx
+<img 
+  src={faviconUrl} 
+  alt="" 
+  className="h-6 w-6 object-contain"
+  onError={(e) => {
+    e.currentTarget.style.display = 'none';
+    e.currentTarget.nextElementSibling?.classList.remove('hidden');
+  }}
+/>
+<Globe className={cn("h-5 w-5 text-muted-foreground", faviconUrl && "hidden")} />
 ```
 
-### Fix 4: Add Non-WhatsApp Message Shortcut Support
+---
 
-Add cases for Telegram, Signal, and Slack:
+### 7. ProfilePage.tsx
+**Problem:** Avatar image at lines 339-345 has no error handling.
 
-```java
-else if ("message".equals(shortcutType) && messageApp != null) {
-    String url = null;
-    switch (messageApp) {
-        case "telegram":
-            url = "tg://resolve?phone=" + phoneNumber;
-            break;
-        case "signal":
-            url = "sgnl://signal.me/#p/+" + phoneNumber;
-            break;
-        case "slack":
-            if (slackTeamId != null && slackUserId != null) {
-                url = "slack://user?team=" + slackTeamId + "&id=" + slackUserId;
-            }
-            break;
-    }
-    
-    if (url != null) {
-        intent = new Intent(context, MessageProxyActivity.class);
-        intent.setAction("app.onetap.OPEN_MESSAGE");
-        intent.setData(Uri.parse(url));
-        intent.putExtra(MessageProxyActivity.EXTRA_URL, url);
-        intent.putExtra(MessageProxyActivity.EXTRA_SHORTCUT_ID, shortcutId);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-    }
-}
+**Fix:**
+- Add `onError` handler to show User icon fallback
+
+```tsx
+const [avatarError, setAvatarError] = useState(false);
+
+{avatarUrl && !avatarError ? (
+  <img 
+    src={avatarUrl} 
+    alt={fullName} 
+    className="w-16 h-16 rounded-full"
+    referrerPolicy="no-referrer"
+    onError={() => setAvatarError(true)}
+  />
+) : (
+  <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+    <User className="w-8 h-8 text-primary" />
+  </div>
+)}
 ```
 
-### Fix 5: Pass Slack Details from JS Layer
+---
 
-Update `useShortcuts.ts` to include Slack fields:
+### 8. CloudBackupSection.tsx
+**Problem:** Avatar at lines 213-218 has no error handling.
 
-```typescript
-const result = await ShortcutPlugin.updatePinnedShortcut({
-  // ... existing fields
-  slackTeamId: shortcut.slackTeamId,
-  slackUserId: shortcut.slackUserId,
-});
+**Fix:**
+- Add `onError` handler to show Cloud icon fallback
+
+```tsx
+const [avatarError, setAvatarError] = useState(false);
+
+{user?.user_metadata?.avatar_url && !avatarError ? (
+  <img 
+    src={user.user_metadata.avatar_url} 
+    alt="Profile" 
+    className="h-full w-full object-cover"
+    onError={() => setAvatarError(true)}
+  />
+) : (
+  <Cloud className="h-4 w-4 text-primary" />
+)}
 ```
 
-And update the `ShortcutPlugin.ts` interface and native `updatePinnedShortcut` method to accept these parameters.
+---
+
+## Technical Notes
+
+### Error Handling Pattern
+All fixes follow a consistent pattern:
+1. Track image load failure in state (`useState(false)`)
+2. Reset error state when the source changes (via `useEffect` or key)
+3. On `onError`, set state to true
+4. Conditionally render fallback based on error state
+
+### Content URI Considerations
+For `content://` URIs on Android:
+- These URIs may expire or become inaccessible
+- The `ContentPreview` and `ShortcutCustomizer` components are most affected
+- Fallback to emoji icons ensures a graceful experience
+
+### Performance
+- Error handlers are lightweight (single state update)
+- No additional network requests or retries
+- Fallbacks render immediately
+
+---
 
 ## Files to Modify
+1. `src/components/ContentPreview.tsx`
+2. `src/components/ShortcutCustomizer.tsx`
+3. `src/components/IconPicker.tsx`
+4. `src/components/ShortcutActionSheet.tsx`
+5. `src/components/MyShortcutsContent.tsx`
+6. `src/components/BookmarkDragOverlay.tsx`
+7. `src/components/ProfilePage.tsx`
+8. `src/components/CloudBackupSection.tsx`
 
-1. **`native/android/app/src/main/java/app/onetap/shortcuts/plugins/ShortcutPlugin.java`**
-   - `buildIntentForUpdate()` method (lines 3177-3242)
-   - `updatePinnedShortcut()` method to accept new parameters
-
-2. **`src/plugins/ShortcutPlugin.ts`**
-   - Add `slackTeamId` and `slackUserId` to `updatePinnedShortcut` options interface
-
-3. **`src/hooks/useShortcuts.ts`**
-   - Pass `slackTeamId` and `slackUserId` in `updateShortcut()` function
+---
 
 ## Summary
-
-The tap tracking infrastructure is solid, but the `buildIntentForUpdate()` method in `ShortcutPlugin.java` has several gaps that cause tracking to fail for edited shortcuts. The main issues are:
-
-1. Missing `shortcut_id` extras in rebuilt intents
-2. Incorrect routing logic for WhatsApp based on message count
-3. Missing handlers for link shortcuts
-4. Missing handlers for non-WhatsApp message shortcuts (Telegram, Signal, Slack)
-5. Missing Slack-specific parameters in the JS-to-native bridge
-
+This plan ensures that all image previews across the app:
+- Have proper error handling
+- Show meaningful fallback content
+- Maintain a polished user experience even when images fail to load
