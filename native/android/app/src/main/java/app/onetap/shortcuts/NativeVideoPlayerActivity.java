@@ -155,6 +155,12 @@ public class NativeVideoPlayerActivity extends Activity {
     private int originalOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED;
     private boolean hasLockedOrientation = false;
 
+    // Playback position state (for save/restore on process death)
+    private static final String KEY_PLAYBACK_POSITION = "playback_position";
+    private static final String KEY_PLAY_WHEN_READY = "play_when_ready";
+    private long savedPlaybackPosition = 0;
+    private boolean savedPlayWhenReady = true;
+
     // Premium loading indicator
     private FrameLayout loadingOverlay;
     private ValueAnimator loadingAnimator;
@@ -750,6 +756,13 @@ public class NativeVideoPlayerActivity extends Activity {
 
             // Create premium top bar with close button and title
             createTopBar();
+            
+            // Restore saved playback position if available (from process death)
+            if (savedInstanceState != null) {
+                savedPlaybackPosition = savedInstanceState.getLong(KEY_PLAYBACK_POSITION, 0);
+                savedPlayWhenReady = savedInstanceState.getBoolean(KEY_PLAY_WHEN_READY, true);
+                logInfo("Restoring saved playback position: " + savedPlaybackPosition + "ms");
+            }
 
             // Initialize ExoPlayer
             initializePlayer();
@@ -758,6 +771,82 @@ public class NativeVideoPlayerActivity extends Activity {
             scheduleHide();
         } catch (Throwable t) {
             handleFatalInitError("onCreate failed", t);
+        }
+    }
+    
+    /**
+     * Handle new intent when activity is in singleTask mode.
+     * This is called when a new video shortcut is tapped while this activity is already running.
+     */
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        
+        logInfo("onNewIntent received - switching to new video");
+        
+        Uri newUri = intent != null ? intent.getData() : null;
+        if (newUri == null) {
+            logWarn("onNewIntent: No URI in new intent");
+            return;
+        }
+        
+        // Check if it's the same URI
+        if (newUri.equals(videoUri)) {
+            logInfo("Same video URI, resuming current playback");
+            if (exoPlayer != null && !exoPlayer.isPlaying()) {
+                exoPlayer.setPlayWhenReady(true);
+            }
+            return;
+        }
+        
+        // New video - release old player and start fresh
+        logInfo("New video URI: " + newUri);
+        
+        // Release existing player
+        releasePlayer();
+        
+        // Reset state
+        savedPlaybackPosition = 0;
+        savedPlayWhenReady = true;
+        hasTriedExternalFallback = false;
+        isHdrContent = false;
+        hdrType = "SDR";
+        
+        // Update intent data
+        launchIntent = intent;
+        videoUri = newUri;
+        videoMimeType = intent.getType();
+        if (videoMimeType == null || videoMimeType.isEmpty()) {
+            videoMimeType = "video/*";
+        }
+        
+        // Extract new video title
+        extractVideoTitle();
+        updateTitleView();
+        
+        // Check permissions for the new URI
+        checkUriPermissions(videoUri);
+        
+        // Show loading overlay again
+        if (loadingOverlay != null) {
+            loadingOverlay.setAlpha(1f);
+            loadingOverlay.setVisibility(View.VISIBLE);
+            if (loadingAnimator != null && !loadingAnimator.isRunning()) {
+                loadingAnimator.start();
+            }
+        }
+        
+        // Initialize player with new video
+        initializePlayer();
+    }
+    
+    /**
+     * Update the title view with the current video title.
+     */
+    private void updateTitleView() {
+        if (titleView != null && videoTitle != null) {
+            titleView.setText(videoTitle);
         }
     }
     
@@ -1293,7 +1382,16 @@ public class NativeVideoPlayerActivity extends Activity {
             
             logInfo("Preparing playback...");
             exoPlayer.prepare();
-            exoPlayer.setPlayWhenReady(true);
+            
+            // Restore saved playback position if any
+            if (savedPlaybackPosition > 0) {
+                logInfo("Seeking to saved position: " + savedPlaybackPosition + "ms");
+                exoPlayer.seekTo(savedPlaybackPosition);
+                // Reset after using so it doesn't apply to subsequent videos
+                savedPlaybackPosition = 0;
+            }
+            
+            exoPlayer.setPlayWhenReady(savedPlayWhenReady);
             
             logInfo("Playback initiated");
             
@@ -2185,6 +2283,17 @@ public class NativeVideoPlayerActivity extends Activity {
         }
         if (exoPlayer != null && !isInPipMode) {
             exoPlayer.setPlayWhenReady(false);
+        }
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        // Save playback position for restoration after process death
+        if (exoPlayer != null) {
+            outState.putLong(KEY_PLAYBACK_POSITION, exoPlayer.getCurrentPosition());
+            outState.putBoolean(KEY_PLAY_WHEN_READY, exoPlayer.getPlayWhenReady());
+            logInfo("Saved playback position: " + exoPlayer.getCurrentPosition() + "ms");
         }
     }
 
