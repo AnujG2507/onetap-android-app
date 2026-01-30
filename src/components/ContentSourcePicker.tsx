@@ -101,7 +101,10 @@ export function ContentSourcePicker({
   return (
     <div className="flex flex-col gap-4 p-5 pb-28 animate-fade-in">
       {/* Main Card: Create a Shortcut */}
-      <div className="rounded-2xl bg-card elevation-1 p-4">
+      <div className={cn(
+        "rounded-2xl bg-card elevation-1 p-4",
+        activeSecondaryPicker && "mb-24"
+      )}>
         <h2 className="text-base font-medium text-foreground mb-4">
           {t('access.createShortcut')}
         </h2>
