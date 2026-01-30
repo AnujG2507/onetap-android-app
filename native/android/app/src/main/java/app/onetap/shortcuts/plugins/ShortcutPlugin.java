@@ -61,6 +61,7 @@ import app.onetap.shortcuts.ContactProxyActivity;
 import app.onetap.shortcuts.WhatsAppProxyActivity;
 import app.onetap.shortcuts.ShortcutEditProxyActivity;
 import app.onetap.shortcuts.LinkProxyActivity;
+import app.onetap.shortcuts.MessageProxyActivity;
 import app.onetap.shortcuts.ScheduledActionReceiver;
 import app.onetap.shortcuts.NotificationHelper;
 import app.onetap.shortcuts.NotificationClickActivity;
@@ -336,6 +337,17 @@ public class ShortcutPlugin extends Plugin {
                     intent.putExtra(LinkProxyActivity.EXTRA_URL, finalDataUri.toString());
                     // Pass shortcut ID for usage tracking
                     intent.putExtra(LinkProxyActivity.EXTRA_SHORTCUT_ID, finalId);
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                } else if ("app.onetap.OPEN_MESSAGE".equals(finalIntentAction)) {
+                    // Message shortcuts (WhatsApp 0-1 msg, Telegram, Signal, Slack) - route through MessageProxyActivity
+                    android.util.Log.d("ShortcutPlugin", "Using MessageProxyActivity for message shortcut");
+                    intent = new Intent(context, MessageProxyActivity.class);
+                    intent.setAction("app.onetap.OPEN_MESSAGE");
+                    intent.setData(finalDataUri);
+                    // Pass URL as extra for reliable access
+                    intent.putExtra(MessageProxyActivity.EXTRA_URL, finalDataUri.toString());
+                    // Pass shortcut ID for usage tracking
+                    intent.putExtra(MessageProxyActivity.EXTRA_SHORTCUT_ID, finalId);
                     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 } else {
                     intent = createCompatibleIntent(context, finalIntentAction, finalDataUri, finalIntentType);

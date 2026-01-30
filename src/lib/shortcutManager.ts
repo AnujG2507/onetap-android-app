@@ -26,30 +26,17 @@ export function buildContentIntent(shortcut: ShortcutData): ShortcutIntent {
     };
   }
 
-  // Message shortcuts - deep links to messaging apps
+  // Message shortcuts - ALL route through MessageProxyActivity for tap tracking
+  // Exception: WhatsApp with 2+ messages uses WhatsAppProxyActivity for message chooser
   if (shortcut.type === 'message' && shortcut.messageApp) {
     const phoneNumber = shortcut.phoneNumber?.replace(/[^0-9]/g, '') || '';
     
     switch (shortcut.messageApp) {
       case 'whatsapp': {
-        // WhatsApp uses wa.me for universal linking
         const messages = shortcut.quickMessages || [];
         
-        if (messages.length === 0) {
-          // No messages - open chat directly
-          return {
-            action: 'android.intent.action.VIEW',
-            data: `https://wa.me/${phoneNumber}`,
-          };
-        } else if (messages.length === 1) {
-          // Single message - prefill the message in the URL
-          const encodedMessage = encodeURIComponent(messages[0]);
-          return {
-            action: 'android.intent.action.VIEW',
-            data: `https://wa.me/${phoneNumber}?text=${encodedMessage}`,
-          };
-        } else {
-          // Multiple messages - route through WhatsApp proxy for chooser
+        if (messages.length >= 2) {
+          // Multiple messages - route through WhatsApp proxy for chooser UI
           return {
             action: 'app.onetap.WHATSAPP_MESSAGE',
             data: `whatsapp://${phoneNumber}`,
@@ -60,30 +47,44 @@ export function buildContentIntent(shortcut: ShortcutData): ShortcutIntent {
             },
           };
         }
+        
+        // 0 or 1 message - use MessageProxyActivity for tap tracking
+        const url = messages.length === 1
+          ? `https://wa.me/${phoneNumber}?text=${encodeURIComponent(messages[0])}`
+          : `https://wa.me/${phoneNumber}`;
+        
+        return {
+          action: 'app.onetap.OPEN_MESSAGE',
+          data: url,
+          extras: { url },
+        };
       }
-      case 'telegram':
+      case 'telegram': {
+        const url = `tg://resolve?phone=${phoneNumber}`;
         return {
-          action: 'android.intent.action.VIEW',
-          data: `tg://resolve?phone=${phoneNumber}`,
+          action: 'app.onetap.OPEN_MESSAGE',
+          data: url,
+          extras: { url },
         };
-      case 'signal':
+      }
+      case 'signal': {
+        const url = `sgnl://signal.me/#p/+${phoneNumber}`;
         return {
-          action: 'android.intent.action.VIEW',
-          data: `sgnl://signal.me/#p/+${phoneNumber}`,
+          action: 'app.onetap.OPEN_MESSAGE',
+          data: url,
+          extras: { url },
         };
-      case 'slack':
-        // Slack requires team and user IDs
-        if (shortcut.slackTeamId && shortcut.slackUserId) {
-          return {
-            action: 'android.intent.action.VIEW',
-            data: `slack://user?team=${shortcut.slackTeamId}&id=${shortcut.slackUserId}`,
-          };
-        }
-        // Fallback to Slack app
+      }
+      case 'slack': {
+        const url = shortcut.slackTeamId && shortcut.slackUserId
+          ? `slack://user?team=${shortcut.slackTeamId}&id=${shortcut.slackUserId}`
+          : 'slack://';
         return {
-          action: 'android.intent.action.VIEW',
-          data: 'slack://',
+          action: 'app.onetap.OPEN_MESSAGE',
+          data: url,
+          extras: { url },
         };
+      }
     }
   }
 
