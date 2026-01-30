@@ -209,10 +209,10 @@ export function BookmarkActionSheet({
             <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
           </div>
           <SheetHeader className="pb-4">
-            <SheetTitle className="text-start truncate pe-8">
+            <SheetTitle className="text-start break-words pe-8">
               {link.title}
             </SheetTitle>
-            <p className="text-xs text-muted-foreground truncate text-start">
+            <p className="text-xs text-muted-foreground break-all text-start">
               {link.url}
             </p>
           </SheetHeader>

@@ -288,10 +288,10 @@ export function SharedUrlActionSheet({
                 </>
               ) : (
                 <>
-                  <p className="text-sm font-medium text-foreground truncate">
+                  <p className="text-sm font-medium text-foreground break-words">
                     {metadata?.title || domain}
                   </p>
-                  <p className="text-xs text-muted-foreground truncate">
+                  <p className="text-xs text-muted-foreground break-all">
                     {domain}
                   </p>
                 </>

@@ -190,8 +190,8 @@ export function ScheduledActionActionSheet({
                 {getDestinationIcon()}
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-base truncate">{action.name}</h3>
-                <p className="text-sm text-muted-foreground truncate">{getDestinationName()}</p>
+                <h3 className="font-semibold text-base break-words">{action.name}</h3>
+                <p className="text-sm text-muted-foreground break-all">{getDestinationName()}</p>
                 <div className="flex items-center gap-2 mt-1">
                   <span className={`text-xs ${isExpired ? 'text-muted-foreground' : 'text-primary'}`}>
                     {isExpired ? t('scheduledActionSheet.expired') : formatTriggerTime(action.triggerTime)}

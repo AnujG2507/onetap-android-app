@@ -137,8 +137,8 @@ export function ShortcutActionSheet({
                   getShortcutIcon()
                 )}
               </div>
-              <div className="flex-1 text-left">
-                <DrawerTitle className="text-base">{shortcut.name}</DrawerTitle>
+              <div className="flex-1 text-left min-w-0">
+                <DrawerTitle className="text-base break-words">{shortcut.name}</DrawerTitle>
                 <p className="text-sm text-muted-foreground flex items-center gap-1.5 mt-0.5">
                   {getShortcutIcon()}
                   <span>{getShortcutTypeLabel()}</span>
