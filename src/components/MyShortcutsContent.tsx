@@ -98,7 +98,7 @@ function ShortcutIcon({ shortcut }: { shortcut: ShortcutData }) {
     if (platform) {
       return (
         <div className="h-12 w-12 rounded-xl bg-white dark:bg-gray-100 flex items-center justify-center overflow-hidden shadow-sm">
-          <PlatformIcon platform={platform} size="lg" noBg />
+          <PlatformIcon platform={platform} size="lg" brandColored />
         </div>
       );
     }

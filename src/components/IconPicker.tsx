@@ -209,7 +209,7 @@ export function IconPicker({ thumbnail, platformIcon, faviconUrl, selectedIcon, 
             )}
           >
             {selectedIcon.type === 'platform' && platformInfo && (
-              <PlatformIcon platform={platformInfo} size="lg" noBg />
+              <PlatformIcon platform={platformInfo} size="lg" brandColored />
             )}
             {selectedIcon.type === 'favicon' && (
               <img 

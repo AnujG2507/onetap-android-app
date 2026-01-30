@@ -251,7 +251,13 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
           <div className="flex flex-col items-center gap-2">
             <div
               className="h-14 w-14 rounded-2xl flex items-center justify-center elevation-2 overflow-hidden relative"
-              style={icon.type === 'thumbnail' ? {} : { backgroundColor: 'hsl(var(--primary))' }}
+              style={
+                icon.type === 'platform' || icon.type === 'favicon'
+                  ? { backgroundColor: '#FFFFFF' }
+                  : icon.type === 'thumbnail' 
+                    ? {} 
+                    : { backgroundColor: 'hsl(var(--primary))' }
+              }
             >
               {isLoadingThumbnail && (
                 <div className="absolute inset-0 flex items-center justify-center bg-muted">
@@ -279,7 +285,7 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
                 </span>
               )}
               {!isLoadingThumbnail && icon.type === 'platform' && detectedPlatform && (
-                <PlatformIcon platform={detectedPlatform} size="md" />
+                <PlatformIcon platform={detectedPlatform} size="md" brandColored />
               )}
               {!isLoadingThumbnail && icon.type === 'favicon' && (
                 <img 

@@ -1,11 +1,13 @@
 import { cn } from '@/lib/utils';
 import type { PlatformInfo } from '@/lib/platformIcons';
+import { getPlatformColor } from '@/lib/platformColors';
 
 interface PlatformIconProps {
   platform: PlatformInfo;
   size?: 'sm' | 'md' | 'lg';
   className?: string;
   noBg?: boolean; // Render just the SVG without background container
+  brandColored?: boolean; // Render brand-colored SVG on transparent bg (for white containers)
 }
 
 // SVG paths for platform icons (simplified, recognizable versions)
@@ -141,8 +143,23 @@ const FULL_SIZE_CLASSES = {
   lg: 'h-12 w-12',
 };
 
-export function PlatformIcon({ platform, size = 'md', noBg = false, className }: PlatformIconProps) {
+export function PlatformIcon({ platform, size = 'md', noBg = false, brandColored = false, className }: PlatformIconProps) {
   const iconPath = platform.icon ? ICON_PATHS[platform.icon] : null;
+
+  // brandColored mode: render brand-colored SVG on transparent bg (for use on white containers)
+  if (brandColored) {
+    if (!iconPath) return null;
+    const colorInfo = getPlatformColor(platform.icon || '');
+    return (
+      <svg
+        viewBox="0 0 24 24"
+        fill={colorInfo.bgColor}
+        className={cn(FULL_SIZE_CLASSES[size], className)}
+      >
+        {iconPath}
+      </svg>
+    );
+  }
 
   // noBg mode: render just the SVG at full container size, no background
   if (noBg) {
