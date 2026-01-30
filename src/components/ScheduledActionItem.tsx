@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ExpandableText } from '@/components/ui/expandable-text';
+import { TruncatedText } from '@/components/ui/expandable-text';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -310,13 +310,9 @@ export function ScheduledActionItem({
 
             {/* Content */}
             <div className="flex-1 min-w-0 overflow-hidden max-w-full">
-              <ExpandableText
+              <TruncatedText
                 text={action.name}
-                charLimit={30}
-                className="w-full"
-                textClassName="font-medium text-sm"
-                disabled={isSelectionMode}
-                onClick={() => triggerHaptic('light')}
+                className="font-medium text-sm"
               />
               {action.description && (
                 <div 
