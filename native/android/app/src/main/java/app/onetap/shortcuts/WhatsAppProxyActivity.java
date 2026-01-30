@@ -48,6 +48,69 @@ import java.net.URLEncoder;
  */
 public class WhatsAppProxyActivity extends Activity {
     private static final String TAG = "WhatsAppProxyActivity";
+
+    /**
+     * Pending WhatsApp action storage used by ShortcutPlugin (legacy/bridge flow).
+     * This keeps binary compatibility with ShortcutPlugin without changing current UX.
+     */
+    private static final String PREFS_PENDING_ACTION = "whatsapp_pending_action";
+    private static final String KEY_PENDING_PHONE = "phoneNumber";
+    private static final String KEY_PENDING_MESSAGES_JSON = "messagesJson";
+    private static final String KEY_PENDING_CONTACT_NAME = "contactName";
+
+    /**
+     * Simple DTO read by ShortcutPlugin.getPendingWhatsAppAction().
+     */
+    public static class PendingWhatsAppAction {
+        public final String phoneNumber;
+        public final String messagesJson;
+        public final String contactName;
+
+        public PendingWhatsAppAction(String phoneNumber, String messagesJson, String contactName) {
+            this.phoneNumber = phoneNumber;
+            this.messagesJson = messagesJson;
+            this.contactName = contactName;
+        }
+    }
+
+    /**
+     * Returns a pending WhatsApp action if one was stored previously.
+     * Note: current multi-message shortcut flow uses the native dialog directly, so this may be null.
+     */
+    public static PendingWhatsAppAction getPendingAction(Context context) {
+        if (context == null) return null;
+        try {
+            SharedPreferences prefs = context.getSharedPreferences(PREFS_PENDING_ACTION, Context.MODE_PRIVATE);
+            String phone = prefs.getString(KEY_PENDING_PHONE, null);
+            String messagesJson = prefs.getString(KEY_PENDING_MESSAGES_JSON, null);
+            String contactName = prefs.getString(KEY_PENDING_CONTACT_NAME, null);
+
+            if (phone == null || phone.isEmpty()) return null;
+            if (messagesJson == null || messagesJson.isEmpty()) return null;
+
+            return new PendingWhatsAppAction(phone, messagesJson, contactName);
+        } catch (Exception e) {
+            Log.w(TAG, "getPendingAction failed: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Clears any previously stored pending WhatsApp action.
+     */
+    public static void clearPendingAction(Context context) {
+        if (context == null) return;
+        try {
+            context.getSharedPreferences(PREFS_PENDING_ACTION, Context.MODE_PRIVATE)
+                .edit()
+                .remove(KEY_PENDING_PHONE)
+                .remove(KEY_PENDING_MESSAGES_JSON)
+                .remove(KEY_PENDING_CONTACT_NAME)
+                .apply();
+        } catch (Exception e) {
+            Log.w(TAG, "clearPendingAction failed: " + e.getMessage());
+        }
+    }
     
     public static final String EXTRA_PHONE_NUMBER = "phone_number";
     public static final String EXTRA_QUICK_MESSAGES = "quick_messages";
