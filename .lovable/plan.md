@@ -1,214 +1,219 @@
 
 
 ## Goal
-Replace the current "load entire app + show sheet" flow for WhatsApp message selection with a lightweight native Android dialog that appears directly over the home screen, without loading the WebView/React app at all.
+Elevate the WhatsApp message picker dialog to match the app's premium aesthetic with refined styling, subtle animations, and ensure tap tracking works correctly across all shortcut types.
 
-## Current Flow (Problem)
-When a WhatsApp shortcut with 2+ messages is tapped:
-1. `WhatsAppProxyActivity` receives the tap
-2. It stores pending action in SharedPreferences
-3. It launches `MainActivity` (full WebView app)
-4. App loads React, hooks detect pending action
-5. `MessageChooserSheet` appears as a bottom sheet
-6. User selects message, WhatsApp opens
+## Current State Analysis
 
-**Pain point**: Steps 3-5 take 1-3 seconds and feel heavy for a simple selection.
+### Dialog Styling Issues
+The current `WhatsAppProxyActivity` builds the dialog programmatically with basic styling:
+- Simple gray backgrounds (`#f5f5f5`)
+- Basic rounded corners
+- No elevation/shadow effects
+- No touch feedback animations
+- Static emoji icons instead of proper iconography
+- Plain divider styling
 
-## Proposed Flow (Solution)
-When a WhatsApp shortcut with 2+ messages is tapped:
-1. `WhatsAppProxyActivity` receives the tap
-2. It shows a native Android dialog directly (no app launch)
-3. User taps a message option
-4. WhatsApp opens immediately
-5. Activity finishes
+### Tap Tracking Verification
+All proxy activities correctly implement tap tracking:
+1. **VideoProxyActivity** - Records tap at line 51-54
+2. **PDFProxyActivity** - Records tap at line 65-66
+3. **ContactProxyActivity** - Records tap at line 53-56
+4. **LinkProxyActivity** - Records tap at line 62-65
+5. **MessageProxyActivity** - Records tap at line 53-58
+6. **WhatsAppProxyActivity** - Records tap at line 62-65
 
-**Result**: ~200ms from tap to dialog, feels instant.
+The flow is complete: Proxy activities call `NativeUsageTracker.recordTap()`, which stores events in SharedPreferences. On app startup/resume, `syncNativeUsageEvents()` in `useShortcuts.ts` retrieves and processes these events.
+
+## Design Changes
+
+### Premium Dialog Aesthetic
+Based on the app's design system from `index.css`:
+- **Primary color**: HSL 211, 100%, 50% (Material Blue - `#0080FF`)
+- **Background**: Clean whites and subtle grays
+- **Elevation**: Material Design surface levels
+- **Typography**: Bold headers, muted subtitles
+
+### Enhanced UI Elements
+
+1. **Dialog Container**
+   - Pure white background with elevated shadow
+   - Larger corner radius (20dp) for modern feel
+   - Subtle border for definition
+
+2. **Header Section**
+   - WhatsApp green accent indicator bar at top
+   - Centered title with refined typography
+   - Contact name as prominent heading
+   - Subtle "Choose an option" subtitle
+
+3. **Open Chat Card (Primary Action)**
+   - Light blue tinted background matching primary color
+   - Subtle border with primary color
+   - Arrow/chevron icon instead of emoji
+   - Proper ripple effect on press
+
+4. **Divider**
+   - Thinner, more elegant styling
+   - Lighter gray color
+   - Text in matching muted color
+
+5. **Message Cards**
+   - Clean white cards with subtle border
+   - Left accent bar in primary color
+   - Proper quote styling
+   - Hover/press state with color shift
+   - Message number badge
+
+6. **Cancel Button**
+   - Text-only style, not a standard dialog button
+   - Centered at bottom with padding
+   - Muted color that's still tappable
+
+7. **Animations**
+   - Fade-in on dialog open
+   - Scale animation on card press
+   - Subtle haptic feedback
 
 ## Technical Implementation
 
-### 1. Create Native Dialog Layout
-Create `res/layout/dialog_message_chooser.xml` with:
-- Title showing contact name
-- "Open chat" option (no message)
-- Scrollable list of message options
-- Cancel button
+### File Changes
 
-### 2. Modify WhatsAppProxyActivity
-Transform from a transparent "pass-through" activity to a dialog-themed activity:
-- Apply `Theme.Material.Light.Dialog` or `Theme.AppCompat.Light.Dialog`
-- Build dialog UI programmatically or inflate layout
-- Handle button clicks directly in the activity
-- Open WhatsApp and finish on selection
+#### Modified Files:
 
-### 3. Update AndroidManifest
-Change the theme for `WhatsAppProxyActivity` from `Theme.Translucent.NoTitleBar` to a dialog theme.
-
-### 4. Remove/Simplify JS-Side Handling
-- The `usePendingWhatsAppAction` hook becomes unused for new shortcuts
-- Keep backward compatibility for any existing pending actions
-- `MessageChooserSheet` can remain for potential future use or be deprecated
-
-## File Changes
-
-### New Files
-1. **`native/android/app/src/main/res/layout/dialog_message_chooser.xml`**
-   - Native layout for the message chooser dialog
-   - Material Design styling
-
-2. **`native/android/app/src/main/res/values/styles.xml`** (create if not exists)
-   - Custom dialog theme with rounded corners and proper styling
-
-### Modified Files
 1. **`native/android/app/src/main/java/app/onetap/shortcuts/WhatsAppProxyActivity.java`**
-   - Change from transparent pass-through to dialog-based selection
-   - Remove SharedPreferences storage logic
-   - Add dialog creation and button handling
-   - Keep usage tracking (already works)
+   - Redesign `showMessageChooserDialog()` with premium styling
+   - Add `createPremiumOptionCard()` for Open Chat button
+   - Add `createPremiumMessageCard()` for message options
+   - Implement ripple effects via `RippleDrawable`
+   - Add haptic feedback on selections
+   - Use Material Design color palette from app
 
-2. **`native/android/app/src/main/AndroidManifest.xml`**
-   - Update `WhatsAppProxyActivity` theme to dialog style
+2. **`native/android/app/src/main/res/drawable/dialog_rounded_bg.xml`**
+   - Add elevation/shadow effect
+   - Increase corner radius
 
-### Files to Review (may deprecate later)
-- `src/hooks/usePendingWhatsAppAction.ts` - Will no longer be triggered
-- `src/components/MessageChooserSheet.tsx` - Will no longer be used
+3. **`native/android/app/src/main/res/drawable/message_option_bg.xml`**
+   - Update pressed state colors
+   - Add border styling
 
-## UI Design for Native Dialog
+4. **`native/android/app/src/main/res/values/styles.xml`**
+   - Refine dialog theme
+   - Add animation styles
 
-The dialog will match the app's calm, premium aesthetic:
+#### New Files:
 
-```
-┌─────────────────────────────────────┐
-│  💬 Message for John               │
-├─────────────────────────────────────┤
-│  ┌─────────────────────────────┐   │
-│  │ 📱 Open chat                │   │
-│  │    Start fresh, type your   │   │
-│  │    own message              │   │
-│  └─────────────────────────────┘   │
-│                                     │
-│  ──── or use a quick message ────  │
-│                                     │
-│  ┌─────────────────────────────┐   │
-│  │ 💬 "Hey! Are you free       │   │
-│  │    today?"                  │   │
-│  └─────────────────────────────┘   │
-│                                     │
-│  ┌─────────────────────────────┐   │
-│  │ 💬 "On my way!"             │   │
-│  └─────────────────────────────┘   │
-│                                     │
-│         [ Cancel ]                  │
-└─────────────────────────────────────┘
-```
+5. **`native/android/app/src/main/res/drawable/primary_option_bg.xml`**
+   - Background for the "Open chat" primary action card
+   - Uses primary blue accent color
 
-## Technical Details
+6. **`native/android/app/src/main/res/drawable/message_card_bg.xml`**
+   - Refined card background with border
 
-### WhatsAppProxyActivity Changes
+## Detailed Implementation
 
+### Color Palette (from app's design system)
 ```java
-public class WhatsAppProxyActivity extends Activity {
-    
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        
-        // Parse intent extras
-        String phoneNumber = getIntent().getStringExtra(EXTRA_PHONE_NUMBER);
-        String messagesJson = getIntent().getStringExtra(EXTRA_QUICK_MESSAGES);
-        String contactName = getIntent().getStringExtra(EXTRA_CONTACT_NAME);
-        String shortcutId = getIntent().getStringExtra(EXTRA_SHORTCUT_ID);
-        
-        // Track usage
-        if (shortcutId != null) {
-            NativeUsageTracker.recordTap(this, shortcutId);
-        }
-        
-        // Parse messages
-        String[] messages = parseMessages(messagesJson);
-        
-        // Show dialog directly
-        showMessageChooserDialog(phoneNumber, messages, contactName);
-    }
-    
-    private void showMessageChooserDialog(String phoneNumber, String[] messages, String contactName) {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this, R.style.MessageChooserDialog);
-        
-        // Build dialog with custom layout
-        View dialogView = getLayoutInflater().inflate(R.layout.dialog_message_chooser, null);
-        
-        // Set up title
-        TextView title = dialogView.findViewById(R.id.dialog_title);
-        title.setText(contactName != null ? "Message for " + contactName : "Choose message");
-        
-        // Set up "Open chat" option
-        View openChatOption = dialogView.findViewById(R.id.open_chat_option);
-        openChatOption.setOnClickListener(v -> {
-            openWhatsApp(phoneNumber, null);
-        });
-        
-        // Populate message options
-        LinearLayout messagesContainer = dialogView.findViewById(R.id.messages_container);
-        for (String message : messages) {
-            View messageOption = createMessageOption(message);
-            messageOption.setOnClickListener(v -> {
-                openWhatsApp(phoneNumber, message);
-            });
-            messagesContainer.addView(messageOption);
-        }
-        
-        builder.setView(dialogView);
-        builder.setNegativeButton("Cancel", (d, w) -> finish());
-        builder.setOnCancelListener(d -> finish());
-        
-        AlertDialog dialog = builder.create();
-        dialog.show();
-    }
-    
-    private void openWhatsApp(String phoneNumber, String message) {
-        String url = "https://wa.me/" + phoneNumber.replaceAll("[^0-9]", "");
-        if (message != null) {
-            url += "?text=" + URLEncoder.encode(message, "UTF-8");
-        }
-        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-        startActivity(intent);
-        finish();
-    }
-}
+// Primary Blue (Material Blue)
+private static final String COLOR_PRIMARY = "#0080FF";      // HSL 211, 100%, 50%
+private static final String COLOR_PRIMARY_LIGHT = "#E6F2FF"; // Light blue tint
+
+// WhatsApp Green (for accent bar)
+private static final String COLOR_WHATSAPP = "#25D366";
+
+// Neutrals
+private static final String COLOR_BG = "#FFFFFF";
+private static final String COLOR_SURFACE = "#FAFAFA";
+private static final String COLOR_BORDER = "#E5E5E5";
+private static final String COLOR_TEXT = "#1A1A1A";
+private static final String COLOR_TEXT_MUTED = "#6B7280";
+private static final String COLOR_DIVIDER = "#E0E0E0";
 ```
 
-### Dialog Theme (styles.xml)
-
-```xml
-<style name="MessageChooserDialog" parent="Theme.AppCompat.Light.Dialog">
-    <item name="android:windowBackground">@drawable/dialog_rounded_bg</item>
-    <item name="android:windowIsFloating">true</item>
-    <item name="android:windowNoTitle">true</item>
-    <item name="android:backgroundDimEnabled">true</item>
-</style>
+### Premium Dialog Layout (Programmatic)
+```
+┌────────────────────────────────────────┐
+│ ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔ │  ← WhatsApp green accent bar (4dp)
+│                                        │
+│         Message John Smith             │  ← Bold title, 20sp
+│          Choose an option              │  ← Muted subtitle, 14sp
+│                                        │
+│  ┌──────────────────────────────────┐  │
+│  │  ○  Open chat                 ➔  │  │  ← Primary blue bg, white icon
+│  │     Start typing a new message   │  │
+│  └──────────────────────────────────┘  │
+│                                        │
+│  ─────── Quick messages ───────        │  ← Elegant divider
+│                                        │
+│  ┌──────────────────────────────────┐  │
+│  │  ▎ "Hey! Are you free today?"    │  │  ← Blue left accent bar
+│  └──────────────────────────────────┘  │
+│                                        │
+│  ┌──────────────────────────────────┐  │
+│  │  ▎ "On my way!"                  │  │
+│  └──────────────────────────────────┘  │
+│                                        │
+│  ┌──────────────────────────────────┐  │
+│  │  ▎ "Running late, 10 mins"       │  │
+│  └──────────────────────────────────┘  │
+│                                        │
+│              Cancel                    │  ← Muted text button
+│                                        │
+└────────────────────────────────────────┘
 ```
 
-## Benefits
+### Key Code Changes for WhatsAppProxyActivity
 
-1. **Speed**: Dialog appears in ~200ms vs 1-3 seconds for full app load
-2. **Simplicity**: No React/WebView overhead for simple selection
-3. **Native feel**: Uses platform-native dialog patterns
-4. **Battery/memory**: Minimal resource usage
-5. **Reliability**: No dependency on WebView state or app initialization
+1. **Color Constants**: Add Material Design palette as static final strings
 
-## Backward Compatibility
+2. **Header with Accent Bar**: Add WhatsApp green bar at top for brand recognition
 
-- Existing shortcuts continue to work (intent format unchanged)
-- JS-side hooks remain for any edge cases or future features
-- No migration needed for existing users
+3. **Premium Open Chat Card**: 
+   - Blue-tinted background
+   - Circular icon container
+   - Chevron arrow indicating action
+   - RippleDrawable for touch feedback
+
+4. **Refined Message Cards**:
+   - White background with subtle border
+   - Primary color accent bar on left (3dp)
+   - Better typography hierarchy
+   - Proper ellipsization for long messages
+   - Scale animation on press
+
+5. **Haptic Feedback**: Add `performHapticFeedback()` on selections
+
+6. **Dialog Window Styling**:
+   - Larger corner radius
+   - Proper elevation shadow
+   - Smooth fade animation
 
 ## Testing Checklist
 
-After implementation:
-- [ ] Tap WhatsApp shortcut with 2+ messages - dialog appears instantly
-- [ ] Tap "Open chat" - WhatsApp opens without message
-- [ ] Tap a message option - WhatsApp opens with that message pre-filled
-- [ ] Tap Cancel - dialog dismisses, returns to home screen
-- [ ] Tap outside dialog - dialog dismisses
-- [ ] Usage tracking still records the tap
-- [ ] Dialog styling matches app aesthetic
+### Tap Tracking Verification
+After implementation, verify all shortcut types record taps correctly:
+- [ ] Video shortcuts (VideoProxyActivity)
+- [ ] PDF shortcuts (PDFProxyActivity)  
+- [ ] Contact call shortcuts (ContactProxyActivity)
+- [ ] Link shortcuts (LinkProxyActivity)
+- [ ] Messaging shortcuts with 0-1 messages (MessageProxyActivity)
+  - WhatsApp (0 messages)
+  - WhatsApp (1 message)
+  - Telegram
+  - Signal
+  - Slack
+- [ ] WhatsApp shortcuts with 2+ messages (WhatsAppProxyActivity)
+
+### Dialog UI Testing
+- [ ] Dialog appears with premium styling
+- [ ] WhatsApp green accent bar visible at top
+- [ ] "Open chat" has blue-tinted background
+- [ ] Message cards have left accent bar
+- [ ] Touch feedback (ripple) works on all interactive elements
+- [ ] Haptic feedback on tap
+- [ ] Long messages truncate properly with ellipsis
+- [ ] Cancel button dismisses and returns to home screen
+- [ ] Dialog dismisses on outside tap
+- [ ] Selecting "Open chat" opens WhatsApp without message
+- [ ] Selecting a message opens WhatsApp with that message pre-filled
 
