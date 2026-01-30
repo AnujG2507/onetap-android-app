@@ -1,193 +1,191 @@
 
 
-# Plan: Fix Home Screen Sync to Work Reactively
+# Plan: Fix Shortcut List Item Overflow for Portrait and Landscape
 
-## Problem Summary
+## Problem Analysis
 
-The "My Shortcuts" list only syncs with the Android home screen on app restart. The sync button and shortcut creation don't trigger proper reloads because:
+The shortcut list items overflow the screen in both portrait and landscape modes. The "Type + Target" metadata row continues to push content beyond the visible area. This happens due to a broken constraint chain in the flex hierarchy.
 
-1. **Multiple hook instances don't share state** - `useShortcuts()` is called independently in `AccessFlow.tsx`, `ShortcutsList.tsx`, and `Index.tsx`. Each creates its own `useState` initialized from localStorage, but they don't sync when another instance writes.
+## Root Causes
 
-2. **`syncWithHomeScreen` reads stale state** - The function uses its closure's `shortcuts` array instead of reading fresh data from localStorage.
+### 1. ScrollArea Viewport Gap
+The `ScrollAreaPrimitive.Viewport` component only has `w-full` but lacks `overflow-x-hidden`. This allows child content to expand beyond the intended width.
 
-3. **No event-based sync between components** - When `AccessFlow` creates a shortcut, `ShortcutsList` doesn't know about it until the page is fully reloaded.
+### 2. Incomplete Flex Constraint Inheritance  
+While `min-w-0` and `overflow-hidden` are applied at some levels, the constraint chain breaks at key points:
+- The outer `button` container needs explicit width clamping
+- The metadata row's `flex-1` element doesn't properly truncate because parent constraints are incomplete
 
-## Technical Root Cause
-
-```
-AccessFlow               ShortcutsList              Index
-    |                         |                        |
-useShortcuts()           useShortcuts()          useShortcuts()
-    |                         |                        |
-[state: [A, B]]         [state: [A, B]]          [state: [A, B]]
-    |                         |                        |
-createShortcut(C)             |                        |
-    |                         |                        |
-localStorage: [A, B, C]       |                        |
-[state: [A, B, C]] ✓    [state: [A, B]] ✗       [state: [A, B]] ✗
-```
+### 3. Landscape Mode Width
+In landscape orientation, the sheet can span the full viewport width without constraint, amplifying any overflow issues.
 
 ## Solution
 
-### 1. Add Custom Event Broadcasting
+Apply a comprehensive constraint strategy at every level of the hierarchy:
 
-When shortcuts are modified, dispatch a custom event so all hook instances can refresh their state from localStorage.
-
-### 2. Add Event Listener in Hook
-
-Each hook instance listens for the custom event and reloads from localStorage when fired.
-
-### 3. Fix `syncWithHomeScreen` to Read Fresh Data
-
-Instead of using the closure's `shortcuts` state, read directly from localStorage to ensure we have the latest data.
-
-### 4. Emit Events After Shortcut Creation
-
-After a shortcut is created in `AccessFlow`, emit the event so `ShortcutsList` updates immediately.
+```
+SheetContent [flex flex-col, overflow-hidden, max-w-full]
+  -> ScrollArea [flex-1, w-full, overflow-hidden]
+       -> Inner div [p-2, w-full, overflow-hidden]
+            -> button [w-full, max-w-full, overflow-hidden]
+                 -> Icon [shrink-0, w-12]
+                 -> Content [flex-1, min-w-0, overflow-hidden, max-w-[calc(100%-theme(spacing.16))]]
+                      -> Title [truncate/break-all, w-full]
+                      -> Metadata Row [flex, w-full, overflow-hidden]
+                           -> Type+Target [truncate, flex-1, min-w-0]
+                           -> Badge [shrink-0, whitespace-nowrap]
+                 -> Chevron [shrink-0, w-4]
+```
 
 ## File Changes
 
-### File: `src/hooks/useShortcuts.ts`
-
-#### Change 1: Add event broadcasting in `saveShortcuts`
-
-```typescript
-// Lines 36-42 - Enhanced saveShortcuts with event dispatch
-const saveShortcuts = useCallback((data: ShortcutData[]) => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  setShortcuts(data);
-  
-  // Sync to Android widgets
-  syncToWidgets(data);
-  
-  // Broadcast change to other hook instances
-  window.dispatchEvent(new CustomEvent('shortcuts-changed', { detail: data }));
-}, [syncToWidgets]);
-```
-
-#### Change 2: Add listener for cross-instance sync
-
-```typescript
-// After line 141 (after initial sync effect) - Add new effect to listen for changes
-useEffect(() => {
-  const handleShortcutsChanged = (event: CustomEvent<ShortcutData[]>) => {
-    // Update local state from event payload (avoids re-reading localStorage)
-    setShortcuts(event.detail);
-  };
-
-  window.addEventListener('shortcuts-changed', handleShortcutsChanged as EventListener);
-  
-  return () => {
-    window.removeEventListener('shortcuts-changed', handleShortcutsChanged as EventListener);
-  };
-}, []);
-```
-
-#### Change 3: Fix `syncWithHomeScreen` to read fresh data
-
-```typescript
-// Lines 44-71 - Fix syncWithHomeScreen to read from localStorage
-const syncWithHomeScreen = useCallback(async () => {
-  if (!Capacitor.isNativePlatform()) return;
-  
-  try {
-    const { ids } = await ShortcutPlugin.getPinnedShortcutIds();
-    
-    // Read fresh data from localStorage instead of stale closure state
-    const stored = localStorage.getItem(STORAGE_KEY);
-    const currentShortcuts: ShortcutData[] = stored ? JSON.parse(stored) : [];
-    
-    // If no pinned shortcuts returned (empty array), skip sync
-    if (ids.length === 0 && currentShortcuts.length > 0) {
-      console.log('[useShortcuts] No pinned shortcuts returned, skipping sync');
-      return;
-    }
-    
-    const pinnedSet = new Set(ids);
-    
-    // Keep only shortcuts that are still pinned on home screen
-    const synced = currentShortcuts.filter(s => pinnedSet.has(s.id));
-    
-    if (synced.length !== currentShortcuts.length) {
-      const removedCount = currentShortcuts.length - synced.length;
-      console.log(`[useShortcuts] Synced with home screen, removed ${removedCount} orphaned shortcuts`);
-      saveShortcuts(synced);
-    } else {
-      // Even if no orphans removed, update state from localStorage to pick up any new shortcuts
-      setShortcuts(currentShortcuts);
-    }
-  } catch (error) {
-    console.warn('[useShortcuts] Failed to sync with home screen:', error);
-  }
-}, [saveShortcuts]); // Removed `shortcuts` dependency - now reads fresh from localStorage
-```
-
-#### Change 4: Add `refreshFromStorage` function for manual refresh
-
-```typescript
-// Add new function for explicitly refreshing state from storage
-const refreshFromStorage = useCallback(() => {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    const data: ShortcutData[] = stored ? JSON.parse(stored) : [];
-    setShortcuts(data);
-    return data;
-  } catch {
-    return [];
-  }
-}, []);
-
-// Return it in the hook's return object
-return {
-  shortcuts,
-  createShortcut,
-  createContactShortcut,
-  deleteShortcut,
-  incrementUsage,
-  updateShortcut,
-  getShortcut,
-  syncWithHomeScreen,
-  refreshFromStorage, // New
-};
-```
-
 ### File: `src/components/ShortcutsList.tsx`
 
-#### Change 1: Use refreshFromStorage in manual refresh handler
+#### Change 1: Add overflow constraint to SheetContent (Line 443)
 
-```typescript
-// Line 258 - Add refreshFromStorage to destructured values
-const { shortcuts, deleteShortcut, updateShortcut, incrementUsage, syncWithHomeScreen, refreshFromStorage } = useShortcuts();
+Add `overflow-hidden` to prevent any content from escaping the sheet boundaries.
 
-// Lines 350-358 - Enhanced manual refresh handler
-const handleManualRefresh = useCallback(async () => {
-  setIsSyncing(true);
-  try {
-    // First refresh from localStorage to pick up any new shortcuts from other components
-    refreshFromStorage();
-    // Then sync with home screen to remove orphans
-    await syncWithHomeScreen();
-  } finally {
-    setTimeout(() => setIsSyncing(false), 500);
-  }
-}, [refreshFromStorage, syncWithHomeScreen]);
+```tsx
+<SheetContent side="bottom" className="h-[85vh] p-0 flex flex-col overflow-hidden">
+```
+
+#### Change 2: Constrain ScrollArea and its container (Lines 569-580)
+
+Add explicit width constraints and overflow control to the scroll container hierarchy.
+
+```tsx
+<ScrollArea className="flex-1 w-full overflow-hidden">
+  <div className="p-2 w-full max-w-full overflow-hidden">
+    {filteredShortcuts.map((shortcut) => (
+      <ShortcutListItem
+        key={shortcut.id}
+        shortcut={shortcut}
+        onTap={handleShortcutTap}
+        t={t}
+      />
+    ))}
+  </div>
+</ScrollArea>
+```
+
+#### Change 3: Redesign ShortcutListItem layout (Lines 133-174)
+
+Apply a strict constraint pattern to the entire item:
+
+```tsx
+function ShortcutListItem({ 
+  shortcut, 
+  onTap, 
+  t 
+}: { 
+  shortcut: ShortcutData; 
+  onTap: (shortcut: ShortcutData) => void;
+  t: (key: string) => string;
+}) {
+  const [isTitleExpanded, setIsTitleExpanded] = useState(false);
+  const typeLabel = getShortcutTypeLabel(shortcut, t);
+  const target = getShortcutTarget(shortcut);
+  const usageCount = shortcut.usageCount || 0;
+  
+  return (
+    <button
+      onClick={() => onTap(shortcut)}
+      className="w-full max-w-full flex items-center gap-3 p-3 rounded-xl border border-border/60 bg-card mb-2 hover:bg-muted/50 active:bg-muted transition-colors text-start shadow-sm box-border"
+    >
+      {/* Icon - fixed size, never shrinks */}
+      <div className="shrink-0 w-12 h-12">
+        <ShortcutIcon shortcut={shortcut} />
+      </div>
+      
+      {/* Text content - takes remaining space, strictly constrained */}
+      <div className="flex-1 min-w-0 overflow-hidden">
+        {/* Title row */}
+        <p 
+          className={cn(
+            "font-medium w-full",
+            isTitleExpanded ? "break-all whitespace-normal" : "truncate"
+          )}
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsTitleExpanded(!isTitleExpanded);
+          }}
+        >
+          {shortcut.name}
+        </p>
+        
+        {/* Metadata row - type, target, and badge */}
+        <div className="flex items-center gap-2 mt-0.5 w-full overflow-hidden">
+          <span className="text-xs text-muted-foreground truncate min-w-0 flex-shrink">
+            {typeLabel}
+            {target && ` · ${target}`}
+          </span>
+          <Badge 
+            variant="outline" 
+            className="shrink-0 text-[10px] px-1.5 py-0 h-5 font-semibold bg-primary/5 border-primary/20 text-primary whitespace-nowrap ml-auto"
+          >
+            {usageCount} {usageCount === 1 ? t('shortcuts.tap') : t('shortcuts.taps')}
+          </Badge>
+        </div>
+      </div>
+      
+      {/* Chevron - fixed size, never shrinks */}
+      <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+    </button>
+  );
+}
+```
+
+Key changes in the item layout:
+- `max-w-full` and `box-border` on the button to ensure it respects parent width including padding
+- Removed redundant `flex-none` from icon (using explicit `w-12 h-12`)
+- Changed metadata text from `flex-1` to `flex-shrink` with `min-w-0` - this allows it to shrink to fit
+- Added `ml-auto` to the badge to push it to the right edge
+- Added `w-full` to both title and metadata row for explicit width binding
+- Added `overflow-hidden` to metadata row
+
+### File: `src/components/ui/scroll-area.tsx`
+
+#### Change: Add overflow-x constraint to Viewport (Line 11)
+
+This is the critical fix - the viewport must prevent horizontal overflow:
+
+```tsx
+<ScrollAreaPrimitive.Viewport className="h-full w-full rounded-[inherit] overflow-x-hidden">
 ```
 
 ## Summary of Changes
 
-| File | Change | Purpose |
-|------|--------|---------|
-| `src/hooks/useShortcuts.ts` | Add `shortcuts-changed` event dispatch | Notify other hook instances of changes |
-| `src/hooks/useShortcuts.ts` | Add event listener for `shortcuts-changed` | React to changes from other instances |
-| `src/hooks/useShortcuts.ts` | Fix `syncWithHomeScreen` to read fresh data | Avoid stale closure state |
-| `src/hooks/useShortcuts.ts` | Add `refreshFromStorage` function | Manual state refresh capability |
-| `src/components/ShortcutsList.tsx` | Use `refreshFromStorage` in sync handler | Ensure sync button gets latest data |
+| File | Location | Change |
+|------|----------|--------|
+| `ShortcutsList.tsx` | Line 443 | Add `overflow-hidden` to SheetContent |
+| `ShortcutsList.tsx` | Line 569 | Add `w-full overflow-hidden` to ScrollArea |
+| `ShortcutsList.tsx` | Line 570 | Add `w-full max-w-full` to inner div |
+| `ShortcutsList.tsx` | Lines 133-174 | Redesign ShortcutListItem with strict constraints |
+| `scroll-area.tsx` | Line 11 | Add `overflow-x-hidden` to Viewport |
+
+## Visual Representation
+
+```text
+Portrait Mode (360px)                  Landscape Mode (800px)
++----------------------------------+   +----------------------------------------+
+| SheetContent [overflow-hidden]   |   | SheetContent [overflow-hidden]         |
+| +------------------------------+ |   | +------------------------------------+ |
+| | ScrollArea [w-full]          | |   | | ScrollArea [w-full]                | |
+| | +---------------------------+| |   | | +--------------------------------+ | |
+| | | [Icon] [Title...] [>]     || |   | | | [Icon] [Title truncates...] [>]| | |
+| | |        Link · domain [5]  || |   | | |        Link · longer.domain [5]| | |
+| | +---------------------------+| |   | | +--------------------------------+ | |
+| +------------------------------+ |   | +------------------------------------+ |
++----------------------------------+   +----------------------------------------+
+```
 
 ## Testing Checklist
 
-1. **Create a shortcut** from the Access flow, then immediately open "My Shortcuts" - the new shortcut should appear without app restart
-2. **Tap the sync button** in "My Shortcuts" - verify it shows the spinner and updates the list
-3. **Delete a shortcut** from the home screen, then tap sync - verify it's removed from the list
-4. **Create multiple shortcuts** in succession, then open list - all should appear
-5. **Test on app resume** - create shortcut, background app, return, open list - shortcut should be there
+- Test in portrait mode (360px width) - items should not overflow horizontally
+- Test in landscape mode (800px+ width) - items should stay within bounds
+- Verify long titles truncate with ellipsis when collapsed
+- Verify tapping title expands it to wrap without horizontal scroll
+- Verify long domain names in metadata truncate properly
+- Verify badge and chevron always remain visible on the right edge
+- Test with extremely long titles (100+ characters with no spaces)
 
