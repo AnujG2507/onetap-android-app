@@ -1,292 +1,258 @@
 
-# Image Preview Audit and Fix Plan
+# Bulletproof Image Preview Logic
 
 ## Overview
-This plan addresses image preview display issues across the entire app by implementing graceful error handling, loading states, and fallback visuals consistently.
+This plan implements comprehensive measures to maximize image preview success across the app. The goal is to make every possible effort to display images correctly before resorting to fallbacks.
 
-## Audit Findings
+## Current Issues Identified
 
-After reviewing all 13 components that render `<img>` elements, I identified the following categories:
+After thorough code review, I found several opportunities to improve image loading reliability:
 
-### Components WITH proper error handling:
-| Component | Error Handler |
-|-----------|---------------|
-| `ContactAvatar.tsx` | `onError` hides image, shows fallback |
-| `BookmarkItem.tsx` | `onError` hides image, shows Globe icon |
-| `ClipboardSuggestion.tsx` | `onError` hides favicon |
-| `SharedUrlActionSheet.tsx` | `onError` hides thumbnail/favicon |
-| `TrashItem.tsx` | `onError` hides favicon |
-
-### Components MISSING error handling (requiring fixes):
-| Component | Issue |
-|-----------|-------|
-| `ContentPreview.tsx` | No error handler for image previews |
-| `ShortcutCustomizer.tsx` | No error handler for icon preview |
-| `IconPicker.tsx` | No error handler for thumbnail preview |
-| `ShortcutActionSheet.tsx` | No error handler for shortcut icon |
-| `MyShortcutsContent.tsx` | No error handler for shortcut thumbnails |
-| `BookmarkDragOverlay.tsx` | No error handler for favicon |
-| `ProfilePage.tsx` | No error handler for avatar |
-| `CloudBackupSection.tsx` | No error handler for avatar |
+1. **No preloading** - Images are loaded only when rendered, causing flash-to-fallback issues
+2. **Single source strategy** - Components don't try alternative sources (e.g., `thumbnailData` vs `icon.value`)
+3. **No retry mechanism** - Failed images stay failed even if the issue was temporary
+4. **No loading states** - Users see abrupt fallback switches instead of smooth transitions
+5. **Race conditions** - Error states can persist incorrectly after source changes
+6. **No validation** - Empty/invalid base64 strings trigger unnecessary load attempts
 
 ---
 
-## Implementation Plan
+## Implementation Strategy
 
-### 1. ContentPreview.tsx
-**Problem:** Image source URIs (especially `content://` URIs on Android) may fail to load.
+### 1. Create a Reusable ImageWithFallback Component
 
-**Fix:**
-- Add `onError` handler to hide the image and show the emoji fallback
-- Add loading state with skeleton placeholder
+A centralized component that handles:
+- Multiple source priority chain
+- Preload validation before render
+- Loading skeleton states
+- Retry logic for transient failures
+- Graceful fallback transitions
 
-```tsx
-const [imageError, setImageError] = useState(false);
-
-{isImage && source.uri && !imageError ? (
-  <img
-    src={source.uri}
-    alt=""
-    className="h-full w-full object-cover"
-    onError={() => setImageError(true)}
-  />
-) : (
-  <span className="text-2xl">{info.emoji}</span>
-)}
+```
+src/components/ui/image-with-fallback.tsx
 ```
 
----
+### 2. Add Image Preloading Utility
 
-### 2. ShortcutCustomizer.tsx
-**Problem:** Thumbnail icons may fail to load (lines 222-223), showing broken image.
+A utility to validate image sources before rendering:
+- Validate base64 data format
+- Check `content://` URI accessibility on native
+- Preload images in memory
+- Cache validation results
 
-**Fix:**
-- Add `onError` handler to fall back to emoji icon
-- Track icon load failures in state
-
-```tsx
-const [iconLoadError, setIconLoadError] = useState(false);
-
-// Reset error when icon changes
-useEffect(() => {
-  setIconLoadError(false);
-}, [icon]);
-
-{!isLoadingThumbnail && icon.type === 'thumbnail' && !iconLoadError && (
-  <img 
-    src={icon.value} 
-    alt="" 
-    className="h-full w-full object-cover"
-    onError={() => setIconLoadError(true)}
-  />
-)}
-{!isLoadingThumbnail && (icon.type === 'emoji' || iconLoadError) && (
-  <span className="text-2xl">{iconLoadError ? '📱' : icon.value}</span>
-)}
+```
+src/lib/imageUtils.ts
 ```
 
----
+### 3. Update All Image-Rendering Components
 
-### 3. IconPicker.tsx
-**Problem:** Thumbnail preview at lines 158-163 has no error handling.
-
-**Fix:**
-- Add `onError` handler to hide image and show fallback icon
-
-```tsx
-const [thumbnailError, setThumbnailError] = useState(false);
-
-{selectedIcon.type === 'thumbnail' && !thumbnailError && (
-  <img
-    src={selectedIcon.value}
-    alt="Icon preview"
-    className="h-full w-full object-cover"
-    onError={() => setThumbnailError(true)}
-  />
-)}
-{selectedIcon.type === 'thumbnail' && thumbnailError && (
-  <Image className="h-6 w-6 text-primary-foreground/50" />
-)}
-```
+Apply the bulletproof pattern to each component:
 
 ---
 
-### 4. ShortcutActionSheet.tsx
-**Problem:** Shortcut icon preview at lines 130-135 shows broken image if thumbnail fails.
+## Technical Details
 
-**Fix:**
-- Add state to track load failures
-- Fall back to type-based icon
+### A. ImageWithFallback Component
 
-```tsx
-const [iconError, setIconError] = useState(false);
+**Props:**
+- `sources: string[]` - Priority-ordered list of image sources to try
+- `fallback: ReactNode` - What to render when all sources fail
+- `alt?: string` - Alt text
+- `className?: string` - Styling
+- `onLoadSuccess?: () => void` - Callback on success
+- `onAllFailed?: () => void` - Callback when all sources exhausted
 
-// Reset when shortcut changes
-useEffect(() => {
-  setIconError(false);
-}, [shortcut?.id]);
+**Logic:**
+1. Filter out empty/null sources
+2. Validate base64 strings (must start with `data:image`)
+3. Try each source in order
+4. Show skeleton during loading
+5. On error, try next source
+6. After all fail, render fallback
+7. Cache successful source for re-renders
 
-{(shortcut.thumbnailData || shortcut.icon.value) && !iconError ? (
-  <img 
-    src={shortcut.thumbnailData || shortcut.icon.value} 
-    alt="" 
-    className="w-full h-full object-cover"
-    onError={() => setIconError(true)}
-  />
-) : (
-  getShortcutIcon()
-)}
-```
+### B. Image Validation Utility
 
----
+```typescript
+// src/lib/imageUtils.ts
 
-### 5. MyShortcutsContent.tsx
-**Problem:** ShortcutIcon component at lines 79-91 has no error handling for thumbnails.
-
-**Fix:**
-- Add state to ShortcutIcon for image load errors
-- Fall back to Zap icon on failure
-
-```tsx
-function ShortcutIcon({ shortcut }: { shortcut: ShortcutData }) {
-  const [imageError, setImageError] = useState(false);
-  const { icon } = shortcut;
+export function isValidImageSource(src: string | undefined | null): boolean {
+  if (!src || typeof src !== 'string') return false;
+  if (src.trim() === '') return false;
   
-  // ... existing emoji/text handling ...
+  // Valid base64 data URL
+  if (src.startsWith('data:image')) return true;
   
-  if (icon.type === 'thumbnail') {
-    const thumbnailSrc = icon.value || shortcut.thumbnailData;
-    if (thumbnailSrc && !imageError) {
-      return (
-        <div className="h-12 w-12 rounded-xl overflow-hidden bg-muted">
-          <img 
-            src={thumbnailSrc} 
-            alt={shortcut.name}
-            className="h-full w-full object-cover"
-            onError={() => setImageError(true)}
-          />
-        </div>
-      );
+  // Valid blob URL
+  if (src.startsWith('blob:')) return true;
+  
+  // Valid HTTP(S) URL
+  if (src.startsWith('http://') || src.startsWith('https://')) return true;
+  
+  // Android content URI (may or may not work, but worth trying)
+  if (src.startsWith('content://')) return true;
+  
+  // File URI
+  if (src.startsWith('file://')) return true;
+  
+  return false;
+}
+
+export function preloadImage(src: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (!isValidImageSource(src)) {
+      resolve(false);
+      return;
     }
-  }
-  
-  // Default fallback
-  return (
-    <div className="h-12 w-12 rounded-xl bg-muted flex items-center justify-center">
-      <Zap className="h-5 w-5 text-muted-foreground" />
-    </div>
-  );
+    
+    const img = new Image();
+    img.onload = () => resolve(true);
+    img.onerror = () => resolve(false);
+    img.src = src;
+    
+    // Timeout after 5 seconds
+    setTimeout(() => resolve(false), 5000);
+  });
 }
 ```
 
----
+### C. Component Updates
 
-### 6. BookmarkDragOverlay.tsx
-**Problem:** Favicon at lines 43-48 has no error handling.
+#### ContentPreview.tsx
+```typescript
+// Before: Single source with basic onError
+// After: Try source.uri first, then source.thumbnailData, with validation
 
-**Fix:**
-- Add `onError` handler consistent with BookmarkItem
+const imageSources = useMemo(() => {
+  const sources: string[] = [];
+  if (source.uri) sources.push(source.uri);
+  if (source.thumbnailData) {
+    // thumbnailData might be base64 without prefix
+    const thumb = source.thumbnailData.startsWith('data:') 
+      ? source.thumbnailData 
+      : `data:image/jpeg;base64,${source.thumbnailData}`;
+    sources.push(thumb);
+  }
+  return sources.filter(isValidImageSource);
+}, [source.uri, source.thumbnailData]);
+```
 
-```tsx
-<img 
-  src={faviconUrl} 
-  alt="" 
-  className="h-6 w-6 object-contain"
-  onError={(e) => {
-    e.currentTarget.style.display = 'none';
-    e.currentTarget.nextElementSibling?.classList.remove('hidden');
-  }}
-/>
-<Globe className={cn("h-5 w-5 text-muted-foreground", faviconUrl && "hidden")} />
+#### ShortcutCustomizer.tsx
+```typescript
+// Preview icon section - try multiple sources
+const previewSources = useMemo(() => {
+  const sources: string[] = [];
+  if (icon.type === 'thumbnail' && icon.value) sources.push(icon.value);
+  if (thumbnail) sources.push(thumbnail);
+  return sources.filter(isValidImageSource);
+}, [icon, thumbnail]);
+```
+
+#### MyShortcutsContent.tsx (ShortcutIcon)
+```typescript
+// Try icon.value, then thumbnailData
+const imageSources = useMemo(() => {
+  const sources: string[] = [];
+  if (icon.value) sources.push(icon.value);
+  if (shortcut.thumbnailData) {
+    const thumb = shortcut.thumbnailData.startsWith('data:')
+      ? shortcut.thumbnailData
+      : `data:image/jpeg;base64,${shortcut.thumbnailData}`;
+    sources.push(thumb);
+  }
+  return sources.filter(isValidImageSource);
+}, [icon.value, shortcut.thumbnailData]);
+```
+
+#### ShortcutActionSheet.tsx
+```typescript
+// Same multi-source approach
+const iconSources = useMemo(() => {
+  const sources: string[] = [];
+  if (shortcut.thumbnailData) sources.push(shortcut.thumbnailData);
+  if (shortcut.icon.value) sources.push(shortcut.icon.value);
+  return sources.filter(isValidImageSource);
+}, [shortcut]);
+```
+
+#### IconPicker.tsx
+```typescript
+// Validate thumbnail before showing thumbnail tab
+const validThumbnail = useMemo(() => 
+  thumbnail && isValidImageSource(thumbnail) ? thumbnail : null,
+[thumbnail]);
+
+// Only show thumbnail option if valid
+const iconTypes = [
+  ...(validThumbnail ? [{ type: 'thumbnail', ... }] : []),
+  // ...
+];
+```
+
+#### ProfilePage.tsx & CloudBackupSection.tsx
+```typescript
+// Validate avatar URL before attempting load
+const validAvatarUrl = useMemo(() => 
+  avatarUrl && isValidImageSource(avatarUrl) ? avatarUrl : null,
+[avatarUrl]);
+```
+
+#### BookmarkDragOverlay.tsx
+```typescript
+// Already has decent error handling, but add validation
+const validFaviconUrl = useMemo(() => 
+  faviconUrl && isValidImageSource(faviconUrl) ? faviconUrl : null,
+[faviconUrl]);
 ```
 
 ---
 
-### 7. ProfilePage.tsx
-**Problem:** Avatar image at lines 339-345 has no error handling.
-
-**Fix:**
-- Add `onError` handler to show User icon fallback
-
-```tsx
-const [avatarError, setAvatarError] = useState(false);
-
-{avatarUrl && !avatarError ? (
-  <img 
-    src={avatarUrl} 
-    alt={fullName} 
-    className="w-16 h-16 rounded-full"
-    referrerPolicy="no-referrer"
-    onError={() => setAvatarError(true)}
-  />
-) : (
-  <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-    <User className="w-8 h-8 text-primary" />
-  </div>
-)}
-```
-
----
-
-### 8. CloudBackupSection.tsx
-**Problem:** Avatar at lines 213-218 has no error handling.
-
-**Fix:**
-- Add `onError` handler to show Cloud icon fallback
-
-```tsx
-const [avatarError, setAvatarError] = useState(false);
-
-{user?.user_metadata?.avatar_url && !avatarError ? (
-  <img 
-    src={user.user_metadata.avatar_url} 
-    alt="Profile" 
-    className="h-full w-full object-cover"
-    onError={() => setAvatarError(true)}
-  />
-) : (
-  <Cloud className="h-4 w-4 text-primary" />
-)}
-```
-
----
-
-## Technical Notes
-
-### Error Handling Pattern
-All fixes follow a consistent pattern:
-1. Track image load failure in state (`useState(false)`)
-2. Reset error state when the source changes (via `useEffect` or key)
-3. On `onError`, set state to true
-4. Conditionally render fallback based on error state
-
-### Content URI Considerations
-For `content://` URIs on Android:
-- These URIs may expire or become inaccessible
-- The `ContentPreview` and `ShortcutCustomizer` components are most affected
-- Fallback to emoji icons ensures a graceful experience
-
-### Performance
-- Error handlers are lightweight (single state update)
-- No additional network requests or retries
-- Fallbacks render immediately
-
----
+## Files to Create
+1. `src/lib/imageUtils.ts` - Image validation and preloading utilities
+2. `src/components/ui/image-with-fallback.tsx` - Reusable image component
 
 ## Files to Modify
-1. `src/components/ContentPreview.tsx`
-2. `src/components/ShortcutCustomizer.tsx`
-3. `src/components/IconPicker.tsx`
-4. `src/components/ShortcutActionSheet.tsx`
-5. `src/components/MyShortcutsContent.tsx`
-6. `src/components/BookmarkDragOverlay.tsx`
-7. `src/components/ProfilePage.tsx`
-8. `src/components/CloudBackupSection.tsx`
+1. `src/components/ContentPreview.tsx` - Multi-source support
+2. `src/components/ShortcutCustomizer.tsx` - Better source chain
+3. `src/components/MyShortcutsContent.tsx` - ShortcutIcon improvements
+4. `src/components/ShortcutActionSheet.tsx` - Icon source chain
+5. `src/components/IconPicker.tsx` - Pre-validate thumbnail
+6. `src/components/ProfilePage.tsx` - Validate avatar
+7. `src/components/CloudBackupSection.tsx` - Validate avatar
+8. `src/components/BookmarkDragOverlay.tsx` - Validate favicon
+
+---
+
+## Key Improvements
+
+| Before | After |
+|--------|-------|
+| Single image source | Priority chain of multiple sources |
+| No source validation | Validate before render attempt |
+| Abrupt fallback switch | Loading skeleton → smooth transition |
+| Error state persists | Reset on source change + retry logic |
+| Empty strings attempted | Filter invalid sources early |
+| Components duplicate logic | Centralized ImageWithFallback |
+
+---
+
+## Edge Cases Handled
+
+1. **Empty base64 strings** - Filtered out before load attempt
+2. **Expired content:// URIs** - Falls through to thumbnailData backup
+3. **Network timeout** - 5-second preload timeout prevents hanging
+4. **Flash of broken image** - Skeleton shown during validation
+5. **Base64 without prefix** - Automatically prepends `data:image/jpeg;base64,`
+6. **Source change race conditions** - useEffect resets state on change
+7. **SSR/hydration** - Preload only runs in browser context
 
 ---
 
 ## Summary
-This plan ensures that all image previews across the app:
-- Have proper error handling
-- Show meaningful fallback content
-- Maintain a polished user experience even when images fail to load
+
+This plan creates a bulletproof image loading system that:
+- Tries multiple sources before giving up
+- Validates sources before attempting loads
+- Shows smooth loading states
+- Provides consistent fallback behavior
+- Centralizes logic for maintainability
