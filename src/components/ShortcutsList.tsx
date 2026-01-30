@@ -8,7 +8,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import { TruncatedText } from '@/components/ui/expandable-text';
+
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -116,7 +116,7 @@ function ShortcutIcon({ shortcut }: { shortcut: ShortcutData }) {
   );
 }
 
-// Individual shortcut list item with expandable title
+// Individual shortcut list item - bulletproof overflow handling
 function ShortcutListItem({ 
   shortcut, 
   onTap, 
@@ -133,37 +133,35 @@ function ShortcutListItem({
   return (
     <button
       onClick={() => onTap(shortcut)}
-      className="w-full max-w-full flex items-center gap-3 p-3 rounded-xl border border-border/60 bg-card mb-2 hover:bg-muted/50 active:bg-muted transition-colors text-start shadow-sm box-border overflow-hidden"
+      className="w-full flex items-center gap-3 p-3 rounded-xl border border-border/60 bg-card mb-2 hover:bg-muted/50 active:bg-muted transition-colors text-start shadow-sm overflow-hidden"
     >
-      {/* Icon - fixed size, never shrinks */}
-      <div className="shrink-0 w-12 h-12">
+      {/* Icon - fixed 48px, never shrinks */}
+      <div className="shrink-0">
         <ShortcutIcon shortcut={shortcut} />
       </div>
       
-      {/* Text content - takes remaining space, strictly constrained */}
-      <div className="flex-1 min-w-0 overflow-hidden">
-        {/* Title row */}
-        <TruncatedText
-          text={shortcut.name}
-          className="font-medium w-full"
-        />
+      {/* Text content - must shrink, clips overflow */}
+      <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+        {/* Title - single line, truncates */}
+        <span className="font-medium truncate w-full block">
+          {shortcut.name}
+        </span>
         
-        {/* Metadata row - type, target, and badge */}
-        <div className="flex items-center gap-2 mt-0.5 w-full min-w-0">
-          <span className="text-xs text-muted-foreground flex-1 min-w-0 truncate">
-            {typeLabel}
-            {target && ` · ${target}`}
+        {/* Metadata row */}
+        <div className="flex items-center gap-2 mt-0.5 overflow-hidden w-full">
+          <span className="text-xs text-muted-foreground truncate flex-1 min-w-0">
+            {typeLabel}{target && ` · ${target}`}
           </span>
           <Badge 
             variant="outline" 
-            className="shrink-0 text-[10px] px-1.5 py-0 h-5 font-semibold bg-primary/5 border-primary/20 text-primary whitespace-nowrap"
+            className="shrink-0 text-[10px] px-1.5 py-0 h-5 font-semibold bg-primary/5 border-primary/20 text-primary"
           >
             {usageCount} {usageCount === 1 ? t('shortcuts.tap') : t('shortcuts.taps')}
           </Badge>
         </div>
       </div>
       
-      {/* Chevron - fixed size, never shrinks */}
+      {/* Chevron - fixed, never shrinks */}
       <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 rtl:rotate-180" />
     </button>
   );
@@ -435,7 +433,7 @@ export function ShortcutsList({ isOpen, onClose, onCreateReminder }: ShortcutsLi
   return (
     <>
       <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
-        <SheetContent side="bottom" className="h-[85vh] p-0 flex flex-col overflow-hidden max-w-full">
+        <SheetContent side="bottom" className="h-[85vh] p-0 flex flex-col overflow-hidden w-full max-w-full">
           <SheetHeader className="p-4 pb-2 border-b flex flex-row items-center justify-between">
             <SheetTitle className="text-start">{t('shortcuts.title')}</SheetTitle>
             <div className="flex items-center gap-2">
@@ -562,7 +560,7 @@ export function ShortcutsList({ isOpen, onClose, onCreateReminder }: ShortcutsLi
             </div>
           ) : (
           <ScrollArea className="flex-1 w-full" viewportClassName="overflow-x-hidden">
-              <div className="p-2 w-full max-w-full overflow-hidden">
+              <div className="p-2">
                 {filteredShortcuts.map((shortcut) => (
                   <ShortcutListItem
                     key={shortcut.id}
