@@ -91,6 +91,20 @@ function ShortcutIcon({ shortcut }: { shortcut: ShortcutData }) {
     );
   }
   
+  if (icon.type === 'platform') {
+    // Get platform color from the icon value
+    const { getPlatformColor } = require('@/lib/platformColors');
+    const colorInfo = getPlatformColor(icon.value);
+    return (
+      <div 
+        className="h-12 w-12 rounded-xl flex items-center justify-center text-lg"
+        style={{ backgroundColor: colorInfo.bgColor, color: colorInfo.textColor }}
+      >
+        {colorInfo.letter}
+      </div>
+    );
+  }
+  
   if (icon.type === 'thumbnail' && imageSources.length > 0) {
     return (
       <div className="h-12 w-12 rounded-xl overflow-hidden bg-muted">

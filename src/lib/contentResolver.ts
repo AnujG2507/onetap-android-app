@@ -3,6 +3,7 @@ import { Capacitor } from '@capacitor/core';
 import ShortcutPlugin from '@/plugins/ShortcutPlugin';
 import type { FileType, ContentSource } from '@/types/shortcut';
 import { VIDEO_CACHE_THRESHOLD } from '@/types/shortcut';
+import { detectPlatform, type PlatformInfo } from '@/lib/platformIcons';
 
 // Maximum file size for base64 encoding - matches VIDEO_CACHE_THRESHOLD (50MB)
 // Videos larger than this cannot have shortcuts created
@@ -28,110 +29,63 @@ export function detectFileType(mimeType?: string, filename?: string): FileType {
   return 'document';
 }
 
-// Platform emoji mapping for OTT and social media platforms
-const PLATFORM_EMOJIS: Record<string, string> = {
-  netflix: '🎬',
-  primevideo: '📺',
-  amazon: '📺',
-  disneyplus: '✨',
-  hotstar: '🏏',
-  jiocinema: '🎥',
+// Platform icon key to emoji fallback mapping (used when branded icons unavailable)
+const PLATFORM_EMOJI_MAP: Record<string, string> = {
   youtube: '▶️',
-  youtu: '▶️',
-  spotify: '🎵',
   instagram: '📷',
   twitter: '🐦',
-  x: '🐦',
-  tiktok: '🎵',
-  vimeo: '🎞️',
-  apple: '🍎',
   facebook: '👤',
   linkedin: '💼',
+  github: '💻',
   reddit: '🔶',
+  tiktok: '🎵',
   pinterest: '📌',
+  spotify: '🎵',
   twitch: '🎮',
-  default: '🔗',
+  discord: '💬',
+  whatsapp: '💬',
+  telegram: '✈️',
+  medium: '📝',
+  vimeo: '🎞️',
+  dribbble: '🎨',
+  behance: '🎨',
+  figma: '🎨',
+  notion: '📝',
+  slack: '💬',
+  amazon: '📦',
+  netflix: '🎬',
+  'google-drive': '📁',
+  google: '🔍',
+  apple: '🍎',
+  microsoft: '🪟',
+  dropbox: '📦',
+  trello: '📋',
+  asana: '✅',
+  zoom: '📹',
+  snapchat: '👻',
 };
 
-// Helper to match exact domain (including subdomains like www.x.com)
-function hostMatchesDomain(host: string, domain: string): boolean {
-  return host === domain || host.endsWith('.' + domain);
-}
-
-// Parse deep links for supported platforms
+// Parse deep links for supported platforms - uses consolidated detection
 export function parseDeepLink(url: string): { platform: string; isDeepLink: boolean } {
-  try {
-    const urlObj = new URL(url);
-    const host = urlObj.hostname.toLowerCase();
-    
-    if (host.includes('instagram.com')) {
-      return { platform: 'Instagram', isDeepLink: true };
-    }
-    if (host.includes('youtube.com') || host.includes('youtu.be')) {
-      return { platform: 'YouTube', isDeepLink: true };
-    }
-    // Use exact match for x.com to avoid matching netflix.com, fedex.com, etc.
-    if (host.includes('twitter.com') || hostMatchesDomain(host, 'x.com')) {
-      return { platform: 'X', isDeepLink: true };
-    }
-    if (host.includes('tiktok.com')) {
-      return { platform: 'TikTok', isDeepLink: true };
-    }
-    if (host.includes('netflix.com')) {
-      return { platform: 'Netflix', isDeepLink: true };
-    }
-    if (host.includes('primevideo.com') || (host.includes('amazon.') && url.includes('/video'))) {
-      return { platform: 'Prime Video', isDeepLink: true };
-    }
-    if (host.includes('disneyplus.com')) {
-      return { platform: 'Disney+', isDeepLink: true };
-    }
-    if (host.includes('hotstar.com')) {
-      return { platform: 'Hotstar', isDeepLink: true };
-    }
-    if (host.includes('jiocinema.com')) {
-      return { platform: 'JioCinema', isDeepLink: true };
-    }
-    if (host.includes('spotify.com')) {
-      return { platform: 'Spotify', isDeepLink: true };
-    }
-    if (host.includes('vimeo.com')) {
-      return { platform: 'Vimeo', isDeepLink: true };
-    }
-    if (host.includes('tv.apple.com')) {
-      return { platform: 'Apple TV', isDeepLink: true };
-    }
-    
-    return { platform: 'Web', isDeepLink: false };
-  } catch {
-    return { platform: 'Web', isDeepLink: false };
+  const platformInfo = detectPlatform(url);
+  if (platformInfo) {
+    return { platform: platformInfo.name, isDeepLink: true };
   }
+  return { platform: 'Web', isDeepLink: false };
 }
 
-// Get platform-specific emoji for a URL
+// Get platform-specific emoji for a URL - uses consolidated detection
 export function getPlatformEmoji(url: string): string {
-  try {
-    const urlObj = new URL(url);
-    const host = urlObj.hostname.toLowerCase();
-    
-    // Check each platform key against the hostname
-    for (const [key, emoji] of Object.entries(PLATFORM_EMOJIS)) {
-      if (key === 'default') continue;
-      
-      // For very short keys (x, t), use exact domain matching to avoid false positives
-      if (key.length <= 2) {
-        if (hostMatchesDomain(host, key + '.com') || hostMatchesDomain(host, key + '.me')) {
-          return emoji;
-        }
-      } else if (host.includes(key)) {
-        return emoji;
-      }
-    }
-    
-    return PLATFORM_EMOJIS.default;
-  } catch {
-    return PLATFORM_EMOJIS.default;
+  const platformInfo = detectPlatform(url);
+  if (platformInfo?.icon && PLATFORM_EMOJI_MAP[platformInfo.icon]) {
+    return PLATFORM_EMOJI_MAP[platformInfo.icon];
   }
+  return '🔗'; // default
+}
+
+// Get detected platform info for a URL (for platform icon type)
+export function getDetectedPlatform(url: string): PlatformInfo | null {
+  return detectPlatform(url);
 }
 
 // Validate URL - must have valid protocol and proper domain structure

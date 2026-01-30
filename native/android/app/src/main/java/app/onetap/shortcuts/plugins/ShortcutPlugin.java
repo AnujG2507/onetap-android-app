@@ -1342,7 +1342,14 @@ public class ShortcutPlugin extends Plugin {
             }
         }
         
-        // Priority 2: Icon URI (data URL or file URI)
+        // Priority 2: Platform icon (branded icons for recognized URLs)
+        String platformIcon = call.getString("iconPlatform");
+        if (platformIcon != null && !platformIcon.isEmpty()) {
+            android.util.Log.d("ShortcutPlugin", "Creating platform icon: " + platformIcon);
+            return createPlatformIcon(platformIcon);
+        }
+        
+        // Priority 3: Icon URI (data URL or file URI)
         String iconUri = call.getString("iconUri");
         if (iconUri != null && !iconUri.isEmpty()) {
             android.util.Log.d("ShortcutPlugin", "Creating icon from URI: " + iconUri.substring(0, Math.min(50, iconUri.length())));
@@ -1374,21 +1381,21 @@ public class ShortcutPlugin extends Plugin {
             }
         }
         
-        // Priority 3: Emoji icon
+        // Priority 4: Emoji icon
         String emoji = call.getString("iconEmoji");
         if (emoji != null) {
             android.util.Log.d("ShortcutPlugin", "Creating emoji icon: " + emoji);
             return createEmojiIcon(emoji);
         }
 
-        // Priority 4: Text icon
+        // Priority 5: Text icon
         String text = call.getString("iconText");
         if (text != null) {
             android.util.Log.d("ShortcutPlugin", "Creating text icon: " + text);
             return createTextIcon(text);
         }
 
-        // Priority 5: Auto-generate video thumbnail if this is a video file
+        // Priority 6: Auto-generate video thumbnail if this is a video file
         String intentType = call.getString("intentType");
         String intentData = call.getString("intentData");
         if (intentType != null && intentType.startsWith("video/") && intentData != null) {
@@ -1407,6 +1414,127 @@ public class ShortcutPlugin extends Plugin {
 
         android.util.Log.d("ShortcutPlugin", "Using default icon");
         return Icon.createWithResource(getContext(), android.R.drawable.ic_menu_add);
+    }
+    
+    // Create branded platform icon with platform-specific colors
+    private Icon createPlatformIcon(String platformKey) {
+        // Adaptive icon size: 108dp * 2 = 216px for foreground layer
+        int adaptiveSize = 216;
+        Bitmap bitmap = Bitmap.createBitmap(adaptiveSize, adaptiveSize, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bitmap);
+        
+        // Get platform-specific color and letter
+        int bgColor = getPlatformColor(platformKey);
+        String letter = getPlatformLetter(platformKey);
+        boolean useWhiteText = shouldUseWhiteText(platformKey);
+        
+        // Fill entire canvas with platform brand color
+        Paint bgPaint = new Paint();
+        bgPaint.setColor(bgColor);
+        bgPaint.setStyle(Paint.Style.FILL);
+        canvas.drawRect(0, 0, adaptiveSize, adaptiveSize, bgPaint);
+        
+        // Draw platform letter/symbol centered
+        Paint textPaint = new Paint();
+        textPaint.setColor(useWhiteText ? Color.WHITE : Color.BLACK);
+        textPaint.setTextSize(adaptiveSize * 0.4f);
+        textPaint.setTextAlign(Paint.Align.CENTER);
+        textPaint.setAntiAlias(true);
+        textPaint.setFakeBoldText(true);
+        float y = (adaptiveSize / 2f) - ((textPaint.descent() + textPaint.ascent()) / 2);
+        canvas.drawText(letter, adaptiveSize / 2f, y, textPaint);
+        
+        android.util.Log.d("ShortcutPlugin", "Created platform icon for: " + platformKey);
+        return Icon.createWithAdaptiveBitmap(bitmap);
+    }
+    
+    // Get platform brand color
+    private int getPlatformColor(String platformKey) {
+        switch (platformKey) {
+            case "youtube": return Color.parseColor("#DC2626");
+            case "instagram": return Color.parseColor("#E11D48");
+            case "twitter": return Color.BLACK;
+            case "facebook": return Color.parseColor("#1877F2");
+            case "linkedin": return Color.parseColor("#0A66C2");
+            case "github": return Color.parseColor("#181717");
+            case "reddit": return Color.parseColor("#FF4500");
+            case "tiktok": return Color.BLACK;
+            case "pinterest": return Color.parseColor("#BD081C");
+            case "spotify": return Color.parseColor("#1DB954");
+            case "twitch": return Color.parseColor("#9146FF");
+            case "discord": return Color.parseColor("#5865F2");
+            case "whatsapp": return Color.parseColor("#25D366");
+            case "telegram": return Color.parseColor("#0088CC");
+            case "medium": return Color.BLACK;
+            case "vimeo": return Color.parseColor("#1AB7EA");
+            case "dribbble": return Color.parseColor("#EA4C89");
+            case "behance": return Color.parseColor("#1769FF");
+            case "figma": return Color.parseColor("#F24E1E");
+            case "notion": return Color.BLACK;
+            case "slack": return Color.parseColor("#4A154B");
+            case "amazon": return Color.parseColor("#FF9900");
+            case "netflix": return Color.parseColor("#E50914");
+            case "google-drive": return Color.parseColor("#4285F4");
+            case "google": return Color.parseColor("#4285F4");
+            case "apple": return Color.BLACK;
+            case "microsoft": return Color.parseColor("#00A4EF");
+            case "dropbox": return Color.parseColor("#0061FF");
+            case "trello": return Color.parseColor("#0052CC");
+            case "asana": return Color.parseColor("#F06A6A");
+            case "zoom": return Color.parseColor("#2D8CFF");
+            case "snapchat": return Color.parseColor("#FFFC00");
+            default: return Color.parseColor("#2563EB"); // Primary blue fallback
+        }
+    }
+    
+    // Get platform letter/symbol for icon
+    private String getPlatformLetter(String platformKey) {
+        switch (platformKey) {
+            case "youtube": return "▶";
+            case "instagram": return "📷";
+            case "twitter": return "𝕏";
+            case "facebook": return "f";
+            case "linkedin": return "in";
+            case "github": return "⌥";
+            case "reddit": return "r";
+            case "tiktok": return "♪";
+            case "pinterest": return "P";
+            case "spotify": return "♫";
+            case "twitch": return "⚡";
+            case "discord": return "🎮";
+            case "whatsapp": return "💬";
+            case "telegram": return "✈";
+            case "medium": return "M";
+            case "vimeo": return "▶";
+            case "dribbble": return "🏀";
+            case "behance": return "Bē";
+            case "figma": return "◈";
+            case "notion": return "N";
+            case "slack": return "#";
+            case "amazon": return "a";
+            case "netflix": return "N";
+            case "google-drive": return "△";
+            case "google": return "G";
+            case "apple": return "";
+            case "microsoft": return "⊞";
+            case "dropbox": return "📦";
+            case "trello": return "▣";
+            case "asana": return "∞";
+            case "zoom": return "📹";
+            case "snapchat": return "👻";
+            default: return "🔗";
+        }
+    }
+    
+    // Determine if platform should use white or black text
+    private boolean shouldUseWhiteText(String platformKey) {
+        switch (platformKey) {
+            case "amazon":
+            case "snapchat":
+                return false; // Use black text on light backgrounds
+            default:
+                return true; // Use white text on dark backgrounds
+        }
     }
     
     // Create icon from base64 image data
