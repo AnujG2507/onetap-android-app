@@ -41,11 +41,11 @@ export function ContentPreview({ source, className }: ContentPreviewProps) {
       <div 
         className={cn(
           "flex-shrink-0 h-12 w-12 rounded-lg overflow-hidden flex items-center justify-center",
-          platform ? "bg-white dark:bg-gray-100 shadow-sm" : "bg-primary/10"
+          !platform && "bg-primary/10"
         )}
       >
         {platform ? (
-          <PlatformIcon platform={platform} size="lg" brandColored />
+          <PlatformIcon platform={platform} size="lg" />
         ) : isImage && imageSources.length > 0 ? (
           <ImageWithFallback
             sources={imageSources}
