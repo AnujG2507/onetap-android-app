@@ -198,12 +198,11 @@
             android:noHistory="true"
             android:excludeFromRecents="true" />
 
-        <!-- WhatsApp Proxy Activity - handles multi-message WhatsApp shortcuts -->
+        <!-- WhatsApp Proxy Activity - handles multi-message WhatsApp shortcuts with native dialog -->
         <activity
             android:name=".WhatsAppProxyActivity"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:theme="@android:style/Theme.Material.Light.Dialog"
             android:exported="false"
-            android:noHistory="true"
             android:excludeFromRecents="true" />
 
         <!-- Link Proxy Activity - tracks link shortcut taps before opening browser -->
