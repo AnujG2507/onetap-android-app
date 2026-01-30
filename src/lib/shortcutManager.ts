@@ -280,6 +280,7 @@ export async function createHomeScreenShortcut(
       iconEmoji?: string;
       iconText?: string;
       iconData?: string; // base64 thumbnail data for native icon
+      iconPlatform?: string; // Platform key for branded icons
     } = {};
     
     if (shortcut.icon.type === 'thumbnail') {
@@ -314,6 +315,9 @@ export async function createHomeScreenShortcut(
     } else if (shortcut.icon.type === 'text') {
       iconOptions.iconText = shortcut.icon.value;
       console.log('[ShortcutManager] Using text icon:', shortcut.icon.value);
+    } else if (shortcut.icon.type === 'platform') {
+      iconOptions.iconPlatform = shortcut.icon.value;
+      console.log('[ShortcutManager] Using platform icon:', shortcut.icon.value);
     }
     
     // Prepare file data for web file picker flow

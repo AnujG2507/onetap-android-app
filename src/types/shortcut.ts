@@ -2,13 +2,13 @@ export type ShortcutType = 'file' | 'link' | 'contact' | 'message';
 
 export type FileType = 'image' | 'video' | 'pdf' | 'document' | 'audio';
 
-export type IconType = 'thumbnail' | 'emoji' | 'text';
+export type IconType = 'thumbnail' | 'emoji' | 'text' | 'platform';
 
 export type MessageApp = 'whatsapp' | 'telegram' | 'signal' | 'slack';
 
 export interface ShortcutIcon {
   type: IconType;
-  value: string; // base64 for thumbnail, emoji character, or text
+  value: string; // base64 for thumbnail, emoji character, text, or platform icon key (e.g., 'youtube', 'netflix')
 }
 
 export interface ShortcutData {

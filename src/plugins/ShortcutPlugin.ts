@@ -8,6 +8,7 @@ export interface ShortcutPluginInterface {
     iconEmoji?: string;
     iconText?: string;
     iconData?: string; // base64 thumbnail data for icon
+    iconPlatform?: string; // Platform key for branded icons (e.g., 'youtube', 'netflix')
     intentAction: string;
     intentData: string;
     intentType?: string;

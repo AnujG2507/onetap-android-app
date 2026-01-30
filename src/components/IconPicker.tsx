@@ -1,33 +1,34 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Image as ImageIcon, Type, Smile, X, ImageOff } from 'lucide-react';
+import { Image as ImageIcon, Type, Smile, X, ImageOff, Globe } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { triggerSelectionFeedback } from '@/lib/haptics';
 import { Input } from '@/components/ui/input';
 import { ImageWithFallback } from '@/components/ui/image-with-fallback';
+import { PlatformIcon } from '@/components/PlatformIcon';
 import { isValidImageSource, buildImageSources } from '@/lib/imageUtils';
+import { detectPlatform, type PlatformInfo } from '@/lib/platformIcons';
+import { getPlatformColor } from '@/lib/platformColors';
 import type { ShortcutIcon, IconType } from '@/types/shortcut';
 
 interface IconPickerProps {
   thumbnail?: string;
+  platformIcon?: string; // Platform icon key from platformIcons.ts (e.g., 'youtube', 'netflix')
   selectedIcon: ShortcutIcon;
   onSelect: (icon: ShortcutIcon) => void;
 }
 
+// Streamlined emoji list - file types and generic icons (platform-specific removed)
 const COMMON_EMOJIS = [
-  // Platform & media
-  '🎬', '📺', '▶️', '🎵', '📷', '🐦', '✨', '🏏', '🎥', '🔗',
-  // Social & services  
-  '🎞️', '🍎', '👤', '💼', '🔶', '📌', '🎮',
-  // File types
-  '🖼️', '📄', '📑', '📊', '📽️', '📝', '📃', '🌐',
-  // Tech & misc
-  '🎨', '💻', '📦', '📚', '⚙️', '🔊', '📻',
-  // Common extras
-  '⭐', '❤️', '🔥', '💡', '🎯', '🚀', '📱', '🏠'
+  // File types (primary use case for emoji mode)
+  '🖼️', '📄', '📑', '📊', '📽️', '📝', '📃', '📁',
+  // Actions/categories
+  '⭐', '❤️', '🔥', '💡', '🎯', '🚀', '📱', '🏠',
+  // Misc useful
+  '🎨', '💻', '📦', '📚', '⚙️', '🔔', '📍', '🔗',
 ];
 
-export function IconPicker({ thumbnail, selectedIcon, onSelect }: IconPickerProps) {
+export function IconPicker({ thumbnail, platformIcon, selectedIcon, onSelect }: IconPickerProps) {
   const { t } = useTranslation();
   const [textValue, setTextValue] = useState(
     selectedIcon.type === 'text' ? selectedIcon.value : ''
@@ -41,6 +42,11 @@ export function IconPicker({ thumbnail, selectedIcon, onSelect }: IconPickerProp
   const validThumbnail = useMemo(() => 
     thumbnail && isValidImageSource(thumbnail) ? thumbnail : null,
   [thumbnail]);
+  
+  // Get platform info for rendering
+  const platformInfo = useMemo(() => 
+    platformIcon ? detectPlatform(`https://${platformIcon}.com`) : null,
+  [platformIcon]);
   
   // Build image sources for the thumbnail preview
   const thumbnailSources = useMemo(() => 
@@ -124,10 +130,23 @@ export function IconPicker({ thumbnail, selectedIcon, onSelect }: IconPickerProp
     }, 100);
   }, [selectedIcon.value, onSelect]);
 
-  // Only show thumbnail option if we have a valid thumbnail and it hasn't failed
+  // Build icon types array with platform option when available
   const iconTypes: { type: IconType; icon: React.ReactNode; label: string }[] = [
-    ...(validThumbnail && !thumbnailFailed ? [{ type: 'thumbnail' as IconType, icon: <ImageIcon className="h-5 w-5" />, label: t('iconPicker.image') }] : []),
+    // Platform icon option - shown first when available
+    ...(platformIcon && platformInfo ? [{ 
+      type: 'platform' as IconType, 
+      icon: <Globe className="h-5 w-5" />, 
+      label: platformInfo.name 
+    }] : []),
+    // Thumbnail option
+    ...(validThumbnail && !thumbnailFailed ? [{ 
+      type: 'thumbnail' as IconType, 
+      icon: <ImageIcon className="h-5 w-5" />, 
+      label: t('iconPicker.image') 
+    }] : []),
+    // Emoji option
     { type: 'emoji', icon: <Smile className="h-5 w-5" />, label: t('iconPicker.emoji') },
+    // Text option
     { type: 'text', icon: <Type className="h-5 w-5" />, label: t('iconPicker.text') },
   ];
 
@@ -141,7 +160,9 @@ export function IconPicker({ thumbnail, selectedIcon, onSelect }: IconPickerProp
           <button
             key={type}
             onClick={() => {
-              if (type === 'thumbnail' && thumbnail) {
+              if (type === 'platform' && platformIcon) {
+                onSelect({ type: 'platform', value: platformIcon });
+              } else if (type === 'thumbnail' && thumbnail) {
                 onSelect({ type: 'thumbnail', value: thumbnail });
               } else if (type === 'emoji') {
                 onSelect({ type: 'emoji', value: COMMON_EMOJIS[0] });
@@ -162,7 +183,7 @@ export function IconPicker({ thumbnail, selectedIcon, onSelect }: IconPickerProp
         ))}
       </div>
       
-      {/* Icon preview - only for thumbnail and text */}
+      {/* Icon preview - for platform, thumbnail, and text types */}
       {selectedIcon.type !== 'emoji' && (
         <div 
           key={`preview-${selectedIcon.type}`}
@@ -170,10 +191,17 @@ export function IconPicker({ thumbnail, selectedIcon, onSelect }: IconPickerProp
         >
           <div
             className={cn(
-              "h-16 w-16 rounded-2xl flex items-center justify-center elevation-2",
-              selectedIcon.type === 'thumbnail' ? 'p-0 overflow-hidden' : 'bg-primary'
+              "h-16 w-16 rounded-2xl flex items-center justify-center elevation-2 overflow-hidden",
+              selectedIcon.type === 'thumbnail' ? 'p-0' : '',
+              selectedIcon.type === 'platform' ? '' : 'bg-primary'
             )}
+            style={selectedIcon.type === 'platform' && platformInfo ? {
+              backgroundColor: platformInfo.bgColor.startsWith('bg-') ? undefined : platformInfo.bgColor
+            } : undefined}
           >
+            {selectedIcon.type === 'platform' && platformInfo && (
+              <PlatformIcon platform={platformInfo} size="lg" />
+            )}
             {selectedIcon.type === 'thumbnail' && thumbnailSources.length > 0 && (
               <ImageWithFallback
                 sources={thumbnailSources}

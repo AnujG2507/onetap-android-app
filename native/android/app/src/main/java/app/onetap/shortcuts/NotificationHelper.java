@@ -159,10 +159,19 @@ public class NotificationHelper {
     
     /**
      * Get notification icon resource based on destination type.
+     * Returns context-aware icons for better visual identification.
      */
     private static int getNotificationIcon(String destinationType) {
-        // Use launcher icon as fallback - in production, use specific icons
-        return android.R.drawable.ic_popup_reminder;
+        switch (destinationType) {
+            case "url":
+                return R.drawable.ic_notification_link;
+            case "contact":
+                return R.drawable.ic_notification_phone;
+            case "file":
+                return R.drawable.ic_notification_file;
+            default:
+                return R.drawable.ic_notification_default;
+        }
     }
     
     /**

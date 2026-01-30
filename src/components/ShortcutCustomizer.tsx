@@ -8,8 +8,10 @@ import { Progress } from '@/components/ui/progress';
 import { IconPicker } from './IconPicker';
 import { ContentPreview } from './ContentPreview';
 import { ImageWithFallback } from '@/components/ui/image-with-fallback';
-import { getContentName, generateThumbnail, getPlatformEmoji, getFileTypeEmoji } from '@/lib/contentResolver';
+import { PlatformIcon } from '@/components/PlatformIcon';
+import { getContentName, generateThumbnail, getPlatformEmoji, getFileTypeEmoji, getDetectedPlatform } from '@/lib/contentResolver';
 import { buildImageSources } from '@/lib/imageUtils';
+import { detectPlatform } from '@/lib/platformIcons';
 import type { ContentSource, ShortcutIcon } from '@/types/shortcut';
 import { FILE_SIZE_THRESHOLD } from '@/types/shortcut';
 
@@ -43,9 +45,22 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
   const isLargeFile = (source.fileSize || 0) > LARGE_FILE_THRESHOLD;
   const fileSizeMB = source.fileSize ? (source.fileSize / (1024 * 1024)).toFixed(1) : null;
   
-  // Get initial emoji based on source type - smart defaults
+  // Detect platform for URL shortcuts
+  const detectedPlatform = useMemo(() => {
+    if (source.type === 'url' || source.type === 'share') {
+      return detectPlatform(source.uri);
+    }
+    return null;
+  }, [source.type, source.uri]);
+  
+  // Get initial icon based on source type - prefer platform icons for recognized URLs
   const getInitialIcon = (): ShortcutIcon => {
     if (source.type === 'url' || source.type === 'share') {
+      // Use platform icon for recognized platforms
+      if (detectedPlatform?.icon) {
+        return { type: 'platform', value: detectedPlatform.icon };
+      }
+      // Fallback to emoji for unrecognized URLs
       return { type: 'emoji', value: getPlatformEmoji(source.uri) };
     }
     // For files, use file-type specific emoji
@@ -185,6 +200,7 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
           <div className="relative">
             <IconPicker
               thumbnail={thumbnail || undefined}
+              platformIcon={detectedPlatform?.icon || undefined}
               selectedIcon={icon}
               onSelect={setIcon}
             />
@@ -246,6 +262,9 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
                 <span className="text-xl font-bold text-primary-foreground">
                   {icon.value.slice(0, 2).toUpperCase()}
                 </span>
+              )}
+              {!isLoadingThumbnail && icon.type === 'platform' && detectedPlatform && (
+                <PlatformIcon platform={detectedPlatform} size="md" />
               )}
             </div>
             <span className="text-xs text-foreground max-w-[72px] text-center truncate">
