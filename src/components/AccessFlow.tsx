@@ -88,10 +88,54 @@ export function AccessFlow({
   const handleCloseTrash = useCallback(() => setIsTrashOpen(false), []);
   const handleCloseBookmarkPicker = useCallback(() => setShowBookmarkPicker(false), []);
   const handleCloseSettings = useCallback(() => setShowSettings(false), []);
+
+  const handleReset = useCallback(() => {
+    setStep('source');
+    setContentSource(null);
+    setContactData(null);
+    setLastCreatedName('');
+    setPendingActionMode('shortcut');
+  }, []);
+
+  // Consolidated back navigation handler
+  const handleGoBack = useCallback(() => {
+    switch (step) {
+      case 'url':
+        setStep('source');
+        setContentSource(null);
+        setPendingActionMode('shortcut');
+        break;
+      case 'customize':
+        if (contentSource?.type === 'url') {
+          setStep('url');
+        } else {
+          setStep('source');
+          setContentSource(null);
+        }
+        break;
+      case 'contact':
+        setStep('source');
+        setContactData(null);
+        setContentSource(null);
+        setPendingActionMode('shortcut');
+        break;
+      case 'success':
+        handleReset();
+        break;
+      default:
+        break;
+    }
+  }, [step, contentSource?.type, handleReset]);
   
   useSheetBackHandler('access-trash-sheet', isTrashOpen, handleCloseTrash);
   useSheetBackHandler('access-bookmark-picker', showBookmarkPicker, handleCloseBookmarkPicker);
   useSheetBackHandler('access-settings-page', showSettings, handleCloseSettings);
+
+  // Register journey steps with back handler (priority 10 to intercept before Index fallback)
+  useSheetBackHandler('access-url-step', step === 'url', handleGoBack, 10);
+  useSheetBackHandler('access-customize-step', step === 'customize', handleGoBack, 10);
+  useSheetBackHandler('access-contact-step', step === 'contact', handleGoBack, 10);
+  useSheetBackHandler('access-success-step', step === 'success', handleReset, 10);
 
   // Notify parent of step changes
   useEffect(() => {
@@ -358,43 +402,6 @@ export function AccessFlow({
     }
   };
 
-  const handleReset = () => {
-    setStep('source');
-    setContentSource(null);
-    setContactData(null);
-    setLastCreatedName('');
-    setPendingActionMode('shortcut');
-  };
-
-  // Consolidated back navigation handler
-  const handleGoBack = () => {
-    switch (step) {
-      case 'url':
-        setStep('source');
-        setContentSource(null);
-        setPendingActionMode('shortcut');
-        break;
-      case 'customize':
-        if (contentSource?.type === 'url') {
-          setStep('url');
-        } else {
-          setStep('source');
-          setContentSource(null);
-        }
-        break;
-      case 'contact':
-        setStep('source');
-        setContactData(null);
-        setContentSource(null);
-        setPendingActionMode('shortcut');
-        break;
-      case 'success':
-        handleReset();
-        break;
-      default:
-        break;
-    }
-  };
 
   // Show settings page
   if (showSettings) {
