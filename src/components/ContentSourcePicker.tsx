@@ -136,13 +136,16 @@ export function ContentSourcePicker({
       updateSecondaryPicker(null);
     } else {
       updateSecondaryPicker(picker);
-      // Scroll to bottom after picker opens
+      // Scroll to absolute bottom after picker animation completes
       setTimeout(() => {
-        scrollContainerRef.current?.scrollTo({
-          top: scrollContainerRef.current.scrollHeight,
-          behavior: 'smooth'
-        });
-      }, 50);
+        const scroller = scrollContainerRef.current;
+        if (scroller) {
+          scroller.scrollTo({
+            top: scroller.scrollHeight,
+            behavior: 'smooth'
+          });
+        }
+      }, 300);
     }
   };
 
