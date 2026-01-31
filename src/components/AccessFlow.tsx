@@ -72,6 +72,7 @@ export function AccessFlow({
   const [showBookmarkPicker, setShowBookmarkPicker] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [pendingActionMode, setPendingActionMode] = useState<ActionMode>('shortcut');
+  const [isInlinePickerOpen, setIsInlinePickerOpen] = useState(false);
   const processedInitialUrlRef = useRef<string | null>(null);
 
   const { t } = useTranslation();
@@ -440,17 +441,22 @@ export function AccessFlow({
               onSelectContact={handleSelectContact}
               onSelectFromLibrary={handleSelectFromLibrary}
               onEnterUrl={handleEnterUrl}
-              onPickerOpenChange={onPickerOpenChange}
+              onPickerOpenChange={(isOpen) => {
+                setIsInlinePickerOpen(isOpen);
+                onPickerOpenChange?.(isOpen);
+              }}
             />
           </div>
           
-          {/* Fixed My Shortcuts Button - positioned above bottom nav */}
-          <div
-            id="my-shortcuts-fixed"
-            className="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom)+0.75rem)] left-0 right-0 px-5 z-10"
-          >
-            <MyShortcutsButton />
-          </div>
+          {/* Fixed My Shortcuts Button - positioned above bottom nav, hidden when inline picker is open */}
+          {!isInlinePickerOpen && (
+            <div
+              id="my-shortcuts-fixed"
+              className="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom)+0.75rem)] left-0 right-0 px-5 z-10"
+            >
+              <MyShortcutsButton />
+            </div>
+          )}
 
           {/* Clipboard URL auto-detection */}
           {detectedUrl && (
