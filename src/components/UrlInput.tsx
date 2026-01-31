@@ -143,7 +143,7 @@ export function UrlInput({ onSubmit, onBack, initialUrl }: UrlInputProps) {
 
   return (
     <div className="flex flex-col h-full">
-      <header className="flex items-center gap-3 p-4 pt-header-safe-compact border-b">
+      <header className="flex items-center gap-3 p-4 pt-header-safe-compact landscape:p-3 landscape:pt-2 border-b">
         <button
           onClick={onBack}
           className="p-2 -ms-2 rounded-full hover:bg-muted active:bg-muted/80"
@@ -153,7 +153,7 @@ export function UrlInput({ onSubmit, onBack, initialUrl }: UrlInputProps) {
         <h2 className="text-lg font-medium">{t('urlInput.enterLink')}</h2>
       </header>
       
-      <div className="flex-1 p-4 overflow-y-auto">
+      <div className="flex-1 p-4 landscape:p-3 overflow-y-auto">
         <div className="relative flex gap-2">
           <div className="relative flex-1">
             <div className="absolute start-3 top-1/2 -translate-y-1/2 text-muted-foreground">
@@ -221,7 +221,7 @@ export function UrlInput({ onSubmit, onBack, initialUrl }: UrlInputProps) {
           
           {/* Expandable options when toggle is ON */}
           {saveToLibrary && (
-            <div className="p-4 rounded-xl bg-muted/20 space-y-3 animate-fade-in">
+            <div className="p-4 rounded-xl bg-muted/20 space-y-3 animate-fade-in landscape:grid landscape:grid-cols-2 landscape:gap-4 landscape:space-y-0">
               <div className="relative">
                 <Input
                   value={linkTitle}
@@ -279,11 +279,11 @@ export function UrlInput({ onSubmit, onBack, initialUrl }: UrlInputProps) {
         </div>
       </div>
       
-      <div className="p-4 safe-bottom">
+      <div className="p-4 landscape:p-3 safe-bottom">
         <Button
           onClick={handleSubmit}
           disabled={!url.trim()}
-          className="w-full h-12 text-base font-medium"
+          className="w-full h-12 landscape:h-10 text-base font-medium"
         >
           {t('common.continue')}
           <ArrowRight className="ms-2 h-5 w-5 rtl:rotate-180" />

@@ -152,7 +152,7 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
 
   return (
     <div className="flex flex-col h-full">
-      <header className="flex items-center gap-3 p-4 pt-header-safe-compact border-b">
+      <header className="flex items-center gap-3 p-4 pt-header-safe-compact landscape:p-3 landscape:pt-2 border-b">
         <button
           onClick={onBack}
           className="p-2 -ms-2 rounded-full hover:bg-muted active:bg-muted/80"
@@ -162,9 +162,12 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
         <h2 className="text-lg font-medium">{t('shortcutCustomizer.setUpAccess')}</h2>
       </header>
       
-      <div className="flex-1 p-4 space-y-8 overflow-auto animate-fade-in">
-        {/* Content Preview */}
-        <ContentPreview source={source} />
+      <div className="flex-1 p-4 landscape:p-3 overflow-auto animate-fade-in">
+        <div className="space-y-8 landscape:space-y-0 landscape:grid landscape:grid-cols-2 landscape:gap-6">
+          {/* Left column: Content preview, name input, icon picker */}
+          <div className="space-y-6 landscape:space-y-4">
+            {/* Content Preview */}
+            <ContentPreview source={source} />
         
         {/* File size indicator for videos */}
         {isVideo && fileSizeMB && (
@@ -225,91 +228,96 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
               </div>
             )}
           </div>
-        </div>
-        
-        {/* PDF Resume Toggle - only shown for PDFs */}
-        {isPdf && (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between p-4 rounded-xl bg-muted/30">
-              <div className="flex-1 me-4">
-                <p className="font-medium text-foreground">{t('shortcutCustomizer.returnToLastPage')}</p>
-                <p className="text-sm text-muted-foreground">{t('shortcutCustomizer.openWhereYouLeftOff')}</p>
-              </div>
-              <Switch
-                checked={resumeEnabled}
-                onCheckedChange={setResumeEnabled}
-              />
-            </div>
           </div>
-        )}
-        
-        {/* Preview */}
-        <div className="pt-6 border-t border-border">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-center mb-4">
-            {t('shortcutCustomizer.preview')}
-          </p>
-          <div className="flex flex-col items-center gap-2">
-            <div
-              className="h-14 w-14 rounded-2xl flex items-center justify-center elevation-2 overflow-hidden relative"
-              style={
-                icon.type === 'favicon'
-                  ? { backgroundColor: '#FFFFFF' }
-                  : icon.type === 'thumbnail' || icon.type === 'platform'
-                    ? {} 
-                    : { backgroundColor: 'hsl(var(--primary))' }
-              }
-            >
-              {isLoadingThumbnail && (
-                <div className="absolute inset-0 flex items-center justify-center bg-muted">
-                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
+          
+          {/* Right column: Preview, PDF toggle */}
+          <div className="space-y-6 landscape:space-y-4">
+            {/* PDF Resume Toggle - only shown for PDFs */}
+            {isPdf && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between p-4 landscape:p-3 rounded-xl bg-muted/30">
+                  <div className="flex-1 me-4">
+                    <p className="font-medium text-foreground">{t('shortcutCustomizer.returnToLastPage')}</p>
+                    <p className="text-sm text-muted-foreground">{t('shortcutCustomizer.openWhereYouLeftOff')}</p>
+                  </div>
+                  <Switch
+                    checked={resumeEnabled}
+                    onCheckedChange={setResumeEnabled}
+                  />
                 </div>
-              )}
-              {!isLoadingThumbnail && icon.type === 'thumbnail' && previewSources.length > 0 && (
-                <ImageWithFallback
-                  sources={previewSources}
-                  fallback={<span className="text-2xl">📱</span>}
-                  alt=""
-                  className="h-full w-full object-cover"
-                  showSkeleton={false}
-                />
-              )}
-              {!isLoadingThumbnail && icon.type === 'thumbnail' && previewSources.length === 0 && (
-                <span className="text-2xl">📱</span>
-              )}
-              {!isLoadingThumbnail && icon.type === 'emoji' && (
-                <span className="text-2xl">{icon.value}</span>
-              )}
-              {!isLoadingThumbnail && icon.type === 'text' && (
-                <span className="text-xl font-bold text-primary-foreground">
-                  {icon.value.slice(0, 2).toUpperCase()}
+              </div>
+            )}
+            
+            {/* Preview */}
+            <div className="pt-6 landscape:pt-0 border-t landscape:border-t-0 border-border">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-center mb-4">
+                {t('shortcutCustomizer.preview')}
+              </p>
+              <div className="flex flex-col items-center gap-2">
+                <div
+                  className="h-14 w-14 landscape:h-12 landscape:w-12 rounded-2xl flex items-center justify-center elevation-2 overflow-hidden relative"
+                  style={
+                    icon.type === 'favicon'
+                      ? { backgroundColor: '#FFFFFF' }
+                      : icon.type === 'thumbnail' || icon.type === 'platform'
+                        ? {} 
+                        : { backgroundColor: 'hsl(var(--primary))' }
+                  }
+                >
+                  {isLoadingThumbnail && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-muted">
+                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    </div>
+                  )}
+                  {!isLoadingThumbnail && icon.type === 'thumbnail' && previewSources.length > 0 && (
+                    <ImageWithFallback
+                      sources={previewSources}
+                      fallback={<span className="text-2xl landscape:text-xl">📱</span>}
+                      alt=""
+                      className="h-full w-full object-cover"
+                      showSkeleton={false}
+                    />
+                  )}
+                  {!isLoadingThumbnail && icon.type === 'thumbnail' && previewSources.length === 0 && (
+                    <span className="text-2xl landscape:text-xl">📱</span>
+                  )}
+                  {!isLoadingThumbnail && icon.type === 'emoji' && (
+                    <span className="text-2xl landscape:text-xl">{icon.value}</span>
+                  )}
+                  {!isLoadingThumbnail && icon.type === 'text' && (
+                    <span className="text-xl landscape:text-lg font-bold text-primary-foreground">
+                      {icon.value.slice(0, 2).toUpperCase()}
+                    </span>
+                  )}
+                  {!isLoadingThumbnail && icon.type === 'platform' && detectedPlatform && (
+                    <PlatformIcon platform={detectedPlatform} size="md" />
+                  )}
+                  {!isLoadingThumbnail && icon.type === 'favicon' && (
+                    <img 
+                      src={icon.value} 
+                      alt="" 
+                      className="h-8 w-8 landscape:h-6 landscape:w-6 object-contain"
+                      onError={(e) => {
+                        // Fallback to emoji if favicon fails to load
+                        setIcon({ type: 'emoji', value: getPlatformEmoji(source.uri) });
+                      }}
+                    />
+                  )}
+                </div>
+                <span className="text-xs text-foreground max-w-[72px] text-center truncate">
+                  {name || t('shortcutCustomizer.access')}
                 </span>
-              )}
-              {!isLoadingThumbnail && icon.type === 'platform' && detectedPlatform && (
-                <PlatformIcon platform={detectedPlatform} size="md" />
-              )}
-              {!isLoadingThumbnail && icon.type === 'favicon' && (
-                <img 
-                  src={icon.value} 
-                  alt="" 
-                  className="h-8 w-8 object-contain"
-                  onError={(e) => {
-                    // Fallback to emoji if favicon fails to load
-                    setIcon({ type: 'emoji', value: getPlatformEmoji(source.uri) });
-                  }}
-                />
-              )}
+              </div>
             </div>
-            <span className="text-xs text-foreground max-w-[72px] text-center truncate">
-              {name || t('shortcutCustomizer.access')}
-            </span>
           </div>
         </div>
       </div>
       
-      <div className="p-4 safe-bottom space-y-3">
+      <div className="p-4 landscape:p-3 safe-bottom space-y-3 landscape:space-y-2">
         {/* Progress indicator for large files */}
         {isCreating && isLargeFile && (
-          <div className="space-y-3 p-4 rounded-xl bg-muted/30 border border-border/50 animate-fade-in">
+          <div className="space-y-3 landscape:space-y-2 p-4 landscape:p-3 rounded-xl bg-muted/30 border border-border/50 animate-fade-in">
             <div className="flex items-center justify-between text-sm">
               <span className="font-medium text-foreground">
                 {isVideo ? t('shortcutCustomizer.processingVideo') : t('shortcutCustomizer.processingFile')}
@@ -328,7 +336,7 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
         <Button
           onClick={handleConfirm}
           disabled={!name.trim() || isCreating}
-          className="w-full h-12 text-base font-medium"
+          className="w-full h-12 landscape:h-10 text-base font-medium"
         >
           {isCreating ? (
             <>
