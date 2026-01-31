@@ -445,7 +445,10 @@ export function AccessFlow({
           </div>
           
           {/* Fixed My Shortcuts Button - positioned above bottom nav */}
-          <div className="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom)+0.75rem)] left-0 right-0 px-5 z-10">
+          <div
+            id="my-shortcuts-fixed"
+            className="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom)+0.75rem)] left-0 right-0 px-5 z-10"
+          >
             <MyShortcutsButton />
           </div>
 
