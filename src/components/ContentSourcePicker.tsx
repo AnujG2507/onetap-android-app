@@ -136,6 +136,13 @@ export function ContentSourcePicker({
       updateSecondaryPicker(null);
     } else {
       updateSecondaryPicker(picker);
+      // Scroll to bottom after picker opens
+      setTimeout(() => {
+        scrollContainerRef.current?.scrollTo({
+          top: scrollContainerRef.current.scrollHeight,
+          behavior: 'smooth'
+        });
+      }, 50);
     }
   };
 
