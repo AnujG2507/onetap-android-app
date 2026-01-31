@@ -33,45 +33,18 @@ export function ContentSourcePicker({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const pickerRef = useRef<HTMLDivElement>(null);
   
-  // Auto-scroll to ensure expanded picker is visible above the fixed My Shortcuts button.
-  // Note: scrollIntoView({block:'nearest'}) isn't sufficient because the "nearest" position
-  // can still leave the picker under the fixed button. We explicitly measure overlap and
-  // scroll the internal container until the picker bottom is above the button.
+  // Auto-scroll to bring expanded picker into view
   useEffect(() => {
-    const scroller = scrollContainerRef.current;
     const pickerEl = pickerRef.current;
-    if (!(activePicker || activeSecondaryPicker) || !scroller || !pickerEl) return;
+    if (!(activePicker || activeSecondaryPicker) || !pickerEl) return;
 
-    const GAP_PX = 12;
-
-    const ensureNoOverlap = () => {
-      const buttonEl = document.getElementById('my-shortcuts-fixed');
-      const buttonTop = buttonEl?.getBoundingClientRect().top ?? window.innerHeight;
-      const pickerRect = pickerEl.getBoundingClientRect();
-
-      const allowedBottom = buttonTop - GAP_PX;
-      const overlap = pickerRect.bottom - allowedBottom;
-
-      if (overlap > 0) {
-        scroller.scrollBy({ top: overlap, behavior: 'smooth' });
-      }
-    };
-
-    // Let framer-motion finish expanding before measuring.
+    // Let framer-motion finish expanding before scrolling
     const timer = window.setTimeout(() => {
-      // First, bring it into view.
       pickerEl.scrollIntoView({ behavior: 'smooth', block: 'end' });
-      // Then, guarantee no overlap with the fixed button.
-      ensureNoOverlap();
     }, 260);
-
-    // If the picker height changes while open (e.g. different content), keep enforcing.
-    const ro = new ResizeObserver(() => ensureNoOverlap());
-    ro.observe(pickerEl);
 
     return () => {
       window.clearTimeout(timer);
-      ro.disconnect();
     };
   }, [activePicker, activeSecondaryPicker]);
   // Notify parent when picker opens/closes
@@ -160,7 +133,7 @@ export function ContentSourcePicker({
       {/* Scrollable Content Area - ends above fixed My Shortcuts button */}
       <div 
         ref={scrollContainerRef}
-        className="flex-1 h-full overflow-y-auto pb-[calc(8rem+env(safe-area-inset-bottom))]"
+        className="flex-1 h-full overflow-y-auto pb-6"
       >
         <div className="flex flex-col gap-4 p-5 pb-6 animate-fade-in">
           {/* Main Card: Create a Shortcut */}
