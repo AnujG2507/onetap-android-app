@@ -5,8 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { ChevronLeft, FileText, Link, Phone, Check, Clipboard, Globe, Bookmark } from 'lucide-react';
+import { ChevronLeft, FileText, Link, Phone, Check, Clipboard, Globe, Bookmark, MessageCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { PlatformIcon } from '@/components/PlatformIcon';
 import { ScheduledTimingPicker } from './ScheduledTimingPicker';
 import { ContactAvatar } from '@/components/ContactAvatar';
 import { useScheduledActions } from '@/hooks/useScheduledActions';
@@ -24,7 +25,7 @@ import type {
   CreateScheduledActionInput 
 } from '@/types/scheduledAction';
 
-type CreatorStep = 'destination' | 'timing' | 'confirm';
+type CreatorStep = 'destination' | 'contact-type' | 'timing' | 'confirm';
 type UrlSubStep = 'choose' | 'input' | null;
 
 interface ScheduledActionCreatorProps {
@@ -58,12 +59,20 @@ export function ScheduledActionCreator({
   const [urlSubStep, setUrlSubStep] = useState<UrlSubStep>(null);
   const [showBookmarkPicker, setShowBookmarkPicker] = useState(false);
   const [urlInput, setUrlInput] = useState('');
+  // Contact type state (WhatsApp vs Call)
+  const [pendingContact, setPendingContact] = useState<{
+    phoneNumber: string;
+    contactName: string;
+    photoUri?: string;
+  } | null>(null);
+  const [whatsAppMessage, setWhatsAppMessage] = useState('');
   const [urlError, setUrlError] = useState('');
 
   // Back button handler for internal step navigation
   // Determine if we should intercept the back button (when not on exit step)
   const shouldInterceptBack = 
     urlSubStep !== null || // In URL sub-step
+    step === 'contact-type' || // On contact type selection
     step === 'confirm' || // On confirm step
     (step === 'timing' && !initialDestination); // On timing without pre-filled destination
 
@@ -79,9 +88,18 @@ export function ScheduledActionCreator({
     if (step === 'confirm') {
       setStep('timing');
     } else if (step === 'timing' && !initialDestination) {
+      // If we came from contact-type selection, go back there
+      if (destination?.type === 'contact') {
+        setStep('contact-type');
+      } else {
+        setStep('destination');
+      }
+    } else if (step === 'contact-type') {
+      setPendingContact(null);
+      setWhatsAppMessage('');
       setStep('destination');
     }
-  }, [urlSubStep, step, initialDestination]);
+  }, [urlSubStep, step, initialDestination, destination]);
 
   // Register with higher priority (20) than parent sheet (0) to intercept back button
   useSheetBackHandler(
@@ -99,7 +117,9 @@ export function ScheduledActionCreator({
       case 'url':
         return dest.name || 'Open link';
       case 'contact':
-        return `Call ${dest.contactName}`;
+        return dest.isWhatsApp 
+          ? `Message ${dest.contactName}` 
+          : `Call ${dest.contactName}`;
     }
   }, []);
 
@@ -126,23 +146,53 @@ export function ScheduledActionCreator({
     }
   };
 
-  // Contact picker handler
+  // Contact picker handler - opens contact type chooser
   const handleContactSelect = async () => {
     triggerHaptic('light');
     try {
       const result = await ShortcutPlugin.pickContact();
       if (result.success && result.phoneNumber) {
-        handleDestinationSelect({
-          type: 'contact',
+        // Store pending contact and show type selection
+        setPendingContact({
           phoneNumber: result.phoneNumber,
           contactName: result.name || 'Contact',
-          // Store photo for display - prefer base64 for immediate use
           photoUri: result.photoBase64 || result.photoUri,
         });
+        setStep('contact-type');
       }
     } catch (error) {
       console.warn('Contact picker failed:', error);
     }
+  };
+
+  // Contact type selection handlers
+  const handleSelectWhatsApp = () => {
+    if (!pendingContact) return;
+    triggerHaptic('light');
+    handleDestinationSelect({
+      type: 'contact',
+      phoneNumber: pendingContact.phoneNumber,
+      contactName: pendingContact.contactName,
+      photoUri: pendingContact.photoUri,
+      isWhatsApp: true,
+      quickMessage: whatsAppMessage.trim() || undefined,
+    });
+    setPendingContact(null);
+    setWhatsAppMessage('');
+  };
+
+  const handleSelectCall = () => {
+    if (!pendingContact) return;
+    triggerHaptic('light');
+    handleDestinationSelect({
+      type: 'contact',
+      phoneNumber: pendingContact.phoneNumber,
+      contactName: pendingContact.contactName,
+      photoUri: pendingContact.photoUri,
+      isWhatsApp: false,
+    });
+    setPendingContact(null);
+    setWhatsAppMessage('');
   };
 
   // URL flow handlers
@@ -298,9 +348,16 @@ export function ScheduledActionCreator({
       case 'destination':
         onBack();
         break;
+      case 'contact-type':
+        setPendingContact(null);
+        setWhatsAppMessage('');
+        setStep('destination');
+        break;
       case 'timing':
         if (initialDestination) {
           onBack();
+        } else if (destination?.type === 'contact') {
+          setStep('contact-type');
         } else {
           setStep('destination');
         }
@@ -316,6 +373,17 @@ export function ScheduledActionCreator({
       case 'file': return <FileText className="h-5 w-5" />;
       case 'url': return <Link className="h-5 w-5" />;
       case 'contact': 
+        // Check if it's a WhatsApp contact
+        const isWhatsAppContact = dest?.type === 'contact' && dest.isWhatsApp;
+        if (isWhatsAppContact) {
+          return (
+            <PlatformIcon 
+              platform={{ name: 'WhatsApp', bgColor: 'bg-green-500', textColor: 'text-white', icon: 'whatsapp' }}
+              size="md"
+              className="h-full w-full"
+            />
+          );
+        }
         // Contact avatar handles its own background
         const contactName = dest?.type === 'contact' ? dest.contactName : undefined;
         const photoUri = dest?.type === 'contact' ? dest.photoUri : undefined;
@@ -471,6 +539,89 @@ export function ScheduledActionCreator({
               description="Call someone at a scheduled time"
               onClick={handleContactSelect}
             />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Step: Contact type selection (WhatsApp vs Call)
+  if (step === 'contact-type' && pendingContact) {
+    return (
+      <div className="flex flex-col h-full animate-fade-in">
+        <div className="flex items-center gap-3 px-5 pt-header-safe-compact pb-4 border-b border-border">
+          <button
+            onClick={handleBack}
+            className="p-2 -ms-2 rounded-full hover:bg-muted active:scale-95 transition-transform"
+          >
+            <ChevronLeft className="h-5 w-5 rtl:rotate-180" />
+          </button>
+          <h2 className="text-lg font-semibold">{t('scheduledActions.contactType', 'How to reach')}</h2>
+        </div>
+
+        <div className="flex-1 px-5 py-6">
+          {/* Contact preview */}
+          <div className="flex items-center gap-3 mb-6 p-3 rounded-xl bg-muted/30">
+            <ContactAvatar
+              photoUri={pendingContact.photoUri}
+              name={pendingContact.contactName}
+              className="h-12 w-12 rounded-xl text-base"
+              fallbackIcon={<Phone className="h-5 w-5" />}
+            />
+            <div className="flex-1 min-w-0">
+              <h4 className="font-medium truncate">{pendingContact.contactName}</h4>
+              <p className="text-sm text-muted-foreground truncate">{pendingContact.phoneNumber}</p>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {/* WhatsApp option */}
+            <button
+              onClick={handleSelectWhatsApp}
+              className={cn(
+                "w-full flex items-center gap-4 rounded-2xl bg-card border border-border p-4",
+                "active:scale-[0.98] transition-all",
+                "focus:outline-none focus:ring-2 focus:ring-ring"
+              )}
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl overflow-hidden shrink-0">
+                <PlatformIcon 
+                  platform={{ name: 'WhatsApp', bgColor: 'bg-green-500', textColor: 'text-white', icon: 'whatsapp' }}
+                  size="lg"
+                  className="h-full w-full"
+                />
+              </div>
+              <div className="text-start flex-1">
+                <h3 className="font-medium text-sm">{t('shortcuts.whatsapp', 'WhatsApp')}</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">{t('scheduledActions.whatsappDesc', 'Send a message via WhatsApp')}</p>
+              </div>
+              <MessageCircle className="h-5 w-5 text-muted-foreground" />
+            </button>
+
+            {/* Call option */}
+            <DestinationOption
+              icon={<Phone className="h-5 w-5" />}
+              label={t('shortcuts.call', 'Call')}
+              description={t('scheduledActions.callDesc', 'Place a phone call')}
+              onClick={handleSelectCall}
+            />
+          </div>
+
+          {/* Optional message for WhatsApp - shown when WhatsApp is about to be selected */}
+          <div className="mt-6 space-y-3">
+            <Label className="text-sm font-medium text-muted-foreground">
+              {t('scheduledActions.optionalMessage', 'Optional message for WhatsApp')}
+            </Label>
+            <Textarea
+              value={whatsAppMessage}
+              onChange={(e) => setWhatsAppMessage(e.target.value)}
+              placeholder={t('whatsapp.messagePlaceholder', 'Type a message...')}
+              className="rounded-xl text-base resize-none"
+              rows={2}
+            />
+            <p className="text-xs text-muted-foreground">
+              {t('scheduledActions.messageHint', 'This message will be pre-filled when the reminder fires.')}
+            </p>
           </div>
         </div>
       </div>
