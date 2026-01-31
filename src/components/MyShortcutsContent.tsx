@@ -516,23 +516,28 @@ export function MyShortcutsContent({ onCreateReminder, onRefresh, isSyncing: ext
               )}
             </div>
             
-            {/* Type Filter Chips */}
-            <ScrollArea className="w-full">
-              <div className="flex gap-2 pb-1 w-max pe-4">
-                {TYPE_FILTERS.map(({ value, labelKey, icon }) => (
-                  <TypeFilterChip
-                    key={value}
-                    value={value}
-                    label={t(labelKey)}
-                    icon={icon}
-                    isActive={typeFilter === value}
-                    count={typeCounts[value]}
-                    onClick={() => setTypeFilter(value)}
-                  />
-                ))}
-              </div>
-              <ScrollBar orientation="horizontal" />
-            </ScrollArea>
+            {/* Type Filter Chips - stop touch propagation to prevent tab swipe */}
+            <div 
+              onTouchStart={(e) => e.stopPropagation()}
+              onTouchMove={(e) => e.stopPropagation()}
+            >
+              <ScrollArea className="w-full">
+                <div className="flex gap-2 pb-1 w-max pe-4">
+                  {TYPE_FILTERS.map(({ value, labelKey, icon }) => (
+                    <TypeFilterChip
+                      key={value}
+                      value={value}
+                      label={t(labelKey)}
+                      icon={icon}
+                      isActive={typeFilter === value}
+                      count={typeCounts[value]}
+                      onClick={() => setTypeFilter(value)}
+                    />
+                  ))}
+                </div>
+                <ScrollBar orientation="horizontal" />
+              </ScrollArea>
+            </div>
             
             {/* Sort Controls and Result Count */}
             <div className="flex items-center justify-between">
