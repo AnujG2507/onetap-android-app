@@ -136,10 +136,10 @@ export function ContentSourcePicker({
       updateSecondaryPicker(null);
     } else {
       updateSecondaryPicker(picker);
-      // Immediately scroll to top
+      // Immediately scroll to bottom
       const scroller = scrollContainerRef.current;
       if (scroller) {
-        scroller.scrollTop = 0;
+        scroller.scrollTop = scroller.scrollHeight;
       }
     }
   };
