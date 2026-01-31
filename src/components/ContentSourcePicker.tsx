@@ -131,23 +131,27 @@ export function ContentSourcePicker({
     }
   };
 
+  const scrollToBottom = () => {
+    // Wait for framer-motion animation to complete (200ms) + buffer
+    setTimeout(() => {
+      requestAnimationFrame(() => {
+        const scroller = scrollContainerRef.current;
+        if (scroller) {
+          scroller.scrollTo({
+            top: scroller.scrollHeight,
+            behavior: 'smooth'
+          });
+        }
+      });
+    }, 300);
+  };
+
   const handleSecondaryButtonClick = (picker: ActiveSecondaryPicker) => {
     if (activeSecondaryPicker === picker) {
       updateSecondaryPicker(null);
     } else {
       updateSecondaryPicker(picker);
-      // Scroll to bottom after animation completes - use RAF + timeout for Android reliability
-      requestAnimationFrame(() => {
-        setTimeout(() => {
-          const scroller = scrollContainerRef.current;
-          if (scroller) {
-            scroller.scrollTo({
-              top: scroller.scrollHeight,
-              behavior: 'smooth'
-            });
-          }
-        }, 250);
-      });
+      scrollToBottom();
     }
   };
 
