@@ -47,35 +47,35 @@ export function BulkMoveDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md landscape:max-h-[90vh]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <FolderInput className="h-5 w-5" />
+            <FolderInput className="h-5 w-5 landscape:h-4 landscape:w-4" />
             Move {selectedCount} bookmark{selectedCount > 1 ? 's' : ''}
           </DialogTitle>
         </DialogHeader>
         
-        <div className="space-y-4 pt-2">
-          <p className="text-sm text-muted-foreground">
+        <div className="space-y-4 landscape:space-y-2 pt-2">
+          <p className="text-sm landscape:text-xs text-muted-foreground">
             Select a folder to move the selected bookmarks to:
           </p>
           
-          <ScrollArea className="h-[280px] pr-4">
-            <div className="space-y-1">
+          <ScrollArea className="h-[280px] landscape:h-[200px] pr-4">
+            <div className="space-y-1 landscape:grid landscape:grid-cols-2 landscape:gap-1 landscape:space-y-0">
               {/* Uncategorized option */}
               <button
                 onClick={() => setSelectedFolder(null)}
                 className={cn(
-                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-start transition-colors",
+                  "w-full flex items-center gap-3 landscape:gap-2 px-3 py-2.5 landscape:py-2 rounded-lg text-start transition-colors",
                   selectedFolder === null
                     ? "bg-primary/10 text-primary ring-1 ring-primary/20"
                     : "hover:bg-muted"
                 )}
               >
-                <Folder className="h-4 w-4 text-muted-foreground" />
-                <span className="flex-1 text-sm font-medium">Uncategorized</span>
+                <Folder className="h-4 w-4 landscape:h-3.5 landscape:w-3.5 text-muted-foreground" />
+                <span className="flex-1 text-sm landscape:text-xs font-medium">Uncategorized</span>
                 {selectedFolder === null && (
-                  <Check className="h-4 w-4 text-primary" />
+                  <Check className="h-4 w-4 landscape:h-3.5 landscape:w-3.5 text-primary" />
                 )}
               </button>
               
@@ -90,16 +90,16 @@ export function BulkMoveDialog({
                     key={folder}
                     onClick={() => setSelectedFolder(folder)}
                     className={cn(
-                      "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-start transition-colors",
+                      "w-full flex items-center gap-3 landscape:gap-2 px-3 py-2.5 landscape:py-2 rounded-lg text-start transition-colors",
                       isSelected
                         ? "bg-primary/10 text-primary ring-1 ring-primary/20"
                         : "hover:bg-muted"
                     )}
                   >
-                    <CustomIcon className="h-4 w-4 text-muted-foreground" />
-                    <span className="flex-1 text-sm font-medium">{folder}</span>
+                    <CustomIcon className="h-4 w-4 landscape:h-3.5 landscape:w-3.5 text-muted-foreground" />
+                    <span className="flex-1 text-sm landscape:text-xs font-medium">{folder}</span>
                     {isSelected && (
-                      <Check className="h-4 w-4 text-primary" />
+                      <Check className="h-4 w-4 landscape:h-3.5 landscape:w-3.5 text-primary" />
                     )}
                   </button>
                 );
@@ -107,11 +107,11 @@ export function BulkMoveDialog({
             </div>
           </ScrollArea>
           
-          <div className="flex gap-2 justify-end pt-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <div className="flex gap-2 justify-end pt-2 landscape:pt-1">
+            <Button variant="outline" onClick={() => onOpenChange(false)} className="landscape:h-9">
               Cancel
             </Button>
-            <Button onClick={handleMove}>
+            <Button onClick={handleMove} className="landscape:h-9">
               Move to {selectedFolder || 'Uncategorized'}
             </Button>
           </div>

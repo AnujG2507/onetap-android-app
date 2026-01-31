@@ -152,7 +152,7 @@ export function SharedUrlActionSheet({
     <div className="fixed inset-0 z-50 flex items-end justify-center p-4 pb-8 bg-black/50 animate-in fade-in duration-200">
       <div
         className={cn(
-          "w-full max-w-sm bg-card rounded-2xl shadow-xl border border-border overflow-hidden",
+          "w-full max-w-sm landscape:max-w-lg bg-card rounded-2xl shadow-xl border border-border overflow-hidden",
           "animate-in slide-in-from-bottom-4 duration-300",
           isExiting && "animate-out fade-out slide-out-to-bottom-4 duration-200"
         )}
@@ -166,18 +166,18 @@ export function SharedUrlActionSheet({
         </div>
         {/* Success State */}
         {showSuccess ? (
-          <div className="px-4 py-12 flex flex-col items-center justify-center gap-3">
-            <div className="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center animate-scale-in">
-              <div className="w-12 h-12 rounded-full bg-green-500 flex items-center justify-center">
-                <Check className="h-6 w-6 text-white animate-fade-in" strokeWidth={3} />
+          <div className="px-4 py-12 landscape:py-8 flex flex-col items-center justify-center gap-3 landscape:gap-2">
+            <div className="w-16 h-16 landscape:w-12 landscape:h-12 rounded-full bg-green-500/10 flex items-center justify-center animate-scale-in">
+              <div className="w-12 h-12 landscape:w-9 landscape:h-9 rounded-full bg-green-500 flex items-center justify-center">
+                <Check className="h-6 w-6 landscape:h-5 landscape:w-5 text-white animate-fade-in" strokeWidth={3} />
               </div>
             </div>
-            <p className="text-sm font-medium text-foreground animate-fade-in">{t('sharedUrl.savedToLibrary')}</p>
+            <p className="text-sm landscape:text-xs font-medium text-foreground animate-fade-in">{t('sharedUrl.savedToLibrary')}</p>
           </div>
         ) : (
           <>
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
+            <div className="flex items-center justify-between px-4 landscape:px-3 py-3 landscape:py-2 border-b border-border bg-muted/30">
               <div className="flex items-center gap-2">
                 {viewMode === 'edit' ? (
                   <>
@@ -188,12 +188,12 @@ export function SharedUrlActionSheet({
                     >
                       <ChevronLeft className="h-4 w-4 text-muted-foreground rtl:rotate-180" />
                     </button>
-                    <span className="text-sm font-medium text-foreground">{t('sharedUrl.saveToLibrary')}</span>
+                    <span className="text-sm landscape:text-xs font-medium text-foreground">{t('sharedUrl.saveToLibrary')}</span>
                   </>
                 ) : (
                   <>
-                    <Share2 className="h-4 w-4 text-primary" />
-                    <span className="text-sm font-medium text-foreground">{t('sharedUrl.linkReceived')}</span>
+                    <Share2 className="h-4 w-4 landscape:h-3.5 landscape:w-3.5 text-primary" />
+                    <span className="text-sm landscape:text-xs font-medium text-foreground">{t('sharedUrl.linkReceived')}</span>
                   </>
                 )}
               </div>
@@ -208,18 +208,18 @@ export function SharedUrlActionSheet({
 
             {/* Offline indicator */}
             {!isOnline && (
-              <div className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 border-b border-border">
-                <WifiOff className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
-                <span className="text-xs text-amber-600 dark:text-amber-400">{t('sharedUrl.offlineMode')}</span>
+              <div className="flex items-center gap-2 px-4 landscape:px-3 py-2 landscape:py-1.5 bg-amber-500/10 border-b border-border">
+                <WifiOff className="h-3.5 w-3.5 landscape:h-3 landscape:w-3 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+                <span className="text-xs landscape:text-[10px] text-amber-600 dark:text-amber-400">{t('sharedUrl.offlineMode')}</span>
               </div>
             )}
 
         {/* URL Preview Card */}
-        <div className="px-4 py-4 border-b border-border">
+        <div className="px-4 landscape:px-3 py-4 landscape:py-3 border-b border-border">
           {/* Video Thumbnail Preview */}
           {videoPlatform && (thumbnailUrl || thumbnailLoading) && (
-            <div className="mb-3">
-              <div className="relative aspect-video rounded-lg overflow-hidden bg-muted">
+            <div className="mb-3 landscape:mb-2">
+              <div className="relative aspect-video landscape:aspect-[2/1] rounded-lg overflow-hidden bg-muted">
                 {thumbnailLoading ? (
                   <Skeleton className="absolute inset-0" />
                 ) : thumbnailUrl ? (
@@ -235,15 +235,15 @@ export function SharedUrlActionSheet({
                     {/* Play button overlay */}
                     <div className="absolute inset-0 flex items-center justify-center">
                       <div className={cn(
-                        "w-12 h-12 rounded-full flex items-center justify-center",
+                        "w-12 h-12 landscape:w-10 landscape:h-10 rounded-full flex items-center justify-center",
                         "bg-black/60 backdrop-blur-sm"
                       )}>
-                        <Play className="h-6 w-6 text-white fill-white ms-0.5" />
+                        <Play className="h-6 w-6 landscape:h-5 landscape:w-5 text-white fill-white ms-0.5" />
                       </div>
                     </div>
                     {/* Platform badge */}
                     <div className={cn(
-                      "absolute top-2 start-2 px-2 py-0.5 rounded text-xs font-medium",
+                      "absolute top-2 start-2 px-2 py-0.5 rounded text-xs landscape:text-[10px] font-medium",
                       videoPlatform === 'youtube' 
                         ? "bg-red-600 text-white" 
                         : "bg-[#1ab7ea] text-white"
@@ -256,25 +256,25 @@ export function SharedUrlActionSheet({
             </div>
           )}
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 landscape:gap-2">
             {/* Platform icon or Favicon */}
             {detectedPlatform ? (
               <PlatformIcon platform={detectedPlatform} size="md" />
             ) : (
-              <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-muted flex items-center justify-center overflow-hidden">
+              <div className="flex-shrink-0 w-10 h-10 landscape:w-8 landscape:h-8 rounded-lg bg-muted flex items-center justify-center overflow-hidden">
                 {isLoading ? (
-                  <Skeleton className="w-6 h-6 rounded" />
+                  <Skeleton className="w-6 h-6 landscape:w-5 landscape:h-5 rounded" />
                 ) : metadata?.favicon ? (
                   <img 
                     src={metadata.favicon} 
                     alt="" 
-                    className="w-6 h-6 object-contain"
+                    className="w-6 h-6 landscape:w-5 landscape:h-5 object-contain"
                     onError={(e) => {
                       e.currentTarget.style.display = 'none';
                     }}
                   />
                 ) : (
-                  <Share2 className="h-5 w-5 text-muted-foreground" />
+                  <Share2 className="h-5 w-5 landscape:h-4 landscape:w-4 text-muted-foreground" />
                 )}
               </div>
             )}
@@ -283,15 +283,15 @@ export function SharedUrlActionSheet({
             <div className="flex-1 min-w-0">
               {isLoading ? (
                 <>
-                  <Skeleton className="h-4 w-3/4 mb-1.5" />
-                  <Skeleton className="h-3 w-1/2" />
+                  <Skeleton className="h-4 landscape:h-3 w-3/4 mb-1.5" />
+                  <Skeleton className="h-3 landscape:h-2.5 w-1/2" />
                 </>
               ) : (
                 <>
-                  <p className="text-sm font-medium text-foreground break-words">
+                  <p className="text-sm landscape:text-xs font-medium text-foreground break-words">
                     {metadata?.title || domain}
                   </p>
-                  <p className="text-xs text-muted-foreground break-all">
+                  <p className="text-xs landscape:text-[10px] text-muted-foreground break-all">
                     {domain}
                   </p>
                 </>
@@ -302,105 +302,108 @@ export function SharedUrlActionSheet({
 
         {viewMode === 'choose' ? (
           /* Action Buttons - 2x2 grid matching ClipboardSuggestion */
-          <div className="px-4 py-4 space-y-3">
+          <div className="px-4 landscape:px-3 py-4 landscape:py-3 space-y-3 landscape:space-y-2">
             {/* Primary action row */}
-            <div className="flex gap-3">
+            <div className="flex gap-3 landscape:gap-2">
               {/* Quick Save */}
               <Button
-                className="flex-1 gap-2"
+                className="flex-1 gap-2 landscape:h-9"
                 onClick={handleQuickSave}
                 disabled={isLoading}
               >
-                <Zap className="h-4 w-4" />
-                {isLoading ? t('common.loading') : t('sharedUrl.quickSave')}
+                <Zap className="h-4 w-4 landscape:h-3.5 landscape:w-3.5" />
+                <span className="landscape:text-xs">{isLoading ? t('common.loading') : t('sharedUrl.quickSave')}</span>
               </Button>
               
               {/* Edit & Save */}
               <Button
                 variant="outline"
-                className="flex-1 gap-2"
+                className="flex-1 gap-2 landscape:h-9"
                 onClick={handleSaveWithEdit}
               >
-                <Pencil className="h-4 w-4" />
-                {t('sharedUrl.editAndSave')}
+                <Pencil className="h-4 w-4 landscape:h-3.5 landscape:w-3.5" />
+                <span className="landscape:text-xs">{t('sharedUrl.editAndSave')}</span>
               </Button>
             </div>
             
             {/* Secondary actions row */}
-            <div className="flex gap-3">
+            <div className="flex gap-3 landscape:gap-2">
               <Button
                 variant="outline"
-                className="flex-1 gap-2"
+                className="flex-1 gap-2 landscape:h-9"
                 onClick={handleCreateShortcut}
               >
-                <Smartphone className="h-4 w-4" />
-                {t('sharedUrl.shortcut')}
+                <Smartphone className="h-4 w-4 landscape:h-3.5 landscape:w-3.5" />
+                <span className="landscape:text-xs">{t('sharedUrl.shortcut')}</span>
               </Button>
               <Button
                 variant="outline"
-                className="flex-1 gap-2"
+                className="flex-1 gap-2 landscape:h-9"
                 onClick={handleCreateReminder}
               >
-                <Bell className="h-4 w-4" />
-                {t('sharedUrl.remindLater')}
+                <Bell className="h-4 w-4 landscape:h-3.5 landscape:w-3.5" />
+                <span className="landscape:text-xs">{t('sharedUrl.remindLater')}</span>
               </Button>
             </div>
           </div>
         ) : (
           /* Edit Form */
-          <div className="px-4 py-4 space-y-4">
-            {/* Title */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">{t('sharedUrl.title')}</label>
-              <div className="relative">
-                <Input
-                  value={editTitle}
-                  onChange={(e) => setEditTitle(e.target.value)}
-                  placeholder={metadata?.title || domain}
-                  className="pe-8"
-                />
-                {editTitle && (
-                  <button
-                    onClick={() => setEditTitle('')}
-                    className="absolute end-2 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted"
-                  >
-                    <X className="h-3.5 w-3.5 text-muted-foreground" />
-                  </button>
-                )}
+          <div className="px-4 landscape:px-3 py-4 landscape:py-3 space-y-4 landscape:space-y-3">
+            {/* Portrait: stacked, Landscape: 2-column */}
+            <div className="landscape:grid landscape:grid-cols-2 landscape:gap-3">
+              {/* Title */}
+              <div className="space-y-1.5 landscape:space-y-1">
+                <label className="text-xs landscape:text-[10px] font-medium text-muted-foreground">{t('sharedUrl.title')}</label>
+                <div className="relative">
+                  <Input
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    placeholder={metadata?.title || domain}
+                    className="pe-8 landscape:h-9"
+                  />
+                  {editTitle && (
+                    <button
+                      onClick={() => setEditTitle('')}
+                      className="absolute end-2 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted"
+                    >
+                      <X className="h-3.5 w-3.5 text-muted-foreground" />
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
 
-            {/* Description */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">{t('sharedUrl.descriptionOptional')}</label>
-              <div className="relative">
-                <Textarea
-                  value={editDescription}
-                  onChange={(e) => setEditDescription(e.target.value)}
-                  placeholder={t('sharedUrl.addNote')}
-                  className="min-h-[60px] resize-none pe-8"
-                />
-                {editDescription && (
-                  <button
-                    onClick={() => setEditDescription('')}
-                    className="absolute end-2 top-2 p-1 rounded-full hover:bg-muted"
-                  >
-                    <X className="h-3.5 w-3.5 text-muted-foreground" />
-                  </button>
-                )}
+              {/* Description */}
+              <div className="space-y-1.5 landscape:space-y-1 mt-4 landscape:mt-0">
+                <label className="text-xs landscape:text-[10px] font-medium text-muted-foreground">{t('sharedUrl.descriptionOptional')}</label>
+                <div className="relative">
+                  <Textarea
+                    value={editDescription}
+                    onChange={(e) => setEditDescription(e.target.value)}
+                    placeholder={t('sharedUrl.addNote')}
+                    className="min-h-[60px] landscape:min-h-[50px] resize-none pe-8"
+                  />
+                  {editDescription && (
+                    <button
+                      onClick={() => setEditDescription('')}
+                      className="absolute end-2 top-2 p-1 rounded-full hover:bg-muted"
+                    >
+                      <X className="h-3.5 w-3.5 text-muted-foreground" />
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 
             {/* Folder/Tag Selection */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">{t('sharedUrl.folderOptional')}</label>
+            <div className="space-y-1.5 landscape:space-y-1">
+              <label className="text-xs landscape:text-[10px] font-medium text-muted-foreground">{t('sharedUrl.folderOptional')}</label>
               <ScrollArea className="w-full">
-                <div className="flex gap-2 pb-2">
+                <div className="flex gap-2 landscape:gap-1.5 pb-2">
                   <button
                     type="button"
                     onClick={() => setEditTag(null)}
                     className={cn(
-                      "px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors",
+                      "px-3 py-1.5 landscape:px-2 landscape:py-1 rounded-full text-xs landscape:text-[10px] font-medium whitespace-nowrap transition-colors",
                       editTag === null
                         ? "bg-primary text-primary-foreground"
                         : "bg-muted text-muted-foreground hover:bg-muted/80"
@@ -414,7 +417,7 @@ export function SharedUrlActionSheet({
                       type="button"
                       onClick={() => setEditTag(folder)}
                       className={cn(
-                        "px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors",
+                        "px-3 py-1.5 landscape:px-2 landscape:py-1 rounded-full text-xs landscape:text-[10px] font-medium whitespace-nowrap transition-colors",
                         editTag === folder
                           ? "bg-primary text-primary-foreground"
                           : "bg-muted text-muted-foreground hover:bg-muted/80"
@@ -429,9 +432,9 @@ export function SharedUrlActionSheet({
             </div>
 
             {/* Save Button */}
-            <Button className="w-full gap-2" onClick={handleConfirmSave}>
-              <Bookmark className="h-4 w-4" />
-              {t('sharedUrl.saveToLibrary')}
+            <Button className="w-full gap-2 landscape:h-9" onClick={handleConfirmSave}>
+              <Bookmark className="h-4 w-4 landscape:h-3.5 landscape:w-3.5" />
+              <span className="landscape:text-xs">{t('sharedUrl.saveToLibrary')}</span>
             </Button>
           </div>
           )}

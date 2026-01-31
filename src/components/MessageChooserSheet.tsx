@@ -48,10 +48,10 @@ export function MessageChooserSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="max-h-[80vh] rounded-t-2xl">
-        <SheetHeader className="text-start pb-4">
+      <SheetContent side="bottom" className="max-h-[80vh] landscape:max-h-[95vh] rounded-t-2xl">
+        <SheetHeader className="text-start pb-4 landscape:pb-2">
           <SheetTitle className="flex items-center gap-2">
-            <MessageCircle className="h-5 w-5 text-primary" />
+            <MessageCircle className="h-5 w-5 landscape:h-4 landscape:w-4 text-primary" />
             {contactName 
               ? t('whatsapp.chooseMessageFor', 'Message for {{name}}', { name: contactName })
               : t('whatsapp.chooseMessage', 'Choose message')
@@ -59,29 +59,29 @@ export function MessageChooserSheet({
           </SheetTitle>
         </SheetHeader>
 
-        <div className="space-y-2 pb-6">
+        <div className="space-y-2 landscape:space-y-1.5 pb-6 landscape:pb-4 landscape:grid landscape:grid-cols-2 landscape:gap-2 landscape:space-y-0">
           {/* Open chat only option - always first */}
           <button
             type="button"
             onClick={handleOpenChatOnly}
-            className="w-full flex items-center gap-3 p-4 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors text-start"
+            className="w-full flex items-center gap-3 landscape:gap-2 p-4 landscape:p-3 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors text-start"
           >
-            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-              <MessageCircle className="h-5 w-5 text-primary" />
+            <div className="h-10 w-10 landscape:h-8 landscape:w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+              <MessageCircle className="h-5 w-5 landscape:h-4 landscape:w-4 text-primary" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-medium text-foreground">
+              <p className="font-medium text-foreground landscape:text-sm">
                 {t('whatsapp.openChatOnly', 'Open chat')}
               </p>
-              <p className="text-sm text-muted-foreground truncate">
+              <p className="text-sm landscape:text-xs text-muted-foreground truncate">
                 {t('whatsapp.openChatOnlyDesc', 'Start fresh, type your own message')}
               </p>
             </div>
           </button>
 
-          {/* Divider */}
+          {/* Divider - hidden in landscape grid */}
           {messages.length > 0 && (
-            <div className="flex items-center gap-3 py-2">
+            <div className="flex items-center gap-3 py-2 landscape:hidden">
               <div className="flex-1 h-px bg-border" />
               <span className="text-xs text-muted-foreground">
                 {t('whatsapp.orUseQuickMessage', 'or use a quick message')}
@@ -96,13 +96,13 @@ export function MessageChooserSheet({
               key={index}
               type="button"
               onClick={() => handleSelectMessage(message)}
-              className="w-full flex items-start gap-3 p-4 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors text-start"
+              className="w-full flex items-start gap-3 landscape:gap-2 p-4 landscape:p-3 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors text-start"
             >
-              <div className="h-10 w-10 rounded-full bg-green-500/10 flex items-center justify-center shrink-0">
-                <span className="text-lg">💬</span>
+              <div className="h-10 w-10 landscape:h-8 landscape:w-8 rounded-full bg-green-500/10 flex items-center justify-center shrink-0">
+                <span className="text-lg landscape:text-base">💬</span>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm text-foreground whitespace-pre-wrap line-clamp-3">
+                <p className="text-sm landscape:text-xs text-foreground whitespace-pre-wrap line-clamp-3">
                   {message}
                 </p>
               </div>
@@ -114,7 +114,7 @@ export function MessageChooserSheet({
         <Button
           variant="ghost"
           onClick={() => onOpenChange(false)}
-          className="w-full"
+          className="w-full landscape:h-9"
         >
           {t('common.cancel', 'Cancel')}
         </Button>

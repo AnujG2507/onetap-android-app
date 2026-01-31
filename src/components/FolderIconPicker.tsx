@@ -72,7 +72,7 @@ interface FolderIconPickerProps {
 
 export function FolderIconPicker({ selectedIcon, onSelectIcon }: FolderIconPickerProps) {
   return (
-    <div className="grid grid-cols-6 gap-2">
+    <div className="grid grid-cols-6 landscape:grid-cols-9 gap-2 landscape:gap-1.5">
       {FOLDER_ICONS.map(({ name, Icon }) => (
         <button
           key={name}
@@ -82,14 +82,14 @@ export function FolderIconPicker({ selectedIcon, onSelectIcon }: FolderIconPicke
             triggerHaptic('light');
           }}
           className={cn(
-            "flex items-center justify-center p-2.5 rounded-lg transition-all",
+            "flex items-center justify-center p-2.5 landscape:p-2 rounded-lg transition-all",
             "hover:bg-muted",
             selectedIcon === name
               ? "bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2 ring-offset-background"
               : "bg-muted/50 text-muted-foreground"
           )}
         >
-          <Icon className="h-5 w-5" />
+          <Icon className="h-5 w-5 landscape:h-4 landscape:w-4" />
         </button>
       ))}
     </div>
