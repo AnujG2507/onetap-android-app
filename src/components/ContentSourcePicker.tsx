@@ -1,11 +1,10 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Image, Video, FileText, Bookmark, Music, Phone, Link, FolderOpen, MessageCircle, X, Home, Bell } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { MyShortcutsButton } from '@/components/MyShortcutsButton';
 import type { FileTypeFilter } from '@/lib/contentResolver';
-
 export type ContactMode = 'dial' | 'message';
 export type ActionMode = 'shortcut' | 'reminder';
 
@@ -32,7 +31,19 @@ export function ContentSourcePicker({
   const [activePicker, setActivePicker] = useState<ActivePicker>(null);
   const [activeSecondaryPicker, setActiveSecondaryPicker] = useState<ActiveSecondaryPicker>(null);
   const [contactMode, setContactMode] = useState<ContactMode>('dial');
-
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const pickerRef = useRef<HTMLDivElement>(null);
+  
+  // Auto-scroll to ensure expanded picker is visible above the fixed button
+  useEffect(() => {
+    if ((activePicker || activeSecondaryPicker) && scrollContainerRef.current && pickerRef.current) {
+      // Small delay to let the animation start
+      const timer = setTimeout(() => {
+        pickerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [activePicker, activeSecondaryPicker]);
   // Notify parent when picker opens/closes
   const updateActivePicker = (picker: ActivePicker) => {
     setActivePicker(picker);
@@ -100,8 +111,11 @@ export function ContentSourcePicker({
 
   return (
     <>
-      {/* Scrollable Content Area */}
-      <div className="flex-1 overflow-y-auto">
+      {/* Scrollable Content Area - ends above fixed My Shortcuts button */}
+      <div 
+        ref={scrollContainerRef}
+        className="flex-1 overflow-y-auto pb-[calc(4.5rem+env(safe-area-inset-bottom))]"
+      >
         <div className="flex flex-col gap-4 p-5 pb-6 animate-fade-in">
           {/* Main Card: Create a Shortcut */}
           <div className="rounded-2xl bg-card elevation-1 p-4">
@@ -168,24 +182,27 @@ export function ContentSourcePicker({
             {/* Inline Action Picker - for non-contact items */}
             <AnimatePresence>
               {activePicker && activePicker !== 'contact' && (
-                <ActionModePicker
-                  key="action-picker"
-                  onSelectAction={(action) => handleActionSelect(activePicker, action)}
-                  onClose={closePicker}
-                />
+                <div ref={pickerRef}>
+                  <ActionModePicker
+                    key="action-picker"
+                    onSelectAction={(action) => handleActionSelect(activePicker, action)}
+                    onClose={closePicker}
+                  />
+                </div>
               )}
             </AnimatePresence>
-
             {/* Contact Mode + Action Picker */}
             <AnimatePresence>
               {activePicker === 'contact' && (
-                <ContactActionPicker
-                  key="contact-picker"
-                  contactMode={contactMode}
-                  onSelectContactMode={handleContactModeSelect}
-                  onSelectAction={(action) => handleActionSelect('contact', action)}
-                  onClose={closePicker}
-                />
+                <div ref={pickerRef}>
+                  <ContactActionPicker
+                    key="contact-picker"
+                    contactMode={contactMode}
+                    onSelectContactMode={handleContactModeSelect}
+                    onSelectAction={(action) => handleActionSelect('contact', action)}
+                    onClose={closePicker}
+                  />
+                </div>
               )}
             </AnimatePresence>
             
@@ -220,11 +237,13 @@ export function ContentSourcePicker({
               {/* Secondary Action Picker */}
               <AnimatePresence>
                 {activeSecondaryPicker && (
-                  <ActionModePicker
-                    key="secondary-picker"
-                    onSelectAction={(action) => handleSecondaryAction(activeSecondaryPicker, action)}
-                    onClose={closePicker}
-                  />
+                  <div ref={pickerRef}>
+                    <ActionModePicker
+                      key="secondary-picker"
+                      onSelectAction={(action) => handleSecondaryAction(activeSecondaryPicker, action)}
+                      onClose={closePicker}
+                    />
+                  </div>
                 )}
               </AnimatePresence>
             </div>
