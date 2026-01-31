@@ -165,7 +165,7 @@ export function IconPicker({ thumbnail, platformIcon, faviconUrl, selectedIcon, 
   const hasAutoDetectedIcon = !!(platformIcon && platformInfo);
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 landscape:space-y-2">
       {/* Collapsed state for recognized platforms - shows auto-detected badge */}
       <AnimatePresence mode="wait">
         {hasAutoDetectedIcon && !isExpanded && (
@@ -176,11 +176,11 @@ export function IconPicker({ thumbnail, platformIcon, faviconUrl, selectedIcon, 
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
             onClick={() => setIsExpanded(true)}
-            className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-muted/50 hover:bg-muted transition-colors text-left"
+            className="w-full flex items-center justify-between gap-3 landscape:gap-2 px-4 py-3 landscape:px-3 landscape:py-2 rounded-xl bg-muted/50 hover:bg-muted transition-colors text-left"
           >
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 landscape:gap-2">
               {/* Mini platform icon preview */}
-              <div className="h-10 w-10 rounded-xl overflow-hidden">
+              <div className="h-10 w-10 landscape:h-8 landscape:w-8 rounded-xl landscape:rounded-lg overflow-hidden">
                 <PlatformIcon platform={platformInfo} size="md" />
               </div>
               <div className="flex flex-col">
@@ -232,10 +232,10 @@ export function IconPicker({ thumbnail, platformIcon, faviconUrl, selectedIcon, 
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.25, ease: 'easeOut' }}
-            className="space-y-4 overflow-hidden"
+            className="space-y-4 landscape:space-y-2 overflow-hidden"
           >
           {/* Icon type selector */}
-          <div className="flex gap-2 pt-2">
+          <div className="flex gap-2 landscape:gap-1.5 pt-2 landscape:pt-1 flex-wrap">
             {iconTypes.map(({ type, icon, label }) => (
               <button
                 key={type}
@@ -253,13 +253,13 @@ export function IconPicker({ thumbnail, platformIcon, faviconUrl, selectedIcon, 
                   }
                 }}
                 className={cn(
-                  "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-colors",
+                  "flex items-center gap-2 landscape:gap-1.5 px-4 py-2 landscape:px-3 landscape:py-1.5 rounded-full text-sm landscape:text-xs font-medium transition-colors",
                   selectedIcon.type === type
                     ? "bg-primary text-primary-foreground"
                     : "bg-secondary text-secondary-foreground"
                 )}
               >
-                {icon}
+                <span className="[&>svg]:h-5 [&>svg]:w-5 landscape:[&>svg]:h-4 landscape:[&>svg]:w-4">{icon}</span>
                 {label}
               </button>
             ))}
@@ -269,11 +269,11 @@ export function IconPicker({ thumbnail, platformIcon, faviconUrl, selectedIcon, 
           {selectedIcon.type !== 'emoji' && (
             <div 
               key={`preview-${selectedIcon.type}`}
-              className="flex justify-center py-4 animate-fade-in"
+              className="flex justify-center py-4 landscape:py-2 animate-fade-in"
             >
               <div
                 className={cn(
-                  "h-16 w-16 rounded-2xl flex items-center justify-center elevation-2 overflow-hidden",
+                  "h-16 w-16 landscape:h-12 landscape:w-12 rounded-2xl landscape:rounded-xl flex items-center justify-center elevation-2 overflow-hidden",
                   selectedIcon.type === 'thumbnail' ? 'p-0' : '',
                   // Favicon gets white/neutral background for transparency handling
                   selectedIcon.type === 'favicon' && 'bg-white dark:bg-gray-100 shadow-sm',
@@ -318,25 +318,25 @@ export function IconPicker({ thumbnail, platformIcon, faviconUrl, selectedIcon, 
           {selectedIcon.type === 'emoji' && (
             <div 
               key="emoji-scroll"
-              className="py-4 animate-fade-in relative"
+              className="py-4 landscape:py-2 animate-fade-in relative"
             >
               {/* Left fade gradient */}
-              <div className="absolute left-0 top-0 bottom-0 w-12 bg-gradient-to-r from-background to-transparent z-10 pointer-events-none" />
+              <div className="absolute left-0 top-0 bottom-0 w-12 landscape:w-8 bg-gradient-to-r from-background to-transparent z-10 pointer-events-none" />
               
               {/* Right fade gradient */}
-              <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-background to-transparent z-10 pointer-events-none" />
+              <div className="absolute right-0 top-0 bottom-0 w-12 landscape:w-8 bg-gradient-to-l from-background to-transparent z-10 pointer-events-none" />
               
               <div 
                 ref={scrollContainerRef}
                 onScroll={handleScroll}
-                className="flex gap-2 overflow-x-auto scrollbar-hide snap-x snap-mandatory px-[calc(50%-28px)]"
+                className="flex gap-2 landscape:gap-1.5 overflow-x-auto scrollbar-hide snap-x snap-mandatory px-[calc(50%-28px)] landscape:px-[calc(50%-22px)]"
               >
                 {COMMON_EMOJIS.map((emoji) => (
                   <button
                     key={emoji}
                     onClick={() => onSelect({ type: 'emoji', value: emoji })}
                     className={cn(
-                      "h-14 w-14 shrink-0 rounded-xl text-2xl flex items-center justify-center transition-all duration-200 snap-center",
+                      "h-14 w-14 landscape:h-11 landscape:w-11 shrink-0 rounded-xl landscape:rounded-lg text-2xl landscape:text-xl flex items-center justify-center transition-all duration-200 snap-center",
                       selectedIcon.value === emoji
                         ? "scale-110 bg-primary/15 ring-2 ring-primary"
                         : "scale-90 opacity-50 bg-secondary hover:opacity-75"
@@ -360,7 +360,7 @@ export function IconPicker({ thumbnail, platformIcon, faviconUrl, selectedIcon, 
                 }}
                 placeholder={t('iconPicker.textPlaceholder')}
                 maxLength={2}
-                className="text-center text-lg font-medium h-12 pr-10"
+                className="text-center text-lg landscape:text-base font-medium h-12 landscape:h-10 pr-10"
               />
               {textValue && (
                 <button
