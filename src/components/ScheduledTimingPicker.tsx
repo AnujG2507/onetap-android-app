@@ -19,6 +19,7 @@ import {
 import { cn } from '@/lib/utils';
 import { triggerHaptic } from '@/lib/haptics';
 import { TimeWheelPicker } from '@/components/ui/time-wheel-picker';
+import { useOrientation } from '@/hooks/useOrientation';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import type { RecurrenceType, RecurrenceAnchor } from '@/types/scheduledAction';
 // computeNextTrigger is used for advancing recurring actions, not for initial creation
@@ -482,6 +483,7 @@ export function ScheduledTimingPicker({
   initialAnchor,
 }: ScheduledTimingPickerProps) {
   const { t } = useTranslation();
+  const { isLandscape } = useOrientation();
   const now = new Date();
   
   const to12Hour = (h24: number) => {
@@ -798,6 +800,7 @@ export function ScheduledTimingPicker({
                         onHourChange={setHour}
                         onMinuteChange={setMinute}
                         onPeriodChange={setPeriod}
+                        compact={isLandscape}
                       />
                     </motion.div>
                   </div>

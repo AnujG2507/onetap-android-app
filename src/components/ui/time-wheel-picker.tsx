@@ -10,6 +10,7 @@ interface WheelPickerProps {
   className?: string;
   itemHeight?: number;
   visibleItems?: number;
+  compact?: boolean;
 }
 
 export function WheelPicker({
@@ -19,24 +20,27 @@ export function WheelPicker({
   className,
   itemHeight = 36,
   visibleItems = 3,
+  compact = false,
 }: WheelPickerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isScrolling, setIsScrolling] = useState(false);
   const scrollTimeout = useRef<NodeJS.Timeout>();
   const lastSelectedIndex = useRef<number>(-1);
   
+  // Use smaller item height in compact mode
+  const effectiveItemHeight = compact ? Math.round(itemHeight * 0.8) : itemHeight;
   const selectedIndex = values.indexOf(selectedValue);
-  const containerHeight = itemHeight * visibleItems;
+  const containerHeight = effectiveItemHeight * visibleItems;
   const paddingItems = Math.floor(visibleItems / 2);
 
   // Scroll to selected value on mount and when selectedValue changes externally
   useEffect(() => {
     if (containerRef.current && !isScrolling) {
-      const targetScroll = selectedIndex * itemHeight;
+      const targetScroll = selectedIndex * effectiveItemHeight;
       containerRef.current.scrollTop = targetScroll;
       lastSelectedIndex.current = selectedIndex;
     }
-  }, [selectedIndex, itemHeight, isScrolling]);
+  }, [selectedIndex, effectiveItemHeight, isScrolling]);
 
   const handleScroll = useCallback(() => {
     if (!containerRef.current) return;
@@ -53,12 +57,12 @@ export function WheelPicker({
       if (!containerRef.current) return;
       
       const scrollTop = containerRef.current.scrollTop;
-      const newIndex = Math.round(scrollTop / itemHeight);
+      const newIndex = Math.round(scrollTop / effectiveItemHeight);
       const clampedIndex = Math.max(0, Math.min(newIndex, values.length - 1));
       
       // Snap to the nearest item
       containerRef.current.scrollTo({
-        top: clampedIndex * itemHeight,
+        top: clampedIndex * effectiveItemHeight,
         behavior: 'smooth',
       });
       
@@ -71,7 +75,7 @@ export function WheelPicker({
       
       setIsScrolling(false);
     }, 80);
-  }, [itemHeight, values, onChange]);
+  }, [effectiveItemHeight, values, onChange]);
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -94,17 +98,23 @@ export function WheelPicker({
       <div 
         className="absolute left-0 right-0 pointer-events-none z-10 bg-primary/10 border-y border-primary/20"
         style={{ 
-          top: paddingItems * itemHeight,
-          height: itemHeight,
+          top: paddingItems * effectiveItemHeight,
+          height: effectiveItemHeight,
         }}
       />
       
       {/* Gradient fades */}
       <div 
-        className="absolute inset-x-0 top-0 h-8 bg-gradient-to-b from-background to-transparent pointer-events-none z-20"
+        className={cn(
+          "absolute inset-x-0 top-0 bg-gradient-to-b from-background to-transparent pointer-events-none z-20",
+          compact ? "h-5" : "h-8"
+        )}
       />
       <div 
-        className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-background to-transparent pointer-events-none z-20"
+        className={cn(
+          "absolute inset-x-0 bottom-0 bg-gradient-to-t from-background to-transparent pointer-events-none z-20",
+          compact ? "h-5" : "h-8"
+        )}
       />
       
       {/* Scrollable area */}
@@ -118,7 +128,7 @@ export function WheelPicker({
         }}
       >
         {/* Top padding */}
-        <div style={{ height: paddingItems * itemHeight }} />
+        <div style={{ height: paddingItems * effectiveItemHeight }} />
         
         {/* Items */}
         {values.map((value, index) => {
@@ -135,7 +145,7 @@ export function WheelPicker({
                 isSelected ? "text-foreground font-semibold" : "text-muted-foreground"
               )}
               style={{ 
-                height: itemHeight,
+                height: effectiveItemHeight,
                 scrollSnapAlign: 'center',
                 opacity,
                 transform: `scale(${scale})`,
@@ -143,13 +153,16 @@ export function WheelPicker({
               onClick={() => {
                 if (containerRef.current) {
                   containerRef.current.scrollTo({
-                    top: index * itemHeight,
+                    top: index * effectiveItemHeight,
                     behavior: 'smooth',
                   });
                 }
               }}
             >
-              <span className="text-lg tabular-nums">
+              <span className={cn(
+                "tabular-nums",
+                compact ? "text-base" : "text-lg"
+              )}>
                 {typeof value === 'number' ? value.toString().padStart(2, '0') : value}
               </span>
             </div>
@@ -157,7 +170,7 @@ export function WheelPicker({
         })}
         
         {/* Bottom padding */}
-        <div style={{ height: paddingItems * itemHeight }} />
+        <div style={{ height: paddingItems * effectiveItemHeight }} />
       </div>
     </div>
   );
@@ -171,6 +184,7 @@ interface TimeWheelPickerProps {
   onHourChange: (hour: number) => void;
   onMinuteChange: (minute: number) => void;
   onPeriodChange: (period: 'AM' | 'PM') => void;
+  compact?: boolean;
 }
 
 export function TimeWheelPicker({
@@ -180,30 +194,39 @@ export function TimeWheelPicker({
   onHourChange,
   onMinuteChange,
   onPeriodChange,
+  compact = false,
 }: TimeWheelPickerProps) {
   const hours = Array.from({ length: 12 }, (_, i) => i + 1);
   const minutes = Array.from({ length: 12 }, (_, i) => i * 5);
   const periods: ('AM' | 'PM')[] = ['AM', 'PM'];
 
   return (
-    <div className="flex items-center justify-center gap-0.5">
+    <div className={cn(
+      "flex items-center justify-center",
+      compact ? "gap-0" : "gap-0.5"
+    )}>
       {/* Hour wheel */}
       <WheelPicker
         values={hours}
         selectedValue={hour}
         onChange={(v) => onHourChange(v as number)}
-        className="w-12"
+        className={compact ? "w-10" : "w-12"}
+        compact={compact}
       />
       
       {/* Separator */}
-      <span className="text-lg font-semibold text-muted-foreground">:</span>
+      <span className={cn(
+        "font-semibold text-muted-foreground",
+        compact ? "text-base" : "text-lg"
+      )}>:</span>
       
       {/* Minute wheel */}
       <WheelPicker
         values={minutes}
         selectedValue={minute}
         onChange={(v) => onMinuteChange(v as number)}
-        className="w-12"
+        className={compact ? "w-10" : "w-12"}
+        compact={compact}
       />
       
       {/* Period wheel */}
@@ -211,7 +234,8 @@ export function TimeWheelPicker({
         values={periods}
         selectedValue={period}
         onChange={(v) => onPeriodChange(v as 'AM' | 'PM')}
-        className="w-12 ml-1"
+        className={cn(compact ? "w-10 ml-0.5" : "w-12 ml-1")}
+        compact={compact}
       />
     </div>
   );
