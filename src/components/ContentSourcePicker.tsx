@@ -14,6 +14,8 @@ interface ContentSourcePickerProps {
   onEnterUrl?: (actionMode: ActionMode) => void;
   /** Called when the inline picker is opened or closed */
   onPickerOpenChange?: (isOpen: boolean) => void;
+  /** External scroll container ref for page-level scrolling */
+  scrollContainerRef?: React.RefObject<HTMLDivElement>;
 }
 
 type ActivePicker = 'photo' | 'video' | 'audio' | 'document' | 'contact' | 'link' | null;
@@ -25,12 +27,14 @@ export function ContentSourcePicker({
   onSelectFromLibrary, 
   onEnterUrl,
   onPickerOpenChange,
+  scrollContainerRef: externalScrollRef,
 }: ContentSourcePickerProps) {
   const { t } = useTranslation();
   const [activePicker, setActivePicker] = useState<ActivePicker>(null);
   const [activeSecondaryPicker, setActiveSecondaryPicker] = useState<ActiveSecondaryPicker>(null);
   const [contactMode, setContactMode] = useState<ContactMode>('dial');
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const internalScrollRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = externalScrollRef || internalScrollRef;
   const pickerRef = useRef<HTMLDivElement>(null);
   
   // Auto-scroll to ensure expanded picker is visible above the fixed My Shortcuts button.
@@ -155,148 +159,156 @@ export function ContentSourcePicker({
     }
   };
 
-  return (
-    <>
-      {/* Scrollable Content Area - ends above fixed My Shortcuts button */}
-      <div 
-        ref={scrollContainerRef}
-        className="flex-1 h-full overflow-y-auto pb-[calc(8rem+env(safe-area-inset-bottom))]"
-      >
-        <div className="flex flex-col gap-4 p-5 pb-6 animate-fade-in">
-          {/* Main Card: Create a Shortcut */}
-          <div className="rounded-2xl bg-card elevation-1 p-4">
-            <h2 className="text-base font-medium text-foreground mb-4">
-              {t('access.createShortcut')}
-            </h2>
-            
-            {/* Primary Grid: 3x2 layout - hide non-selected when picker is active */}
-            <div id="tutorial-content-grid" className={cn(
-              "grid gap-3 transition-all duration-200",
-              activePicker ? "grid-cols-1" : "grid-cols-3"
-            )}>
-              {(!activePicker || activePicker === 'photo') && (
-                <GridButton
-                  icon={<Image className="h-5 w-5" />}
-                  label={t('access.photo')}
-                  onClick={() => handleGridButtonClick('photo')}
-                  isActive={activePicker === 'photo'}
-                />
-              )}
-              {(!activePicker || activePicker === 'video') && (
-                <GridButton
-                  icon={<Video className="h-5 w-5" />}
-                  label={t('access.video')}
-                  onClick={() => handleGridButtonClick('video')}
-                  isActive={activePicker === 'video'}
-                />
-              )}
-              {(!activePicker || activePicker === 'audio') && (
-                <GridButton
-                  icon={<Music className="h-5 w-5" />}
-                  label={t('access.audio')}
-                  onClick={() => handleGridButtonClick('audio')}
-                  isActive={activePicker === 'audio'}
-                />
-              )}
-              {(!activePicker || activePicker === 'document') && (
-                <GridButton
-                  icon={<FileText className="h-5 w-5" />}
-                  label={t('access.document')}
-                  onClick={() => handleGridButtonClick('document')}
-                  isActive={activePicker === 'document'}
-                />
-              )}
-              {onSelectContact && (!activePicker || activePicker === 'contact') && (
-                <GridButton
-                  icon={<Phone className="h-5 w-5" />}
-                  label={t('access.contact')}
-                  onClick={() => handleGridButtonClick('contact')}
-                  isActive={activePicker === 'contact'}
-                />
-              )}
-              {onEnterUrl && (!activePicker || activePicker === 'link') && (
-                <GridButton
-                  id="tutorial-link-button"
-                  icon={<Link className="h-5 w-5" />}
-                  label={t('access.link')}
-                  onClick={() => handleGridButtonClick('link')}
-                  isActive={activePicker === 'link'}
-                />
-              )}
-            </div>
+  // Content with padding for fixed My Shortcuts button
+  const content = (
+    <div className="flex flex-col gap-4 p-5 pb-[calc(8rem+env(safe-area-inset-bottom))] animate-fade-in">
+      {/* Main Card: Create a Shortcut */}
+      <div className="rounded-2xl bg-card elevation-1 p-4">
+        <h2 className="text-base font-medium text-foreground mb-4">
+          {t('access.createShortcut')}
+        </h2>
+        
+        {/* Primary Grid: 3x2 layout - hide non-selected when picker is active */}
+        <div id="tutorial-content-grid" className={cn(
+          "grid gap-3 transition-all duration-200",
+          activePicker ? "grid-cols-1" : "grid-cols-3"
+        )}>
+          {(!activePicker || activePicker === 'photo') && (
+            <GridButton
+              icon={<Image className="h-5 w-5" />}
+              label={t('access.photo')}
+              onClick={() => handleGridButtonClick('photo')}
+              isActive={activePicker === 'photo'}
+            />
+          )}
+          {(!activePicker || activePicker === 'video') && (
+            <GridButton
+              icon={<Video className="h-5 w-5" />}
+              label={t('access.video')}
+              onClick={() => handleGridButtonClick('video')}
+              isActive={activePicker === 'video'}
+            />
+          )}
+          {(!activePicker || activePicker === 'audio') && (
+            <GridButton
+              icon={<Music className="h-5 w-5" />}
+              label={t('access.audio')}
+              onClick={() => handleGridButtonClick('audio')}
+              isActive={activePicker === 'audio'}
+            />
+          )}
+          {(!activePicker || activePicker === 'document') && (
+            <GridButton
+              icon={<FileText className="h-5 w-5" />}
+              label={t('access.document')}
+              onClick={() => handleGridButtonClick('document')}
+              isActive={activePicker === 'document'}
+            />
+          )}
+          {onSelectContact && (!activePicker || activePicker === 'contact') && (
+            <GridButton
+              icon={<Phone className="h-5 w-5" />}
+              label={t('access.contact')}
+              onClick={() => handleGridButtonClick('contact')}
+              isActive={activePicker === 'contact'}
+            />
+          )}
+          {onEnterUrl && (!activePicker || activePicker === 'link') && (
+            <GridButton
+              id="tutorial-link-button"
+              icon={<Link className="h-5 w-5" />}
+              label={t('access.link')}
+              onClick={() => handleGridButtonClick('link')}
+              isActive={activePicker === 'link'}
+            />
+          )}
+        </div>
 
-            {/* Inline Action Picker - for non-contact items */}
-            <AnimatePresence>
-              {activePicker && activePicker !== 'contact' && (
-                <div ref={pickerRef}>
-                  <ActionModePicker
-                    key="action-picker"
-                    onSelectAction={(action) => handleActionSelect(activePicker, action)}
-                    onClose={closePicker}
-                  />
-                </div>
-              )}
-            </AnimatePresence>
-            {/* Contact Mode + Action Picker */}
-            <AnimatePresence>
-              {activePicker === 'contact' && (
-                <div ref={pickerRef}>
-                  <ContactActionPicker
-                    key="contact-picker"
-                    contactMode={contactMode}
-                    onSelectContactMode={handleContactModeSelect}
-                    onSelectAction={(action) => handleActionSelect('contact', action)}
-                    onClose={closePicker}
-                  />
-                </div>
-              )}
-            </AnimatePresence>
-            
-            {/* Secondary Actions Section */}
-            <div className="mt-4 -mx-4 -mb-4 px-4 pb-4 pt-3 bg-muted/20 rounded-b-2xl border-t border-border/50">
-              <h2 className="text-sm font-semibold text-muted-foreground mb-3">
-                {t('access.moreOptions')}
-              </h2>
-              <div className={cn(
-                "grid gap-3 transition-all duration-200",
-                activeSecondaryPicker ? "grid-cols-1" : "grid-cols-2"
-              )}>
-                {(!activeSecondaryPicker || activeSecondaryPicker === 'browse') && (
-                  <SecondaryButton
-                    icon={<FolderOpen className="h-4 w-4" />}
-                    label={t('access.browseFiles')}
-                    onClick={() => handleSecondaryButtonClick('browse')}
-                    isActive={activeSecondaryPicker === 'browse'}
-                  />
-                )}
-                {onSelectFromLibrary && (!activeSecondaryPicker || activeSecondaryPicker === 'library') && (
-                  <SecondaryButton
-                    id="tutorial-saved-bookmarks"
-                    icon={<Bookmark className="h-4 w-4" />}
-                    label={t('access.savedBookmarks')}
-                    onClick={() => handleSecondaryButtonClick('library')}
-                    isActive={activeSecondaryPicker === 'library'}
-                  />
-                )}
-              </div>
-
-              {/* Secondary Action Picker */}
-              <AnimatePresence>
-                {activeSecondaryPicker && (
-                  <div ref={pickerRef}>
-                    <ActionModePicker
-                      key="secondary-picker"
-                      onSelectAction={(action) => handleSecondaryAction(activeSecondaryPicker, action)}
-                      onClose={closePicker}
-                    />
-                  </div>
-                )}
-              </AnimatePresence>
+        {/* Inline Action Picker - for non-contact items */}
+        <AnimatePresence>
+          {activePicker && activePicker !== 'contact' && (
+            <div ref={pickerRef}>
+              <ActionModePicker
+                key="action-picker"
+                onSelectAction={(action) => handleActionSelect(activePicker, action)}
+                onClose={closePicker}
+              />
             </div>
+          )}
+        </AnimatePresence>
+        {/* Contact Mode + Action Picker */}
+        <AnimatePresence>
+          {activePicker === 'contact' && (
+            <div ref={pickerRef}>
+              <ContactActionPicker
+                key="contact-picker"
+                contactMode={contactMode}
+                onSelectContactMode={handleContactModeSelect}
+                onSelectAction={(action) => handleActionSelect('contact', action)}
+                onClose={closePicker}
+              />
+            </div>
+          )}
+        </AnimatePresence>
+        
+        {/* Secondary Actions Section */}
+        <div className="mt-4 -mx-4 -mb-4 px-4 pb-4 pt-3 bg-muted/20 rounded-b-2xl border-t border-border/50">
+          <h2 className="text-sm font-semibold text-muted-foreground mb-3">
+            {t('access.moreOptions')}
+          </h2>
+          <div className={cn(
+            "grid gap-3 transition-all duration-200",
+            activeSecondaryPicker ? "grid-cols-1" : "grid-cols-2"
+          )}>
+            {(!activeSecondaryPicker || activeSecondaryPicker === 'browse') && (
+              <SecondaryButton
+                icon={<FolderOpen className="h-4 w-4" />}
+                label={t('access.browseFiles')}
+                onClick={() => handleSecondaryButtonClick('browse')}
+                isActive={activeSecondaryPicker === 'browse'}
+              />
+            )}
+            {onSelectFromLibrary && (!activeSecondaryPicker || activeSecondaryPicker === 'library') && (
+              <SecondaryButton
+                id="tutorial-saved-bookmarks"
+                icon={<Bookmark className="h-4 w-4" />}
+                label={t('access.savedBookmarks')}
+                onClick={() => handleSecondaryButtonClick('library')}
+                isActive={activeSecondaryPicker === 'library'}
+              />
+            )}
           </div>
+
+          {/* Secondary Action Picker */}
+          <AnimatePresence>
+            {activeSecondaryPicker && (
+              <div ref={pickerRef}>
+                <ActionModePicker
+                  key="secondary-picker"
+                  onSelectAction={(action) => handleSecondaryAction(activeSecondaryPicker, action)}
+                  onClose={closePicker}
+                />
+              </div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
-    </>
+    </div>
+  );
+
+  // If external scroll ref is provided, render content directly (parent handles scrolling)
+  // Otherwise, wrap in internal scroll container
+  if (externalScrollRef) {
+    return <>{content}</>;
+  }
+
+  return (
+    <div 
+      ref={internalScrollRef}
+      className="flex-1 h-full overflow-y-auto"
+    >
+      {content}
+    </div>
   );
 }
 
