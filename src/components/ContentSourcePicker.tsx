@@ -36,10 +36,10 @@ export function ContentSourcePicker({
   // Auto-scroll to ensure expanded picker is visible above the fixed button
   useEffect(() => {
     if ((activePicker || activeSecondaryPicker) && scrollContainerRef.current && pickerRef.current) {
-      // Small delay to let the animation start
+      // Delay to let the animation complete, then scroll so picker ends at bottom of visible area
       const timer = setTimeout(() => {
-        pickerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      }, 50);
+        pickerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      }, 100);
       return () => clearTimeout(timer);
     }
   }, [activePicker, activeSecondaryPicker]);
