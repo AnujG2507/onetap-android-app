@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import { Image, Video, FileText, Bookmark, Music, Phone, Link, FolderOpen, MessageCircle, X, Home, Bell } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { MyShortcutsButton } from '@/components/MyShortcutsButton';
 import type { FileTypeFilter } from '@/lib/contentResolver';
 export type ContactMode = 'dial' | 'message';
 export type ActionMode = 'shortcut' | 'reminder';
@@ -114,7 +113,7 @@ export function ContentSourcePicker({
       {/* Scrollable Content Area - ends above fixed My Shortcuts button */}
       <div 
         ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto pb-[calc(4.5rem+env(safe-area-inset-bottom))]"
+        className="flex-1 h-full overflow-y-auto pb-[calc(8rem+env(safe-area-inset-bottom))]"
       >
         <div className="flex flex-col gap-4 p-5 pb-6 animate-fade-in">
           {/* Main Card: Create a Shortcut */}
@@ -249,11 +248,6 @@ export function ContentSourcePicker({
             </div>
           </div>
         </div>
-      </div>
-
-      {/* My Shortcuts Button - Fixed above bottom nav, outside scroll area */}
-      <div className="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom)+0.75rem)] left-0 right-0 px-5 z-10">
-        <MyShortcutsButton />
       </div>
     </>
   );

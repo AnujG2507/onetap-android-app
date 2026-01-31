@@ -10,6 +10,7 @@ import { ClipboardSuggestion } from '@/components/ClipboardSuggestion';
 import { AppMenu } from '@/components/AppMenu';
 import { TrashSheet } from '@/components/TrashSheet';
 import { SavedLinksSheet } from '@/components/SavedLinksSheet';
+import { MyShortcutsButton } from '@/components/MyShortcutsButton';
 import { SettingsPage } from '@/components/SettingsPage';
 import { TutorialCoachMarks } from '@/components/TutorialCoachMarks';
 import { useShortcuts } from '@/hooks/useShortcuts';
@@ -411,7 +412,7 @@ export function AccessFlow({
   return (
     <>
       {step === 'source' && (
-        <div className="flex-1 flex flex-col min-h-0 pb-[calc(5rem+env(safe-area-inset-bottom))]">
+        <div className="flex-1 flex flex-col min-h-0">
           {/* Offline indicator banner */}
           {!isOnline && (
             <div className="bg-muted/80 border-b border-border ps-5 pe-5 py-2 flex items-center gap-2 shrink-0">
@@ -432,14 +433,21 @@ export function AccessFlow({
             </div>
           </header>
           
-          {/* Scrollable content area with fixed button */}
-          <ContentSourcePicker
-            onSelectFile={handleSelectFile}
-            onSelectContact={handleSelectContact}
-            onSelectFromLibrary={handleSelectFromLibrary}
-            onEnterUrl={handleEnterUrl}
-            onPickerOpenChange={onPickerOpenChange}
-          />
+          {/* Scrollable content area - ContentSourcePicker handles its own padding */}
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <ContentSourcePicker
+              onSelectFile={handleSelectFile}
+              onSelectContact={handleSelectContact}
+              onSelectFromLibrary={handleSelectFromLibrary}
+              onEnterUrl={handleEnterUrl}
+              onPickerOpenChange={onPickerOpenChange}
+            />
+          </div>
+          
+          {/* Fixed My Shortcuts Button - positioned above bottom nav */}
+          <div className="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom)+0.75rem)] left-0 right-0 px-5 z-10">
+            <MyShortcutsButton />
+          </div>
 
           {/* Clipboard URL auto-detection */}
           {detectedUrl && (
