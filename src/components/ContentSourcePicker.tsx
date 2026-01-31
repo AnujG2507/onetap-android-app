@@ -33,15 +33,46 @@ export function ContentSourcePicker({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const pickerRef = useRef<HTMLDivElement>(null);
   
-  // Auto-scroll to ensure expanded picker is visible above the fixed button
+  // Auto-scroll to ensure expanded picker is visible above the fixed My Shortcuts button.
+  // Note: scrollIntoView({block:'nearest'}) isn't sufficient because the "nearest" position
+  // can still leave the picker under the fixed button. We explicitly measure overlap and
+  // scroll the internal container until the picker bottom is above the button.
   useEffect(() => {
-    if ((activePicker || activeSecondaryPicker) && scrollContainerRef.current && pickerRef.current) {
-      // Delay to let the animation complete, then scroll so picker ends at bottom of visible area
-      const timer = setTimeout(() => {
-        pickerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-      }, 100);
-      return () => clearTimeout(timer);
-    }
+    const scroller = scrollContainerRef.current;
+    const pickerEl = pickerRef.current;
+    if (!(activePicker || activeSecondaryPicker) || !scroller || !pickerEl) return;
+
+    const GAP_PX = 12;
+
+    const ensureNoOverlap = () => {
+      const buttonEl = document.getElementById('my-shortcuts-fixed');
+      const buttonTop = buttonEl?.getBoundingClientRect().top ?? window.innerHeight;
+      const pickerRect = pickerEl.getBoundingClientRect();
+
+      const allowedBottom = buttonTop - GAP_PX;
+      const overlap = pickerRect.bottom - allowedBottom;
+
+      if (overlap > 0) {
+        scroller.scrollBy({ top: overlap, behavior: 'smooth' });
+      }
+    };
+
+    // Let framer-motion finish expanding before measuring.
+    const timer = window.setTimeout(() => {
+      // First, bring it into view.
+      pickerEl.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      // Then, guarantee no overlap with the fixed button.
+      ensureNoOverlap();
+    }, 260);
+
+    // If the picker height changes while open (e.g. different content), keep enforcing.
+    const ro = new ResizeObserver(() => ensureNoOverlap());
+    ro.observe(pickerEl);
+
+    return () => {
+      window.clearTimeout(timer);
+      ro.disconnect();
+    };
   }, [activePicker, activeSecondaryPicker]);
   // Notify parent when picker opens/closes
   const updateActivePicker = (picker: ActivePicker) => {
