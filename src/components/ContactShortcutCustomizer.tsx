@@ -138,7 +138,7 @@ export function ContactShortcutCustomizer({
   return (
     <div className="min-h-screen bg-background flex flex-col animate-fade-in">
       {/* Header */}
-      <header className="px-5 pt-header-safe-compact pb-4 flex items-center gap-4">
+      <header className="px-5 pt-header-safe-compact pb-4 landscape:px-4 landscape:pt-2 landscape:pb-2 flex items-center gap-4">
         <button
           onClick={onBack}
           className="p-2 -ms-2 rounded-full hover:bg-muted/50 transition-colors"
@@ -150,7 +150,10 @@ export function ContactShortcutCustomizer({
         </h1>
       </header>
 
-      <div className="flex-1 px-5 pb-6 flex flex-col gap-6 overflow-y-auto">
+      <div className="flex-1 px-5 pb-6 landscape:px-4 landscape:pb-4 flex flex-col gap-6 landscape:gap-3 overflow-y-auto">
+        <div className="landscape:grid landscape:grid-cols-2 landscape:gap-6 contents landscape:block">
+          {/* Left column in landscape: Contact info, phone, name */}
+          <div className="space-y-6 landscape:space-y-3 contents landscape:block">
         {/* Contact Info Display */}
         {pickedContact?.name && (
           <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/30">
@@ -240,16 +243,20 @@ export function ContactShortcutCustomizer({
               </button>
             )}
           </div>
+          </div>
+          </div>
+
+          {/* Right column in landscape: Icon Picker */}
+          <div className="landscape:pt-0">
+            <IconPicker
+              selectedIcon={icon}
+              onSelect={setIcon}
+              thumbnail={contactPhoto || undefined}
+            />
+          </div>
         </div>
 
-        {/* Icon Picker */}
-        <IconPicker
-          selectedIcon={icon}
-          onSelect={setIcon}
-          thumbnail={contactPhoto || undefined}
-        />
-
-        {/* Quick Messages Editor - WhatsApp mode only */}
+        {/* Quick Messages Editor - WhatsApp mode only (full width below grid) */}
         {mode === 'message' && (
           <QuickMessagesEditor
             messages={quickMessages}
@@ -258,13 +265,13 @@ export function ContactShortcutCustomizer({
         )}
 
         {/* Spacer */}
-        <div className="flex-1 min-h-4" />
+        <div className="flex-1 min-h-4 landscape:min-h-2" />
 
         {/* Confirm Button */}
         <Button
           onClick={handleConfirm}
           disabled={!isValid}
-          className="w-full h-14 text-lg font-semibold"
+          className="w-full h-14 landscape:h-10 text-lg landscape:text-base font-semibold"
           size="lg"
         >
           {t('common.continue')}
