@@ -19,6 +19,7 @@ import { useSettings } from '@/hooks/useSettings';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useSheetBackHandler } from '@/hooks/useSheetBackHandler';
 import { useTutorial } from '@/hooks/useTutorial';
+import { useOrientation } from '@/hooks/useOrientation';
 import { useToast } from '@/hooks/use-toast';
 import { pickFile, FileTypeFilter } from '@/lib/contentResolver';
 import { createHomeScreenShortcut } from '@/lib/shortcutManager';
@@ -80,6 +81,7 @@ export function AccessFlow({
   const { toast } = useToast();
   const { settings } = useSettings();
   const { isOnline } = useNetworkStatus();
+  const { isLandscape } = useOrientation();
   const tutorial = useTutorial('access');
 
   // Auto-detect clipboard URL (only on source screen and if enabled in settings)
@@ -448,8 +450,8 @@ export function AccessFlow({
             />
           </div>
           
-          {/* Fixed My Shortcuts Button - positioned above bottom nav, hidden when inline picker is open */}
-          {!isInlinePickerOpen && (
+          {/* Fixed My Shortcuts Button - hidden in landscape mode or when inline picker is open */}
+          {!isInlinePickerOpen && !isLandscape && (
             <div
               id="my-shortcuts-fixed"
               className="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom)+0.75rem)] left-0 right-0 px-5 z-10"

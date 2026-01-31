@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Zap, Bell, Bookmark, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useOrientation } from '@/hooks/useOrientation';
 
 export type TabType = 'access' | 'reminders' | 'bookmarks' | 'profile';
 
@@ -14,10 +15,14 @@ interface BottomNavProps {
 
 export function BottomNav({ activeTab, onTabChange, hasShortlist, isSignedIn, hasActiveActions }: BottomNavProps) {
   const { t } = useTranslation();
+  const { isLandscape } = useOrientation();
   
   return (
     <nav className="fixed bottom-0 inset-x-0 bg-background border-t border-border safe-bottom z-50">
-      <div className="flex items-center justify-around h-14">
+      <div className={cn(
+        "flex items-center justify-around",
+        isLandscape ? "h-10" : "h-14"
+      )}>
         <button
           onClick={() => onTabChange('access')}
           className={cn(
@@ -28,10 +33,11 @@ export function BottomNav({ activeTab, onTabChange, hasShortlist, isSignedIn, ha
           )}
         >
           <Zap className={cn(
-            "h-5 w-5 transition-all",
+            isLandscape ? "h-4 w-4" : "h-5 w-5",
+            "transition-all",
             activeTab === 'access' && "fill-current"
           )} />
-          <span className="text-[10px] font-medium">{t('tabs.access')}</span>
+          {!isLandscape && <span className="text-[10px] font-medium">{t('tabs.access')}</span>}
         </button>
         
         <button
@@ -45,14 +51,15 @@ export function BottomNav({ activeTab, onTabChange, hasShortlist, isSignedIn, ha
         >
           <div className="relative">
             <Bell className={cn(
-              "h-5 w-5 transition-all",
+              isLandscape ? "h-4 w-4" : "h-5 w-5",
+              "transition-all",
               activeTab === 'reminders' && "fill-current"
             )} />
             {hasActiveActions && (
               <span className="absolute -top-0.5 -end-0.5 h-2 w-2 rounded-full bg-primary" />
             )}
           </div>
-          <span className="text-[10px] font-medium">{t('tabs.reminders')}</span>
+          {!isLandscape && <span className="text-[10px] font-medium">{t('tabs.reminders')}</span>}
         </button>
         
         <button
@@ -66,14 +73,15 @@ export function BottomNav({ activeTab, onTabChange, hasShortlist, isSignedIn, ha
         >
           <div className="relative">
             <Bookmark className={cn(
-              "h-5 w-5 transition-all",
+              isLandscape ? "h-4 w-4" : "h-5 w-5",
+              "transition-all",
               activeTab === 'bookmarks' && "fill-current"
             )} />
             {hasShortlist && (
               <span className="absolute -top-0.5 -end-0.5 h-2 w-2 rounded-full bg-primary" />
             )}
           </div>
-          <span className="text-[10px] font-medium">{t('tabs.bookmarks')}</span>
+          {!isLandscape && <span className="text-[10px] font-medium">{t('tabs.bookmarks')}</span>}
         </button>
 
         <button
@@ -87,14 +95,15 @@ export function BottomNav({ activeTab, onTabChange, hasShortlist, isSignedIn, ha
         >
           <div className="relative">
             <User className={cn(
-              "h-5 w-5 transition-all",
+              isLandscape ? "h-4 w-4" : "h-5 w-5",
+              "transition-all",
               activeTab === 'profile' && "fill-current"
             )} />
             {isSignedIn && (
               <span className="absolute -top-0.5 -end-0.5 h-2 w-2 rounded-full bg-green-500" />
             )}
           </div>
-          <span className="text-[10px] font-medium">{t('tabs.profile')}</span>
+          {!isLandscape && <span className="text-[10px] font-medium">{t('tabs.profile')}</span>}
         </button>
       </div>
     </nav>

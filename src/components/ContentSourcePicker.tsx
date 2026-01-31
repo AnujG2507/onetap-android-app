@@ -142,10 +142,10 @@ export function ContentSourcePicker({
               {t('access.createShortcut')}
             </h2>
             
-            {/* Primary Grid: 3x2 layout - hide non-selected when picker is active */}
+            {/* Primary Grid: 3x2 layout (6 cols in landscape) - hide non-selected when picker is active */}
             <div id="tutorial-content-grid" className={cn(
               "grid gap-3 transition-all duration-200",
-              activePicker ? "grid-cols-1" : "grid-cols-3"
+              activePicker ? "grid-cols-1" : "grid-cols-3 landscape:grid-cols-6"
             )}>
               {(!activePicker || activePicker === 'photo') && (
                 <GridButton
@@ -232,7 +232,7 @@ export function ContentSourcePicker({
               </h2>
               <div className={cn(
                 "grid gap-3 transition-all duration-200",
-                activeSecondaryPicker ? "grid-cols-1" : "grid-cols-2"
+                activeSecondaryPicker ? "grid-cols-1" : "grid-cols-2 landscape:grid-cols-4"
               )}>
                 {(!activeSecondaryPicker || activeSecondaryPicker === 'browse') && (
                   <SecondaryButton

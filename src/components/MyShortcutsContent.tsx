@@ -595,7 +595,7 @@ export function MyShortcutsContent({ onCreateReminder, onRefresh, isSyncing: ext
           </div>
         ) : (
           <ScrollArea className="flex-1 w-full" viewportClassName="overflow-x-hidden">
-            <div className="p-2">
+            <div className="p-2 grid grid-cols-1 landscape:grid-cols-2 gap-x-3">
               {filteredShortcuts.map((shortcut) => (
                 <ShortcutListItem
                   key={shortcut.id}

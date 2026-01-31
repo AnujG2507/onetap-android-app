@@ -907,7 +907,7 @@ export function NotificationsPage({
               <EmptyState onCreateNew={handleCreateNew} />
             )
           ) : (
-            <div className="space-y-3">
+            <div className="grid grid-cols-1 landscape:grid-cols-2 gap-3">
               {filteredActions.map((action) => (
                 <ScheduledActionItem
                   key={action.id}

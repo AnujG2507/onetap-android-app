@@ -123,7 +123,7 @@ export function ShortcutActionSheet({
   return (
     <>
       <Drawer open={isOpen} onOpenChange={(open) => !open && onClose()}>
-        <DrawerContent className="max-h-[80vh]">
+        <DrawerContent className="max-h-[80vh] landscape:max-h-[95vh]">
           <DrawerHeader className="pb-2">
             <div className="flex items-center gap-3">
               {/* Shortcut Icon Preview */}
