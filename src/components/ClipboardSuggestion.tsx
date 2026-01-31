@@ -215,11 +215,11 @@ export function ClipboardSuggestion({
             : "translate-y-4 opacity-0"
         )}
       >
-        <div className="bg-card/95 backdrop-blur-md border border-border rounded-2xl shadow-lg overflow-hidden p-6 flex flex-col items-center gap-2">
-          <div className="h-12 w-12 rounded-full bg-green-500/20 flex items-center justify-center">
-            <Check className="h-6 w-6 text-green-500" />
+        <div className="bg-card/95 backdrop-blur-md border border-border rounded-2xl shadow-lg overflow-hidden p-6 landscape:p-4 flex flex-col items-center gap-2">
+          <div className="h-12 w-12 landscape:h-10 landscape:w-10 rounded-full bg-green-500/20 flex items-center justify-center">
+            <Check className="h-6 w-6 landscape:h-5 landscape:w-5 text-green-500" />
           </div>
-          <p className="text-foreground font-medium">{t('sharedUrl.savedToLibrary')}</p>
+          <p className="text-foreground landscape:text-sm font-medium">{t('sharedUrl.savedToLibrary')}</p>
         </div>
       </div>
     );
@@ -237,16 +237,16 @@ export function ClipboardSuggestion({
             : "translate-y-4 opacity-0"
         )}
       >
-        <div className="bg-card/95 backdrop-blur-md border border-border rounded-2xl shadow-lg overflow-hidden">
+        <div className="bg-card/95 backdrop-blur-md border border-border rounded-2xl shadow-lg overflow-hidden landscape:max-w-lg landscape:mx-auto">
           {/* Header */}
-          <div className="p-4 pb-0">
+          <div className="p-4 landscape:p-3 pb-0">
             <div className="flex items-center justify-between">
               <button
                 onClick={handleBackToChoose}
                 className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
               >
                 <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
-                <span className="text-sm font-medium">{t('sharedUrl.saveToLibrary')}</span>
+                <span className="text-sm landscape:text-xs font-medium">{t('sharedUrl.saveToLibrary')}</span>
               </button>
               <button
                 onClick={handleDismiss}
@@ -259,45 +259,48 @@ export function ClipboardSuggestion({
           </div>
           
           {/* Form */}
-          <div className="p-4 space-y-4">
-            {/* Title */}
-            <div className="space-y-1.5">
-              <Label htmlFor="edit-title" className="text-xs text-muted-foreground">
-                {t('sharedUrl.title')}
-              </Label>
-              <Input
-                id="edit-title"
-                value={editTitle}
-                onChange={(e) => setEditTitle(e.target.value)}
-                placeholder={domain}
-                className="h-10"
-              />
-            </div>
-            
-            {/* Description */}
-            <div className="space-y-1.5">
-              <Label htmlFor="edit-desc" className="text-xs text-muted-foreground">
-                {t('sharedUrl.descriptionOptional')}
-              </Label>
-              <Input
-                id="edit-desc"
-                value={editDescription}
-                onChange={(e) => setEditDescription(e.target.value)}
-                placeholder={t('sharedUrl.addNote')}
-                className="h-10"
-              />
+          <div className="p-4 landscape:p-3 space-y-4 landscape:space-y-3">
+            {/* Portrait: stacked, Landscape: 2-column */}
+            <div className="landscape:grid landscape:grid-cols-2 landscape:gap-3">
+              {/* Title */}
+              <div className="space-y-1.5 landscape:space-y-1">
+                <Label htmlFor="edit-title" className="text-xs landscape:text-[10px] text-muted-foreground">
+                  {t('sharedUrl.title')}
+                </Label>
+                <Input
+                  id="edit-title"
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  placeholder={domain}
+                  className="h-10 landscape:h-9"
+                />
+              </div>
+              
+              {/* Description */}
+              <div className="space-y-1.5 landscape:space-y-1 mt-4 landscape:mt-0">
+                <Label htmlFor="edit-desc" className="text-xs landscape:text-[10px] text-muted-foreground">
+                  {t('sharedUrl.descriptionOptional')}
+                </Label>
+                <Input
+                  id="edit-desc"
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  placeholder={t('sharedUrl.addNote')}
+                  className="h-10 landscape:h-9"
+                />
+              </div>
             </div>
             
             {/* Folder picker */}
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">
+            <div className="space-y-1.5 landscape:space-y-1">
+              <Label className="text-xs landscape:text-[10px] text-muted-foreground">
                 {t('sharedUrl.folderOptional')}
               </Label>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2 landscape:gap-1.5">
                 <button
                   onClick={() => setEditTag(null)}
                   className={cn(
-                    "px-3 py-1.5 rounded-lg text-sm font-medium transition-all",
+                    "px-3 py-1.5 landscape:px-2 landscape:py-1 rounded-lg text-sm landscape:text-xs font-medium transition-all",
                     editTag === null
                       ? "bg-primary text-primary-foreground"
                       : "bg-muted/50 text-muted-foreground hover:bg-muted"
@@ -314,13 +317,13 @@ export function ClipboardSuggestion({
                       key={folderName}
                       onClick={() => setEditTag(folderName)}
                       className={cn(
-                        "px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5",
+                        "px-3 py-1.5 landscape:px-2 landscape:py-1 rounded-lg text-sm landscape:text-xs font-medium transition-all flex items-center gap-1.5",
                         editTag === folderName
                           ? "bg-primary text-primary-foreground"
                           : "bg-muted/50 text-muted-foreground hover:bg-muted"
                       )}
                     >
-                      {IconComponent && <IconComponent className="h-3.5 w-3.5" />}
+                      {IconComponent && <IconComponent className="h-3.5 w-3.5 landscape:h-3 landscape:w-3" />}
                       {folderName}
                     </button>
                   );
@@ -332,13 +335,13 @@ export function ClipboardSuggestion({
             <button
               onClick={handleSaveFromEdit}
               className={cn(
-                "w-full py-3 rounded-xl font-medium",
+                "w-full py-3 landscape:py-2 rounded-xl font-medium landscape:text-sm",
                 "bg-primary text-primary-foreground",
                 "flex items-center justify-center gap-2",
                 "active:scale-[0.98] transition-all"
               )}
             >
-              <BookmarkPlus className="h-4 w-4" />
+              <BookmarkPlus className="h-4 w-4 landscape:h-3.5 landscape:w-3.5" />
               {t('sharedUrl.saveToLibrary')}
             </button>
           </div>
@@ -360,7 +363,7 @@ export function ClipboardSuggestion({
     >
       <div 
         className={cn(
-          "bg-card/95 backdrop-blur-md border border-border rounded-2xl shadow-lg overflow-hidden",
+          "bg-card/95 backdrop-blur-md border border-border rounded-2xl shadow-lg overflow-hidden landscape:max-w-lg landscape:mx-auto",
           !isSwiping && "transition-transform duration-200"
         )}
         style={{ 
@@ -385,20 +388,20 @@ export function ClipboardSuggestion({
           />
         </div>
         
-        <div className="p-4">
+        <div className="p-4 landscape:p-3">
           {/* Offline indicator */}
           {!isOnline && (
-            <div className="flex items-center gap-2 px-3 py-2 mb-3 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
-              <WifiOff className="h-3.5 w-3.5 flex-shrink-0" />
-              <span className="text-xs">{t('clipboard.offlineMode')}</span>
+            <div className="flex items-center gap-2 px-3 py-2 landscape:py-1.5 mb-3 landscape:mb-2 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
+              <WifiOff className="h-3.5 w-3.5 landscape:h-3 landscape:w-3 flex-shrink-0" />
+              <span className="text-xs landscape:text-[10px]">{t('clipboard.offlineMode')}</span>
             </div>
           )}
           
           {/* Header row */}
-          <div className="flex items-start justify-between gap-3 mb-3">
+          <div className="flex items-start justify-between gap-3 mb-3 landscape:mb-2">
             <div className="flex items-center gap-2 text-muted-foreground">
-              <Clipboard className="h-4 w-4" />
-              <span className="text-xs font-medium uppercase tracking-wide">{t('clipboard.detected')}</span>
+              <Clipboard className="h-4 w-4 landscape:h-3.5 landscape:w-3.5" />
+              <span className="text-xs landscape:text-[10px] font-medium uppercase tracking-wide">{t('clipboard.detected')}</span>
             </div>
             <button
               onClick={handleDismiss}
@@ -410,10 +413,10 @@ export function ClipboardSuggestion({
           </div>
 
           {/* URL preview with metadata */}
-          <div className="bg-muted/30 rounded-xl p-3 mb-4">
+          <div className="bg-muted/30 rounded-xl p-3 landscape:p-2 mb-4 landscape:mb-3">
             {thumbnailUrl ? (
               // Video thumbnail
-              <div className="relative mb-2 rounded-lg overflow-hidden aspect-video bg-muted">
+              <div className="relative mb-2 landscape:mb-1.5 rounded-lg overflow-hidden aspect-video landscape:aspect-[2/1] bg-muted">
                 <img 
                   src={thumbnailUrl} 
                   alt="" 
@@ -423,7 +426,7 @@ export function ClipboardSuggestion({
                   "absolute inset-0 flex items-center justify-center bg-black/30",
                 )}>
                   <div className={cn(
-                    "h-12 w-12 rounded-full flex items-center justify-center",
+                    "h-12 w-12 landscape:h-10 landscape:w-10 rounded-full flex items-center justify-center",
                     videoPlatform === 'youtube' ? "bg-red-600" : "bg-blue-500"
                   )}>
                     <div className="w-0 h-0 border-t-[8px] border-t-transparent border-l-[14px] border-l-white border-b-[8px] border-b-transparent ms-1" />
@@ -432,16 +435,16 @@ export function ClipboardSuggestion({
               </div>
             ) : null}
             
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 landscape:gap-2">
               {/* Favicon/Platform icon */}
-              <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+              <div className="h-10 w-10 landscape:h-8 landscape:w-8 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
                 {isMetadataLoading ? (
-                  <Skeleton className="h-6 w-6 rounded" />
+                  <Skeleton className="h-6 w-6 landscape:h-5 landscape:w-5 rounded" />
                 ) : metadata?.favicon ? (
                   <img 
                     src={metadata.favicon} 
                     alt="" 
-                    className="h-6 w-6 rounded"
+                    className="h-6 w-6 landscape:h-5 landscape:w-5 rounded"
                     onError={(e) => {
                       e.currentTarget.style.display = 'none';
                     }}
@@ -449,7 +452,7 @@ export function ClipboardSuggestion({
                 ) : platform ? (
                   <PlatformIcon platform={platform} size="md" className="text-muted-foreground" />
                 ) : (
-                  <Link className="h-5 w-5 text-muted-foreground" />
+                  <Link className="h-5 w-5 landscape:h-4 landscape:w-4 text-muted-foreground" />
                 )}
               </div>
               
@@ -457,15 +460,15 @@ export function ClipboardSuggestion({
               <div className="flex-1 min-w-0">
                 {isMetadataLoading ? (
                   <>
-                    <Skeleton className="h-4 w-32 mb-1" />
-                    <Skeleton className="h-3 w-20" />
+                    <Skeleton className="h-4 landscape:h-3 w-32 mb-1" />
+                    <Skeleton className="h-3 landscape:h-2.5 w-20" />
                   </>
                 ) : (
                   <>
-                    <p className="text-foreground font-medium truncate text-sm">
+                    <p className="text-foreground font-medium truncate text-sm landscape:text-xs">
                       {metadata?.title || domain}
                     </p>
-                    <p className="text-xs text-muted-foreground truncate">
+                    <p className="text-xs landscape:text-[10px] text-muted-foreground truncate">
                       {domain}
                     </p>
                   </>
@@ -475,59 +478,59 @@ export function ClipboardSuggestion({
           </div>
 
           {/* Action buttons - 2x2 grid */}
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-2 landscape:gap-1.5">
             {/* Quick Save */}
             <button
               onClick={handleQuickSave}
               disabled={isMetadataLoading}
               className={cn(
-                "flex items-center justify-center gap-2 py-3 px-4 rounded-xl",
+                "flex items-center justify-center gap-2 py-3 landscape:py-2 px-4 landscape:px-3 rounded-xl",
                 "bg-primary text-primary-foreground font-medium",
                 "active:scale-[0.97] transition-all",
                 "disabled:opacity-50 disabled:cursor-not-allowed"
               )}
             >
-              <BookmarkPlus className="h-4 w-4" />
-              <span className="text-sm">{t('clipboard.quickSave')}</span>
+              <BookmarkPlus className="h-4 w-4 landscape:h-3.5 landscape:w-3.5" />
+              <span className="text-sm landscape:text-xs">{t('clipboard.quickSave')}</span>
             </button>
             
             {/* Edit & Save */}
             <button
               onClick={handleEditSave}
               className={cn(
-                "flex items-center justify-center gap-2 py-3 px-4 rounded-xl",
+                "flex items-center justify-center gap-2 py-3 landscape:py-2 px-4 landscape:px-3 rounded-xl",
                 "bg-muted/50 text-foreground font-medium",
                 "active:scale-[0.97] transition-all"
               )}
             >
-              <Edit3 className="h-4 w-4" />
-              <span className="text-sm">{t('clipboard.editSave')}</span>
+              <Edit3 className="h-4 w-4 landscape:h-3.5 landscape:w-3.5" />
+              <span className="text-sm landscape:text-xs">{t('clipboard.editSave')}</span>
             </button>
             
             {/* Shortcut */}
             <button
               onClick={handleCreateShortcut}
               className={cn(
-                "flex items-center justify-center gap-2 py-3 px-4 rounded-xl",
+                "flex items-center justify-center gap-2 py-3 landscape:py-2 px-4 landscape:px-3 rounded-xl",
                 "bg-muted/50 text-foreground font-medium",
                 "active:scale-[0.97] transition-all"
               )}
             >
-              <Zap className="h-4 w-4" />
-              <span className="text-sm">{t('clipboard.shortcut')}</span>
+              <Zap className="h-4 w-4 landscape:h-3.5 landscape:w-3.5" />
+              <span className="text-sm landscape:text-xs">{t('clipboard.shortcut')}</span>
             </button>
             
             {/* Remind Later */}
             <button
               onClick={handleCreateReminder}
               className={cn(
-                "flex items-center justify-center gap-2 py-3 px-4 rounded-xl",
+                "flex items-center justify-center gap-2 py-3 landscape:py-2 px-4 landscape:px-3 rounded-xl",
                 "bg-muted/50 text-foreground font-medium",
                 "active:scale-[0.97] transition-all"
               )}
             >
-              <Bell className="h-4 w-4" />
-              <span className="text-sm">{t('clipboard.remindLater')}</span>
+              <Bell className="h-4 w-4 landscape:h-3.5 landscape:w-3.5" />
+              <span className="text-sm landscape:text-xs">{t('clipboard.remindLater')}</span>
             </button>
           </div>
         </div>

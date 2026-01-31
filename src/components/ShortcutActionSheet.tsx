@@ -124,14 +124,14 @@ export function ShortcutActionSheet({
     <>
       <Drawer open={isOpen} onOpenChange={(open) => !open && onClose()}>
         <DrawerContent className="max-h-[80vh] landscape:max-h-[95vh]">
-          <DrawerHeader className="pb-2">
-            <div className="flex items-center gap-3">
+          <DrawerHeader className="pb-2 landscape:pb-1">
+            <div className="flex items-center gap-3 landscape:gap-2">
               {/* Shortcut Icon Preview */}
-              <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center text-2xl overflow-hidden">
+              <div className="w-12 h-12 landscape:w-10 landscape:h-10 rounded-xl bg-muted flex items-center justify-center text-2xl landscape:text-xl overflow-hidden">
                 {shortcut.icon.type === 'emoji' ? (
                   shortcut.icon.value
                 ) : shortcut.icon.type === 'text' ? (
-                  <span className="text-sm font-bold">{shortcut.icon.value.slice(0, 2)}</span>
+                  <span className="text-sm landscape:text-xs font-bold">{shortcut.icon.value.slice(0, 2)}</span>
                 ) : iconSources.length > 0 ? (
                   <ImageWithFallback
                     sources={iconSources}
@@ -146,8 +146,8 @@ export function ShortcutActionSheet({
                 )}
               </div>
               <div className="flex-1 text-left min-w-0">
-                <DrawerTitle className="text-base break-words">{shortcut.name}</DrawerTitle>
-                <p className="text-sm text-muted-foreground flex items-center gap-1.5 mt-0.5">
+                <DrawerTitle className="text-base landscape:text-sm break-words">{shortcut.name}</DrawerTitle>
+                <p className="text-sm landscape:text-xs text-muted-foreground flex items-center gap-1.5 mt-0.5">
                   {getShortcutIcon()}
                   <span>{getShortcutTypeLabel()}</span>
                 </p>
@@ -155,17 +155,17 @@ export function ShortcutActionSheet({
             </div>
           </DrawerHeader>
 
-          <div className="px-4 pb-4 space-y-1">
-            <Separator className="my-2" />
+          <div className="px-4 pb-4 landscape:pb-3 space-y-1">
+            <Separator className="my-2 landscape:my-1" />
             
             {/* Open Action */}
             {onOpen && (
               <Button
                 variant="ghost"
-                className="w-full justify-start h-12 text-base"
+                className="w-full justify-start h-12 landscape:h-10 text-base landscape:text-sm"
                 onClick={handleOpen}
               >
-                <ExternalLink className="h-5 w-5 mr-3" />
+                <ExternalLink className="h-5 w-5 landscape:h-4 landscape:w-4 mr-3 landscape:mr-2" />
                 {t('shortcutAction.open')}
               </Button>
             )}
@@ -173,10 +173,10 @@ export function ShortcutActionSheet({
             {/* Edit Action */}
             <Button
               variant="ghost"
-              className="w-full justify-start h-12 text-base"
+              className="w-full justify-start h-12 landscape:h-10 text-base landscape:text-sm"
               onClick={handleEdit}
             >
-              <Edit className="h-5 w-5 mr-3" />
+              <Edit className="h-5 w-5 landscape:h-4 landscape:w-4 mr-3 landscape:mr-2" />
               {t('shortcutAction.edit')}
             </Button>
 
@@ -184,23 +184,23 @@ export function ShortcutActionSheet({
             {onCreateReminder && (
               <Button
                 variant="ghost"
-                className="w-full justify-start h-12 text-base"
+                className="w-full justify-start h-12 landscape:h-10 text-base landscape:text-sm"
                 onClick={handleCreateReminder}
               >
-                <Bell className="h-5 w-5 mr-3" />
+                <Bell className="h-5 w-5 landscape:h-4 landscape:w-4 mr-3 landscape:mr-2" />
                 {t('shortcutAction.createReminder')}
               </Button>
             )}
 
-            <Separator className="my-2" />
+            <Separator className="my-2 landscape:my-1" />
 
             {/* Delete Action */}
             <Button
               variant="ghost"
-              className="w-full justify-start h-12 text-base text-destructive hover:text-destructive hover:bg-destructive/10"
+              className="w-full justify-start h-12 landscape:h-10 text-base landscape:text-sm text-destructive hover:text-destructive hover:bg-destructive/10"
               onClick={handleDelete}
             >
-              <Trash2 className="h-5 w-5 mr-3" />
+              <Trash2 className="h-5 w-5 landscape:h-4 landscape:w-4 mr-3 landscape:mr-2" />
               {t('shortcutAction.delete')}
             </Button>
           </div>

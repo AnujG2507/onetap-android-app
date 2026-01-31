@@ -82,48 +82,52 @@ export function EditFolderDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md landscape:max-h-[90vh] landscape:overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{t('folders.editTitle')}</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 pt-4">
-          <div className="relative">
-            <Input
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              placeholder={t('folders.namePlaceholder')}
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  handleSave();
-                }
-              }}
-            />
-            {newName && (
-              <button
-                type="button"
-                onClick={() => setNewName('')}
-                className="absolute end-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50"
-              >
-                <X className="h-4 w-4 text-muted-foreground" />
-              </button>
-            )}
+        <div className="space-y-4 landscape:space-y-3 pt-4 landscape:pt-2">
+          {/* Portrait: stacked, Landscape: 2-column */}
+          <div className="landscape:grid landscape:grid-cols-2 landscape:gap-4 landscape:items-start">
+            <div className="relative mb-4 landscape:mb-0">
+              <Input
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder={t('folders.namePlaceholder')}
+                autoFocus
+                className="landscape:h-9"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleSave();
+                  }
+                }}
+              />
+              {newName && (
+                <button
+                  type="button"
+                  onClick={() => setNewName('')}
+                  className="absolute end-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50"
+                >
+                  <X className="h-4 w-4 text-muted-foreground" />
+                </button>
+              )}
+            </div>
+            
+            {/* Icon Picker */}
+            <div>
+              <p className="text-sm landscape:text-xs font-medium text-muted-foreground mb-3 landscape:mb-2">{t('folders.chooseIcon')}</p>
+              <FolderIconPicker 
+                selectedIcon={selectedIcon} 
+                onSelectIcon={setSelectedIcon} 
+              />
+            </div>
           </div>
           
-          {/* Icon Picker */}
-          <div>
-            <p className="text-sm font-medium text-muted-foreground mb-3">{t('folders.chooseIcon')}</p>
-            <FolderIconPicker 
-              selectedIcon={selectedIcon} 
-              onSelectIcon={setSelectedIcon} 
-            />
-          </div>
-          
-          <div className="flex gap-2 justify-end pt-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <div className="flex gap-2 justify-end pt-2 landscape:pt-1">
+            <Button variant="outline" onClick={() => onOpenChange(false)} className="landscape:h-9">
               {t('common.cancel')}
             </Button>
-            <Button onClick={handleSave}>
+            <Button onClick={handleSave} className="landscape:h-9">
               {t('folders.saveChanges')}
             </Button>
           </div>

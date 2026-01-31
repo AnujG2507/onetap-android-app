@@ -168,11 +168,11 @@ export function ScheduledActionActionSheet({
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent 
           side="bottom" 
-          className="rounded-t-3xl px-0 pb-6"
+          className="rounded-t-3xl px-0 pb-6 landscape:pb-4 landscape:max-h-[95vh]"
         >
           {/* Grab handle */}
           <div 
-            className="flex justify-center pt-2 pb-4 cursor-grab active:cursor-grabbing"
+            className="flex justify-center pt-2 pb-4 landscape:pb-2 cursor-grab active:cursor-grabbing"
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
@@ -181,22 +181,22 @@ export function ScheduledActionActionSheet({
           </div>
 
           {/* Action header */}
-          <div className="px-5 pb-4 border-b">
-            <div className="flex items-start gap-3">
+          <div className="px-5 landscape:px-4 pb-4 landscape:pb-3 border-b">
+            <div className="flex items-start gap-3 landscape:gap-2">
               <div className={cn(
-                "w-12 h-12 rounded-xl flex items-center justify-center shrink-0 overflow-hidden",
+                "w-12 h-12 landscape:w-10 landscape:h-10 rounded-xl flex items-center justify-center shrink-0 overflow-hidden",
                 !isContactWithAvatar && (action.enabled ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground')
               )}>
                 {getDestinationIcon()}
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-base break-words">{action.name}</h3>
-                <p className="text-sm text-muted-foreground break-all">{getDestinationName()}</p>
+                <h3 className="font-semibold text-base landscape:text-sm break-words">{action.name}</h3>
+                <p className="text-sm landscape:text-xs text-muted-foreground break-all">{getDestinationName()}</p>
                 <div className="flex items-center gap-2 mt-1">
-                  <span className={`text-xs ${isExpired ? 'text-muted-foreground' : 'text-primary'}`}>
+                  <span className={`text-xs landscape:text-[10px] ${isExpired ? 'text-muted-foreground' : 'text-primary'}`}>
                     {isExpired ? t('scheduledActionSheet.expired') : formatTriggerTime(action.triggerTime)}
                   </span>
-                  <span className="text-xs text-muted-foreground flex items-center gap-1">
+                  <span className="text-xs landscape:text-[10px] text-muted-foreground flex items-center gap-1">
                     {getRecurrenceIcon(action.recurrence)}
                     {formatRecurrence(action.recurrence)}
                   </span>
@@ -206,12 +206,12 @@ export function ScheduledActionActionSheet({
           </div>
 
           {/* Action buttons */}
-          <div className="px-5 pt-4 space-y-2">
+          <div className="px-5 landscape:px-4 pt-4 landscape:pt-3 space-y-2 landscape:space-y-1.5">
             {/* Enable/Disable toggle */}
-            <div className="flex items-center justify-between py-3 px-4 rounded-xl bg-muted/50">
-              <div className="flex items-center gap-3">
-                <Clock className="h-5 w-5 text-muted-foreground" />
-                <span className="font-medium">{t('scheduledActionSheet.enabled')}</span>
+            <div className="flex items-center justify-between py-3 landscape:py-2 px-4 landscape:px-3 rounded-xl bg-muted/50">
+              <div className="flex items-center gap-3 landscape:gap-2">
+                <Clock className="h-5 w-5 landscape:h-4 landscape:w-4 text-muted-foreground" />
+                <span className="font-medium landscape:text-sm">{t('scheduledActionSheet.enabled')}</span>
               </div>
               <Switch
                 checked={action.enabled}
@@ -222,21 +222,21 @@ export function ScheduledActionActionSheet({
             {/* Edit button */}
             <Button
               variant="ghost"
-              className="w-full justify-start h-12 px-4 gap-3"
+              className="w-full justify-start h-12 landscape:h-10 px-4 landscape:px-3 gap-3 landscape:gap-2"
               onClick={handleEditAction}
             >
-              <Edit2 className="h-5 w-5" />
-              {t('scheduledActionSheet.editAction')}
+              <Edit2 className="h-5 w-5 landscape:h-4 landscape:w-4" />
+              <span className="landscape:text-sm">{t('scheduledActionSheet.editAction')}</span>
             </Button>
 
             {/* Delete button */}
             <Button
               variant="ghost"
-              className="w-full justify-start h-12 px-4 gap-3 text-destructive hover:text-destructive hover:bg-destructive/10"
+              className="w-full justify-start h-12 landscape:h-10 px-4 landscape:px-3 gap-3 landscape:gap-2 text-destructive hover:text-destructive hover:bg-destructive/10"
               onClick={handleDeleteAction}
             >
-              <Trash2 className="h-5 w-5" />
-              {t('scheduledActionSheet.deleteAction')}
+              <Trash2 className="h-5 w-5 landscape:h-4 landscape:w-4" />
+              <span className="landscape:text-sm">{t('scheduledActionSheet.deleteAction')}</span>
             </Button>
           </div>
         </SheetContent>

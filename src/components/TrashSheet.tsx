@@ -205,7 +205,7 @@ export function TrashSheet({ open: controlledOpen, onOpenChange, onRestored, onO
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent 
           side="bottom" 
-          className="h-[85vh] rounded-t-2xl"
+          className="h-[85vh] landscape:h-[75vh] rounded-t-2xl"
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
@@ -214,15 +214,15 @@ export function TrashSheet({ open: controlledOpen, onOpenChange, onRestored, onO
           <div className="flex justify-center pt-2 pb-1">
             <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
           </div>
-          <SheetHeader className="pb-4">
+          <SheetHeader className="pb-4 landscape:pb-2">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-destructive/10 flex items-center justify-center">
-                  <Trash2 className="h-5 w-5 text-destructive" />
+              <div className="flex items-center gap-3 landscape:gap-2">
+                <div className="h-10 w-10 landscape:h-8 landscape:w-8 rounded-xl bg-destructive/10 flex items-center justify-center">
+                  <Trash2 className="h-5 w-5 landscape:h-4 landscape:w-4 text-destructive" />
                 </div>
                 <div>
-                  <SheetTitle className="text-start">{t('trash.title')}</SheetTitle>
-                  <p className="text-xs text-muted-foreground">
+                  <SheetTitle className="text-start landscape:text-sm">{t('trash.title')}</SheetTitle>
+                  <p className="text-xs landscape:text-[10px] text-muted-foreground">
                     {trashLinks.length === 0 
                       ? t('trash.noItems')
                       : t('trash.itemCount', { count: trashLinks.length })
@@ -233,29 +233,29 @@ export function TrashSheet({ open: controlledOpen, onOpenChange, onRestored, onO
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 gap-1.5 text-xs text-muted-foreground"
+                className="h-8 landscape:h-7 gap-1.5 text-xs landscape:text-[10px] text-muted-foreground"
                 onClick={handleOpenSettings}
               >
-                <Settings className="h-3.5 w-3.5" />
+                <Settings className="h-3.5 w-3.5 landscape:h-3 landscape:w-3" />
                 {t('settingsPage.trashRetention')}
               </Button>
             </div>
             {trashLinks.length > 0 && (
-              <div className="flex items-center gap-2 mt-3">
+              <div className="flex items-center gap-2 mt-3 landscape:mt-2">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setShowRestoreAllConfirm(true)}
-                  className="h-8 flex-1"
+                  className="h-8 landscape:h-7 flex-1 landscape:text-xs"
                 >
-                  <RotateCcw className="h-3.5 w-3.5 me-1.5" />
+                  <RotateCcw className="h-3.5 w-3.5 landscape:h-3 landscape:w-3 me-1.5" />
                   {t('trash.restoreAll')}
                 </Button>
                 <Button
                   variant="destructive"
                   size="sm"
                   onClick={() => setShowEmptyConfirm(true)}
-                  className="h-8 flex-1"
+                  className="h-8 landscape:h-7 flex-1 landscape:text-xs"
                 >
                   {t('trash.emptyTrash')}
                 </Button>
@@ -264,35 +264,35 @@ export function TrashSheet({ open: controlledOpen, onOpenChange, onRestored, onO
           </SheetHeader>
 
           {trashLinks.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-[50vh] text-center px-8">
-              <div className="h-16 w-16 rounded-2xl bg-muted flex items-center justify-center mb-4">
-                <Trash2 className="h-8 w-8 text-muted-foreground" />
+            <div className="flex flex-col items-center justify-center h-[50vh] landscape:h-[40vh] text-center px-8">
+              <div className="h-16 w-16 landscape:h-12 landscape:w-12 rounded-2xl bg-muted flex items-center justify-center mb-4 landscape:mb-3">
+                <Trash2 className="h-8 w-8 landscape:h-6 landscape:w-6 text-muted-foreground" />
               </div>
-              <h3 className="text-lg font-medium text-foreground mb-2">{t('trash.empty')}</h3>
-              <p className="text-sm text-muted-foreground">
+              <h3 className="text-lg landscape:text-base font-medium text-foreground mb-2 landscape:mb-1">{t('trash.empty')}</h3>
+              <p className="text-sm landscape:text-xs text-muted-foreground">
                 {t('trash.emptyDesc', { days: getSettings().trashRetentionDays })}
               </p>
             </div>
           ) : (
             <>
               {showHint && (
-                <div className="flex items-center justify-between gap-2 p-3 mb-3 bg-muted/50 rounded-lg border border-border/50">
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <ArrowLeftRight className="h-4 w-4 shrink-0" />
+                <div className="flex items-center justify-between gap-2 p-3 landscape:p-2 mb-3 landscape:mb-2 bg-muted/50 rounded-lg border border-border/50">
+                  <div className="flex items-center gap-2 text-xs landscape:text-[10px] text-muted-foreground">
+                    <ArrowLeftRight className="h-4 w-4 landscape:h-3.5 landscape:w-3.5 shrink-0" />
                     <span>{t('trash.swipeHint')}</span>
                   </div>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-6 w-6 shrink-0"
+                    className="h-6 w-6 landscape:h-5 landscape:w-5 shrink-0"
                     onClick={handleDismissHint}
                   >
                     <X className="h-3 w-3" />
                   </Button>
                 </div>
               )}
-              <ScrollArea className="h-[calc(85vh-180px)] -mx-6 px-6" onScrollCapture={handleScroll}>
-                <div className="space-y-2 pb-6">
+              <ScrollArea className="h-[calc(85vh-180px)] landscape:h-[calc(75vh-160px)] -mx-6 px-6" onScrollCapture={handleScroll}>
+                <div className="space-y-2 landscape:space-y-1.5 pb-6 landscape:pb-4">
                   {trashLinks.map((link) => (
                     <TrashItem
                       key={link.id}

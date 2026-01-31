@@ -288,26 +288,26 @@ function ActionModePicker({ onSelectAction, onClose }: ActionModePickerProps) {
       animate={{ opacity: 1, height: 'auto', marginTop: 12 }}
       exit={{ opacity: 0, height: 0, marginTop: 0 }}
       transition={{ duration: 0.2, ease: 'easeOut' }}
-      className="rounded-xl bg-muted/30 p-3 overflow-hidden"
+      className="rounded-xl bg-muted/30 p-3 landscape:p-2 overflow-hidden"
     >
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-medium text-muted-foreground">{t('access.chooseAction')}</span>
+      <div className="flex items-center justify-between mb-2 landscape:mb-1.5">
+        <span className="text-xs landscape:text-[10px] font-medium text-muted-foreground">{t('access.chooseAction')}</span>
         <button
           onClick={onClose}
           className="p-1 rounded-full hover:bg-muted/50 transition-colors"
         >
-          <X className="h-4 w-4 text-muted-foreground" />
+          <X className="h-4 w-4 landscape:h-3.5 landscape:w-3.5 text-muted-foreground" />
         </button>
       </div>
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2 landscape:gap-1.5">
         <ActionModeButton
-          icon={<Home className="h-5 w-5" />}
+          icon={<Home className="h-5 w-5 landscape:h-4 landscape:w-4" />}
           label={t('access.shortcut')}
           description={t('access.shortcutDesc')}
           onClick={() => onSelectAction('shortcut')}
         />
         <ActionModeButton
-          icon={<Bell className="h-5 w-5" />}
+          icon={<Bell className="h-5 w-5 landscape:h-4 landscape:w-4" />}
           label={t('access.reminder')}
           description={t('access.reminderDesc')}
           onClick={() => onSelectAction('reminder')}
@@ -339,51 +339,51 @@ function ContactActionPicker({
       animate={{ opacity: 1, height: 'auto', marginTop: 12 }}
       exit={{ opacity: 0, height: 0, marginTop: 0 }}
       transition={{ duration: 0.2, ease: 'easeOut' }}
-      className="rounded-xl bg-muted/30 p-3 overflow-hidden"
+      className="rounded-xl bg-muted/30 p-3 landscape:p-2 overflow-hidden"
     >
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-medium text-muted-foreground">{t('access.contactType')}</span>
+      <div className="flex items-center justify-between mb-2 landscape:mb-1.5">
+        <span className="text-xs landscape:text-[10px] font-medium text-muted-foreground">{t('access.contactType')}</span>
         <button
           onClick={onClose}
           className="p-1 rounded-full hover:bg-muted/50 transition-colors"
         >
-          <X className="h-4 w-4 text-muted-foreground" />
+          <X className="h-4 w-4 landscape:h-3.5 landscape:w-3.5 text-muted-foreground" />
         </button>
       </div>
       
       {/* Contact Mode Toggle */}
-      <div className="flex gap-2 mb-3">
+      <div className="flex gap-2 landscape:gap-1.5 mb-3 landscape:mb-2">
         <button
           onClick={() => onSelectContactMode('dial')}
           className={cn(
-            "flex-1 flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-medium transition-all duration-150",
+            "flex-1 flex items-center justify-center gap-2 landscape:gap-1.5 rounded-xl py-2.5 landscape:py-2 text-sm landscape:text-xs font-medium transition-all duration-150",
             contactMode === 'dial' 
               ? "bg-primary text-primary-foreground" 
               : "bg-muted/50 text-muted-foreground hover:bg-muted hover:scale-[1.01]"
           )}
         >
           <div className={cn(
-            "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors",
+            "flex h-7 w-7 landscape:h-6 landscape:w-6 shrink-0 items-center justify-center rounded-lg transition-colors",
             contactMode === 'dial' ? "bg-primary-foreground/20" : "bg-primary/10"
           )}>
-            <Phone className="h-4 w-4 shrink-0" />
+            <Phone className="h-4 w-4 landscape:h-3.5 landscape:w-3.5 shrink-0" />
           </div>
           {t('access.contactCall')}
         </button>
         <button
           onClick={() => onSelectContactMode('message')}
           className={cn(
-            "flex-1 flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-medium transition-all duration-150",
+            "flex-1 flex items-center justify-center gap-2 landscape:gap-1.5 rounded-xl py-2.5 landscape:py-2 text-sm landscape:text-xs font-medium transition-all duration-150",
             contactMode === 'message' 
               ? "bg-primary text-primary-foreground" 
               : "bg-muted/50 text-muted-foreground hover:bg-muted hover:scale-[1.01]"
           )}
         >
           <div className={cn(
-            "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors",
+            "flex h-7 w-7 landscape:h-6 landscape:w-6 shrink-0 items-center justify-center rounded-lg transition-colors",
             contactMode === 'message' ? "bg-primary-foreground/20" : "bg-primary/10"
           )}>
-            <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+            <svg className="h-4 w-4 landscape:h-3.5 landscape:w-3.5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
               <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
             </svg>
           </div>
@@ -392,15 +392,15 @@ function ContactActionPicker({
       </div>
       
       {/* Action Mode Selection */}
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2 landscape:gap-1.5">
         <ActionModeButton
-          icon={<Home className="h-5 w-5" />}
+          icon={<Home className="h-5 w-5 landscape:h-4 landscape:w-4" />}
           label={t('access.shortcut')}
           description={t('access.shortcutDesc')}
           onClick={() => onSelectAction('shortcut')}
         />
         <ActionModeButton
-          icon={<Bell className="h-5 w-5" />}
+          icon={<Bell className="h-5 w-5 landscape:h-4 landscape:w-4" />}
           label={t('access.reminder')}
           description={t('access.reminderDesc')}
           onClick={() => onSelectAction('reminder')}
@@ -423,7 +423,7 @@ function ActionModeButton({ icon, label, description, onClick }: ActionModeButto
     <button
       onClick={onClick}
       className={cn(
-        "flex items-center gap-3 rounded-xl p-3",
+        "flex items-center gap-3 landscape:gap-2 rounded-xl p-3 landscape:p-2",
         "bg-gradient-to-br from-card to-card/90",
         "border border-border/60 shadow-sm",
         "hover:shadow-md hover:border-primary/30 hover:scale-[1.01]",
@@ -432,12 +432,12 @@ function ActionModeButton({ icon, label, description, onClick }: ActionModeButto
         "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1"
       )}
     >
-      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary/15 to-primary/5 text-primary shrink-0 shadow-sm">
+      <div className="flex h-10 w-10 landscape:h-8 landscape:w-8 items-center justify-center rounded-xl bg-gradient-to-br from-primary/15 to-primary/5 text-primary shrink-0 shadow-sm">
         {icon}
       </div>
       <div className="flex flex-col items-start flex-1 min-w-0">
-        <span className="text-sm font-semibold text-foreground">{label}</span>
-        <span className="text-xs text-muted-foreground">{description}</span>
+        <span className="text-sm landscape:text-xs font-semibold text-foreground">{label}</span>
+        <span className="text-xs landscape:text-[10px] text-muted-foreground">{description}</span>
       </div>
     </button>
   );
@@ -457,7 +457,7 @@ function GridButton({ id, icon, label, onClick, isActive }: GridButtonProps) {
       id={id}
       onClick={onClick}
       className={cn(
-        "flex flex-col items-center gap-2 rounded-xl p-4",
+        "flex flex-col items-center gap-2 landscape:gap-1.5 rounded-xl p-4 landscape:p-3",
         "shadow-sm active:scale-[0.96] active:shadow-none",
         "transition-all duration-200 ease-out",
         "focus:outline-none focus:ring-2 focus:ring-ring",
@@ -468,13 +468,13 @@ function GridButton({ id, icon, label, onClick, isActive }: GridButtonProps) {
     >
       <div className={cn(
         "flex items-center justify-center rounded-full transition-all duration-200",
-        isActive ? "h-12 w-12 bg-primary/20 text-primary" : "h-10 w-10 bg-primary/10 text-primary"
+        isActive ? "h-12 w-12 landscape:h-10 landscape:w-10 bg-primary/20 text-primary" : "h-10 w-10 landscape:h-8 landscape:w-8 bg-primary/10 text-primary"
       )}>
         {icon}
       </div>
       <span className={cn(
         "font-medium text-foreground transition-all duration-200",
-        isActive ? "text-sm" : "text-xs"
+        isActive ? "text-sm landscape:text-xs" : "text-xs landscape:text-[10px]"
       )}>{label}</span>
     </button>
   );
@@ -494,7 +494,7 @@ function SecondaryButton({ id, icon, label, onClick, isActive }: SecondaryButton
       id={id}
       onClick={onClick}
       className={cn(
-        "flex items-center gap-3 rounded-xl px-3 py-2.5",
+        "flex items-center gap-3 landscape:gap-2 rounded-xl px-3 landscape:px-2 py-2.5 landscape:py-2",
         "border border-border/60",
         "active:scale-[0.97] transition-all duration-200",
         "focus:outline-none focus:ring-2 focus:ring-ring",
@@ -505,13 +505,13 @@ function SecondaryButton({ id, icon, label, onClick, isActive }: SecondaryButton
       )}
     >
       <div className={cn(
-        "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors",
+        "flex h-8 w-8 landscape:h-6 landscape:w-6 shrink-0 items-center justify-center rounded-lg transition-colors",
         isActive ? "bg-primary/20 text-primary" : "bg-primary/10 text-primary"
       )}>
         {icon}
       </div>
       <span className={cn(
-        "text-sm font-medium",
+        "text-sm landscape:text-xs font-medium",
         isActive ? "text-foreground" : "text-foreground/80"
       )}>{label}</span>
     </button>
