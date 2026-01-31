@@ -731,7 +731,11 @@ export function BookmarkLibrary({
 
       {/* Tag Filter Bar - hidden in empty state */}
       {links.length > 0 && availableTags.length > 0 && (
-        <div className="flex gap-2 overflow-x-auto pb-3 ps-5 pe-5 scrollbar-hide">
+        <div 
+          className="flex gap-2 overflow-x-auto pb-3 ps-5 pe-5 scrollbar-hide"
+          onTouchStart={(e) => e.stopPropagation()}
+          onTouchMove={(e) => e.stopPropagation()}
+        >
           <button
             onClick={() => setActiveTagFilter(null)}
             className={cn(

@@ -708,7 +708,11 @@ export function NotificationsPage({
       {/* Combined Filter bar (Recurrence + Status) */}
       {actions.length > 0 && (
         <div id="tutorial-filter-chips" className="px-5 pb-3 shrink-0">
-          <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+          <div 
+            className="flex gap-2 overflow-x-auto pb-1 no-scrollbar"
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchMove={(e) => e.stopPropagation()}
+          >
             {/* Recurrence filters */}
             {RECURRENCE_FILTERS.map(filter => {
               const count = filterCounts[filter.value];
