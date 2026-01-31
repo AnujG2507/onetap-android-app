@@ -136,11 +136,18 @@ export function ContentSourcePicker({
       updateSecondaryPicker(null);
     } else {
       updateSecondaryPicker(picker);
-      // Immediately scroll to bottom
-      const scroller = scrollContainerRef.current;
-      if (scroller) {
-        scroller.scrollTop = scroller.scrollHeight;
-      }
+      // Scroll to bottom after animation completes - use RAF + timeout for Android reliability
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          const scroller = scrollContainerRef.current;
+          if (scroller) {
+            scroller.scrollTo({
+              top: scroller.scrollHeight,
+              behavior: 'smooth'
+            });
+          }
+        }, 250);
+      });
     }
   };
 
