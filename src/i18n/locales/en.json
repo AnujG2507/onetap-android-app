@@ -45,17 +45,17 @@
   },
   "menu": {
     "title": "Menu",
-    "shortcuts": "My Access",
+    "shortcuts": "My Access Points",
     "trash": "Trash",
     "settings": "Settings"
   },
   "shortcuts": {
-    "title": "My Access",
+    "title": "My Access Points",
     "empty": "No access points yet",
     "emptyDesc": "Set up one tap access from the Access tab",
     "taps": "taps",
     "tap": "tap",
-    "searchPlaceholder": "Search shortcuts...",
+    "searchPlaceholder": "Search access points...",
     "filterAll": "All",
     "filterLinks": "Links",
     "filterFiles": "Files",
@@ -68,7 +68,8 @@
     "noMatch": "No access points match your filter",
     "clearFilters": "Clear filters",
     "syncTooltip": "Sync with home screen",
-    "manualRemovalRequired": "Please manually remove the shortcut icon from your home screen"
+    "manualRemovalRequired": "Please manually remove the shortcut icon from your home screen",
+    "manageDesc": "Synced with your home screen"
   },
   "contact": {
     "call": "Call",
