@@ -67,7 +67,7 @@ public class NativePdfViewerActivity extends Activity {
     
     private static final String TAG = "NativePdfViewer";
     private static final String PREFS_NAME = "pdf_resume_positions";
-    private static final int AUTO_HIDE_DELAY_MS = 3000;
+    private static final int AUTO_HIDE_DELAY_MS = 6000; // Extended to ensure page indicator is seen
     private static final float MIN_ZOOM = 1.0f;
     private static final float MAX_ZOOM = 5.0f;
     private static final float DOUBLE_TAP_ZOOM = 2.5f;
@@ -503,7 +503,8 @@ public class NativePdfViewerActivity extends Activity {
             }
         });
         
-        updatePageIndicator();
+        // Post initial indicator update after layout to guarantee firstVisible is valid
+        recyclerView.post(this::updatePageIndicator);
     }
     
     /**
@@ -672,10 +673,16 @@ public class NativePdfViewerActivity extends Activity {
             int lowWidth = Math.max(1, (int) (pageWidth * lowScale));
             int lowHeight = Math.max(1, (int) (pageHeight * lowScale));
             
-            Bitmap lowBitmap = Bitmap.createBitmap(lowWidth, lowHeight, Bitmap.Config.RGB_565);
+            // CRITICAL FIX: Use ARGB_8888 - PdfRenderer requires ARGB format
+            // Android docs: "The destination bitmap format must be ARGB"
+            // RGB_565 causes silent render failures on many devices
+            Bitmap lowBitmap = Bitmap.createBitmap(lowWidth, lowHeight, Bitmap.Config.ARGB_8888);
             lowBitmap.eraseColor(Color.WHITE);
             
+            Log.d(TAG, "Rendering page " + pageIndex + " low-res: " + lowWidth + "x" + lowHeight + " ARGB_8888");
+            
             // Now open page for actual rendering
+            boolean lowResSuccess = false;
             synchronized (pdfRenderer) {
                 if (pdfRenderer == null || pageIndex < 0 || pageIndex >= pdfRenderer.getPageCount()) {
                     lowBitmap.recycle();
@@ -683,13 +690,24 @@ public class NativePdfViewerActivity extends Activity {
                     return;
                 }
                 
-                PdfRenderer.Page page = pdfRenderer.openPage(pageIndex);
-                
-                // CRITICAL FIX: Pass null for Matrix - PdfRenderer auto-scales to bitmap dimensions
-                // The bitmap is already sized to lowWidth x lowHeight, so no Matrix needed
-                page.render(lowBitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY);
-                
-                page.close();
+                try {
+                    PdfRenderer.Page page = pdfRenderer.openPage(pageIndex);
+                    
+                    // Pass null for Matrix - PdfRenderer auto-scales to bitmap dimensions
+                    page.render(lowBitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY);
+                    
+                    page.close();
+                    lowResSuccess = true;
+                    Log.d(TAG, "Low-res render success for page " + pageIndex);
+                } catch (Exception e) {
+                    Log.e(TAG, "Low-res render failed for page " + pageIndex, e);
+                }
+            }
+            
+            if (!lowResSuccess) {
+                lowBitmap.recycle();
+                pendingRenders.remove(getCacheKey(pageIndex, targetZoom, false));
+                return;
             }
             
             // Cache low-res
@@ -751,7 +769,7 @@ public class NativePdfViewerActivity extends Activity {
                 }
             });
         } catch (Exception e) {
-            Log.e(TAG, "Failed to render page " + pageIndex + ": " + e.getMessage());
+            Log.e(TAG, "Failed to render page " + pageIndex, e);
             pendingRenders.remove(getCacheKey(pageIndex, targetZoom, false));
         }
     }
@@ -838,9 +856,9 @@ public class NativePdfViewerActivity extends Activity {
                 // Low-res cached, use while waiting for high-res
                 holder.imageView.setImageBitmap(cached);
             } else {
-                // Show placeholder while loading
+                // Show placeholder while loading - reset to white background
                 holder.imageView.setImageBitmap(null);
-                holder.imageView.setBackgroundColor(0xFFF5F5F5); // Light gray placeholder
+                holder.imageView.setBackgroundColor(0xFFFFFFFF); // White placeholder matches page
             }
             
             // Trigger render if not already pending
