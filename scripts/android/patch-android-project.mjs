@@ -151,6 +151,8 @@ function patchAppDependencies() {
     { name: "media3-common", dep: 'implementation "androidx.media3:media3-common:1.5.1"' },
     // ExifInterface for reading image orientation metadata (used for slideshow thumbnails)
     { name: "exifinterface", dep: 'implementation "androidx.exifinterface:exifinterface:1.3.7"' },
+    // RecyclerView for NativePdfViewerActivity (virtualized page scrolling)
+    { name: "recyclerview", dep: 'implementation "androidx.recyclerview:recyclerview:1.3.2"' },
   ];
 
   for (const { name, dep } of dependencies) {
@@ -168,7 +170,7 @@ function patchAppDependencies() {
 
   if (after !== before) {
     writeFile(appBuildGradle, after);
-    console.log(`[patch-android] Added dependencies to app/build.gradle (SwipeRefreshLayout, ExoPlayer/Media3).`);
+    console.log(`[patch-android] Added dependencies to app/build.gradle (SwipeRefreshLayout, ExoPlayer/Media3, RecyclerView).`);
   } else {
     console.log(`[patch-android] All dependencies already present.`);
   }

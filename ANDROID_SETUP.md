@@ -76,7 +76,7 @@ The `patch-android-project.mjs` script:
 - **Updates Gradle** wrapper to 8.13
 - **Configures SDK versions**: minSdk=31, compileSdk=36, targetSdk=36
 - **Sets JDK 21** in gradle.properties
-- **Adds dependencies**: SwipeRefreshLayout, ExoPlayer/Media3
+- **Adds dependencies**: SwipeRefreshLayout, ExoPlayer/Media3, RecyclerView
 
 ## After Code Changes
 
