@@ -1,14 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, ExternalLink, Play, Pause, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Play, Pause, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useShortcuts } from '@/hooks/useShortcuts';
 import ShortcutPlugin from '@/plugins/ShortcutPlugin';
 import { Capacitor } from '@capacitor/core';
-import { motion, AnimatePresence, PanInfo } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import PinchZoomImage from '@/components/PinchZoomImage';
 
-const SWIPE_THRESHOLD = 50;
 const CONTROLS_AUTO_HIDE_MS = 3000;
 
 export default function SlideshowViewer() {
@@ -191,20 +191,9 @@ export default function SlideshowViewer() {
     setIsPlaying(false);
   }, [images.length, resetControlsTimeout]);
 
-  const handleSwipe = useCallback((_: never, info: PanInfo) => {
-    if (Math.abs(info.offset.x) > SWIPE_THRESHOLD) {
-      if (info.offset.x > 0) {
-        handlePrevious();
-      } else {
-        handleNext();
-      }
-    } else if (info.offset.y < -SWIPE_THRESHOLD) {
-      // Swipe up - no action currently
-    } else if (info.offset.y > SWIPE_THRESHOLD) {
-      // Swipe down - close viewer
-      navigate(-1);
-    }
-  }, [handlePrevious, handleNext, navigate]);
+  const handleSwipeDown = useCallback(() => {
+    navigate(-1);
+  }, [navigate]);
 
   const handleOpenWith = useCallback(async () => {
     const currentImage = images[currentIndex];
@@ -254,42 +243,31 @@ export default function SlideshowViewer() {
 
   return (
     <div className="fixed inset-0 bg-black select-none">
-      {/* Main image area with gesture handling */}
-      <motion.div
-        className="absolute inset-0 flex items-center justify-center"
-        onClick={handleTap}
-        onPanEnd={handleSwipe}
-        drag="x"
-        dragConstraints={{ left: 0, right: 0 }}
-        dragElastic={0.2}
-      >
+      {/* Main image area with pinch-zoom */}
+      <div className="absolute inset-0">
         <AnimatePresence mode="wait">
           <motion.div
             key={currentIndex}
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="w-full h-full flex items-center justify-center relative"
+            className="w-full h-full"
           >
-            {/* Loading indicator */}
-            {showLoadingIndicator && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-10">
-                <Loader2 className="h-8 w-8 text-white animate-spin" />
-              </div>
-            )}
-            
-            {/* Full-quality image */}
-            <img
+            <PinchZoomImage
               src={currentImageSrc}
               alt={`Image ${currentIndex + 1}`}
-              className="max-w-full max-h-full object-contain"
+              showLoading={showLoadingIndicator}
               onLoad={() => handleImageLoad(currentIndex)}
               onError={() => handleImageError(currentIndex)}
+              onTap={handleTap}
+              onSwipeLeft={handleNext}
+              onSwipeRight={handlePrevious}
+              onSwipeDown={handleSwipeDown}
             />
           </motion.div>
         </AnimatePresence>
-      </motion.div>
+      </div>
 
       {/* Controls overlay */}
       <AnimatePresence>
