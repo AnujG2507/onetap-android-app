@@ -26,7 +26,8 @@ export function BottomNav({ activeTab, onTabChange, hasShortlist, isSignedIn, ha
         <button
           onClick={() => onTabChange('access')}
           className={cn(
-            "flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-colors",
+            "flex items-center justify-center flex-1 h-full gap-0.5 transition-colors",
+            isLandscape ? "flex-row gap-1.5" : "flex-col",
             activeTab === 'access'
               ? "text-primary"
               : "text-muted-foreground"
@@ -37,13 +38,17 @@ export function BottomNav({ activeTab, onTabChange, hasShortlist, isSignedIn, ha
             "transition-all",
             activeTab === 'access' && "fill-current"
           )} />
-          {!isLandscape && <span className="text-[10px] font-medium">{t('tabs.access')}</span>}
+          <span className={cn(
+            "font-medium",
+            isLandscape ? "text-[9px]" : "text-[10px]"
+          )}>{t('tabs.access')}</span>
         </button>
         
         <button
           onClick={() => onTabChange('reminders')}
           className={cn(
-            "flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-colors relative",
+            "flex items-center justify-center flex-1 h-full gap-0.5 transition-colors relative",
+            isLandscape ? "flex-row gap-1.5" : "flex-col",
             activeTab === 'reminders'
               ? "text-primary"
               : "text-muted-foreground"
@@ -59,13 +64,17 @@ export function BottomNav({ activeTab, onTabChange, hasShortlist, isSignedIn, ha
               <span className="absolute -top-0.5 -end-0.5 h-2 w-2 rounded-full bg-primary" />
             )}
           </div>
-          {!isLandscape && <span className="text-[10px] font-medium">{t('tabs.reminders')}</span>}
+          <span className={cn(
+            "font-medium",
+            isLandscape ? "text-[9px]" : "text-[10px]"
+          )}>{t('tabs.reminders')}</span>
         </button>
         
         <button
           onClick={() => onTabChange('bookmarks')}
           className={cn(
-            "flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-colors relative",
+            "flex items-center justify-center flex-1 h-full gap-0.5 transition-colors relative",
+            isLandscape ? "flex-row gap-1.5" : "flex-col",
             activeTab === 'bookmarks'
               ? "text-primary"
               : "text-muted-foreground"
@@ -81,13 +90,17 @@ export function BottomNav({ activeTab, onTabChange, hasShortlist, isSignedIn, ha
               <span className="absolute -top-0.5 -end-0.5 h-2 w-2 rounded-full bg-primary" />
             )}
           </div>
-          {!isLandscape && <span className="text-[10px] font-medium">{t('tabs.bookmarks')}</span>}
+          <span className={cn(
+            "font-medium",
+            isLandscape ? "text-[9px]" : "text-[10px]"
+          )}>{t('tabs.bookmarks')}</span>
         </button>
 
         <button
           onClick={() => onTabChange('profile')}
           className={cn(
-            "flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-colors relative",
+            "flex items-center justify-center flex-1 h-full gap-0.5 transition-colors relative",
+            isLandscape ? "flex-row gap-1.5" : "flex-col",
             activeTab === 'profile'
               ? "text-primary"
               : "text-muted-foreground"
@@ -103,7 +116,10 @@ export function BottomNav({ activeTab, onTabChange, hasShortlist, isSignedIn, ha
               <span className="absolute -top-0.5 -end-0.5 h-2 w-2 rounded-full bg-green-500" />
             )}
           </div>
-          {!isLandscape && <span className="text-[10px] font-medium">{t('tabs.profile')}</span>}
+          <span className={cn(
+            "font-medium",
+            isLandscape ? "text-[9px]" : "text-[10px]"
+          )}>{t('tabs.profile')}</span>
         </button>
       </div>
     </nav>
