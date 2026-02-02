@@ -331,7 +331,7 @@ export function useShortcuts() {
 
   const updateShortcut = useCallback(async (
     id: string,
-    updates: Partial<Pick<ShortcutData, 'name' | 'icon' | 'quickMessages' | 'phoneNumber' | 'resumeEnabled'>>
+    updates: Partial<Pick<ShortcutData, 'name' | 'icon' | 'quickMessages' | 'phoneNumber' | 'resumeEnabled' | 'imageUris' | 'imageThumbnails' | 'autoAdvanceInterval'>>
   ): Promise<{ success: boolean; nativeUpdateFailed?: boolean }> => {
     // Update localStorage first
     const updated = shortcuts.map(s => 
