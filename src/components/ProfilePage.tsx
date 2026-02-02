@@ -25,7 +25,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useSheetBackHandler } from '@/hooks/useSheetBackHandler';
 import { useTutorial } from '@/hooks/useTutorial';
 import { getSavedLinks } from '@/lib/savedLinksManager';
-import { syncBookmarks, uploadBookmarksToCloud, downloadBookmarksFromCloud, getCloudBookmarkCount } from '@/lib/cloudSync';
+import { getScheduledActions } from '@/lib/scheduledActionsManager';
+import { syncBookmarks, uploadBookmarksToCloud, downloadBookmarksFromCloud, getCloudBookmarkCount, getCloudScheduledActionsCount } from '@/lib/cloudSync';
 import { getSyncStatus, recordSync, formatRelativeTime, clearSyncStatus } from '@/lib/syncStatusManager';
 import { getSettings, updateSettings } from '@/lib/settingsManager';
 import { supabase } from '@/integrations/supabase/client';
@@ -44,7 +45,9 @@ export function ProfilePage({}: ProfilePageProps = {}) {
   const [isUploading, setIsUploading] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [localCount, setLocalCount] = useState(0);
+  const [localRemindersCount, setLocalRemindersCount] = useState(0);
   const [cloudCount, setCloudCount] = useState<number | null>(null);
+  const [cloudRemindersCount, setCloudRemindersCount] = useState<number | null>(null);
   const [syncStatus, setSyncStatus] = useState(getSyncStatus());
   const [autoSyncEnabled, setAutoSyncEnabled] = useState(() => getSettings().autoSyncEnabled);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -67,9 +70,14 @@ export function ProfilePage({}: ProfilePageProps = {}) {
   // Refresh counts
   const refreshCounts = async () => {
     setLocalCount(getSavedLinks().length);
+    setLocalRemindersCount(getScheduledActions().length);
     if (user) {
-      const count = await getCloudBookmarkCount();
-      setCloudCount(count);
+      const [bookmarkCount, actionsCount] = await Promise.all([
+        getCloudBookmarkCount(),
+        getCloudScheduledActionsCount()
+      ]);
+      setCloudCount(bookmarkCount);
+      setCloudRemindersCount(actionsCount);
     }
   };
 
@@ -151,6 +159,7 @@ export function ProfilePage({}: ProfilePageProps = {}) {
   const handleSignOut = async () => {
     await signOut();
     setCloudCount(null);
+    setCloudRemindersCount(null);
   };
 
   const handleSync = async () => {
@@ -397,17 +406,27 @@ export function ProfilePage({}: ProfilePageProps = {}) {
         <CardContent>
           <div className="grid grid-cols-2 gap-3">
             <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-              <HardDrive className="w-5 h-5 text-muted-foreground" />
-              <div>
-                <p className="text-2xl font-bold">{localCount}</p>
-                <p className="text-xs text-muted-foreground">{t('profile.local')}</p>
+              <HardDrive className="w-5 h-5 text-muted-foreground shrink-0" />
+              <div className="min-w-0">
+                <p className="text-lg font-bold leading-tight">
+                  {localCount} <span className="text-sm font-normal text-muted-foreground">{t('profile.bookmarks')}</span>
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {localRemindersCount} <span className="text-xs">{t('profile.reminders')}</span>
+                </p>
+                <p className="text-[10px] text-muted-foreground/70 mt-0.5">{t('profile.local')}</p>
               </div>
             </div>
             <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-              <Cloud className="w-5 h-5 text-muted-foreground" />
-              <div>
-                <p className="text-2xl font-bold">{cloudCount ?? '—'}</p>
-                <p className="text-xs text-muted-foreground">{t('profile.cloud')}</p>
+              <Cloud className="w-5 h-5 text-muted-foreground shrink-0" />
+              <div className="min-w-0">
+                <p className="text-lg font-bold leading-tight">
+                  {cloudCount ?? '—'} <span className="text-sm font-normal text-muted-foreground">{t('profile.bookmarks')}</span>
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {cloudRemindersCount ?? '—'} <span className="text-xs">{t('profile.reminders')}</span>
+                </p>
+                <p className="text-[10px] text-muted-foreground/70 mt-0.5">{t('profile.cloud')}</p>
               </div>
             </div>
           </div>

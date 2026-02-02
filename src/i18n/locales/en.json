@@ -406,6 +406,8 @@
     "autoSyncOff": "Auto-sync off",
     "local": "Local",
     "cloud": "Cloud",
+    "bookmarks": "bookmarks",
+    "reminders": "reminders",
     "localBookmarks": "Local bookmarks",
     "cloudBookmarks": "Cloud bookmarks",
     "lastSync": "Last sync",
