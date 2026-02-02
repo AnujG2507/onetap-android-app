@@ -351,7 +351,7 @@ export default function SlideshowViewer() {
               <div className="flex flex-col items-center gap-2">
                 {/* Play/Pause status indicator (only show if auto-advance is configured) */}
                 {autoAdvanceInterval > 0 && (
-                  <span className="text-white/60 text-xs">
+                  <span className={`text-white/60 text-xs ${!isPlaying ? 'animate-pulse' : ''}`}>
                     {isPlaying ? t('slideshow.playing', 'Playing') : t('slideshow.paused', 'Paused')}
                   </span>
                 )}
