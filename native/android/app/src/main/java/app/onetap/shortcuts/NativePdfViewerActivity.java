@@ -108,6 +108,10 @@ public class NativePdfViewerActivity extends Activity {
     // Previous zoom level (for fallback bitmap lookup during transitions)
     private float previousZoom = 1.0f;
     
+    // Error state UI (shown instead of RecyclerView when PDF can't be opened)
+    private FrameLayout errorView;
+    private float previousZoom = 1.0f;
+    
     // UI chrome
     private FrameLayout topBar;
     private ImageButton closeButton;
@@ -196,7 +200,9 @@ public class NativePdfViewerActivity extends Activity {
         
         if (pdfUri == null) {
             Log.e(TAG, "No PDF URI provided");
-            finish();
+            // Build UI first so we can show error state
+            buildUI();
+            showCalmErrorState();
             return;
         }
         
@@ -219,10 +225,10 @@ public class NativePdfViewerActivity extends Activity {
         // Setup gesture detectors
         setupGestureDetectors();
         
-        // Open PDF
+        // Open PDF - show calm error state if it fails
         if (!openPdf(pdfUri)) {
             Log.e(TAG, "Failed to open PDF");
-            finish();
+            showCalmErrorState();
             return;
         }
         
@@ -333,7 +339,96 @@ public class NativePdfViewerActivity extends Activity {
         
         root.addView(topBar);
         
+        // Error view (hidden by default, shown if PDF fails to open)
+        errorView = buildCalmErrorView();
+        errorView.setVisibility(View.GONE);
+        root.addView(errorView);
+        
         setContentView(root);
+    }
+    
+    /**
+     * Build a calm, non-alarming error view for when PDF can't be opened.
+     * 
+     * Design principles:
+     * - No blocking dialogs
+     * - No technical error messages  
+     * - One clear explanation
+     * - One clear escape (tap anywhere to close)
+     * - Muted colors (not red, not alarming)
+     * - Centered, minimal layout
+     */
+    private FrameLayout buildCalmErrorView() {
+        FrameLayout container = new FrameLayout(this);
+        container.setLayoutParams(new FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        ));
+        container.setBackgroundColor(0xFF1A1A1A); // Same as viewer background
+        
+        // Centered content container
+        android.widget.LinearLayout content = new android.widget.LinearLayout(this);
+        content.setOrientation(android.widget.LinearLayout.VERTICAL);
+        content.setGravity(android.view.Gravity.CENTER);
+        FrameLayout.LayoutParams contentParams = new FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        contentParams.gravity = android.view.Gravity.CENTER;
+        content.setLayoutParams(contentParams);
+        content.setPadding(dpToPx(48), dpToPx(48), dpToPx(48), dpToPx(48));
+        
+        // Subtle icon (document with X, but we'll use a simple dash for calm feel)
+        TextView icon = new TextView(this);
+        icon.setText("—");
+        icon.setTextSize(TypedValue.COMPLEX_UNIT_SP, 48);
+        icon.setTextColor(0x66FFFFFF); // Very muted
+        icon.setGravity(android.view.Gravity.CENTER);
+        content.addView(icon);
+        
+        // Primary message - calm, informative, no blame
+        TextView message = new TextView(this);
+        message.setText("This document is no longer available");
+        message.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        message.setTextColor(0xCCFFFFFF); // Slightly muted white
+        message.setGravity(android.view.Gravity.CENTER);
+        message.setPadding(0, dpToPx(24), 0, dpToPx(8));
+        content.addView(message);
+        
+        // Secondary hint - the escape path
+        TextView hint = new TextView(this);
+        hint.setText("Tap anywhere to close");
+        hint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        hint.setTextColor(0x88FFFFFF); // More muted
+        hint.setGravity(android.view.Gravity.CENTER);
+        content.addView(hint);
+        
+        container.addView(content);
+        
+        // Tap anywhere to exit
+        container.setOnClickListener(v -> exitViewer());
+        
+        return container;
+    }
+    
+    /**
+     * Show calm error state when PDF can't be opened.
+     * Hides the RecyclerView and top bar, shows a minimal error message.
+     * User can tap anywhere to exit.
+     */
+    private void showCalmErrorState() {
+        if (recyclerView != null) {
+            recyclerView.setVisibility(View.GONE);
+        }
+        if (topBar != null) {
+            topBar.setVisibility(View.GONE);
+        }
+        if (errorView != null) {
+            errorView.setVisibility(View.VISIBLE);
+        }
+        
+        // Cancel any pending hide actions
+        hideHandler.removeCallbacks(hideRunnable);
     }
     
     private void setupGestureDetectors() {
