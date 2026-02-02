@@ -83,7 +83,13 @@
     "accessName": "Access Name",
     "callPlaceholder": "Call Mom",
     "whatsappPlaceholder": "WhatsApp Mom",
-    "pickFromContacts": "Pick from contacts"
+    "pickFromContacts": "Pick from contacts",
+    "pickFromContactsDesc": "Select from your device contacts",
+    "enterManually": "Enter manually",
+    "enterManuallyDesc": "Type a phone number directly",
+    "addContact": "Add a contact",
+    "contactName": "Name (optional)",
+    "namePlaceholder": "e.g. Mom, Doctor"
   },
   "onboarding": {
     "skip": "Skip",

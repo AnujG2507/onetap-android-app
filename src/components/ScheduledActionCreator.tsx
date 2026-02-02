@@ -5,10 +5,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { ChevronLeft, FileText, Link, Phone, Check, Clipboard, Globe, Bookmark } from 'lucide-react';
+import { ChevronLeft, FileText, Link, Phone, Check, Clipboard, Globe, Bookmark, UserCircle2, Edit3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScheduledTimingPicker } from './ScheduledTimingPicker';
 import { ContactAvatar } from '@/components/ContactAvatar';
+import { PhoneNumberInput } from '@/components/PhoneNumberInput';
 import { useScheduledActions } from '@/hooks/useScheduledActions';
 import { useSheetBackHandler } from '@/hooks/useSheetBackHandler';
 import { triggerHaptic } from '@/lib/haptics';
@@ -17,6 +18,7 @@ import ShortcutPlugin from '@/plugins/ShortcutPlugin';
 import { SavedLinksSheet } from './SavedLinksSheet';
 import { Clipboard as CapClipboard } from '@capacitor/clipboard';
 import { useToast } from '@/hooks/use-toast';
+import { parsePhone } from '@/lib/phoneUtils';
 import type { 
   ScheduledActionDestination, 
   RecurrenceType, 
@@ -26,6 +28,7 @@ import type {
 
 type CreatorStep = 'destination' | 'timing' | 'confirm';
 type UrlSubStep = 'choose' | 'input' | null;
+type ContactSubStep = 'choose' | 'manual' | null;
 
 interface ScheduledActionCreatorProps {
   onComplete: () => void;
@@ -59,11 +62,17 @@ export function ScheduledActionCreator({
   const [showBookmarkPicker, setShowBookmarkPicker] = useState(false);
   const [urlInput, setUrlInput] = useState('');
   const [urlError, setUrlError] = useState('');
+  // Contact sub-flow state
+  const [contactSubStep, setContactSubStep] = useState<ContactSubStep>(null);
+  const [contactName, setContactName] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
+  const [isContactPhoneValid, setIsContactPhoneValid] = useState(false);
 
   // Back button handler for internal step navigation
   // Determine if we should intercept the back button (when not on exit step)
   const shouldInterceptBack = 
     urlSubStep !== null || // In URL sub-step
+    contactSubStep !== null || // In contact sub-step
     step === 'confirm' || // On confirm step
     (step === 'timing' && !initialDestination); // On timing without pre-filled destination
 
@@ -75,13 +84,21 @@ export function ScheduledActionCreator({
       setUrlError('');
       return;
     }
+    // Handle contact sub-step back
+    if (contactSubStep) {
+      setContactSubStep(null);
+      setContactName('');
+      setContactPhone('');
+      setIsContactPhoneValid(false);
+      return;
+    }
     
     if (step === 'confirm') {
       setStep('timing');
     } else if (step === 'timing' && !initialDestination) {
       setStep('destination');
     }
-  }, [urlSubStep, step, initialDestination]);
+  }, [urlSubStep, contactSubStep, step, initialDestination]);
 
   // Register with higher priority (20) than parent sheet (0) to intercept back button
   useSheetBackHandler(
@@ -106,9 +123,14 @@ export function ScheduledActionCreator({
   const handleDestinationSelect = (dest: ScheduledActionDestination) => {
     setDestination(dest);
     setName(getSuggestedName(dest));
+    // Reset sub-step states
     setUrlSubStep(null);
     setUrlInput('');
     setUrlError('');
+    setContactSubStep(null);
+    setContactName('');
+    setContactPhone('');
+    setIsContactPhoneValid(false);
     setStep('timing');
   };
 
@@ -126,15 +148,19 @@ export function ScheduledActionCreator({
     }
   };
 
-  // Contact picker handler
-  const handleContactSelect = async () => {
+  // Contact picker handler - picks from device contacts
+  const handlePickContact = async () => {
     triggerHaptic('light');
     try {
       const result = await ShortcutPlugin.pickContact();
       if (result.success && result.phoneNumber) {
+        // Parse the phone number to get E.164 format
+        const parsed = parsePhone(result.phoneNumber);
+        const normalizedPhone = parsed?.e164 || result.phoneNumber;
+        
         handleDestinationSelect({
           type: 'contact',
-          phoneNumber: result.phoneNumber,
+          phoneNumber: normalizedPhone,
           contactName: result.name || 'Contact',
           // Store photo for display - prefer base64 for immediate use
           photoUri: result.photoBase64 || result.photoUri,
@@ -143,6 +169,17 @@ export function ScheduledActionCreator({
     } catch (error) {
       console.warn('Contact picker failed:', error);
     }
+  };
+
+  // Manual contact submit handler
+  const handleManualContactSubmit = () => {
+    if (!contactPhone || !isContactPhoneValid) return;
+    
+    handleDestinationSelect({
+      type: 'contact',
+      phoneNumber: contactPhone,
+      contactName: contactName.trim() || 'Contact',
+    });
   };
 
   // URL flow handlers
@@ -293,6 +330,14 @@ export function ScheduledActionCreator({
       setUrlError('');
       return;
     }
+    // Handle contact sub-step back
+    if (contactSubStep) {
+      setContactSubStep(null);
+      setContactName('');
+      setContactPhone('');
+      setIsContactPhoneValid(false);
+      return;
+    }
     
     switch (step) {
       case 'destination':
@@ -434,6 +479,92 @@ export function ScheduledActionCreator({
       );
     }
 
+    // Contact sub-step: Manual phone entry
+    if (contactSubStep === 'manual') {
+      return (
+        <div className="flex flex-col h-full animate-fade-in">
+          <div className="flex items-center gap-3 px-5 pt-header-safe-compact pb-4 landscape:px-4 landscape:pt-2 landscape:pb-2 border-b border-border">
+            <button
+              onClick={handleBack}
+              className="p-2 -ms-2 rounded-full hover:bg-muted active:scale-95 transition-transform"
+            >
+              <ChevronLeft className="h-5 w-5 rtl:rotate-180" />
+            </button>
+            <h2 className="text-lg font-semibold">{t('contact.enterManually')}</h2>
+          </div>
+
+          <div className="flex-1 px-5 py-6 landscape:px-4 landscape:py-4 space-y-4 landscape:space-y-3">
+            {/* Contact Name (optional) */}
+            <div className="space-y-2">
+              <Label>{t('contact.contactName')}</Label>
+              <Input
+                value={contactName}
+                onChange={(e) => setContactName(e.target.value)}
+                placeholder={t('contact.namePlaceholder')}
+                className="h-12 landscape:h-10 rounded-xl text-base"
+              />
+            </div>
+
+            {/* Phone Number with Country Picker */}
+            <div className="space-y-2">
+              <Label>{t('contact.phoneNumber')}</Label>
+              <PhoneNumberInput
+                value={contactPhone}
+                onChange={(e164, valid) => {
+                  setContactPhone(e164);
+                  setIsContactPhoneValid(valid);
+                }}
+              />
+            </div>
+          </div>
+
+          <div className="p-5 landscape:p-3 border-t border-border">
+            <Button
+              onClick={handleManualContactSubmit}
+              disabled={!contactPhone || !isContactPhoneValid}
+              className="w-full h-12 landscape:h-10 rounded-2xl text-base"
+            >
+              {t('common.continue')}
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    // Contact sub-step: Choose contact source
+    if (contactSubStep === 'choose') {
+      return (
+        <div className="flex flex-col h-full animate-fade-in">
+          <div className="flex items-center gap-3 px-5 pt-header-safe-compact pb-4 landscape:px-4 landscape:pt-2 landscape:pb-2 border-b border-border">
+            <button
+              onClick={handleBack}
+              className="p-2 -ms-2 rounded-full hover:bg-muted active:scale-95 transition-transform"
+            >
+              <ChevronLeft className="h-5 w-5 rtl:rotate-180" />
+            </button>
+            <h2 className="text-lg font-semibold">{t('contact.addContact')}</h2>
+          </div>
+
+          <div className="flex-1 px-5 py-6 landscape:px-4 landscape:py-4">
+            <div className="space-y-3 landscape:grid landscape:grid-cols-2 landscape:gap-3 landscape:space-y-0">
+              <DestinationOption
+                icon={<UserCircle2 className="h-5 w-5" />}
+                label={t('contact.pickFromContacts')}
+                description={t('contact.pickFromContactsDesc')}
+                onClick={handlePickContact}
+              />
+              <DestinationOption
+                icon={<Edit3 className="h-5 w-5" />}
+                label={t('contact.enterManually')}
+                description={t('contact.enterManuallyDesc')}
+                onClick={() => setContactSubStep('manual')}
+              />
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     // Main destination selection
     return (
       <div className="flex flex-col h-full animate-fade-in">
@@ -469,7 +600,7 @@ export function ScheduledActionCreator({
               icon={<Phone className="h-5 w-5" />}
               label="Contact"
               description="Call someone at a scheduled time"
-              onClick={handleContactSelect}
+              onClick={() => setContactSubStep('choose')}
             />
           </div>
         </div>
