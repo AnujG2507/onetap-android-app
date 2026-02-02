@@ -9,7 +9,7 @@ import { ContactAvatar, getInitials } from '@/components/ContactAvatar';
 import { QuickMessagesEditor } from '@/components/QuickMessagesEditor';
 import { PhoneNumberInput } from '@/components/PhoneNumberInput';
 import ShortcutPlugin from '@/plugins/ShortcutPlugin';
-import { parsePhone } from '@/lib/phoneUtils';
+import { parsePhone, validatePhoneNumber, getDefaultCountry } from '@/lib/phoneUtils';
 import type { ShortcutIcon } from '@/types/shortcut';
 
 interface ContactData {
@@ -48,7 +48,14 @@ export function ContactShortcutCustomizer({
   const { t } = useTranslation();
   const [name, setName] = useState(contact?.name || '');
   const [phoneNumber, setPhoneNumber] = useState(contact?.phoneNumber || '');
-  const [isPhoneValid, setIsPhoneValid] = useState(false);
+  // Validate initial phone number if provided
+  const [isPhoneValid, setIsPhoneValid] = useState(() => {
+    if (contact?.phoneNumber) {
+      const parsed = parsePhone(contact.phoneNumber);
+      return parsed !== null;
+    }
+    return false;
+  });
   const [isPickingContact, setIsPickingContact] = useState(false);
   const [pickedContact, setPickedContact] = useState<ContactData | null>(contact || null);
   const [contactPhoto, setContactPhoto] = useState<string | null>(contact?.photoBase64 || null);
