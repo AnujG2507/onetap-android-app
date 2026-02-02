@@ -37,16 +37,16 @@ export function PhoneNumberInput({
 }: PhoneNumberInputProps) {
   const { t } = useTranslation();
 
-  // Determine initial country from value or default
+  // Determine initial country from value or default (null = empty state)
   const initialCountry = useMemo(() => {
     if (value) {
       const detected = detectCountryFromNumber(value);
       if (detected) return detected;
     }
-    return defaultCountry || getDefaultCountry();
+    return defaultCountry || null;
   }, []);
 
-  const [countryCode, setCountryCode] = useState<CountryCode>(initialCountry);
+  const [countryCode, setCountryCode] = useState<CountryCode | null>(initialCountry);
   const [nationalNumber, setNationalNumber] = useState('');
   const [isFocused, setIsFocused] = useState(false);
 
@@ -72,6 +72,7 @@ export function PhoneNumberInput({
   // Validation state
   const validationResult = useMemo(() => {
     if (!nationalNumber.trim()) return 'empty';
+    if (!countryCode) return 'invalid'; // No country selected
     return validatePhoneNumber(nationalNumber, countryCode);
   }, [nationalNumber, countryCode]);
 
@@ -95,14 +96,18 @@ export function PhoneNumberInput({
   // Handle national number change
   const handleNationalNumberChange = useCallback(
     (input: string) => {
-      // Format as user types
-      const formatted = formatAsYouType(input, countryCode);
+      // Format as user types (only if country is selected)
+      const formatted = countryCode ? formatAsYouType(input, countryCode) : input;
       setNationalNumber(formatted || input);
 
-      // Convert to E.164 and notify parent
-      const e164 = toE164(input, countryCode);
-      const validation = validatePhoneNumber(input, countryCode);
-      onChange(e164 || input, validation === 'valid');
+      // Convert to E.164 and notify parent (only if country is selected)
+      if (countryCode) {
+        const e164 = toE164(input, countryCode);
+        const validation = validatePhoneNumber(input, countryCode);
+        onChange(e164 || input, validation === 'valid');
+      } else {
+        onChange(input, false);
+      }
     },
     [countryCode, onChange]
   );
@@ -122,11 +127,13 @@ export function PhoneNumberInput({
     [nationalNumber, onChange]
   );
 
-  // Handle clear
+  // Handle clear - also reset country
   const handleClear = useCallback(() => {
     setNationalNumber('');
+    setCountryCode(null);
     onChange('', false);
   }, [onChange]);
+
 
   // Handle paste - detect if it's an international number
   const handlePaste = useCallback(

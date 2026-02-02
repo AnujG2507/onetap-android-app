@@ -23,7 +23,7 @@ import {
 } from '@/lib/phoneUtils';
 
 interface CountryCodePickerProps {
-  selectedCountry: CountryCode;
+  selectedCountry: CountryCode | null;
   onSelect: (country: CountryCode) => void;
   disabled?: boolean;
 }
@@ -37,8 +37,11 @@ export function CountryCodePicker({
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Get selected country data
-  const selectedData = useMemo(() => getCountryData(selectedCountry), [selectedCountry]);
+  // Get selected country data (null = empty state)
+  const selectedData = useMemo(
+    () => (selectedCountry ? getCountryData(selectedCountry) : null),
+    [selectedCountry]
+  );
 
   // Get all countries (memoized)
   const allCountries = useMemo(() => getAllCountries(), []);
@@ -80,8 +83,14 @@ export function CountryCodePicker({
           disabled={disabled}
           className="h-12 px-3 gap-1 rounded-xl shrink-0 min-w-[90px]"
         >
-          <span className="text-lg leading-none">{selectedData.flag}</span>
-          <span className="text-sm font-medium">{selectedData.dialCode}</span>
+          {selectedData ? (
+            <>
+              <span className="text-lg leading-none">{selectedData.flag}</span>
+              <span className="text-sm font-medium">{selectedData.dialCode}</span>
+            </>
+          ) : (
+            <span className="text-sm text-muted-foreground">{t('phoneInput.selectCountry')}</span>
+          )}
           <ChevronDown className="h-4 w-4 text-muted-foreground ms-0.5" />
         </Button>
       </DrawerTrigger>
