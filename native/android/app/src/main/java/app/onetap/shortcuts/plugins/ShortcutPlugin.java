@@ -35,6 +35,7 @@ import android.webkit.MimeTypeMap;
 import androidx.activity.result.ActivityResult;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.exifinterface.media.ExifInterface;
 import androidx.core.content.FileProvider;
 
 import com.getcapacitor.JSArray;
@@ -721,9 +722,13 @@ public class ShortcutPlugin extends Plugin {
 
     /**
      * Generate a base64-encoded JPEG thumbnail for an image URI.
+     * Handles EXIF rotation to ensure images are displayed correctly.
      */
     private String generateImageThumbnailBase64(Context context, Uri uri, int maxSize) {
         try {
+            // Read EXIF orientation BEFORE decoding bitmap
+            int rotation = getExifRotation(context, uri);
+            
             InputStream inputStream = context.getContentResolver().openInputStream(uri);
             if (inputStream == null) return null;
 
@@ -751,6 +756,18 @@ public class ShortcutPlugin extends Plugin {
 
             if (bitmap == null) return null;
 
+            // Apply EXIF rotation if needed
+            if (rotation != 0) {
+                Matrix rotationMatrix = new Matrix();
+                rotationMatrix.postRotate(rotation);
+                Bitmap rotatedBitmap = Bitmap.createBitmap(bitmap, 0, 0, 
+                    bitmap.getWidth(), bitmap.getHeight(), rotationMatrix, true);
+                if (rotatedBitmap != bitmap) {
+                    bitmap.recycle();
+                    bitmap = rotatedBitmap;
+                }
+            }
+
             // Scale to target size
             int width = bitmap.getWidth();
             int height = bitmap.getHeight();
@@ -759,18 +776,59 @@ public class ShortcutPlugin extends Plugin {
             if (scale < 1) {
                 int newWidth = Math.round(width * scale);
                 int newHeight = Math.round(height * scale);
-                bitmap = Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true);
+                Bitmap scaledBitmap = Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true);
+                if (scaledBitmap != bitmap) {
+                    bitmap.recycle();
+                    bitmap = scaledBitmap;
+                }
             }
 
             // Encode to JPEG base64
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             bitmap.compress(Bitmap.CompressFormat.JPEG, 80, baos);
             byte[] bytes = baos.toByteArray();
+            bitmap.recycle();
             
             return Base64.encodeToString(bytes, Base64.NO_WRAP);
         } catch (Exception e) {
             android.util.Log.w("ShortcutPlugin", "Failed to generate thumbnail for: " + uri + " - " + e.getMessage());
             return null;
+        }
+    }
+
+    /**
+     * Read EXIF orientation from image URI and return rotation degrees.
+     * Handles 90°, 180°, and 270° rotations based on EXIF metadata.
+     */
+    private int getExifRotation(Context context, Uri uri) {
+        try {
+            InputStream input = context.getContentResolver().openInputStream(uri);
+            if (input == null) return 0;
+            
+            ExifInterface exif = new ExifInterface(input);
+            int orientation = exif.getAttributeInt(
+                ExifInterface.TAG_ORIENTATION, 
+                ExifInterface.ORIENTATION_NORMAL
+            );
+            input.close();
+            
+            switch (orientation) {
+                case ExifInterface.ORIENTATION_ROTATE_90:
+                    return 90;
+                case ExifInterface.ORIENTATION_ROTATE_180:
+                    return 180;
+                case ExifInterface.ORIENTATION_ROTATE_270:
+                    return 270;
+                case ExifInterface.ORIENTATION_TRANSPOSE:
+                    return 90; // Transposed + rotated
+                case ExifInterface.ORIENTATION_TRANSVERSE:
+                    return 270; // Transversed + rotated
+                default:
+                    return 0;
+            }
+        } catch (Exception e) {
+            android.util.Log.w("ShortcutPlugin", "Could not read EXIF orientation: " + e.getMessage());
+            return 0;
         }
     }
 

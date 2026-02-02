@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, ExternalLink, Play, Pause, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Play, Pause, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useShortcuts } from '@/hooks/useShortcuts';
 import ShortcutPlugin from '@/plugins/ShortcutPlugin';
@@ -26,6 +26,10 @@ export default function SlideshowViewer() {
   const [autoAdvanceInterval, setAutoAdvanceInterval] = useState(0);
   const [title, setTitle] = useState('Slideshow');
   
+  // Full-quality image URLs converted for WebView display
+  const [convertedUrls, setConvertedUrls] = useState<Map<number, string>>(new Map());
+  const [imageLoadStates, setImageLoadStates] = useState<Map<number, 'loading' | 'ready' | 'error'>>(new Map());
+  
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const autoAdvanceRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -49,6 +53,63 @@ export default function SlideshowViewer() {
       incrementUsage(shortcutId);
     }
   }, [shortcutId, getShortcut, incrementUsage]);
+
+  // Convert content:// URIs to WebView-accessible URLs for full-quality display
+  useEffect(() => {
+    if (images.length === 0) return;
+    
+    // Initialize loading states
+    const initialStates = new Map<number, 'loading' | 'ready' | 'error'>();
+    images.forEach((_, index) => initialStates.set(index, 'loading'));
+    setImageLoadStates(initialStates);
+    
+    // Convert URIs on native platform
+    if (Capacitor.isNativePlatform()) {
+      const newConverted = new Map<number, string>();
+      images.forEach((uri, index) => {
+        if (uri.startsWith('content://') || uri.startsWith('file://')) {
+          const converted = Capacitor.convertFileSrc(uri);
+          newConverted.set(index, converted);
+        } else if (uri.startsWith('http')) {
+          // HTTP URLs can be used directly
+          newConverted.set(index, uri);
+        }
+      });
+      setConvertedUrls(newConverted);
+    }
+  }, [images]);
+
+  // Get the best available image source for an index
+  const getImageSource = useCallback((index: number): string => {
+    // Priority 1: Converted full-quality URI (native platform)
+    const converted = convertedUrls.get(index);
+    if (converted) return converted;
+    
+    // Priority 2: Original URI (for web or HTTP sources)
+    const original = images[index];
+    if (original?.startsWith('http')) return original;
+    if (original?.startsWith('data:')) return original;
+    
+    // Priority 3: Thumbnail as fallback
+    const thumbnail = thumbnails[index];
+    if (thumbnail) {
+      return thumbnail.startsWith('data:') 
+        ? thumbnail 
+        : `data:image/jpeg;base64,${thumbnail}`;
+    }
+    
+    return '';
+  }, [convertedUrls, images, thumbnails]);
+
+  // Handle image load success
+  const handleImageLoad = useCallback((index: number) => {
+    setImageLoadStates(prev => new Map(prev).set(index, 'ready'));
+  }, []);
+
+  // Handle image load error - fallback to thumbnail
+  const handleImageError = useCallback((index: number) => {
+    setImageLoadStates(prev => new Map(prev).set(index, 'error'));
+  }, []);
 
   // Auto-hide controls
   const resetControlsTimeout = useCallback(() => {
@@ -157,8 +218,10 @@ export default function SlideshowViewer() {
     resetControlsTimeout();
   }, [resetControlsTimeout]);
 
-  // Get current image source (prefer thumbnail for faster loading, fallback to full URI)
-  const currentImageSrc = thumbnails[currentIndex] || images[currentIndex];
+  // Get current image source (prioritize full-quality, fallback to thumbnail)
+  const currentImageSrc = getImageSource(currentIndex);
+  const currentLoadState = imageLoadStates.get(currentIndex) || 'loading';
+  const showLoadingIndicator = currentLoadState === 'loading' && Capacitor.isNativePlatform();
 
   if (images.length === 0) {
     return (
@@ -192,14 +255,22 @@ export default function SlideshowViewer() {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.2 }}
-            className="w-full h-full flex items-center justify-center"
+            className="w-full h-full flex items-center justify-center relative"
           >
+            {/* Loading indicator */}
+            {showLoadingIndicator && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-10">
+                <Loader2 className="h-8 w-8 text-white animate-spin" />
+              </div>
+            )}
+            
+            {/* Full-quality image */}
             <img
-              src={currentImageSrc?.startsWith('data:') || currentImageSrc?.startsWith('blob:') || currentImageSrc?.startsWith('http') || currentImageSrc?.startsWith('content://') 
-                ? currentImageSrc 
-                : currentImageSrc ? `data:image/jpeg;base64,${currentImageSrc}` : ''}
+              src={currentImageSrc}
               alt={`Image ${currentIndex + 1}`}
               className="max-w-full max-h-full object-contain"
+              onLoad={() => handleImageLoad(currentIndex)}
+              onError={() => handleImageError(currentIndex)}
             />
           </motion.div>
         </AnimatePresence>

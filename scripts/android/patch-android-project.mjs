@@ -149,6 +149,8 @@ function patchAppDependencies() {
     { name: "media3-exoplayer", dep: 'implementation "androidx.media3:media3-exoplayer:1.5.1"' },
     { name: "media3-ui", dep: 'implementation "androidx.media3:media3-ui:1.5.1"' },
     { name: "media3-common", dep: 'implementation "androidx.media3:media3-common:1.5.1"' },
+    // ExifInterface for reading image orientation metadata (used for slideshow thumbnails)
+    { name: "exifinterface", dep: 'implementation "androidx.exifinterface:exifinterface:1.3.7"' },
   ];
 
   for (const { name, dep } of dependencies) {
