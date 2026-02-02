@@ -642,119 +642,118 @@ public class NativePdfViewerActivity extends Activity {
     
     /**
      * Render a page asynchronously with low-res → high-res atomic swap.
+     * IMPORTANT: This method is already called from renderExecutor, do NOT wrap in another executor.
      */
     private void renderPageAsync(int pageIndex, float targetZoom, boolean lowResOnly) {
         final int generation = renderGeneration.get();
         
-        renderExecutor.execute(() -> {
-            try {
-                // Check if this render is still valid
-                if (renderGeneration.get() != generation) {
-                    pendingRenders.remove(getCacheKey(pageIndex, targetZoom, false));
-                    return;
-                }
-                
-                // Use cached dimensions instead of opening page just for size
-                if (pageWidths == null || pageIndex < 0 || pageIndex >= pageWidths.length) {
-                    Log.e(TAG, "Invalid page index or dimensions not cached: " + pageIndex);
-                    pendingRenders.remove(getCacheKey(pageIndex, targetZoom, false));
-                    return;
-                }
-                
-                int pageWidth = pageWidths[pageIndex];
-                int pageHeight = pageHeights[pageIndex];
-                
-                // Calculate base scale to fit screen width
-                float baseScale = (float) screenWidth / pageWidth;
-                
-                // --- Low-res pass (instant preview) ---
-                float lowScale = baseScale * targetZoom * LOW_RES_SCALE;
-                int lowWidth = Math.max(1, (int) (pageWidth * lowScale));
-                int lowHeight = Math.max(1, (int) (pageHeight * lowScale));
-                
-                Bitmap lowBitmap = Bitmap.createBitmap(lowWidth, lowHeight, Bitmap.Config.RGB_565);
-                lowBitmap.eraseColor(Color.WHITE);
-                
-                // Now open page for actual rendering
-                synchronized (pdfRenderer) {
-                    if (pdfRenderer == null || pageIndex < 0 || pageIndex >= pdfRenderer.getPageCount()) {
-                        lowBitmap.recycle();
-                        pendingRenders.remove(getCacheKey(pageIndex, targetZoom, false));
-                        return;
-                    }
-                    
-                    PdfRenderer.Page page = pdfRenderer.openPage(pageIndex);
-                    
-                    Matrix lowMatrix = new Matrix();
-                    lowMatrix.setScale(lowScale, lowScale);
-                    page.render(lowBitmap, null, lowMatrix, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY);
-                    
-                    page.close();
-                }
-                
-                // Cache low-res
-                String lowKey = getCacheKey(pageIndex, targetZoom, true);
-                bitmapCache.put(lowKey, lowBitmap);
-                
-                // Post low-res to UI immediately
-                final int finalHeight = (int) (pageHeight * baseScale * targetZoom);
-                mainHandler.post(() -> {
-                    if (renderGeneration.get() == generation) {
-                        adapter.updatePageBitmap(pageIndex, lowBitmap, finalHeight, true);
-                    }
-                });
-                
-                if (lowResOnly) {
-                    return;
-                }
-                
-                // Check again if still valid before expensive high-res render
-                if (renderGeneration.get() != generation) {
-                    pendingRenders.remove(getCacheKey(pageIndex, targetZoom, false));
-                    return;
-                }
-                
-                // --- High-res pass (full quality) ---
-                float highScale = baseScale * targetZoom;
-                int highWidth = Math.max(1, (int) (pageWidth * highScale));
-                int highHeight = Math.max(1, (int) (pageHeight * highScale));
-                
-                // Use ARGB_8888 for high quality
-                Bitmap highBitmap = Bitmap.createBitmap(highWidth, highHeight, Bitmap.Config.ARGB_8888);
-                highBitmap.eraseColor(Color.WHITE);
-                
-                synchronized (pdfRenderer) {
-                    if (pdfRenderer == null || pageIndex < 0 || pageIndex >= pdfRenderer.getPageCount()) {
-                        highBitmap.recycle();
-                        pendingRenders.remove(getCacheKey(pageIndex, targetZoom, false));
-                        return;
-                    }
-                    
-                    PdfRenderer.Page page = pdfRenderer.openPage(pageIndex);
-                    
-                    Matrix highMatrix = new Matrix();
-                    highMatrix.setScale(highScale, highScale);
-                    page.render(highBitmap, null, highMatrix, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY);
-                    
-                    page.close();
-                }
-                
-                // Cache high-res
-                String highKey = getCacheKey(pageIndex, targetZoom, false);
-                bitmapCache.put(highKey, highBitmap);
-                pendingRenders.remove(highKey);
-                
-                // Atomic swap: post high-res to UI
-                mainHandler.post(() -> {
-                    if (renderGeneration.get() == generation) {
-                        adapter.updatePageBitmap(pageIndex, highBitmap, finalHeight, false);
-                    }
-                });
-            } catch (Exception e) {
-                Log.e(TAG, "Failed to render page " + pageIndex + ": " + e.getMessage());
+        try {
+            // Check if this render is still valid
+            if (renderGeneration.get() != generation) {
                 pendingRenders.remove(getCacheKey(pageIndex, targetZoom, false));
+                return;
             }
-        });
+            
+            // Use cached dimensions instead of opening page just for size
+            if (pageWidths == null || pageIndex < 0 || pageIndex >= pageWidths.length) {
+                Log.e(TAG, "Invalid page index or dimensions not cached: " + pageIndex);
+                pendingRenders.remove(getCacheKey(pageIndex, targetZoom, false));
+                return;
+            }
+            
+            int pageWidth = pageWidths[pageIndex];
+            int pageHeight = pageHeights[pageIndex];
+            
+            // Calculate base scale to fit screen width
+            float baseScale = (float) screenWidth / pageWidth;
+            
+            // --- Low-res pass (instant preview) ---
+            float lowScale = baseScale * targetZoom * LOW_RES_SCALE;
+            int lowWidth = Math.max(1, (int) (pageWidth * lowScale));
+            int lowHeight = Math.max(1, (int) (pageHeight * lowScale));
+            
+            Bitmap lowBitmap = Bitmap.createBitmap(lowWidth, lowHeight, Bitmap.Config.RGB_565);
+            lowBitmap.eraseColor(Color.WHITE);
+            
+            // Now open page for actual rendering
+            synchronized (pdfRenderer) {
+                if (pdfRenderer == null || pageIndex < 0 || pageIndex >= pdfRenderer.getPageCount()) {
+                    lowBitmap.recycle();
+                    pendingRenders.remove(getCacheKey(pageIndex, targetZoom, false));
+                    return;
+                }
+                
+                PdfRenderer.Page page = pdfRenderer.openPage(pageIndex);
+                
+                // CRITICAL FIX: Pass null for Matrix - PdfRenderer auto-scales to bitmap dimensions
+                // The bitmap is already sized to lowWidth x lowHeight, so no Matrix needed
+                page.render(lowBitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY);
+                
+                page.close();
+            }
+            
+            // Cache low-res
+            String lowKey = getCacheKey(pageIndex, targetZoom, true);
+            bitmapCache.put(lowKey, lowBitmap);
+            
+            // Post low-res to UI immediately
+            final int finalHeight = (int) (pageHeight * baseScale * targetZoom);
+            mainHandler.post(() -> {
+                if (renderGeneration.get() == generation) {
+                    adapter.updatePageBitmap(pageIndex, lowBitmap, finalHeight, true);
+                }
+            });
+            
+            if (lowResOnly) {
+                return;
+            }
+            
+            // Check again if still valid before expensive high-res render
+            if (renderGeneration.get() != generation) {
+                pendingRenders.remove(getCacheKey(pageIndex, targetZoom, false));
+                return;
+            }
+            
+            // --- High-res pass (full quality) ---
+            float highScale = baseScale * targetZoom;
+            int highWidth = Math.max(1, (int) (pageWidth * highScale));
+            int highHeight = Math.max(1, (int) (pageHeight * highScale));
+            
+            // Use ARGB_8888 for high quality
+            Bitmap highBitmap = Bitmap.createBitmap(highWidth, highHeight, Bitmap.Config.ARGB_8888);
+            highBitmap.eraseColor(Color.WHITE);
+            
+            synchronized (pdfRenderer) {
+                if (pdfRenderer == null || pageIndex < 0 || pageIndex >= pdfRenderer.getPageCount()) {
+                    highBitmap.recycle();
+                    pendingRenders.remove(getCacheKey(pageIndex, targetZoom, false));
+                    return;
+                }
+                
+                PdfRenderer.Page page = pdfRenderer.openPage(pageIndex);
+                
+                // CRITICAL FIX: Pass null for Matrix - PdfRenderer auto-scales to bitmap dimensions
+                // The bitmap is already sized to highWidth x highHeight, so no Matrix needed
+                page.render(highBitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY);
+                
+                page.close();
+            }
+            
+            // Cache high-res
+            String highKey = getCacheKey(pageIndex, targetZoom, false);
+            bitmapCache.put(highKey, highBitmap);
+            pendingRenders.remove(highKey);
+            
+            // Atomic swap: post high-res to UI
+            mainHandler.post(() -> {
+                if (renderGeneration.get() == generation) {
+                    adapter.updatePageBitmap(pageIndex, highBitmap, finalHeight, false);
+                }
+            });
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to render page " + pageIndex + ": " + e.getMessage());
+            pendingRenders.remove(getCacheKey(pageIndex, targetZoom, false));
+        }
     }
     
     @Override
