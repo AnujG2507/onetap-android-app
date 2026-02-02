@@ -27,6 +27,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
+import android.view.WindowManager;
 import android.view.animation.DecelerateInterpolator;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
@@ -155,6 +156,15 @@ public class NativePdfViewerActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        
+        // KEEP SCREEN AWAKE during reading
+        // Uses FLAG_KEEP_SCREEN_ON which is:
+        // - Activity-scoped: automatically released when activity goes to background
+        // - No permission required
+        // - No service needed
+        // - Silent: no notification or UI
+        // - Battery-safe: only active while visible
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         
         // Get display metrics
         DisplayMetrics metrics = getResources().getDisplayMetrics();
