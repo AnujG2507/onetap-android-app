@@ -1,74 +1,84 @@
 
 
-## Fix Slideshow Tap Tracking: Remove Duplicate Count
+## Grid Icon Behavior for 2-3 Images
 
-### Problem Identified
-The slideshow shortcut tap is being counted **twice**:
+### Current Behavior (Problem)
 
-1. **Native side (correct)**: `SlideshowProxyActivity.java` calls `NativeUsageTracker.recordTap()` when the home screen shortcut is tapped
-2. **Web side (duplicate)**: `SlideshowViewer.tsx` calls `incrementUsage()` when the viewer loads
+The current implementation always creates a 2x2 grid with 4 tiles. When there are only 2 or 3 images:
+- **2 images**: Shows 2 photos + 2 gray placeholder tiles
+- **3 images**: Shows 3 photos + 1 gray placeholder tile
 
-This means every shortcut access is recorded twice in the usage history.
+This looks unfinished and suggests "incomplete collection" rather than "intentional set."
 
 ---
 
-### Solution
+### Proposed Behavior
 
-Remove the `incrementUsage()` call from `SlideshowViewer.tsx` since the native layer already handles tap tracking correctly.
+Adapt the grid layout based on the actual image count to create intentional, complete-looking icons:
+
+| Image Count | Layout | Description |
+|-------------|--------|-------------|
+| **2 images** | Side-by-side (1x2) | Two images stacked vertically, each taking half the icon height |
+| **3 images** | 1 top + 2 bottom | First image spans full width on top, two images split the bottom row |
+| **4+ images** | Standard 2x2 grid | Current behavior, first 4 images |
+
+---
+
+### Visual Representation
+
+**2 Images:**
+```text
+┌─────────────┐
+│      A      │
+├─────────────┤
+│      B      │
+└─────────────┘
+```
+
+**3 Images:**
+```text
+┌─────────────┐
+│      A      │
+├──────┬──────┤
+│  B   │  C   │
+└──────┴──────┘
+```
+
+**4 Images (unchanged):**
+```text
+┌──────┬──────┐
+│  A   │  B   │
+├──────┼──────┤
+│  C   │  D   │
+└──────┴──────┘
+```
 
 ---
 
 ### Technical Changes
 
-**File: `src/pages/SlideshowViewer.tsx`**
+**File: `src/lib/slideshowIconGenerator.ts`**
 
-Remove line 68 (`incrementUsage(shortcutId)`) from the useEffect that loads shortcut data:
+Modify `generateGridIcon` function to:
 
-```tsx
-// Before (lines 56-70):
-if (shortcut && shortcut.type === 'slideshow') {
-  setImages(shortcut.imageUris || []);
-  setThumbnails(shortcut.imageThumbnails || []);
-  setAutoAdvanceInterval(shortcut.autoAdvanceInterval || 0);
-  setTitle(shortcut.name);
-  
-  if (shortcut.autoAdvanceInterval && shortcut.autoAdvanceInterval > 0) {
-    setIsPlaying(true);
-  }
-  
-  // Increment usage on view <-- REMOVE THIS LINE
-  incrementUsage(shortcutId);
-}
-
-// After:
-if (shortcut && shortcut.type === 'slideshow') {
-  setImages(shortcut.imageUris || []);
-  setThumbnails(shortcut.imageThumbnails || []);
-  setAutoAdvanceInterval(shortcut.autoAdvanceInterval || 0);
-  setTitle(shortcut.name);
-  
-  if (shortcut.autoAdvanceInterval && shortcut.autoAdvanceInterval > 0) {
-    setIsPlaying(true);
-  }
-  // Usage is tracked by native SlideshowProxyActivity - no need to track here
-}
-```
-
-Also remove `incrementUsage` from:
-- The destructured hook values (line 19)
-- The useEffect dependency array (line 70)
+1. Check `thumbnails.length` to determine layout strategy
+2. For 2 images: Use positions that create vertical stack (full width, half height each)
+3. For 3 images: First image gets full width top half, images 2-3 split the bottom
+4. For 4+ images: Keep current 2x2 behavior
+5. Remove the placeholder-filling loop (lines 100-105) since all layouts will be complete
 
 ---
 
-### Why This Works
+### Why This Matters
 
-The tracking flow will be:
+- **No visual "incompleteness"**: Every icon looks intentional, not unfinished
+- **Honest representation**: The icon accurately reflects the content count
+- **Maintains identity**: Each slideshow still has a unique, content-based icon
+- **Aligns with calm UX**: No cognitive dissonance from seeing "empty slots"
 
-1. User taps slideshow shortcut on home screen
-2. `SlideshowProxyActivity` receives intent → calls `NativeUsageTracker.recordTap()`
-3. Activity deep links to app with `onetap://slideshow/{id}`
-4. App navigates to `SlideshowViewer` (no tracking here - it just displays)
-5. On next app foreground, `syncNativeUsageEvents()` retrieves the native tap and records it in JS
+---
 
-This ensures **one tap = one count**, as intended.
+### Edge Case: Exactly 2 Images (Minimum)
+
+The app requires a minimum of 2 images for a slideshow. The vertical stack layout ensures this minimum case still produces a visually complete, professional icon rather than a half-empty grid.
 
