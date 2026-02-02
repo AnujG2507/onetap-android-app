@@ -53,6 +53,54 @@ export type Database = {
         }
         Relationships: []
       }
+      cloud_scheduled_actions: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          destination: Json
+          enabled: boolean
+          entity_id: string
+          id: string
+          name: string
+          original_created_at: number
+          recurrence: string
+          recurrence_anchor: Json | null
+          trigger_time: number
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          destination: Json
+          enabled?: boolean
+          entity_id: string
+          id?: string
+          name: string
+          original_created_at: number
+          recurrence?: string
+          recurrence_anchor?: Json | null
+          trigger_time: number
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          destination?: Json
+          enabled?: boolean
+          entity_id?: string
+          id?: string
+          name?: string
+          original_created_at?: number
+          recurrence?: string
+          recurrence_anchor?: Json | null
+          trigger_time?: number
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       cloud_trash: {
         Row: {
           created_at: string
