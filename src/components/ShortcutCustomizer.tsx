@@ -223,9 +223,7 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
               onSelect={setIcon}
             />
             {isLoadingThumbnail && (
-              <div className="absolute inset-0 flex items-center justify-center bg-background/50 rounded-xl">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
+              <div className="absolute inset-0 flex items-center justify-center bg-muted/50 rounded-xl animate-pulse" />
             )}
           </div>
           </div>
@@ -266,9 +264,7 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
                   }
                 >
                   {isLoadingThumbnail && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-muted">
-                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                    </div>
+                    <div className="absolute inset-0 bg-muted animate-pulse rounded-2xl" />
                   )}
                   {!isLoadingThumbnail && icon.type === 'thumbnail' && previewSources.length > 0 && (
                     <ImageWithFallback

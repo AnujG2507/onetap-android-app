@@ -3,7 +3,7 @@ import { useEffect, useCallback } from 'react';
 import { Check, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-const AUTO_CLOSE_SECONDS = 10;
+const AUTO_CLOSE_SECONDS = 5;
 
 interface SuccessScreenProps {
   shortcutName: string;

@@ -40,20 +40,19 @@
   "app": {
     "name": "OneTap",
     "tagline": "One tap to what matters",
-    "exitTitle": "Exit app?",
-    "exitDescription": "Are you sure you want to exit the app?",
+    "exitTitle": "Exit OneTap",
     "exit": "Exit"
   },
   "menu": {
     "title": "Menu",
-    "shortcuts": "My Shortcuts",
+    "shortcuts": "My Access",
     "trash": "Trash",
     "settings": "Settings"
   },
   "shortcuts": {
-    "title": "My Shortcuts",
-    "empty": "No shortcuts yet",
-    "emptyDesc": "Create shortcuts from the Access tab",
+    "title": "My Access",
+    "empty": "No access points yet",
+    "emptyDesc": "Set up one tap access from the Access tab",
     "taps": "taps",
     "tap": "tap",
     "searchPlaceholder": "Search shortcuts...",
@@ -65,8 +64,8 @@
     "sortMostUsed": "Most used",
     "sortNewest": "Newest",
     "sortAZ": "A-Z",
-    "searchResults": "{{count}} shortcuts",
-    "noMatch": "No shortcuts match your filter",
+    "searchResults": "{{count}} access points",
+    "noMatch": "No access points match your filter",
     "clearFilters": "Clear filters",
     "syncTooltip": "Sync with home screen",
     "manualRemovalRequired": "Please manually remove the shortcut icon from your home screen"
@@ -102,7 +101,7 @@
     },
     "step1": {
       "title": "One tap to what matters",
-      "description": "Create shortcuts to your most important files, links, and contacts. Access them instantly from your home screen."
+      "description": "Set up one tap access to your most important files, links, and contacts. Access them instantly from your home screen."
     },
     "step2": {
       "title": "Create in seconds",
@@ -110,7 +109,7 @@
     },
     "step3": {
       "title": "Stay organized",
-      "description": "Schedule reminders, save bookmarks, and sync across devices. Your shortcuts, your way."
+      "description": "Schedule reminders, save bookmarks, and sync across devices. Your access, your way."
     }
   },
   "tabs": {

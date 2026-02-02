@@ -152,8 +152,7 @@ export function BookmarkLibrary({
   const [overFolderId, setOverFolderId] = useState<string | null>(null);
   const [folderRefreshKey, setFolderRefreshKey] = useState(0);
   
-  // Bulk delete confirmation
-  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+  
   
   // Bulk move dialog
   const [showBulkMoveDialog, setShowBulkMoveDialog] = useState(false);
@@ -169,13 +168,13 @@ export function BookmarkLibrary({
   // Register sheets with back button handler
   const handleCloseActionSheet = useCallback(() => setShowActionSheet(false), []);
   const handleCloseBulkMoveDialog = useCallback(() => setShowBulkMoveDialog(false), []);
-  const handleCloseBulkDeleteConfirm = useCallback(() => setShowBulkDeleteConfirm(false), []);
+  
   const handleCloseTrash = useCallback(() => setIsTrashOpen(false), []);
   const handleCloseSettings = useCallback(() => setShowSettings(false), []);
   
   useSheetBackHandler('bookmark-action-sheet', showActionSheet, handleCloseActionSheet);
   useSheetBackHandler('bookmark-bulk-move-dialog', showBulkMoveDialog, handleCloseBulkMoveDialog, 10);
-  useSheetBackHandler('bookmark-bulk-delete-confirm', showBulkDeleteConfirm, handleCloseBulkDeleteConfirm, 10);
+  
   useSheetBackHandler('bookmark-trash-sheet', isTrashOpen, handleCloseTrash);
   useSheetBackHandler('bookmark-settings-page', showSettings, handleCloseSettings);
 
@@ -571,11 +570,10 @@ export function BookmarkLibrary({
       }
     });
     refreshLinks();
-    setShowBulkDeleteConfirm(false);
     toast({
       title: permanent 
-        ? `${selectedCount} bookmark${selectedCount > 1 ? 's' : ''} permanently deleted`
-        : `${selectedCount} bookmark${selectedCount > 1 ? 's' : ''} moved to trash`,
+        ? t('library.bulkDeletedPermanent', { count: selectedCount })
+        : t('library.bulkDeleted', { count: selectedCount }),
       duration: 2000,
     });
     triggerHaptic('warning');
@@ -1236,17 +1234,18 @@ export function BookmarkLibrary({
             </>
           )}
           
+          {/* Move to Trash - immediate action */}
           <Tooltip>
             <TooltipTrigger asChild>
               <button
-                onClick={() => setShowBulkDeleteConfirm(true)}
-                className="p-2 rounded-lg hover:bg-destructive/10 text-destructive transition-colors"
-                aria-label={t('common.delete')}
+                onClick={() => handleBulkDelete(false)}
+                className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground"
+                aria-label={t('library.moveToTrash')}
               >
                 <Trash2 className="h-5 w-5" />
               </button>
             </TooltipTrigger>
-            <TooltipContent>{t('library.deleteTooltip')}</TooltipContent>
+            <TooltipContent>{t('library.moveToTrash')}</TooltipContent>
           </Tooltip>
         </TooltipProvider>
         
@@ -1260,33 +1259,6 @@ export function BookmarkLibrary({
           <X className="h-5 w-5" />
         </button>
       </div>
-      
-      {/* Bulk Delete Confirmation Dialog */}
-      <AlertDialog open={showBulkDeleteConfirm} onOpenChange={setShowBulkDeleteConfirm}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t('library.deleteConfirmTitle', { count: shortlistedLinks.length })}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t('library.deleteConfirmDesc', { days: getSettings().trashRetentionDays })}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
-            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={() => handleBulkDelete(false)}
-              className="border border-input bg-background hover:bg-accent hover:text-accent-foreground"
-            >
-              {t('library.moveToTrash')}
-            </AlertDialogAction>
-            <AlertDialogAction 
-              onClick={() => handleBulkDelete(true)}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {t('library.deletePermanently')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
       
       {/* Bulk Move Dialog */}
       <BulkMoveDialog

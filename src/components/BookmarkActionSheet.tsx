@@ -360,41 +360,44 @@ export function BookmarkActionSheet({
                 <span className="font-medium landscape:text-sm">{t('bookmarkAction.edit')}</span>
               </button>
 
-              {/* Delete */}
+              {/* Move to Trash - immediate action, no confirmation needed */}
+              <button
+                onClick={() => handleAction(handleMoveToTrash)}
+                className="w-full flex items-center gap-3 p-3 landscape:p-2.5 rounded-xl hover:bg-muted/50 transition-colors"
+              >
+                <Trash2 className="h-5 w-5 landscape:h-4 landscape:w-4 text-muted-foreground" />
+                <span className="font-medium landscape:text-sm">{t('bookmarkAction.moveToTrash')}</span>
+              </button>
+
+              {/* Delete Permanently - requires confirmation */}
               <button
                 onClick={() => handleAction(() => setShowDeleteConfirm(true))}
                 className="w-full flex items-center gap-3 p-3 landscape:p-2.5 rounded-xl hover:bg-destructive/10 transition-colors text-destructive"
               >
                 <Trash2 className="h-5 w-5 landscape:h-4 landscape:w-4" />
-                <span className="font-medium landscape:text-sm">{t('bookmarkAction.delete')}</span>
+                <span className="font-medium landscape:text-sm">{t('bookmarkAction.deletePermanently')}</span>
               </button>
             </div>
           )}
         </SheetContent>
       </Sheet>
 
-      {/* Delete Confirmation */}
+      {/* Permanent Delete Confirmation */}
       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t('bookmarkAction.deleteConfirm')}</AlertDialogTitle>
+            <AlertDialogTitle>{t('trash.deleteConfirm')}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t('bookmarkAction.deleteConfirmDesc', { title: link.title, days: getSettings().trashRetentionDays })}
+              {t('trash.deleteConfirmDesc')}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+          <AlertDialogFooter>
             <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleMoveToTrash}
-              className="border border-input bg-background hover:bg-accent hover:text-accent-foreground"
-            >
-              {t('bookmarkAction.moveToTrash')}
-            </AlertDialogAction>
             <AlertDialogAction 
               onClick={handlePermanentDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {t('bookmarkAction.deletePermanently')}
+              {t('common.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
