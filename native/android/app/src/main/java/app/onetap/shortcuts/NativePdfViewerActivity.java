@@ -110,7 +110,6 @@ public class NativePdfViewerActivity extends Activity {
     
     // Error state UI (shown instead of RecyclerView when PDF can't be opened)
     private FrameLayout errorView;
-    private float previousZoom = 1.0f;
     
     // UI chrome
     private FrameLayout topBar;
