@@ -4,7 +4,11 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Matrix;
+import android.graphics.Paint;
+import android.graphics.Rect;
 import android.graphics.pdf.PdfRenderer;
 import android.net.Uri;
 import android.os.Bundle;
@@ -13,6 +17,7 @@ import android.os.Looper;
 import android.os.ParcelFileDescriptor;
 import android.util.DisplayMetrics;
 import android.util.Log;
+import android.util.LruCache;
 import android.util.TypedValue;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
@@ -31,9 +36,12 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import java.io.IOException;
+import java.util.HashSet;
+import java.util.Locale;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.Locale;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * NativePdfViewerActivity
@@ -42,9 +50,11 @@ import java.util.Locale;
  * Uses Android's PdfRenderer for hardware-accelerated rendering.
  * 
  * Features:
- * - Continuous vertical scroll (RecyclerView)
+ * - Continuous vertical scroll (RecyclerView with pre-render margins)
  * - Pinch-to-zoom with focal anchoring
  * - Double-tap to toggle fit/zoom
+ * - Low-res → high-res atomic swap (no blur during zoom)
+ * - LRU bitmap cache for smooth scrolling
  * - Resume position (scroll + zoom persisted)
  * - Auto-hiding close button
  * 
@@ -62,11 +72,26 @@ public class NativePdfViewerActivity extends Activity {
     private static final float MAX_ZOOM = 5.0f;
     private static final float DOUBLE_TAP_ZOOM = 2.5f;
     
+    // Pre-render pages above/below viewport for smooth scrolling
+    private static final int PRERENDER_PAGES = 2;
+    
+    // Low-res scale factor for instant preview (0.5x = half resolution)
+    private static final float LOW_RES_SCALE = 0.5f;
+    
+    // Page gap in dp
+    private static final int PAGE_GAP_DP = 8;
+    
     // Core components
     private RecyclerView recyclerView;
     private PdfPageAdapter adapter;
     private PdfRenderer pdfRenderer;
     private ParcelFileDescriptor fileDescriptor;
+    
+    // Bitmap cache (LRU, sized for ~10 pages at screen resolution)
+    private LruCache<String, Bitmap> bitmapCache;
+    
+    // Track which pages are being rendered to avoid duplicates
+    private final Set<String> pendingRenders = new HashSet<>();
     
     // UI chrome
     private FrameLayout topBar;
@@ -76,6 +101,7 @@ public class NativePdfViewerActivity extends Activity {
     
     // Zoom state
     private float currentZoom = 1.0f;
+    private float pendingZoom = 1.0f; // Zoom during gesture (before high-res render)
     private ScaleGestureDetector scaleGestureDetector;
     private GestureDetector gestureDetector;
     private float focalX, focalY;
@@ -92,12 +118,18 @@ public class NativePdfViewerActivity extends Activity {
     private int screenHeight;
     private float density;
     
-    // Background rendering
+    // Background rendering (2 threads for low-res + high-res parallel rendering)
     private ExecutorService renderExecutor;
+    
+    // Main thread handler for UI updates
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
     
     // Auto-hide handler
     private final Handler hideHandler = new Handler(Looper.getMainLooper());
     private final Runnable hideRunnable = this::hideTopBar;
+    
+    // Render generation counter (invalidates old renders when zoom changes)
+    private final AtomicInteger renderGeneration = new AtomicInteger(0);
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -108,6 +140,23 @@ public class NativePdfViewerActivity extends Activity {
         screenWidth = metrics.widthPixels;
         screenHeight = metrics.heightPixels;
         density = metrics.density;
+        
+        // Initialize bitmap cache (use 1/8th of available memory)
+        int maxMemory = (int) (Runtime.getRuntime().maxMemory() / 1024);
+        int cacheSize = maxMemory / 8;
+        bitmapCache = new LruCache<String, Bitmap>(cacheSize) {
+            @Override
+            protected int sizeOf(String key, Bitmap bitmap) {
+                return bitmap.getByteCount() / 1024;
+            }
+            
+            @Override
+            protected void entryRemoved(boolean evicted, String key, Bitmap oldValue, Bitmap newValue) {
+                if (evicted && oldValue != null && !oldValue.isRecycled()) {
+                    oldValue.recycle();
+                }
+            }
+        };
         
         // Extract intent data
         Uri pdfUri = getIntent().getData();
@@ -122,8 +171,8 @@ public class NativePdfViewerActivity extends Activity {
         
         Log.d(TAG, "Opening PDF: " + pdfUri + ", shortcutId=" + shortcutId + ", resume=" + resumeEnabled);
         
-        // Initialize render executor
-        renderExecutor = Executors.newFixedThreadPool(2);
+        // Initialize render executor (3 threads: 1 for low-res, 2 for high-res)
+        renderExecutor = Executors.newFixedThreadPool(3);
         
         // Load resume state if enabled
         if (resumeEnabled && shortcutId != null) {
@@ -160,6 +209,7 @@ public class NativePdfViewerActivity extends Activity {
         // Apply resume zoom
         if (resumeEnabled && resumeZoom != 1.0f) {
             currentZoom = resumeZoom;
+            pendingZoom = resumeZoom;
             applyZoom();
         }
         
@@ -207,6 +257,10 @@ public class NativePdfViewerActivity extends Activity {
         recyclerView.setBackgroundColor(0xFF1A1A1A); // Dark gray for page gaps
         recyclerView.setHasFixedSize(false);
         recyclerView.setItemAnimator(null); // Disable animations for smooth scrolling
+        
+        // Enable edge glow for native scroll feel
+        recyclerView.setOverScrollMode(View.OVER_SCROLL_ALWAYS);
+        
         root.addView(recyclerView);
         
         // Top bar with gradient background
@@ -268,14 +322,15 @@ public class NativePdfViewerActivity extends Activity {
             @Override
             public boolean onScale(ScaleGestureDetector detector) {
                 float scaleFactor = detector.getScaleFactor();
-                float newZoom = currentZoom * scaleFactor;
+                float newZoom = pendingZoom * scaleFactor;
                 
                 // Clamp zoom
                 newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newZoom));
                 
-                if (newZoom != currentZoom) {
-                    currentZoom = newZoom;
-                    applyZoom();
+                if (newZoom != pendingZoom) {
+                    pendingZoom = newZoom;
+                    // Apply CSS-like scale during gesture (no re-render)
+                    applyVisualZoom();
                 }
                 
                 return true;
@@ -284,8 +339,9 @@ public class NativePdfViewerActivity extends Activity {
             @Override
             public void onScaleEnd(ScaleGestureDetector detector) {
                 isScaling = false;
-                // Trigger high-res re-render after gesture ends
-                adapter.triggerHighResRender();
+                // Commit zoom and trigger high-res re-render
+                currentZoom = pendingZoom;
+                invalidateCacheAndRerender();
             }
         });
         
@@ -307,8 +363,8 @@ public class NativePdfViewerActivity extends Activity {
                     focalX = e.getX();
                     focalY = e.getY();
                 }
-                applyZoom();
-                adapter.triggerHighResRender();
+                pendingZoom = currentZoom;
+                invalidateCacheAndRerender();
                 return true;
             }
         });
@@ -319,6 +375,64 @@ public class NativePdfViewerActivity extends Activity {
             gestureDetector.onTouchEvent(event);
             return false; // Allow scroll to proceed
         });
+    }
+    
+    /**
+     * Apply visual zoom using ImageView scale (instant, no re-render).
+     * Used during pinch gesture for 60fps responsiveness.
+     */
+    private void applyVisualZoom() {
+        if (adapter == null) return;
+        
+        float scaleFactor = pendingZoom / currentZoom;
+        
+        LinearLayoutManager layoutManager = (LinearLayoutManager) recyclerView.getLayoutManager();
+        if (layoutManager == null) return;
+        
+        int first = layoutManager.findFirstVisibleItemPosition();
+        int last = layoutManager.findLastVisibleItemPosition();
+        
+        for (int i = first; i <= last; i++) {
+            View child = layoutManager.findViewByPosition(i);
+            if (child instanceof ImageView) {
+                child.setScaleX(scaleFactor);
+                child.setScaleY(scaleFactor);
+                child.setPivotX(focalX);
+                child.setPivotY(focalY);
+            }
+        }
+    }
+    
+    /**
+     * Invalidate cache and trigger full re-render at new zoom level.
+     * Called after zoom gesture ends.
+     */
+    private void invalidateCacheAndRerender() {
+        // Increment generation to invalidate pending renders
+        renderGeneration.incrementAndGet();
+        
+        // Clear cache for current zoom (keeps other zoom levels cached)
+        // In practice, just clear everything for simplicity
+        bitmapCache.evictAll();
+        pendingRenders.clear();
+        
+        // Reset visual scale on all visible views
+        LinearLayoutManager layoutManager = (LinearLayoutManager) recyclerView.getLayoutManager();
+        if (layoutManager != null) {
+            int first = layoutManager.findFirstVisibleItemPosition();
+            int last = layoutManager.findLastVisibleItemPosition();
+            
+            for (int i = first; i <= last; i++) {
+                View child = layoutManager.findViewByPosition(i);
+                if (child instanceof ImageView) {
+                    child.setScaleX(1f);
+                    child.setScaleY(1f);
+                }
+            }
+        }
+        
+        // Notify adapter to re-render
+        adapter.notifyDataSetChanged();
     }
     
     private boolean openPdf(Uri uri) {
@@ -346,18 +460,56 @@ public class NativePdfViewerActivity extends Activity {
         LinearLayoutManager layoutManager = new LinearLayoutManager(this, RecyclerView.VERTICAL, false);
         recyclerView.setLayoutManager(layoutManager);
         
+        // Add page gap decoration
+        int pageGapPx = dpToPx(PAGE_GAP_DP);
+        recyclerView.addItemDecoration(new RecyclerView.ItemDecoration() {
+            @Override
+            public void getItemOffsets(@NonNull Rect outRect, @NonNull View view, 
+                    @NonNull RecyclerView parent, @NonNull RecyclerView.State state) {
+                int position = parent.getChildAdapterPosition(view);
+                if (position > 0) {
+                    outRect.top = pageGapPx;
+                }
+            }
+        });
+        
         adapter = new PdfPageAdapter();
         recyclerView.setAdapter(adapter);
         
-        // Track scroll for page indicator and resume
+        // Track scroll for page indicator, resume, and pre-rendering
         recyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
             @Override
             public void onScrolled(@NonNull RecyclerView rv, int dx, int dy) {
                 updatePageIndicator();
+                prerenderAdjacentPages();
             }
         });
         
         updatePageIndicator();
+    }
+    
+    /**
+     * Pre-render pages above and below viewport for smooth scrolling.
+     */
+    private void prerenderAdjacentPages() {
+        if (adapter == null || pdfRenderer == null) return;
+        
+        LinearLayoutManager layoutManager = (LinearLayoutManager) recyclerView.getLayoutManager();
+        if (layoutManager == null) return;
+        
+        int first = layoutManager.findFirstVisibleItemPosition();
+        int last = layoutManager.findLastVisibleItemPosition();
+        int total = pdfRenderer.getPageCount();
+        
+        // Pre-render PRERENDER_PAGES above and below
+        for (int i = Math.max(0, first - PRERENDER_PAGES); i <= Math.min(total - 1, last + PRERENDER_PAGES); i++) {
+            String cacheKey = getCacheKey(i, currentZoom, false);
+            if (bitmapCache.get(cacheKey) == null && !pendingRenders.contains(cacheKey)) {
+                final int pageIndex = i;
+                pendingRenders.add(cacheKey);
+                renderExecutor.execute(() -> renderPageAsync(pageIndex, currentZoom, false));
+            }
+        }
     }
     
     private void updatePageIndicator() {
@@ -376,7 +528,7 @@ public class NativePdfViewerActivity extends Activity {
     
     private void applyZoom() {
         if (adapter != null) {
-            adapter.setZoom(currentZoom);
+            adapter.notifyDataSetChanged();
         }
     }
     
@@ -454,6 +606,105 @@ public class NativePdfViewerActivity extends Activity {
         return (int) (dp * density + 0.5f);
     }
     
+    private String getCacheKey(int pageIndex, float zoom, boolean lowRes) {
+        return pageIndex + "_" + String.format(Locale.US, "%.2f", zoom) + (lowRes ? "_low" : "_high");
+    }
+    
+    /**
+     * Render a page asynchronously with low-res → high-res atomic swap.
+     */
+    private void renderPageAsync(int pageIndex, float targetZoom, boolean lowResOnly) {
+        final int generation = renderGeneration.get();
+        
+        renderExecutor.execute(() -> {
+            try {
+                // Check if this render is still valid
+                if (renderGeneration.get() != generation) {
+                    pendingRenders.remove(getCacheKey(pageIndex, targetZoom, false));
+                    return;
+                }
+                
+                synchronized (pdfRenderer) {
+                    if (pageIndex < 0 || pageIndex >= pdfRenderer.getPageCount()) return;
+                    
+                    PdfRenderer.Page page = pdfRenderer.openPage(pageIndex);
+                    
+                    int pageWidth = page.getWidth();
+                    int pageHeight = page.getHeight();
+                    
+                    // Calculate base scale to fit screen width
+                    float baseScale = (float) screenWidth / pageWidth;
+                    
+                    // --- Low-res pass (instant preview) ---
+                    float lowScale = baseScale * targetZoom * LOW_RES_SCALE;
+                    int lowWidth = Math.max(1, (int) (pageWidth * lowScale));
+                    int lowHeight = Math.max(1, (int) (pageHeight * lowScale));
+                    
+                    Bitmap lowBitmap = Bitmap.createBitmap(lowWidth, lowHeight, Bitmap.Config.RGB_565);
+                    lowBitmap.eraseColor(Color.WHITE);
+                    
+                    Matrix lowMatrix = new Matrix();
+                    lowMatrix.setScale(lowScale, lowScale);
+                    page.render(lowBitmap, null, lowMatrix, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY);
+                    
+                    // Cache low-res
+                    String lowKey = getCacheKey(pageIndex, targetZoom, true);
+                    bitmapCache.put(lowKey, lowBitmap);
+                    
+                    // Post low-res to UI immediately
+                    final int finalHeight = (int) (pageHeight * baseScale * targetZoom);
+                    mainHandler.post(() -> {
+                        if (renderGeneration.get() == generation) {
+                            adapter.updatePageBitmap(pageIndex, lowBitmap, finalHeight, true);
+                        }
+                    });
+                    
+                    if (lowResOnly) {
+                        page.close();
+                        return;
+                    }
+                    
+                    // Check again if still valid before expensive high-res render
+                    if (renderGeneration.get() != generation) {
+                        page.close();
+                        pendingRenders.remove(getCacheKey(pageIndex, targetZoom, false));
+                        return;
+                    }
+                    
+                    // --- High-res pass (full quality) ---
+                    float highScale = baseScale * targetZoom;
+                    int highWidth = Math.max(1, (int) (pageWidth * highScale));
+                    int highHeight = Math.max(1, (int) (pageHeight * highScale));
+                    
+                    // Use ARGB_8888 for high quality
+                    Bitmap highBitmap = Bitmap.createBitmap(highWidth, highHeight, Bitmap.Config.ARGB_8888);
+                    highBitmap.eraseColor(Color.WHITE);
+                    
+                    Matrix highMatrix = new Matrix();
+                    highMatrix.setScale(highScale, highScale);
+                    page.render(highBitmap, null, highMatrix, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY);
+                    
+                    page.close();
+                    
+                    // Cache high-res
+                    String highKey = getCacheKey(pageIndex, targetZoom, false);
+                    bitmapCache.put(highKey, highBitmap);
+                    pendingRenders.remove(highKey);
+                    
+                    // Atomic swap: post high-res to UI
+                    mainHandler.post(() -> {
+                        if (renderGeneration.get() == generation) {
+                            adapter.updatePageBitmap(pageIndex, highBitmap, finalHeight, false);
+                        }
+                    });
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to render page " + pageIndex + ": " + e.getMessage());
+                pendingRenders.remove(getCacheKey(pageIndex, targetZoom, false));
+            }
+        });
+    }
+    
     @Override
     protected void onPause() {
         super.onPause();
@@ -467,6 +718,10 @@ public class NativePdfViewerActivity extends Activity {
         
         if (renderExecutor != null) {
             renderExecutor.shutdownNow();
+        }
+        
+        if (bitmapCache != null) {
+            bitmapCache.evictAll();
         }
         
         if (pdfRenderer != null) {
@@ -489,21 +744,9 @@ public class NativePdfViewerActivity extends Activity {
     
     /**
      * RecyclerView adapter for PDF pages.
-     * Renders pages at current zoom level with low-res → high-res swap.
+     * Implements low-res → high-res atomic swap for zero-blur zooming.
      */
     private class PdfPageAdapter extends RecyclerView.Adapter<PdfPageAdapter.PageViewHolder> {
-        
-        private float zoom = 1.0f;
-        
-        void setZoom(float newZoom) {
-            this.zoom = newZoom;
-            notifyDataSetChanged();
-        }
-        
-        void triggerHighResRender() {
-            // Force re-bind visible items for high-res
-            notifyDataSetChanged();
-        }
         
         @NonNull
         @Override
@@ -520,7 +763,95 @@ public class NativePdfViewerActivity extends Activity {
         
         @Override
         public void onBindViewHolder(@NonNull PageViewHolder holder, int position) {
-            renderPage(holder, position);
+            holder.pageIndex = position;
+            
+            // Check cache first
+            String highKey = getCacheKey(position, currentZoom, false);
+            String lowKey = getCacheKey(position, currentZoom, true);
+            
+            Bitmap cached = bitmapCache.get(highKey);
+            if (cached != null) {
+                // High-res cached, use immediately
+                holder.imageView.setImageBitmap(cached);
+                setPageHeight(holder, position);
+                return;
+            }
+            
+            cached = bitmapCache.get(lowKey);
+            if (cached != null) {
+                // Low-res cached, use while waiting for high-res
+                holder.imageView.setImageBitmap(cached);
+                setPageHeight(holder, position);
+            } else {
+                // Show placeholder while loading
+                holder.imageView.setImageBitmap(null);
+                holder.imageView.setBackgroundColor(0xFFF5F5F5); // Light gray placeholder
+                setPageHeight(holder, position);
+            }
+            
+            // Trigger render if not already pending
+            if (!pendingRenders.contains(highKey)) {
+                pendingRenders.add(highKey);
+                renderPageAsync(position, currentZoom, false);
+            }
+        }
+        
+        private void setPageHeight(PageViewHolder holder, int position) {
+            if (pdfRenderer == null) return;
+            
+            try {
+                synchronized (pdfRenderer) {
+                    PdfRenderer.Page page = pdfRenderer.openPage(position);
+                    int pageWidth = page.getWidth();
+                    int pageHeight = page.getHeight();
+                    page.close();
+                    
+                    float scale = (float) screenWidth / pageWidth * currentZoom;
+                    int height = (int) (pageHeight * scale);
+                    
+                    ViewGroup.LayoutParams params = holder.imageView.getLayoutParams();
+                    params.height = height;
+                    holder.imageView.setLayoutParams(params);
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to get page dimensions: " + e.getMessage());
+            }
+        }
+        
+        /**
+         * Update a specific page with a new bitmap (atomic swap).
+         */
+        void updatePageBitmap(int pageIndex, Bitmap bitmap, int height, boolean isLowRes) {
+            LinearLayoutManager layoutManager = (LinearLayoutManager) recyclerView.getLayoutManager();
+            if (layoutManager == null) return;
+            
+            int first = layoutManager.findFirstVisibleItemPosition();
+            int last = layoutManager.findLastVisibleItemPosition();
+            
+            if (pageIndex >= first && pageIndex <= last) {
+                View child = layoutManager.findViewByPosition(pageIndex);
+                if (child instanceof ImageView) {
+                    ImageView imageView = (ImageView) child;
+                    
+                    // Only update if we're upgrading (low→high) or this is first render
+                    Bitmap current = null;
+                    if (imageView.getDrawable() instanceof android.graphics.drawable.BitmapDrawable) {
+                        current = ((android.graphics.drawable.BitmapDrawable) imageView.getDrawable()).getBitmap();
+                    }
+                    
+                    // Skip if we already have high-res
+                    String highKey = getCacheKey(pageIndex, currentZoom, false);
+                    if (!isLowRes || current == null || bitmapCache.get(highKey) == null) {
+                        imageView.setImageBitmap(bitmap);
+                        
+                        ViewGroup.LayoutParams params = imageView.getLayoutParams();
+                        if (params.height != height) {
+                            params.height = height;
+                            imageView.setLayoutParams(params);
+                        }
+                    }
+                }
+            }
         }
         
         @Override
@@ -528,54 +859,18 @@ public class NativePdfViewerActivity extends Activity {
             return pdfRenderer != null ? pdfRenderer.getPageCount() : 0;
         }
         
-        private void renderPage(PageViewHolder holder, int pageIndex) {
-            renderExecutor.execute(() -> {
-                try {
-                    synchronized (pdfRenderer) {
-                        if (pageIndex < 0 || pageIndex >= pdfRenderer.getPageCount()) return;
-                        
-                        PdfRenderer.Page page = pdfRenderer.openPage(pageIndex);
-                        
-                        // Calculate dimensions based on zoom
-                        int pageWidth = page.getWidth();
-                        int pageHeight = page.getHeight();
-                        
-                        // Scale to fit screen width at zoom 1.0
-                        float scale = (float) screenWidth / pageWidth * zoom;
-                        int renderWidth = (int) (pageWidth * scale);
-                        int renderHeight = (int) (pageHeight * scale);
-                        
-                        // Create bitmap
-                        Bitmap bitmap = Bitmap.createBitmap(
-                            renderWidth, renderHeight, Bitmap.Config.ARGB_8888
-                        );
-                        bitmap.eraseColor(0xFFFFFFFF); // White background
-                        
-                        // Render page to bitmap
-                        Matrix matrix = new Matrix();
-                        matrix.setScale(scale, scale);
-                        page.render(bitmap, null, matrix, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY);
-                        
-                        page.close();
-                        
-                        // Update UI on main thread
-                        runOnUiThread(() -> {
-                            holder.imageView.setImageBitmap(bitmap);
-                            
-                            // Set proper height for aspect ratio
-                            ViewGroup.LayoutParams params = holder.imageView.getLayoutParams();
-                            params.height = renderHeight;
-                            holder.imageView.setLayoutParams(params);
-                        });
-                    }
-                } catch (Exception e) {
-                    Log.e(TAG, "Failed to render page " + pageIndex + ": " + e.getMessage());
-                }
-            });
+        @Override
+        public void onViewRecycled(@NonNull PageViewHolder holder) {
+            super.onViewRecycled(holder);
+            // Reset scale when recycled
+            holder.imageView.setScaleX(1f);
+            holder.imageView.setScaleY(1f);
+            holder.imageView.setImageBitmap(null);
         }
         
         class PageViewHolder extends RecyclerView.ViewHolder {
             ImageView imageView;
+            int pageIndex = -1;
             
             PageViewHolder(ImageView view) {
                 super(view);
