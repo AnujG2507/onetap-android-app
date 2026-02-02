@@ -109,9 +109,7 @@ function SortableImage({ id, index, thumbnail, onRemove }: SortableImageProps) {
 
 const AUTO_ADVANCE_OPTIONS = [
   { value: 0, label: 'Off' },
-  { value: 3, label: '3s' },
   { value: 5, label: '5s' },
-  { value: 10, label: '10s' },
 ];
 
 export function SlideshowCustomizer({ source, onConfirm, onBack }: SlideshowCustomizerProps) {
