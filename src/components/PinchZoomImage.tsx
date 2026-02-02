@@ -12,6 +12,7 @@ interface PinchZoomImageProps {
   onSwipeLeft?: () => void;
   onSwipeRight?: () => void;
   onSwipeDown?: () => void;
+  onZoomChange?: (isZoomed: boolean) => void;
 }
 
 // Use refs to avoid stale closure issues in setTimeout callbacks
@@ -39,6 +40,7 @@ export default function PinchZoomImage({
   onSwipeLeft,
   onSwipeRight,
   onSwipeDown,
+  onZoomChange,
 }: PinchZoomImageProps) {
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -62,6 +64,11 @@ export default function PinchZoomImage({
     setPosition({ x: 0, y: 0 });
     setIsZoomed(false);
   }, [src]);
+
+  // Notify parent when zoom state changes
+  useEffect(() => {
+    onZoomChange?.(isZoomed);
+  }, [isZoomed, onZoomChange]);
 
   // Calculate distance between two touch points
   const getDistance = (touch1: React.Touch, touch2: React.Touch): number => {
