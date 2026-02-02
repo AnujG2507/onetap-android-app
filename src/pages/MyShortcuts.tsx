@@ -55,9 +55,11 @@ export default function MyShortcuts() {
           >
             <ArrowLeft className="h-5 w-5 rtl:rotate-180" />
           </Button>
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <Zap className="h-5 w-5 text-primary shrink-0" />
-            <h1 className="text-lg font-semibold text-foreground truncate">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center shrink-0">
+              <Zap className="h-4 w-4 text-primary-foreground" />
+            </div>
+            <h1 className="text-xl font-semibold text-foreground truncate">
               {t('shortcuts.title')}
             </h1>
           </div>

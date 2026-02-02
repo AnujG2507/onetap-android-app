@@ -428,10 +428,12 @@ export function AccessFlow({
 
           <header className="ps-5 pe-5 pt-header-safe pb-4 shrink-0">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Zap className="h-5 w-5 text-primary" />
-                <h1 className="text-xl font-semibold text-foreground">{t('access.title')}</h1>
+            <div className="flex items-center gap-3">
+              <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
+                <Zap className="h-4 w-4 text-primary-foreground" />
               </div>
+              <h1 className="text-xl font-semibold text-foreground">{t('access.title')}</h1>
+            </div>
               <AppMenu onOpenTrash={() => setIsTrashOpen(true)} onOpenSettings={() => setShowSettings(true)} />
             </div>
           </header>

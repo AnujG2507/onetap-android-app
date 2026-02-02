@@ -613,12 +613,12 @@ export function BookmarkLibrary({
     <div className="flex flex-col h-full pb-20">
       {/* Header */}
       <header className="ps-5 pe-5 pt-header-safe pb-4">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
             <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
               <Bookmark className="h-4 w-4 text-primary-foreground" />
             </div>
-            <span className="text-sm font-medium text-muted-foreground tracking-wide">{t('library.bookmarks')}</span>
+            <h1 className="text-xl font-semibold text-foreground">{t('library.title')}</h1>
           </div>
           <div className="flex items-center gap-2">
             <TooltipProvider>
@@ -647,9 +647,6 @@ export function BookmarkLibrary({
             <AppMenu onOpenTrash={() => setIsTrashOpen(true)} onOpenSettings={() => setShowSettings(true)} />
           </div>
         </div>
-        <h1 className="text-2xl font-semibold text-foreground leading-tight tracking-tight">
-          {t('library.yourSavedLinks')}
-        </h1>
         
         {/* View Mode Toggle */}
         {links.length > 0 && (
