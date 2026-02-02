@@ -33,11 +33,26 @@ export default function SlideshowViewer() {
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const autoAdvanceRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Load shortcut data
+  // Load shortcut data - try hook first, fallback to direct localStorage read
   useEffect(() => {
     if (!shortcutId) return;
     
-    const shortcut = getShortcut(shortcutId);
+    // Try to get from hook state first
+    let shortcut = getShortcut(shortcutId);
+    
+    // Fallback: read directly from localStorage (handles deep link navigation)
+    if (!shortcut) {
+      try {
+        const stored = localStorage.getItem('quicklaunch_shortcuts');
+        if (stored) {
+          const allShortcuts = JSON.parse(stored);
+          shortcut = allShortcuts.find((s: { id: string; type: string }) => s.id === shortcutId);
+        }
+      } catch (e) {
+        console.error('[SlideshowViewer] Failed to read from localStorage:', e);
+      }
+    }
+    
     if (shortcut && shortcut.type === 'slideshow') {
       setImages(shortcut.imageUris || []);
       setThumbnails(shortcut.imageThumbnails || []);
