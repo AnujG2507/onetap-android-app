@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { X, RotateCcw, Home, Save } from 'lucide-react';
+import { X, Home, Save, Play, Pause } from 'lucide-react';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerFooter } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,18 +8,33 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { IconPicker } from '@/components/IconPicker';
 import { QuickMessagesEditor } from '@/components/QuickMessagesEditor';
+import { SlideshowPhotosEditor } from '@/components/SlideshowPhotosEditor';
 import { useSheetRegistry } from '@/contexts/SheetRegistryContext';
 import { useToast } from '@/hooks/use-toast';
 import { Capacitor } from '@capacitor/core';
+import { generateGridIcon } from '@/lib/slideshowIconGenerator';
 import type { ShortcutData, ShortcutIcon } from '@/types/shortcut';
+
+interface SlideshowImage {
+  id: string;
+  uri: string;
+  thumbnail?: string;
+}
 
 interface ShortcutEditSheetProps {
   shortcut: ShortcutData | null;
   isOpen: boolean;
   onClose: () => void;
-  onSave: (id: string, updates: Partial<Pick<ShortcutData, 'name' | 'icon' | 'quickMessages' | 'resumeEnabled'>>) => Promise<{ success: boolean; nativeUpdateFailed?: boolean }>;
+  onSave: (id: string, updates: Partial<Pick<ShortcutData, 'name' | 'icon' | 'quickMessages' | 'resumeEnabled' | 'imageUris' | 'imageThumbnails' | 'autoAdvanceInterval'>>) => Promise<{ success: boolean; nativeUpdateFailed?: boolean }>;
   onReAddToHomeScreen?: (shortcut: ShortcutData) => void;
 }
+
+const AUTO_ADVANCE_OPTIONS = [
+  { value: 0, label: 'Off' },
+  { value: 3, label: '3s' },
+  { value: 5, label: '5s' },
+  { value: 10, label: '10s' },
+];
 
 export function ShortcutEditSheet({ 
   shortcut, 
@@ -39,6 +54,10 @@ export function ShortcutEditSheet({
   const [resumeEnabled, setResumeEnabled] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [hasIconOrNameChanged, setHasIconOrNameChanged] = useState(false);
+  
+  // Slideshow-specific state
+  const [slideshowImages, setSlideshowImages] = useState<SlideshowImage[]>([]);
+  const [autoAdvance, setAutoAdvance] = useState(0);
 
   // Initialize form when shortcut changes
   useEffect(() => {
@@ -49,6 +68,20 @@ export function ShortcutEditSheet({
       setResumeEnabled(shortcut.resumeEnabled || false);
       setHasChanges(false);
       setHasIconOrNameChanged(false);
+      
+      // Initialize slideshow state
+      if (shortcut.type === 'slideshow' && shortcut.imageUris) {
+        const images: SlideshowImage[] = shortcut.imageUris.map((uri, i) => ({
+          id: `img-${i}`,
+          uri,
+          thumbnail: shortcut.imageThumbnails?.[i],
+        }));
+        setSlideshowImages(images);
+        setAutoAdvance(shortcut.autoAdvanceInterval || 0);
+      } else {
+        setSlideshowImages([]);
+        setAutoAdvance(0);
+      }
     }
   }, [shortcut]);
 
@@ -61,9 +94,15 @@ export function ShortcutEditSheet({
     const messagesChanged = JSON.stringify(quickMessages) !== JSON.stringify(shortcut.quickMessages || []);
     const resumeChanged = resumeEnabled !== (shortcut.resumeEnabled || false);
     
-    setHasChanges(nameChanged || iconChanged || messagesChanged || resumeChanged);
-    setHasIconOrNameChanged(nameChanged || iconChanged);
-  }, [name, icon, quickMessages, resumeEnabled, shortcut]);
+    // Slideshow-specific changes
+    const imagesChanged = shortcut.type === 'slideshow' && (
+      JSON.stringify(slideshowImages.map(i => i.uri)) !== JSON.stringify(shortcut.imageUris || [])
+    );
+    const autoAdvanceChanged = shortcut.type === 'slideshow' && autoAdvance !== (shortcut.autoAdvanceInterval || 0);
+    
+    setHasChanges(nameChanged || iconChanged || messagesChanged || resumeChanged || imagesChanged || autoAdvanceChanged);
+    setHasIconOrNameChanged(nameChanged || iconChanged || imagesChanged);
+  }, [name, icon, quickMessages, resumeEnabled, slideshowImages, autoAdvance, shortcut]);
 
   // Register with sheet registry for back button handling
   useEffect(() => {
@@ -76,22 +115,39 @@ export function ShortcutEditSheet({
   const handleSave = useCallback(async () => {
     if (!shortcut) return;
     
-    const result = await onSave(shortcut.id, {
+    // Build updates object
+    const updates: Partial<Pick<ShortcutData, 'name' | 'icon' | 'quickMessages' | 'resumeEnabled' | 'imageUris' | 'imageThumbnails' | 'autoAdvanceInterval'>> = {
       name,
       icon,
       quickMessages: quickMessages.length > 0 ? quickMessages : undefined,
       resumeEnabled: shortcut.fileType === 'pdf' ? resumeEnabled : undefined,
-    });
+    };
+    
+    // Add slideshow-specific updates
+    if (shortcut.type === 'slideshow') {
+      updates.imageUris = slideshowImages.map(i => i.uri);
+      updates.imageThumbnails = slideshowImages.map(i => i.thumbnail).filter(Boolean) as string[];
+      updates.autoAdvanceInterval = autoAdvance;
+      
+      // If images changed, regenerate grid icon
+      const imagesChanged = JSON.stringify(slideshowImages.map(i => i.uri)) !== JSON.stringify(shortcut.imageUris || []);
+      if (imagesChanged && icon.type === 'thumbnail') {
+        const thumbnails = slideshowImages.slice(0, 4).map(i => i.thumbnail).filter(Boolean) as string[];
+        if (thumbnails.length > 0) {
+          const newGridIcon = await generateGridIcon(thumbnails);
+          updates.icon = { type: 'thumbnail', value: newGridIcon };
+        }
+      }
+    }
+    
+    const result = await onSave(shortcut.id, updates);
 
     // Smart feedback based on native update result
     if (Capacitor.isNativePlatform() && result?.nativeUpdateFailed && onReAddToHomeScreen) {
       // Native update failed - prompt user to re-add
       const updatedShortcut: ShortcutData = {
         ...shortcut,
-        name,
-        icon,
-        quickMessages: quickMessages.length > 0 ? quickMessages : undefined,
-        resumeEnabled: shortcut.fileType === 'pdf' ? resumeEnabled : undefined,
+        ...updates,
       };
       
       toast({
@@ -117,34 +173,41 @@ export function ShortcutEditSheet({
     }
 
     onClose();
-  }, [shortcut, name, icon, quickMessages, resumeEnabled, onSave, onReAddToHomeScreen, onClose, toast, t]);
+  }, [shortcut, name, icon, quickMessages, resumeEnabled, slideshowImages, autoAdvance, onSave, onReAddToHomeScreen, onClose, toast, t]);
 
   const handleReAdd = useCallback(() => {
     if (!shortcut || !onReAddToHomeScreen) return;
     
     // First save the changes
-    const updatedShortcut: ShortcutData = {
-      ...shortcut,
+    const updates: Partial<Pick<ShortcutData, 'name' | 'icon' | 'quickMessages' | 'resumeEnabled' | 'imageUris' | 'imageThumbnails' | 'autoAdvanceInterval'>> = {
       name,
       icon,
       quickMessages: quickMessages.length > 0 ? quickMessages : undefined,
       resumeEnabled: shortcut.fileType === 'pdf' ? resumeEnabled : undefined,
     };
     
-    onSave(shortcut.id, {
-      name,
-      icon,
-      quickMessages: quickMessages.length > 0 ? quickMessages : undefined,
-      resumeEnabled: shortcut.fileType === 'pdf' ? resumeEnabled : undefined,
-    });
+    if (shortcut.type === 'slideshow') {
+      updates.imageUris = slideshowImages.map(i => i.uri);
+      updates.imageThumbnails = slideshowImages.map(i => i.thumbnail).filter(Boolean) as string[];
+      updates.autoAdvanceInterval = autoAdvance;
+    }
+    
+    const updatedShortcut: ShortcutData = {
+      ...shortcut,
+      ...updates,
+    };
+    
+    onSave(shortcut.id, updates);
     
     // Then trigger re-add to home screen
     onReAddToHomeScreen(updatedShortcut);
     onClose();
-  }, [shortcut, name, icon, quickMessages, resumeEnabled, onSave, onReAddToHomeScreen, onClose]);
+  }, [shortcut, name, icon, quickMessages, resumeEnabled, slideshowImages, autoAdvance, onSave, onReAddToHomeScreen, onClose]);
 
   const isWhatsAppShortcut = shortcut?.type === 'message' && shortcut?.messageApp === 'whatsapp';
   const isPdfShortcut = shortcut?.fileType === 'pdf';
+  const isSlideshowShortcut = shortcut?.type === 'slideshow';
+  const hasSufficientPhotos = !isSlideshowShortcut || slideshowImages.length >= 2;
 
   if (!shortcut) return null;
 
@@ -182,15 +245,25 @@ export function ShortcutEditSheet({
             </div>
           </div>
 
-          {/* Icon Picker */}
-          <div className="space-y-2">
-            <Label>{t('shortcutEdit.icon')}</Label>
-            <IconPicker
-              selectedIcon={icon}
-              onSelect={setIcon}
-              thumbnail={shortcut.thumbnailData}
+          {/* Slideshow Photos Editor */}
+          {isSlideshowShortcut && (
+            <SlideshowPhotosEditor
+              images={slideshowImages}
+              onChange={setSlideshowImages}
             />
-          </div>
+          )}
+
+          {/* Icon Picker - hide for slideshows (icon auto-generated from photos) */}
+          {!isSlideshowShortcut && (
+            <div className="space-y-2">
+              <Label>{t('shortcutEdit.icon')}</Label>
+              <IconPicker
+                selectedIcon={icon}
+                onSelect={setIcon}
+                thumbnail={shortcut.thumbnailData}
+              />
+            </div>
+          )}
 
           {/* WhatsApp Quick Messages */}
           {isWhatsAppShortcut && (
@@ -218,13 +291,44 @@ export function ShortcutEditSheet({
               />
             </div>
           )}
+
+          {/* Slideshow Auto-advance */}
+          {isSlideshowShortcut && (
+            <div>
+              <label className="text-sm text-muted-foreground mb-2 block">
+                {t('slideshow.autoAdvance', 'Auto-advance')}
+              </label>
+              <div className="flex gap-2">
+                {AUTO_ADVANCE_OPTIONS.map(option => (
+                  <button
+                    key={option.value}
+                    onClick={() => setAutoAdvance(option.value)}
+                    className={`flex-1 py-2 px-3 rounded-lg border-2 transition-colors ${
+                      autoAdvance === option.value
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-border bg-background'
+                    }`}
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      {option.value === 0 ? (
+                        <Pause className="h-4 w-4" />
+                      ) : (
+                        <Play className="h-4 w-4" />
+                      )}
+                      <span className="text-sm font-medium">{option.label}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <DrawerFooter className="pt-2 border-t">
           <div className="flex flex-col gap-2">
             <Button 
               onClick={handleSave} 
-              disabled={!hasChanges || !name.trim()}
+              disabled={!hasChanges || !name.trim() || !hasSufficientPhotos}
               className="w-full"
             >
               <Save className="h-4 w-4 mr-2" />
@@ -235,7 +339,7 @@ export function ShortcutEditSheet({
               <Button 
                 variant="outline" 
                 onClick={handleReAdd}
-                disabled={!name.trim()}
+                disabled={!name.trim() || !hasSufficientPhotos}
                 className="w-full"
               >
                 <Home className="h-4 w-4 mr-2" />
