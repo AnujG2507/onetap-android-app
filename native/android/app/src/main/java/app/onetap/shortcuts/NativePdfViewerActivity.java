@@ -1,5 +1,6 @@
 package app.onetap.shortcuts;
 
+import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -26,6 +27,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
+import android.view.animation.DecelerateInterpolator;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.ImageView;
@@ -115,6 +117,11 @@ public class NativePdfViewerActivity extends Activity {
     private GestureDetector gestureDetector;
     private float focalX, focalY;
     private boolean isScaling = false;
+    
+    // Double-tap zoom animation
+    private static final int DOUBLE_TAP_ANIM_DURATION_MS = 220;
+    private ValueAnimator doubleTapAnimator;
+    private boolean isDoubleTapAnimating = false;
     
     // Resume state
     private String shortcutId;
@@ -368,20 +375,23 @@ public class NativePdfViewerActivity extends Activity {
             
             @Override
             public boolean onDoubleTap(MotionEvent e) {
-                // Toggle between fit and 2.5x zoom
-                float previousZoom = currentZoom;
-                if (currentZoom > 1.5f) {
-                    currentZoom = 1.0f;
-                } else {
-                    currentZoom = DOUBLE_TAP_ZOOM;
-                    focalX = e.getX();
-                    focalY = e.getY();
-                }
-                pendingZoom = currentZoom;
+                // Don't start new animation if one is in progress
+                if (isDoubleTapAnimating) return true;
                 
-                // For double-tap, apply visual scale immediately then render
-                applyVisualZoomForDoubleTap(previousZoom);
-                commitZoomAndRerender();
+                // Toggle between fit and 2.5x zoom
+                float targetZoom;
+                if (currentZoom > 1.5f) {
+                    targetZoom = 1.0f;
+                } else {
+                    targetZoom = DOUBLE_TAP_ZOOM;
+                }
+                
+                // Store tap position for centering
+                focalX = e.getX();
+                focalY = e.getY();
+                
+                // Animate the zoom transition
+                animateDoubleTapZoom(currentZoom, targetZoom);
                 return true;
             }
         });
@@ -440,41 +450,119 @@ public class NativePdfViewerActivity extends Activity {
     }
     
     /**
-     * Apply visual scale for double-tap zoom (instant visual feedback).
-     * Similar to applyVisualZoom but calculates scale from previous zoom level.
+     * Animate double-tap zoom smoothly from startZoom to endZoom.
+     * 
+     * How Google Drive's double-tap feels:
+     * - Physical zoom-in centered on tap point
+     * - Smooth deceleration (~200ms)
+     * - Content under tap stays stationary
+     * - No visible rendering phases during animation
+     * 
+     * Implementation:
+     * - Use ValueAnimator for frame-by-frame scale updates
+     * - DecelerateInterpolator for natural "ease-out" feel
+     * - Update visual scale on each frame (no re-render during animation)
+     * - Trigger high-res render only after animation completes
      */
-    private void applyVisualZoomForDoubleTap(float previousZoom) {
-        if (adapter == null) return;
+    private void animateDoubleTapZoom(float startZoom, float endZoom) {
+        // Cancel any existing animation
+        if (doubleTapAnimator != null && doubleTapAnimator.isRunning()) {
+            doubleTapAnimator.cancel();
+        }
         
-        float scaleFactor = currentZoom / previousZoom;
-        pendingVisualScale = scaleFactor;
+        isDoubleTapAnimating = true;
         
+        // Store starting zoom for scale calculation
+        final float baseZoom = startZoom;
+        
+        // Pre-calculate view-local pivot points for all visible pages
+        // (avoids getLocationOnScreen calls during animation for smoother frames)
         LinearLayoutManager layoutManager = (LinearLayoutManager) recyclerView.getLayoutManager();
-        if (layoutManager == null) return;
+        if (layoutManager == null) {
+            isDoubleTapAnimating = false;
+            return;
+        }
         
         int first = layoutManager.findFirstVisibleItemPosition();
         int last = layoutManager.findLastVisibleItemPosition();
         
-        int[] childLocation = new int[2];
+        // Cache pivot points before animation starts
+        final int[] childLocation = new int[2];
+        final float[][] pivotCache = new float[last - first + 1][2];
         
         for (int i = first; i <= last; i++) {
             View child = layoutManager.findViewByPosition(i);
-            if (child instanceof ImageView) {
+            if (child != null) {
                 child.getLocationOnScreen(childLocation);
-                
                 float localX = focalX - childLocation[0];
                 float localY = focalY - childLocation[1];
                 localX = Math.max(0, Math.min(localX, child.getWidth()));
                 localY = Math.max(0, Math.min(localY, child.getHeight()));
                 
+                pivotCache[i - first][0] = localX;
+                pivotCache[i - first][1] = localY;
+                
+                // Set pivot immediately (won't change during animation)
                 child.setPivotX(localX);
                 child.setPivotY(localY);
-                child.setScaleX(scaleFactor);
-                child.setScaleY(scaleFactor);
-                
-                pendingZoomSwap.add(i);
             }
         }
+        
+        final int animFirst = first;
+        final int animLast = last;
+        
+        doubleTapAnimator = ValueAnimator.ofFloat(startZoom, endZoom);
+        doubleTapAnimator.setDuration(DOUBLE_TAP_ANIM_DURATION_MS);
+        doubleTapAnimator.setInterpolator(new DecelerateInterpolator(1.5f));
+        
+        doubleTapAnimator.addUpdateListener(animation -> {
+            float animatedZoom = (float) animation.getAnimatedValue();
+            float scaleFactor = animatedZoom / baseZoom;
+            
+            // Apply scale to all visible pages
+            LinearLayoutManager lm = (LinearLayoutManager) recyclerView.getLayoutManager();
+            if (lm == null) return;
+            
+            for (int i = animFirst; i <= animLast; i++) {
+                View child = lm.findViewByPosition(i);
+                if (child instanceof ImageView) {
+                    child.setScaleX(scaleFactor);
+                    child.setScaleY(scaleFactor);
+                }
+            }
+        });
+        
+        doubleTapAnimator.addListener(new android.animation.AnimatorListenerAdapter() {
+            @Override
+            public void onAnimationEnd(android.animation.Animator animation) {
+                isDoubleTapAnimating = false;
+                
+                // Commit final zoom level
+                currentZoom = endZoom;
+                pendingZoom = endZoom;
+                pendingVisualScale = endZoom / baseZoom;
+                
+                // Mark visible pages for atomic swap
+                LinearLayoutManager lm = (LinearLayoutManager) recyclerView.getLayoutManager();
+                if (lm != null) {
+                    int f = lm.findFirstVisibleItemPosition();
+                    int l = lm.findLastVisibleItemPosition();
+                    for (int i = f; i <= l; i++) {
+                        pendingZoomSwap.add(i);
+                    }
+                }
+                
+                // Trigger high-res render (atomic swap strategy)
+                commitZoomAndRerender();
+            }
+            
+            @Override
+            public void onAnimationCancel(android.animation.Animator animation) {
+                isDoubleTapAnimating = false;
+            }
+        });
+        
+        doubleTapAnimator.start();
     }
     
     /**
@@ -501,8 +589,6 @@ public class NativePdfViewerActivity extends Activity {
             int last = layoutManager.findLastVisibleItemPosition();
             
             // Store the current visual scale for these pages
-            float scaleFactor = pendingZoom / (currentZoom > 0 ? currentZoom : 1.0f);
-            // Since we just set currentZoom = pendingZoom, recalculate from actual view
             View firstChild = layoutManager.findViewByPosition(first);
             if (firstChild != null) {
                 pendingVisualScale = firstChild.getScaleX();
@@ -918,6 +1004,12 @@ public class NativePdfViewerActivity extends Activity {
     protected void onDestroy() {
         super.onDestroy();
         hideHandler.removeCallbacks(hideRunnable);
+        
+        // Cancel any running zoom animation
+        if (doubleTapAnimator != null && doubleTapAnimator.isRunning()) {
+            doubleTapAnimator.cancel();
+        }
+        doubleTapAnimator = null;
         
         if (renderExecutor != null) {
             renderExecutor.shutdownNow();
