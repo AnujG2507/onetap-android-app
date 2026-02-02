@@ -1,94 +1,252 @@
 
-Goal: Fix the native Android PDF viewer so pages render actual content (not blank white bitmaps) and the page indicator reliably appears.
 
-What I believe is happening (most likely root cause)
-- In `NativePdfViewerActivity.renderPageAsync()` the low‑res bitmap is created with `Bitmap.Config.RGB_565`:
-  - `Bitmap lowBitmap = Bitmap.createBitmap(lowWidth, lowHeight, Bitmap.Config.RGB_565);`
-- Android’s official `PdfRenderer.Page.render()` documentation states: “The destination bitmap format must be ARGB.”
-- On many devices/Android versions, rendering into `RGB_565` can result in:
-  - a thrown `IllegalArgumentException` (caught and only logged), or
-  - a “successful” render that draws nothing (so you keep the white bitmap).
-- Because the viewer relies on the low-res pass to “show something instantly”, if that pass never produces real pixels, you’ll see scrollable blank pages.
+# PDF Viewer Zoom Crash Analysis
 
-Secondary issue (why page number appears “missing”)
-- The page indicator is inside `topBar`, which auto-hides after 3 seconds.
-- If the user doesn’t know to single-tap to show it again, it will look like “no page number”.
-- Also, `updatePageIndicator()` is called immediately during setup, but can be a no-op before the first layout pass (first visible position can be `-1`). It should be posted after layout to guarantee it populates.
+## Root Cause Identification
 
-Scope constraints respected
-- No rewrites of the whole viewer architecture.
-- Keep PdfRenderer + RecyclerView + low→high “swap” strategy.
-- Focus on targeted fixes for rendering correctness and visibility of the indicator.
+After thorough code review, I've identified **multiple critical issues** that can cause crashes during zoom operations:
 
-Implementation plan (code changes)
-1) Fix the bitmap format used for PdfRenderer (critical)
-   - In `native/android/app/src/main/java/app/onetap/shortcuts/NativePdfViewerActivity.java`:
-     - Change low-res bitmap config from `RGB_565` to `ARGB_8888`.
-       - This aligns with the PdfRenderer contract (“bitmap format must be ARGB”) and should immediately stop blank pages.
-     - Keep low-res dimensions small (you already do via `LOW_RES_SCALE = 0.5f`), so memory impact stays reasonable.
-   - Optional refinement (if memory becomes an issue):
-     - Reduce `LOW_RES_SCALE` to 0.35–0.4 (still fast preview, less memory).
-     - Keep high-res as ARGB_8888 (already is).
+---
 
-2) Make rendering failures visible and diagnosable (so we don’t “silently” fail again)
-   - Add stronger logging around the render calls:
-     - Log pageIndex, bitmap w/h/config, and URI scheme.
-     - Log full exception stack trace (not only `e.getMessage()`).
-   - Add a lightweight “render failed” fallback per page:
-     - If low-res render fails, attempt a high-res render directly once for that page (still on background thread).
-     - If that also fails, show a clear placeholder state (e.g., a gray page with “Could not render page” text) instead of a misleading blank white page.
-   - This ensures we don’t get stuck with white bitmaps that look like “render succeeded”.
+### Critical Issue #1: Removed `previousZoom` Field Declaration
 
-3) Make page indicator reliable (so it appears when scrolling and right after opening)
-   - Post an initial indicator update after the RecyclerView first layout:
-     - `recyclerView.post(this::updatePageIndicator);`
-   - Keep current behavior (single tap toggles top bar), but reduce confusion:
-     - Increase `AUTO_HIDE_DELAY_MS` for the first open (e.g., don’t auto-hide until first successful render, or increase to ~6–8 seconds).
-     - This keeps the UI minimal but makes “page number exists” obvious.
+**Location:** Lines 109-113 (the last diff removed it)
 
-4) Small correctness / cleanup items (low risk)
-   - Remove unused `Matrix` import in `NativePdfViewerActivity.java` if it’s no longer used.
-   - Ensure placeholder background resets to white when a bitmap is set (right now placeholder sets a gray background and it may persist).
+The last edit removed the `previousZoom` field declaration at line 113:
+```java
+private FrameLayout errorView;
+// private float previousZoom = 1.0f;  ← REMOVED
+```
 
-Testing plan (Android)
-A. Quick sanity checks
-- Open a known simple PDF (1–5 pages) from:
-  1) a local file manager (“Open with OneTap”)
-  2) a shortcut-based PDF open (home screen shortcut)
-- Confirm:
-  - Text/graphics render on page 1 within ~1s (low-res)
-  - After a moment, page sharpens (high-res swap)
-  - No blank white pages during scroll
+But there's **still a valid declaration at line 109**:
+```java
+private float previousZoom = 1.0f;
+```
 
-B. Page indicator behavior
-- Confirm indicator shows “1 / N” after open (without needing to scroll).
-- Scroll: indicator updates.
-- Wait: top bar hides; single tap shows it again.
+**However**, the diff shows this was removed from line 113, which means if the original file had TWO declarations, one was removed but now I see one remains at line 109. This is correct. Let me re-check...
 
-C. Edge PDFs
-- Test a larger PDF (50+ pages) for memory stability.
-- Test a PDF from Google Drive / cloud provider (content:// URIs).
-- If any still render blank, the new logs + fallback will tell us exactly why.
+Actually, looking at the current file (lines 109), `previousZoom` IS declared:
+```java
+// Previous zoom level (for fallback bitmap lookup during transitions)
+private float previousZoom = 1.0f;
+```
 
-Capacitor/native workflow reminder (so the fix actually reaches Android)
-- After you pull the changes locally:
-  1) `npm install`
-  2) `npm run build`
-  3) `npx cap sync android`
-  4) `node scripts/android/patch-android-project.mjs`
-  5) `npx cap run android`
+So the field exists. This is NOT the crash cause.
 
-Acceptance criteria
-- Pages render visible content (not blank) on at least 2 different PDFs.
-- No recurring “white-only” output when scrolling.
-- Page indicator appears reliably and updates with scroll (and is discoverable despite auto-hide).
+---
 
-Files involved
-- Primary: `native/android/app/src/main/java/app/onetap/shortcuts/NativePdfViewerActivity.java`
-- No changes required to proxy/launch activities unless logs indicate a URI/permission edge case.
+### Critical Issue #2: ConcurrentModificationException in `pendingRenders` Set
 
-If this does not fully resolve it (contingency)
-- If ARGB_8888 low-res still produces blank output, the next likely cause is URI/provider incompatibility (non-seekable streams). In that case, the plan is:
-  - Copy the PDF to an internal temporary file (from the content URI) and open PdfRenderer from that local file descriptor.
-  - This is a standard approach for Drive/DocumentProviders that don’t behave like normal files.
-  - I’ll only do this if logs indicate it’s necessary, because it’s a bigger behavioral change (but still contained).
+**Location:** Lines 101, 700, 741-746, 866-870, 1341-1343
+
+The `pendingRenders` HashSet is accessed from:
+- **Main thread**: `commitZoomAndRerender()` (line 700: `pendingRenders.clear()`)
+- **Main thread**: `prerenderVisiblePages()` (lines 741-746: check and add)
+- **Main thread**: `prerenderAdjacentPages()` (lines 866-870: check and add)
+- **Main thread**: `onBindViewHolder()` (lines 1341-1343: check and add)
+- **Background thread**: `renderPageAsync()` (lines 1115, 1170, 1208, 1224, 1234: remove)
+
+**Problem**: While most additions happen on the main thread, removals happen on background threads via `renderExecutor`. A regular `HashSet` is NOT thread-safe. Concurrent access will cause:
+- `ConcurrentModificationException`
+- Silent data corruption leading to unpredictable crashes
+
+---
+
+### Critical Issue #3: Null `pdfRenderer` Access in Background Thread
+
+**Location:** Lines 1147-1152, 1205-1218
+
+```java
+synchronized (pdfRenderer) {  // ← Can crash if pdfRenderer is null
+    if (pdfRenderer == null || pageIndex < 0 ...) {
+```
+
+The `synchronized` block uses `pdfRenderer` as the monitor object. If `pdfRenderer` becomes null (e.g., during `onDestroy()`), this throws `NullPointerException`.
+
+**Crash sequence:**
+1. User zooms → triggers `renderPageAsync()` on background thread
+2. User exits viewer → `onDestroy()` runs, sets `pdfRenderer = null` (after closing)
+3. Background thread reaches `synchronized(pdfRenderer)` → NPE crash
+
+---
+
+### Critical Issue #4: Race Condition During Rapid Zoom
+
+**Location:** Lines 466, 651, 654-656
+
+In `onScaleEnd()` and `animateDoubleTapZoom.onAnimationEnd()`:
+```java
+previousZoom = currentZoom;  // or baseZoom
+currentZoom = endZoom;
+pendingZoom = endZoom;
+```
+
+If a user rapidly zooms in/out (pinch followed by double-tap, or multiple fast pinches), these values can be overwritten before the previous render completes. This leads to:
+- `previousZoom` being incorrect for fallback bitmap lookup
+- Cache keys mismatching expected values
+- Visual glitches or IndexOutOfBoundsException
+
+---
+
+### Critical Issue #5: Possible IndexOutOfBoundsException in Animation
+
+**Location:** Lines 601-619, 636-642
+
+```java
+final float[][] pivotCache = new float[last - first + 1][2];
+
+for (int i = first; i <= last; i++) {
+    ...
+    pivotCache[i - first][0] = localX;  // Can throw AIOOBE
+```
+
+If `last < first` (which can happen if RecyclerView has no visible items), then:
+- Array size becomes 0 or negative → `NegativeArraySizeException`
+- Access `pivotCache[-1]` → `ArrayIndexOutOfBoundsException`
+
+Also in the animation update listener:
+```java
+for (int i = animFirst; i <= animLast; i++) {
+    View child = lm.findViewByPosition(i);
+```
+
+If layout changes during animation, `findViewByPosition()` can return null for previously-visible positions.
+
+---
+
+### Critical Issue #6: Missing Null Check for `layoutManager`
+
+**Location:** Lines 530, 590-594, 633
+
+While some methods check `if (layoutManager == null) return;`, the animation update listener does NOT have early exit:
+```java
+doubleTapAnimator.addUpdateListener(animation -> {
+    LinearLayoutManager lm = (LinearLayoutManager) recyclerView.getLayoutManager();
+    if (lm == null) return;  // This exists ✓
+```
+
+But the outer method `animateDoubleTapZoom()` can start the animator even if layout is null:
+```java
+LinearLayoutManager layoutManager = (LinearLayoutManager) recyclerView.getLayoutManager();
+if (layoutManager == null) {
+    isDoubleTapAnimating = false;
+    return;  // This exists ✓
+}
+```
+
+This seems OK, but there's still a potential issue...
+
+---
+
+## Summary of Crash Causes (Most to Least Likely)
+
+| Priority | Issue | Crash Type | Likelihood |
+|----------|-------|------------|------------|
+| **1** | Non-thread-safe `pendingRenders` HashSet | `ConcurrentModificationException` | **Very High** |
+| **2** | `synchronized(pdfRenderer)` when null | `NullPointerException` | **High** |
+| **3** | Negative array size in animation | `NegativeArraySizeException` | **Medium** |
+| **4** | `pivotCache` out of bounds | `ArrayIndexOutOfBoundsException` | **Medium** |
+| **5** | Race conditions in zoom state | Visual bugs / edge crashes | **Lower** |
+
+---
+
+## Implementation Plan
+
+### Fix 1: Make `pendingRenders` Thread-Safe
+
+Replace the regular `HashSet` with a thread-safe alternative:
+
+```java
+// OLD:
+private final Set<String> pendingRenders = new HashSet<>();
+
+// NEW:
+private final Set<String> pendingRenders = 
+    java.util.Collections.synchronizedSet(new HashSet<>());
+```
+
+Or use `ConcurrentHashMap.newKeySet()` for better performance:
+```java
+private final Set<String> pendingRenders = ConcurrentHashMap.newKeySet();
+```
+
+### Fix 2: Guard Against Null `pdfRenderer` in Synchronized Block
+
+```java
+// Before synchronized block:
+PdfRenderer renderer = pdfRenderer;
+if (renderer == null) {
+    pendingRenders.remove(...);
+    return;
+}
+
+synchronized (renderer) {
+    // Use 'renderer' instead of 'pdfRenderer'
+}
+```
+
+### Fix 3: Guard Animation Array Bounds
+
+```java
+int first = layoutManager.findFirstVisibleItemPosition();
+int last = layoutManager.findLastVisibleItemPosition();
+
+// Add bounds check
+if (first < 0 || last < first) {
+    isDoubleTapAnimating = false;
+    return;
+}
+```
+
+### Fix 4: Validate Visible Range Before Creating Array
+
+Already partially covered by Fix 3, but also:
+```java
+final int arraySize = Math.max(0, last - first + 1);
+final float[][] pivotCache = new float[arraySize][2];
+```
+
+### Fix 5: Add Null-Safe Child Handling in Animation Loop
+
+```java
+for (int i = animFirst; i <= animLast; i++) {
+    View child = lm.findViewByPosition(i);
+    if (child instanceof ImageView) {  // Already handles null
+        child.setScaleX(scaleFactor);
+        child.setScaleY(scaleFactor);
+    }
+}
+```
+
+This already checks `instanceof ImageView`, which implicitly handles null. ✓
+
+---
+
+## Files to Modify
+
+| File | Changes |
+|------|---------|
+| `native/android/app/src/main/java/app/onetap/shortcuts/NativePdfViewerActivity.java` | All fixes above |
+
+---
+
+## Testing Strategy
+
+After implementing fixes:
+
+1. **Rapid zoom test**: Pinch in/out rapidly 10+ times without pause
+2. **Double-tap during pinch**: Start pinching, then double-tap mid-gesture
+3. **Exit during zoom**: Pinch zoom, then immediately press back
+4. **Empty page test**: Zoom when RecyclerView has no visible items (edge case)
+5. **Memory pressure test**: Open large PDF, zoom extensively, check for crashes
+
+---
+
+## Technical Notes
+
+- All fixes are **surgical** - no architectural changes
+- Thread-safety fix uses standard Java concurrency primitives
+- No new dependencies required
+- Maintains existing visual behavior and performance characteristics
+- Compatible with atomic swap strategy
+
