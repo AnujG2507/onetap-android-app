@@ -126,7 +126,9 @@ public class NativePdfViewerActivity extends Activity {
     // Resume state
     private String shortcutId;
     private boolean resumeEnabled = true;
-    private int resumeScrollPosition = 0;
+    private int resumePageIndex = 0;        // Which page
+    private int resumePixelOffset = 0;      // Pixel offset within page (negative = scrolled past top)
+    private float resumeScrollFraction = 0; // Fallback: fraction of page scrolled (0.0-1.0)
     private float resumeZoom = 1.0f;
     
     // Display metrics
@@ -214,12 +216,9 @@ public class NativePdfViewerActivity extends Activity {
         // Setup adapter
         setupRecyclerView();
         
-        // Restore resume position after layout
-        if (resumeEnabled && resumeScrollPosition > 0) {
-            recyclerView.post(() -> {
-                recyclerView.scrollToPosition(resumeScrollPosition);
-                Log.d(TAG, "Restored scroll position: " + resumeScrollPosition);
-            });
+        // Restore resume position after layout (pixel-accurate)
+        if (resumeEnabled && (resumePageIndex > 0 || resumePixelOffset != 0)) {
+            recyclerView.post(() -> restoreResumePosition());
         }
         
         // Apply resume zoom
@@ -811,34 +810,122 @@ public class NativePdfViewerActivity extends Activity {
         }
     }
     
+    /**
+     * Load pixel-accurate resume state from SharedPreferences.
+     * 
+     * We store:
+     * - Page index (which page user was on)
+     * - Pixel offset (how far into that page, can be negative)
+     * - Scroll fraction (fallback for screen size changes: 0.0-1.0)
+     * - Zoom level
+     * - Screen width at save time (to detect screen size changes)
+     */
     private void loadResumeState() {
         if (shortcutId == null) return;
         
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         String key = shortcutId;
         
-        resumeScrollPosition = prefs.getInt(key + "_scroll", 0);
+        resumePageIndex = prefs.getInt(key + "_page", 0);
+        resumePixelOffset = prefs.getInt(key + "_offset", 0);
+        resumeScrollFraction = prefs.getFloat(key + "_fraction", 0f);
         resumeZoom = prefs.getFloat(key + "_zoom", 1.0f);
         
-        Log.d(TAG, "Loaded resume state: scroll=" + resumeScrollPosition + ", zoom=" + resumeZoom);
+        // Detect if screen size changed significantly (orientation, different device)
+        int savedScreenWidth = prefs.getInt(key + "_screenWidth", 0);
+        if (savedScreenWidth > 0 && Math.abs(savedScreenWidth - screenWidth) > 50) {
+            // Screen size changed - use fraction-based restore instead of pixel offset
+            Log.d(TAG, "Screen size changed (" + savedScreenWidth + " -> " + screenWidth + "), using fraction-based restore");
+            resumePixelOffset = Integer.MIN_VALUE; // Signal to use fraction
+        }
+        
+        Log.d(TAG, "Loaded resume state: page=" + resumePageIndex + 
+              ", offset=" + resumePixelOffset + ", fraction=" + resumeScrollFraction + 
+              ", zoom=" + resumeZoom);
     }
     
+    /**
+     * Save pixel-accurate resume state to SharedPreferences.
+     * 
+     * Captures:
+     * - First visible page index
+     * - Pixel offset of that page from RecyclerView top (can be negative = partially scrolled)
+     * - Scroll fraction (for cross-device compatibility)
+     * - Current zoom level
+     * - Screen width (to detect orientation/device changes)
+     */
     private void saveResumeState() {
         if (shortcutId == null || !resumeEnabled) return;
         
         LinearLayoutManager layoutManager = (LinearLayoutManager) recyclerView.getLayoutManager();
         if (layoutManager == null) return;
         
-        int scrollPosition = layoutManager.findFirstVisibleItemPosition();
+        int firstVisiblePage = layoutManager.findFirstVisibleItemPosition();
+        if (firstVisiblePage < 0) return;
+        
+        // Get the first visible view to calculate its offset from RecyclerView top
+        View firstVisibleView = layoutManager.findViewByPosition(firstVisiblePage);
+        if (firstVisibleView == null) return;
+        
+        // Pixel offset: how far the view's top is from RecyclerView's top
+        // Negative = view has been scrolled past (top is above viewport)
+        int pixelOffset = firstVisibleView.getTop();
+        
+        // Calculate scroll fraction for fallback (0.0 = top of page, 1.0 = bottom)
+        int pageHeight = firstVisibleView.getHeight();
+        float scrollFraction = 0f;
+        if (pageHeight > 0) {
+            scrollFraction = (float) -pixelOffset / pageHeight;
+            scrollFraction = Math.max(0f, Math.min(1f, scrollFraction));
+        }
         
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         prefs.edit()
-            .putInt(shortcutId + "_scroll", scrollPosition)
+            .putInt(shortcutId + "_page", firstVisiblePage)
+            .putInt(shortcutId + "_offset", pixelOffset)
+            .putFloat(shortcutId + "_fraction", scrollFraction)
             .putFloat(shortcutId + "_zoom", currentZoom)
+            .putInt(shortcutId + "_screenWidth", screenWidth)
             .putLong(shortcutId + "_timestamp", System.currentTimeMillis())
             .apply();
         
-        Log.d(TAG, "Saved resume state: scroll=" + scrollPosition + ", zoom=" + currentZoom);
+        Log.d(TAG, "Saved resume state: page=" + firstVisiblePage + 
+              ", offset=" + pixelOffset + ", fraction=" + scrollFraction + 
+              ", zoom=" + currentZoom);
+    }
+    
+    /**
+     * Restore reading position with pixel accuracy.
+     * 
+     * Uses scrollToPositionWithOffset for exact pixel positioning.
+     * Falls back to fraction-based positioning if screen size changed.
+     */
+    private void restoreResumePosition() {
+        LinearLayoutManager layoutManager = (LinearLayoutManager) recyclerView.getLayoutManager();
+        if (layoutManager == null) return;
+        
+        if (resumePixelOffset == Integer.MIN_VALUE) {
+            // Screen size changed - use fraction-based restore
+            // First scroll to page, then adjust by fraction after layout
+            layoutManager.scrollToPositionWithOffset(resumePageIndex, 0);
+            
+            // Post a delayed adjustment based on fraction
+            recyclerView.post(() -> {
+                View pageView = layoutManager.findViewByPosition(resumePageIndex);
+                if (pageView != null) {
+                    int pageHeight = pageView.getHeight();
+                    int targetOffset = -(int)(resumeScrollFraction * pageHeight);
+                    layoutManager.scrollToPositionWithOffset(resumePageIndex, targetOffset);
+                    Log.d(TAG, "Restored via fraction: page=" + resumePageIndex + 
+                          ", fraction=" + resumeScrollFraction + ", offset=" + targetOffset);
+                }
+            });
+        } else {
+            // Normal pixel-accurate restore
+            layoutManager.scrollToPositionWithOffset(resumePageIndex, resumePixelOffset);
+            Log.d(TAG, "Restored pixel-accurate: page=" + resumePageIndex + 
+                  ", offset=" + resumePixelOffset);
+        }
     }
     
     private int dpToPx(int dp) {
