@@ -89,29 +89,28 @@ public class PDFProxyActivity extends Activity {
                 Log.d(TAG, "Could not take persistent permission (normal for some URIs): " + e.getMessage());
             }
             
-            // Launch MainActivity with VIEW_PDF action
-            Intent webIntent = new Intent(this, MainActivity.class);
-            webIntent.setAction("app.onetap.VIEW_PDF");
-            webIntent.setDataAndType(pdfUri, mimeType != null ? mimeType : "application/pdf");
-            webIntent.putExtra("shortcut_id", shortcutId);
-            webIntent.putExtra("resume", resumeEnabled);
-            webIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            webIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            // Launch native PDF viewer directly (bypasses WebView for Drive-level smoothness)
+            Intent viewerIntent = new Intent(this, NativePdfViewerActivity.class);
+            viewerIntent.setDataAndType(pdfUri, mimeType != null ? mimeType : "application/pdf");
+            viewerIntent.putExtra("shortcut_id", shortcutId);
+            viewerIntent.putExtra("resume", resumeEnabled);
+            viewerIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            viewerIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             
             // Set ClipData for better URI grant propagation
             if ("content".equals(pdfUri.getScheme())) {
                 try {
-                    webIntent.setClipData(android.content.ClipData.newUri(
+                    viewerIntent.setClipData(android.content.ClipData.newUri(
                         getContentResolver(), "onetap-pdf", pdfUri));
                 } catch (Exception e) {
                     Log.w(TAG, "Failed to set ClipData: " + e.getMessage());
                 }
             }
             
-            startActivity(webIntent);
-            Log.d(TAG, "Launched internal PDF viewer");
+            startActivity(viewerIntent);
+            Log.d(TAG, "Launched native PDF viewer");
         } catch (Exception e) {
-            Log.e(TAG, "Failed to open internal viewer: " + e.getMessage());
+            Log.e(TAG, "Failed to open native viewer: " + e.getMessage());
         }
     }
 }

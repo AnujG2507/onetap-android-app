@@ -183,6 +183,14 @@
             android:launchMode="singleTask"
             android:resizeableActivity="true" />
 
+        <!-- Native PDF viewer for Drive-level smooth reading experience -->
+        <!-- Uses PdfRenderer + RecyclerView for hardware-accelerated rendering -->
+        <activity
+            android:name=".NativePdfViewerActivity"
+            android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|keyboard|keyboardHidden" />
+
         <!-- Desktop WebView Activity - custom WebView with User-Agent control -->
         <activity
             android:name=".DesktopWebViewActivity"
