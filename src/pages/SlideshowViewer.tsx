@@ -201,6 +201,13 @@ export default function SlideshowViewer() {
     navigate(-1);
   }, [navigate]);
 
+  // Pause slideshow when zooming in
+  const handleZoomChange = useCallback((isZoomed: boolean) => {
+    if (isZoomed && isPlaying) {
+      setIsPlaying(false);
+    }
+  }, [isPlaying]);
+
   const handleOpenWith = useCallback(async () => {
     const currentImage = images[currentIndex];
     if (!currentImage) return;
@@ -266,6 +273,7 @@ export default function SlideshowViewer() {
               onSwipeLeft={handleNext}
               onSwipeRight={handlePrevious}
               onSwipeDown={handleSwipeDown}
+              onZoomChange={handleZoomChange}
             />
           </motion.div>
         </AnimatePresence>
