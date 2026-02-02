@@ -25,6 +25,7 @@ export default function SlideshowViewer() {
   const [thumbnails, setThumbnails] = useState<string[]>([]);
   const [autoAdvanceInterval, setAutoAdvanceInterval] = useState(0);
   const [title, setTitle] = useState('Slideshow');
+  const [isLoading, setIsLoading] = useState(true);
   
   // Full-quality image URLs converted for WebView display
   const [convertedUrls, setConvertedUrls] = useState<Map<number, string>>(new Map());
@@ -35,7 +36,10 @@ export default function SlideshowViewer() {
 
   // Load shortcut data - try hook first, fallback to direct localStorage read
   useEffect(() => {
-    if (!shortcutId) return;
+    if (!shortcutId) {
+      setIsLoading(false);
+      return;
+    }
     
     // Try to get from hook state first
     let shortcut = getShortcut(shortcutId);
@@ -66,6 +70,8 @@ export default function SlideshowViewer() {
       
       // Usage is tracked by native SlideshowProxyActivity - no need to track here
     }
+    
+    setIsLoading(false);
   }, [shortcutId, getShortcut]);
 
   // Convert content:// URIs to WebView-accessible URLs for full-quality display
@@ -234,6 +240,45 @@ export default function SlideshowViewer() {
   const currentImageSrc = getImageSource(currentIndex);
   const currentLoadState = imageLoadStates.get(currentIndex) || 'loading';
   const showLoadingIndicator = currentLoadState === 'loading' && Capacitor.isNativePlatform();
+
+  // Loading skeleton state
+  if (isLoading) {
+    return (
+      <div className="fixed inset-0 bg-black flex items-center justify-center">
+        {/* Pulsing skeleton for loading state */}
+        <div className="w-full h-full relative">
+          {/* Image skeleton */}
+          <div className="absolute inset-0 bg-muted/20 animate-pulse" />
+          
+          {/* Top bar skeleton */}
+          <div className="absolute top-0 left-0 right-0 p-4 pt-safe bg-gradient-to-b from-black/60 to-transparent">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-white/20 rounded-full animate-pulse" />
+                <div className="w-24 h-5 bg-white/20 rounded animate-pulse" />
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-16 h-7 bg-white/20 rounded-full animate-pulse" />
+                <div className="w-10 h-10 bg-white/20 rounded-full animate-pulse" />
+              </div>
+            </div>
+          </div>
+          
+          {/* Bottom bar skeleton */}
+          <div className="absolute bottom-0 left-0 right-0 p-4 pb-safe bg-gradient-to-t from-black/60 to-transparent">
+            <div className="flex flex-col items-center gap-2">
+              <div className="w-12 h-4 bg-white/20 rounded animate-pulse" />
+              <div className="flex items-center gap-1.5">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="w-2 h-2 bg-white/20 rounded-full animate-pulse" />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (images.length === 0) {
     return (
