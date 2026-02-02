@@ -1,184 +1,394 @@
 
+# Multi-Photo Slideshow Shortcut Feature
 
-# Header Design Consistency Audit & Premium UX Recommendations
+## Overview
 
-## Current State Analysis
-
-### Header Pattern Comparison
-
-| Tab/Page | Icon Style | Title Style | Title Size | Icon + Title Gap | Menu Position |
-|----------|------------|-------------|------------|------------------|---------------|
-| **Access** | Bare icon (`Zap` in primary color) | Plain text | `text-xl` | `gap-2` | Right |
-| **Reminders** | Icon in rounded box (`Bell` in primary bg) | Plain text | `text-xl` | `gap-3` | Right |
-| **Bookmarks** | Icon in rounded box (`Bookmark` in primary bg) | Muted subtitle + Large title below | `text-sm` label + `text-2xl` title | `gap-2` | Right |
-| **Profile** | Icon in rounded box (`User` in primary bg) | Plain text | `text-xl` | `gap-3` | Right |
-| **My Shortcuts** | Bare icon (`Zap` in primary color) | Plain text | `text-lg` | `gap-2` | N/A (has back button) |
-
-### Identified Inconsistencies
-
-1. **Icon Treatment**: Access and MyShortcuts use bare icons, while Reminders/Bookmarks/Profile use icons inside rounded primary-colored boxes
-2. **Title Hierarchy**: Bookmarks has a two-tier title (small label + large heading), others have single-line titles
-3. **Font Sizes**: Access/Reminders/Profile use `text-xl`, Bookmarks uses `text-2xl` for main title, MyShortcuts uses `text-lg`
-4. **Spacing**: Inconsistent `gap-2` vs `gap-3` between icon and title
-5. **Padding**: Most use `ps-5 pe-5`, MyShortcuts uses `ps-4 pe-4`
+Enable multi-select within the existing **Photo** button flow. When users select multiple images, they get a slideshow shortcut. A subtle toast notification informs users about this behavior without adding any new UI buttons.
 
 ---
 
-## Design Recommendations for Premium Consistency
+## User Flow (Streamlined)
 
-### Option A: Unified Boxed Icon Pattern (Recommended)
-
-Standardize all main tabs to use the **boxed icon** pattern currently used by Reminders/Bookmarks/Profile. This creates a cohesive, premium visual identity.
-
-**Pattern**:
-```
-[Icon in rounded-lg primary bg] + [Title in text-xl font-semibold]
-```
-
-**Benefits**:
-- Creates visual weight and hierarchy
-- Brand-colored boxes add premium polish
-- Consistent recognition across tabs
-- Icons feel intentional, not decorative
-
-### Option B: Unified Bare Icon Pattern
-
-Alternatively, all tabs could use bare primary-colored icons like Access currently does.
-
-**Pattern**:
-```
-[Icon in primary color] + [Title in text-xl font-semibold]
-```
-
-**Benefits**:
-- Lighter, more minimal feel
-- Less visual noise
-- Faster to scan
-
-**Recommendation**: Option A (boxed icons) is more premium and creates stronger visual anchors.
+1. User taps **Photo** → **Create Shortcut**
+2. Native file picker opens with **multi-select enabled** (users can pick 1 or more)
+3. **If 1 image selected**: Existing single-image shortcut flow (no changes)
+4. **If 2+ images selected**: 
+   - Subtle toast appears: "Creating a slideshow with X photos"
+   - Routes to new **SlideshowCustomizer** (reorder, name, icon selection)
+5. Shortcut taps open lightweight **SlideshowViewer** (swipe through, auto-advance, "Open with...")
 
 ---
 
-## Specific Fixes
+## Technical Architecture
 
-### 1. Access Tab Header
-**Current** (line 429-436 in AccessFlow.tsx):
-```tsx
-<div className="flex items-center gap-2">
-  <Zap className="h-5 w-5 text-primary" />
-  <h1 className="text-xl font-semibold text-foreground">{t('access.title')}</h1>
-</div>
-```
+### Phase 1: Data Model Extension
 
-**Proposed**:
-```tsx
-<div className="flex items-center gap-3">
-  <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-    <Zap className="h-4 w-4 text-primary-foreground" />
-  </div>
-  <h1 className="text-xl font-semibold text-foreground">{t('access.title')}</h1>
-</div>
-```
+**File: `src/types/shortcut.ts`**
 
-### 2. My Shortcuts Page Header
-**Current** (line 58-63 in MyShortcuts.tsx):
-```tsx
-<div className="flex items-center gap-2 flex-1 min-w-0">
-  <Zap className="h-5 w-5 text-primary shrink-0" />
-  <h1 className="text-lg font-semibold text-foreground truncate">
-    {t('shortcuts.title')}
-  </h1>
-</div>
-```
+```typescript
+// Existing types extended:
+export type ShortcutType = 'file' | 'link' | 'contact' | 'message' | 'slideshow';
 
-**Proposed**:
-```tsx
-<div className="flex items-center gap-3 flex-1 min-w-0">
-  <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center shrink-0">
-    <Zap className="h-4 w-4 text-primary-foreground" />
-  </div>
-  <h1 className="text-lg font-semibold text-foreground truncate">
-    {t('shortcuts.title')}
-  </h1>
-</div>
-```
-
-### 3. Bookmarks Tab - Simplify Header
-**Current**: Two-tier layout with small label + large title
-
-**Proposed**: Match single-line pattern of other tabs
-```tsx
-<div className="flex items-center gap-3">
-  <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-    <Bookmark className="h-4 w-4 text-primary-foreground" />
-  </div>
-  <h1 className="text-xl font-semibold text-foreground">{t('library.title')}</h1>
-</div>
-```
-
-**Alternative**: Keep two-tier but apply to ALL tabs for rich hierarchy:
-- Small muted label: "BOOKMARKS" / "REMINDERS" / "ACCESS" / "PROFILE"
-- Large title: "Your Saved Links" / "Scheduled Reminders" / "One Tap Access" / "Account"
-
----
-
-## Additional Premium Polish Suggestions
-
-### 1. Header Elevation on Scroll
-Add subtle shadow when content scrolls beneath header:
-```css
-header.scrolled {
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+export interface ShortcutData {
+  // ... existing fields ...
+  
+  // Slideshow-specific fields
+  imageUris?: string[];          // Array of image content:// URIs
+  imageThumbnails?: string[];    // Array of base64 thumbnails (for icon generation & preview)
+  autoAdvanceInterval?: number;  // Auto-advance seconds (0 = off, 3, 5, 10)
 }
 ```
 
-### 2. Standardized Header Padding
-All main tab headers should use:
-```
-pt-header-safe pb-4 ps-5 pe-5
-```
+**File: `src/types/shortcut.ts` - New interface for multi-file sources**
 
-### 3. Icon Box Sizing Consistency
-All boxed icons should be:
-- Container: `h-8 w-8 rounded-lg bg-primary`
-- Icon: `h-4 w-4 text-primary-foreground`
-
-### 4. Gap Standardization
-All icon-to-title gaps should be `gap-3` (12px)
+```typescript
+export interface MultiFileSource {
+  type: 'slideshow';
+  files: Array<{
+    uri: string;
+    mimeType?: string;
+    name?: string;
+    thumbnail?: string;  // base64
+  }>;
+}
+```
 
 ---
 
-## Implementation Plan
+### Phase 2: Native Multi-File Picker
 
-### Phase 1: Icon Consistency ✅ COMPLETE
-1. ✅ Update Access tab header to use boxed icon pattern
-2. ✅ Update MyShortcuts page header to use boxed icon pattern
-3. ✅ Ensure all icon boxes use consistent sizing (`h-8 w-8`, `h-4 w-4` icon)
+**File: `src/plugins/ShortcutPlugin.ts` - Add new method**
 
-### Phase 2: Title Consistency ✅ COMPLETE
-1. ✅ Standardize all main tab titles to `text-xl font-semibold`
-2. ✅ Applied single-line pattern uniformly (simplified Bookmarks header)
-3. ✅ Standardize gap to `gap-3`
+```typescript
+pickMultipleFiles(options?: { 
+  mimeTypes?: string[];
+  maxCount?: number;  // Default 20
+}): Promise<{
+  success: boolean;
+  files?: Array<{
+    uri: string;
+    name?: string;
+    mimeType?: string;
+    size?: number;
+    thumbnail?: string;  // base64 thumbnail (256px)
+  }>;
+  error?: string;
+}>;
+```
 
-### Phase 3: Padding & Spacing ✅ COMPLETE
-1. ✅ Standardize header padding across all tabs (`ps-5 pe-5 pt-header-safe pb-4`)
-2. ✅ Added scroll-based shadow CSS utility (`.header-sticky[data-scrolled="true"]`)
+**File: `native/.../ShortcutPlugin.java` - New method**
+
+- Use `ACTION_OPEN_DOCUMENT` with `EXTRA_ALLOW_MULTIPLE = true`
+- Take persistable URI permissions for each selected file
+- Generate 256px base64 thumbnails for each image
+- Cap at 20 files maximum
 
 ---
+
+### Phase 3: Content Resolver Enhancement
+
+**File: `src/lib/contentResolver.ts`**
+
+Add new function `pickMultipleImages()`:
+
+```typescript
+export async function pickMultipleImages(): Promise<MultiFileSource | null> {
+  if (Capacitor.isNativePlatform()) {
+    const result = await ShortcutPlugin.pickMultipleFiles({
+      mimeTypes: ['image/*'],
+      maxCount: 20,
+    });
+    // ... handle result
+  }
+  // Web fallback with multiple file input
+}
+```
+
+---
+
+### Phase 4: AccessFlow Integration
+
+**File: `src/components/AccessFlow.tsx`**
+
+Modify `handleSelectFile` for `'image'` filter:
+
+```typescript
+const handleSelectFile = async (filter: FileTypeFilter, actionMode: ActionMode) => {
+  if (filter === 'image' && actionMode === 'shortcut') {
+    // Use multi-select picker for images when creating shortcuts
+    const result = await pickMultipleImages();
+    
+    if (result && result.files.length > 1) {
+      // Show subtle toast
+      toast.info(`Creating a slideshow with ${result.files.length} photos`);
+      
+      // Route to slideshow customizer
+      setSlideshowSource(result);
+      setStep('slideshow-customize');
+      return;
+    } else if (result && result.files.length === 1) {
+      // Single image - existing flow
+      setContentSource({
+        type: 'file',
+        uri: result.files[0].uri,
+        mimeType: result.files[0].mimeType,
+        name: result.files[0].name,
+      });
+      setStep('customize');
+      return;
+    }
+    return;
+  }
+  
+  // Existing single-file flow for other types
+  const file = await pickFile(filter);
+  // ...
+};
+```
+
+---
+
+### Phase 5: Slideshow Customizer Component
+
+**New File: `src/components/SlideshowCustomizer.tsx`**
+
+Features:
+- Horizontal scrollable thumbnail strip with drag-to-reorder (uses existing `@dnd-kit`)
+- Name input (auto-generates "X Photos" default)
+- Icon options:
+  - **Grid composite**: 2x2 thumbnail mosaic from first 4 images (default)
+  - **Cover image**: Use first image
+  - **Emoji/Text**: Standard options
+- Auto-advance toggle (Off, 3s, 5s, 10s)
+- Photo count badge
+
+---
+
+### Phase 6: Grid Icon Generator
+
+**New File: `src/lib/slideshowIconGenerator.ts`**
+
+Canvas-based function to generate 2x2 grid composite from 4 thumbnails:
+
+```typescript
+export async function generateGridIcon(thumbnails: string[]): Promise<string> {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 256;
+  const ctx = canvas.getContext('2d');
+  
+  // Draw 4 images in 2x2 grid with 4px gap
+  // Returns base64 data URL
+}
+```
+
+---
+
+### Phase 7: Slideshow Viewer Page
+
+**New File: `src/pages/SlideshowViewer.tsx`**
+
+Lightweight, focused viewer:
+- **URL Pattern**: `/slideshow/:shortcutId`
+- **Layout**: Fullscreen dark background, centered image
+- **Navigation**: Swipe left/right (using CSS scroll-snap or framer-motion gestures)
+- **Top bar** (auto-fade after 3s):
+  - Back button
+  - Image counter: "3 / 12"
+  - "Open with..." button (opens current image in external gallery app)
+- **Auto-advance**: Play/Pause FAB in bottom-right corner
+- **Gestures**:
+  - Swipe down: Close viewer
+  - Double-tap: Toggle fit/fill
+
+---
+
+### Phase 8: Native Slideshow Proxy Activity
+
+**New File: `native/.../SlideshowProxyActivity.java`**
+
+When home screen shortcut is tapped:
+1. Record usage via `NativeUsageTracker`
+2. Launch WebView to `/slideshow/:shortcutId`
+3. Pass shortcut ID as intent extra
+
+**File: `AndroidManifest.xml`** - Register new activity
+
+---
+
+### Phase 9: Shortcut Manager Updates
+
+**File: `src/lib/shortcutManager.ts`**
+
+Add slideshow case to `buildContentIntent()`:
+
+```typescript
+if (shortcut.type === 'slideshow') {
+  return {
+    action: 'app.onetap.OPEN_SLIDESHOW',
+    data: `onetap://slideshow/${shortcut.id}`,
+    extras: {
+      shortcut_id: shortcut.id,
+    },
+  };
+}
+```
+
+---
+
+### Phase 10: useShortcuts Hook Extension
+
+**File: `src/hooks/useShortcuts.ts`**
+
+Add `createSlideshowShortcut` method:
+
+```typescript
+const createSlideshowShortcut = useCallback((
+  images: Array<{ uri: string; thumbnail?: string }>,
+  name: string,
+  icon: ShortcutIcon,
+  autoAdvanceInterval?: number
+): ShortcutData => {
+  const shortcut: ShortcutData = {
+    id: crypto.randomUUID(),
+    name,
+    type: 'slideshow',
+    contentUri: '',  // Not used for slideshows
+    icon,
+    createdAt: Date.now(),
+    usageCount: 0,
+    imageUris: images.map(i => i.uri),
+    imageThumbnails: images.map(i => i.thumbnail).filter(Boolean),
+    autoAdvanceInterval,
+  };
+  
+  const updated = [...shortcuts, shortcut];
+  saveShortcuts(updated);
+  return shortcut;
+}, [shortcuts, saveShortcuts]);
+```
+
+---
+
+### Phase 11: Routing
+
+**File: `src/App.tsx`**
+
+Add route:
+
+```tsx
+<Route path="/slideshow/:shortcutId" element={<SlideshowViewer />} />
+```
+
+---
+
+## Files to Create
+
+| File | Purpose |
+|------|---------|
+| `src/pages/SlideshowViewer.tsx` | Lightweight fullscreen photo viewer |
+| `src/components/SlideshowCustomizer.tsx` | Multi-image configuration UI with reordering |
+| `src/lib/slideshowIconGenerator.ts` | Canvas-based 2x2 grid icon generation |
+| `native/.../SlideshowProxyActivity.java` | Native tap handler for home screen shortcut |
 
 ## Files to Modify
 
 | File | Changes |
 |------|---------|
-| `src/components/AccessFlow.tsx` | Update header icon to boxed pattern, adjust gap to `gap-3` |
-| `src/pages/MyShortcuts.tsx` | Update header icon to boxed pattern, adjust gap to `gap-3` |
-| `src/components/BookmarkLibrary.tsx` | Simplify to single-line title OR apply two-tier pattern to all tabs |
+| `src/types/shortcut.ts` | Add `slideshow` type, `imageUris`, `imageThumbnails`, `autoAdvanceInterval` |
+| `src/plugins/ShortcutPlugin.ts` | Add `pickMultipleFiles` interface |
+| `native/.../ShortcutPlugin.java` | Implement multi-file picker with thumbnails |
+| `src/lib/contentResolver.ts` | Add `pickMultipleImages()` function |
+| `src/components/AccessFlow.tsx` | Route multi-image selection to slideshow flow |
+| `src/lib/shortcutManager.ts` | Add slideshow intent builder |
+| `src/hooks/useShortcuts.ts` | Add `createSlideshowShortcut` method |
+| `src/App.tsx` | Add `/slideshow/:shortcutId` route |
+| `AndroidManifest.xml` | Register SlideshowProxyActivity |
+| `src/i18n/locales/en.json` | Add slideshow-related translation strings |
 
 ---
 
-## Summary
+## UX Details
 
-The core issue is **inconsistent visual treatment** of header icons across tabs. The premium fix is to standardize on the **boxed icon pattern** (primary background with white icon) used by Reminders, Bookmarks, and Profile. This creates a cohesive, intentional feel that reinforces the app's premium identity.
+### Toast Behavior
+- **Trigger**: When 2+ photos selected
+- **Message**: "Creating a slideshow with X photos"
+- **Duration**: 2 seconds
+- **Position**: Top (default sonner position)
+- **Style**: Info variant (subtle, not intrusive)
 
-The implementation is low-effort (updating 2-3 components) but high-impact for visual consistency and perceived quality.
+### Slideshow Viewer Features
+- Tap to show/hide controls
+- Swipe navigation with momentum
+- Image counter (e.g., "3 / 12")
+- "Open with..." sends current image to external gallery app
+- Auto-advance: 3s / 5s / 10s intervals with pause on touch
+- Close: Back button, swipe down, or Android back gesture
 
+### Icon Generation
+- **Default**: 2x2 grid composite of first 4 images
+- **Fallback**: Cover image (first image) if grid generation fails
+- **Alternative**: Emoji (🖼️) or Text icon
+
+---
+
+## Constraints & Limits
+
+| Constraint | Value | Rationale |
+|------------|-------|-----------|
+| Maximum images | 20 | Storage limits, UX practicality |
+| Thumbnail size | 256px | Balance quality vs. storage |
+| Auto-advance intervals | Off, 3s, 5s, 10s | User research sweet spots |
+| Grid icon size | 256x256 | Native shortcut icon standard |
+
+---
+
+## Implementation Phases
+
+### Phase 1: Foundation (Native)
+- Update `ShortcutPlugin.java` with `pickMultipleFiles` method
+- Update `ShortcutPlugin.ts` TypeScript interface
+- Update `shortcut.ts` types with slideshow fields
+
+### Phase 2: Content Resolution
+- Add `pickMultipleImages()` to `contentResolver.ts`
+- Web fallback with `<input multiple>`
+
+### Phase 3: AccessFlow Routing
+- Detect multi-image selection in `handleSelectFile`
+- Show toast notification
+- Route to new slideshow step
+
+### Phase 4: Customizer UI
+- Create `SlideshowCustomizer.tsx`
+- Implement drag-to-reorder with `@dnd-kit`
+- Create `slideshowIconGenerator.ts` for grid icons
+
+### Phase 5: Viewer
+- Create `SlideshowViewer.tsx`
+- Implement swipe navigation with framer-motion
+- Add auto-advance timer logic
+
+### Phase 6: Native Integration
+- Create `SlideshowProxyActivity.java`
+- Update `shortcutManager.ts` intent builder
+- Register activity in AndroidManifest
+
+### Phase 7: Polish
+- Add translations
+- Test edge cases (1 image, max images, cancelled picker)
+- Performance optimization for large slideshows
+
+---
+
+## Alignment with Product Philosophy
+
+This feature embodies the OneTap ideology:
+
+- **One tap to what matters**: Single tap from home screen opens curated photo collection
+- **Distraction-free**: No feeds, no suggestions, no editing - just viewing
+- **Non-competitive**: Not replacing gallery apps; providing focused access to specific sets
+- **No new UI buttons**: Multi-select hidden within existing Photo flow
+- **Subtle guidance**: Toast notification educates without interrupting
+- **Local-first**: All photos stored locally, no cloud dependency
+- **Premium feel**: Smooth swipe transitions, auto-fade controls, gesture-driven
