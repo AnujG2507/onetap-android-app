@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Phone, X, UserCircle2 } from 'lucide-react';
+import { ArrowLeft, Phone, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { IconPicker } from '@/components/IconPicker';
 import { ContactAvatar, getInitials } from '@/components/ContactAvatar';
 import { QuickMessagesEditor } from '@/components/QuickMessagesEditor';
+import { PhoneNumberInput } from '@/components/PhoneNumberInput';
 import ShortcutPlugin from '@/plugins/ShortcutPlugin';
+import { parsePhone } from '@/lib/phoneUtils';
 import type { ShortcutIcon } from '@/types/shortcut';
 
 interface ContactData {
@@ -46,6 +48,7 @@ export function ContactShortcutCustomizer({
   const { t } = useTranslation();
   const [name, setName] = useState(contact?.name || '');
   const [phoneNumber, setPhoneNumber] = useState(contact?.phoneNumber || '');
+  const [isPhoneValid, setIsPhoneValid] = useState(false);
   const [isPickingContact, setIsPickingContact] = useState(false);
   const [pickedContact, setPickedContact] = useState<ContactData | null>(contact || null);
   const [contactPhoto, setContactPhoto] = useState<string | null>(contact?.photoBase64 || null);
@@ -74,14 +77,19 @@ export function ContactShortcutCustomizer({
     try {
       const result = await ShortcutPlugin.pickContact();
       if (result.success && result.phoneNumber) {
+        // Parse the phone number to get E.164 format
+        const parsed = parsePhone(result.phoneNumber);
+        const normalizedPhone = parsed?.e164 || result.phoneNumber;
+        
         const newContact = {
           name: result.name,
-          phoneNumber: result.phoneNumber,
+          phoneNumber: normalizedPhone,
           photoUri: result.photoUri,
           photoBase64: result.photoBase64,
         };
         setPickedContact(newContact);
-        setPhoneNumber(result.phoneNumber);
+        setPhoneNumber(normalizedPhone);
+        setIsPhoneValid(parsed !== null);
         
         // Use contact photo as icon if available
         if (result.photoBase64) {
@@ -110,6 +118,21 @@ export function ContactShortcutCustomizer({
     }
   };
 
+  // Handle phone number change from PhoneNumberInput
+  const handlePhoneChange = (e164: string, valid: boolean) => {
+    setPhoneNumber(e164);
+    setIsPhoneValid(valid);
+    
+    // If cleared, reset contact data
+    if (!e164) {
+      setPickedContact(null);
+      setContactPhoto(null);
+      setName('');
+      setQuickMessages([]);
+      setIcon({ type: 'emoji', value: mode === 'dial' ? '📞' : '💬' });
+    }
+  };
+
   // Generate default name
   useEffect(() => {
     if (!name && pickedContact?.name) {
@@ -133,7 +156,7 @@ export function ContactShortcutCustomizer({
     });
   };
 
-  const isValid = phoneNumber.length > 0;
+  const isValid = phoneNumber.length > 0 && isPhoneValid;
 
   return (
     <div className="min-h-screen bg-background flex flex-col animate-fade-in">
@@ -175,50 +198,15 @@ export function ContactShortcutCustomizer({
           </div>
         )}
 
-        {/* Phone Number Input with Contact Picker */}
+        {/* Phone Number Input with Country Picker */}
         <div className="space-y-2">
-          <Label htmlFor="phone">{t('contact.phoneNumber')}</Label>
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <Input
-                id="phone"
-                type="tel"
-                placeholder={t('contact.phonePlaceholder')}
-                value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
-                className="text-lg pe-10"
-              />
-              {phoneNumber && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPhoneNumber('');
-                    setPickedContact(null);
-                    setContactPhoto(null);
-                    setName('');
-                    setQuickMessages([]);
-                    // Reset icon to default
-                    setIcon({ type: 'emoji', value: mode === 'dial' ? '📞' : '💬' });
-                  }}
-                  className="absolute end-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
-                  aria-label={t('common.clearText')}
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              onClick={handlePickContact}
-              disabled={isPickingContact}
-              className="h-12 w-12 shrink-0"
-              aria-label={t('contact.pickFromContacts')}
-            >
-              <UserCircle2 className="h-5 w-5" />
-            </Button>
-          </div>
+          <Label>{t('contact.phoneNumber')}</Label>
+          <PhoneNumberInput
+            value={phoneNumber}
+            onChange={handlePhoneChange}
+            onPickContact={handlePickContact}
+            disabled={isPickingContact}
+          />
         </div>
 
         {/* Shortcut Name */}

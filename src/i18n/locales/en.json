@@ -804,5 +804,14 @@
     "typeVideo": "Video",
     "typePDF": "PDF",
     "typeFile": "File"
+  },
+  "phoneInput": {
+    "selectCountry": "Select country",
+    "searchCountry": "Search countries...",
+    "popularCountries": "Popular",
+    "allCountries": "All countries",
+    "invalidNumber": "Enter a valid phone number",
+    "tooShort": "Number is too short",
+    "tooLong": "Number is too long"
   }
 }
