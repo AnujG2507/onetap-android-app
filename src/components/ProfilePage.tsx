@@ -257,8 +257,8 @@ export function ProfilePage({}: ProfilePageProps = {}) {
   // Not signed in state
   if (!user) {
     return (
-      <ScrollArea className="flex-1">
-        <div className="flex flex-col pb-20">
+      <ScrollArea className="flex-1" viewportClassName="overflow-x-hidden">
+        <div className="flex flex-col pb-20 min-w-0 w-full">
         {/* Header with Menu */}
         <header className="ps-5 pe-5 pt-header-safe pb-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -305,7 +305,7 @@ export function ProfilePage({}: ProfilePageProps = {}) {
         </div>
 
         {/* Usage Insights for signed-out users too */}
-        <div className="px-5">
+        <div className="px-5 w-full min-w-0 overflow-hidden">
           <UsageInsights />
         </div>
         
@@ -342,8 +342,8 @@ export function ProfilePage({}: ProfilePageProps = {}) {
   [rawAvatarUrl]);
 
   return (
-    <ScrollArea className="flex-1">
-      <div className="flex flex-col pb-20">
+    <ScrollArea className="flex-1" viewportClassName="overflow-x-hidden">
+      <div className="flex flex-col pb-20 min-w-0 w-full">
       {/* Header with Menu */}
       <header className="ps-5 pe-5 pt-header-safe pb-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -448,7 +448,7 @@ export function ProfilePage({}: ProfilePageProps = {}) {
       </Card>
 
       {/* Usage Insights */}
-      <div className="mb-4">
+      <div className="mb-4 w-full min-w-0 overflow-hidden">
         <UsageInsights />
       </div>
 
