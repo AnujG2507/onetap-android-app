@@ -1,122 +1,208 @@
 
-# Fix PDF Page Background Extending to Screen Edges
+# Fix Image Loading in Shortcut/Reminder Creation Journey
 
-## Problem
+## Problem Summary
 
-When zoomed out in train view, the PDF pages' gray/white background extends to the screen edges on left and right, creating an unappealing visual. Google Drive shows pages as centered narrow tiles with dark background on the sides.
+Image previews are not loading correctly during the shortcut creation journey. The root cause is a combination of:
 
-## Root Cause
+1. **Missing thumbnail data** when picking single images from the multi-picker
+2. **Native single file picker doesn't generate thumbnails** for images
+3. **`generateThumbnail()` returns raw `content://` URIs** for images, which WebView cannot display
+4. **No fallback mechanism** when `content://` URIs fail to load in the browser
 
-In the current implementation:
-- Page `ImageView` width is set to `MATCH_PARENT` (fills entire screen width)
-- Only the height is scaled when zoomed out (`getScaledPageHeight()`)
-- The white/gray background (`0xFFFFFFFF` or `0xFFF5F5F5`) extends across the full width
+---
 
-This means when zoomed to 0.5x, the page image scales down visually but the container still fills the screen width with its background color.
+## Root Cause Analysis
 
-## Solution
+### The Image Loading Flow
 
-Scale both width AND height when zoomed out (< 1.0x), and center the page tiles horizontally:
+When a user picks an image on Android:
 
-### Changes Required
+1. Native picker returns a `content://` URI
+2. This URI is passed to `ShortcutCustomizer`
+3. `generateThumbnail(source)` is called, which returns `source.uri` (the `content://` URI)
+4. This URI is set as the thumbnail and icon value
+5. `ImageWithFallback` tries to render it in an `<img>` tag
+6. **FAILS** because WebView cannot directly load `content://` URIs
 
-**1. Create zoom-aware page width calculator**
+### Why Multi-Picker Sometimes Works
 
-Add a new method `getScaledPageWidth()` that mirrors `getScaledPageHeight()`:
+The multi-picker (`pickMultipleFiles`) generates a base64 thumbnail on the native side using `generateImageThumbnailBase64()`. However, when a single image is selected from this picker, the thumbnail data is not passed to the ContentSource in `AccessFlow.tsx`.
 
-```java
-private int getScaledPageWidth(int pageIndex) {
-    // At or above 1.0x: Full screen width
-    if (currentZoom >= 1.0f) {
-        return screenWidth;
-    }
-    // When zoomed out: Scale width proportionally
-    return (int) (screenWidth * currentZoom);
+### Why Single File Picker Never Works
+
+The single file picker (`pickFile`) doesn't generate any thumbnail data for images, so there's no base64 fallback available.
+
+---
+
+## Solution Design
+
+### Fix 1: Pass thumbnail data when single image selected from multi-picker
+
+**File: `src/components/AccessFlow.tsx`**
+
+Add the missing `thumbnailData` property when a single image is selected:
+
+```typescript
+} else if (result && result.files.length === 1) {
+  // Single image - use existing flow
+  setContentSource({
+    type: 'file',
+    uri: result.files[0].uri,
+    mimeType: result.files[0].mimeType,
+    name: result.files[0].name,
+    thumbnailData: result.files[0].thumbnail,  // ADD THIS
+  });
+  setStep('customize');
+  return;
 }
 ```
 
-**2. Update adapter to set explicit width**
+### Fix 2: Generate thumbnail in native single file picker for images
 
-In `onCreateViewHolder()`:
-- Change width from `MATCH_PARENT` to an explicit value
-- Center the ImageView using a wrapper or gravity
+**File: `native/android/app/src/main/java/app/onetap/shortcuts/plugins/ShortcutPlugin.java`**
 
-In `onBindViewHolder()`:
-- Update both width and height based on zoom level:
+In the `pickFileResult()` callback, add thumbnail generation for images:
 
 ```java
-ViewGroup.LayoutParams params = holder.imageView.getLayoutParams();
-params.width = getScaledPageWidth(position);
-params.height = getScaledPageHeight(position);
-holder.imageView.setLayoutParams(params);
+// After getting metadata...
+String thumbnail = null;
+
+// Generate thumbnail for images
+if (mimeType != null && mimeType.startsWith("image/")) {
+    thumbnail = generateImageThumbnailBase64(context, uri, 256);
+}
+
+ret.put("success", true);
+ret.put("uri", uri.toString());
+if (mimeType != null) ret.put("mimeType", mimeType);
+if (name != null) ret.put("name", name);
+ret.put("size", size);
+if (thumbnail != null) ret.put("thumbnail", thumbnail);  // ADD THIS
+
+call.resolve(ret);
 ```
 
-**3. Center page tiles horizontally**
+### Fix 3: Update pickFile() in contentResolver.ts to use thumbnail
 
-Wrap each page in a `FrameLayout` with `MATCH_PARENT` width and transparent/dark background, then center the actual ImageView inside:
+**File: `src/lib/contentResolver.ts`**
 
-```java
-// In onCreateViewHolder():
-FrameLayout wrapper = new FrameLayout(parent.getContext());
-wrapper.setLayoutParams(new RecyclerView.LayoutParams(
-    ViewGroup.LayoutParams.MATCH_PARENT,
-    ViewGroup.LayoutParams.WRAP_CONTENT
-));
+Update the native file picker response handling to include thumbnail data:
 
-ImageView imageView = new ImageView(parent.getContext());
-FrameLayout.LayoutParams imageParams = new FrameLayout.LayoutParams(
-    ViewGroup.LayoutParams.WRAP_CONTENT,
-    ViewGroup.LayoutParams.WRAP_CONTENT
-);
-imageParams.gravity = Gravity.CENTER_HORIZONTAL;
-imageView.setLayoutParams(imageParams);
-// ... rest of setup
-
-wrapper.addView(imageView);
-return new PageViewHolder(wrapper, imageView);
+```typescript
+return {
+  type: 'file',
+  uri: picked.uri,
+  mimeType: picked.mimeType,
+  name: picked.name,
+  fileSize: picked.size,
+  thumbnailData: picked.thumbnail,  // ADD THIS - from native picker
+  isLargeFile: typeof picked.size === 'number' ? picked.size > VIDEO_CACHE_THRESHOLD : undefined,
+};
 ```
 
-**4. Update PageViewHolder to hold wrapper reference**
+### Fix 4: Update generateThumbnail() to prefer thumbnailData for images
 
-```java
-class PageViewHolder extends RecyclerView.ViewHolder {
-    FrameLayout wrapper;
-    ImageView imageView;
-    int pageIndex = -1;
-    
-    PageViewHolder(FrameLayout wrapper, ImageView imageView) {
-        super(wrapper);
-        this.wrapper = wrapper;
-        this.imageView = imageView;
+**File: `src/lib/contentResolver.ts`**
+
+Modify `generateThumbnail()` to check for existing thumbnailData first:
+
+```typescript
+export async function generateThumbnail(source: ContentSource): Promise<string | null> {
+  // If we already have thumbnail data (from native), use it
+  if (source.thumbnailData) {
+    const normalized = normalizeBase64(source.thumbnailData);
+    if (normalized) return normalized;
+  }
+  
+  if (source.mimeType?.startsWith('image/')) {
+    // For content:// URIs on native, we can't load them in JS
+    // Return null and rely on the existing thumbnailData
+    if (Capacitor.isNativePlatform() && source.uri.startsWith('content://')) {
+      console.log('[ContentResolver] Image has content:// URI - thumbnail should come from native');
+      return null;
     }
+    // For blob: or http: URLs, we can use them directly
+    return source.uri;
+  }
+  
+  // ... rest of the function stays the same
 }
 ```
 
-**5. Ensure RecyclerView background is dark**
+### Fix 5: Update ShortcutCustomizer to use source.thumbnailData
 
-The RecyclerView already has a dark background (`0xFF1A1A1A`), so when the page tiles become narrower, the dark background will show on the sides.
+**File: `src/components/ShortcutCustomizer.tsx`**
+
+Use the source's thumbnail data when available:
+
+```typescript
+useEffect(() => {
+  // If we already have thumbnailData from native picker, use it immediately
+  if (source.thumbnailData) {
+    const normalized = normalizeBase64(source.thumbnailData);
+    if (normalized) {
+      setThumbnail(normalized);
+      setIcon({ type: 'thumbnail', value: normalized });
+      setIsLoadingThumbnail(false);
+      return;
+    }
+  }
+  
+  // Otherwise try to generate thumbnail
+  setIsLoadingThumbnail(true);
+  generateThumbnail(source)
+    .then((thumb) => {
+      if (thumb) {
+        setThumbnail(thumb);
+        setIcon({ type: 'thumbnail', value: thumb });
+      }
+    })
+    .finally(() => {
+      setIsLoadingThumbnail(false);
+    });
+}, [source]);
+```
+
+---
 
 ## Files to Modify
 
 | File | Changes |
 |------|---------|
-| `NativePdfViewerActivity.java` | Add `getScaledPageWidth()`, update adapter to wrap ImageView in centered FrameLayout, update `onBindViewHolder()` to set both width and height |
+| `src/components/AccessFlow.tsx` | Add `thumbnailData` when single image selected from multi-picker |
+| `native/android/.../ShortcutPlugin.java` | Generate thumbnail in `pickFileResult()` for images |
+| `src/lib/contentResolver.ts` | Pass thumbnail from native picker; update `generateThumbnail()` |
+| `src/components/ShortcutCustomizer.tsx` | Use `source.thumbnailData` when available |
 
-## Visual Result
-
-| Scenario | Before | After |
-|----------|--------|-------|
-| Zoom out (train view) | Gray/white background extends to screen edges | Narrow page tiles centered with dark background on sides |
-| Zoom 1.0x (fit-width) | Page fills screen width | Page fills screen width (no change) |
-| Zoom > 1.0x | Normal zoom behavior | Normal zoom behavior (no change) |
+---
 
 ## Testing Checklist
 
-- [ ] Zoom out to 0.5x - pages should be narrow with dark sides
-- [ ] Zoom out fully (0.2x) - 8-10 narrow pages visible, centered
-- [ ] Zoom to 1.0x - pages fill screen width (no visible dark sides)
-- [ ] Zoom in to 2.5x - normal panning and zoom behavior
-- [ ] Scroll through document - pages remain centered
-- [ ] Fast scroll still works correctly
-- [ ] Page shadows still visible
-- [ ] Resume position works correctly
+- [ ] Pick a single photo (via Photo button) → preview loads in customizer
+- [ ] Pick multiple photos → slideshow thumbnail grid loads correctly
+- [ ] Pick single photo from multi-select → preview loads in customizer  
+- [ ] Pick a video → preview still works (uses video frame extraction)
+- [ ] Pick a PDF/document → emoji fallback still works
+- [ ] URL shortcuts → platform icons and favicons still work
+- [ ] Shortcut icon in home screen preview updates correctly
+- [ ] Test on both native Android and web fallback
+
+---
+
+## Technical Notes
+
+### Why content:// URIs Don't Work in WebView
+
+Android's `content://` URIs require special permissions to access. While the native app has these permissions, the WebView running the Capacitor app cannot directly load them in `<img>` tags. The solution is to:
+
+1. Use `Capacitor.convertFileSrc()` for full-resolution display (used in SlideshowViewer)
+2. Generate base64 thumbnails on the native side for preview purposes (our approach)
+
+### Why Native Thumbnail Generation is Preferred
+
+Generating thumbnails on the native side (Java/Kotlin) is more reliable because:
+- It has direct access to the content provider
+- It can handle EXIF rotation correction
+- It works with all image formats Android supports
+- It doesn't require the WebView to have file access permissions
