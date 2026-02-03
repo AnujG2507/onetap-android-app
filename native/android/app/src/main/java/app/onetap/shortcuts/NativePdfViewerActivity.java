@@ -398,21 +398,31 @@ public class NativePdfViewerActivity extends Activity {
             canvas.save();
             
             if (isGestureActive) {
-                // SMOOTH ZOOM: During gesture/animation, use canvas scaling for ALL zoom levels
-                // This avoids triggering layout updates that cause flickering during pinch
-                if (zoomLevel < 1.0f) {
-                    // ZOOMING OUT: Always scale from screen center, no pan
-                    // This ensures content stays perfectly centered during zoom-out gestures
+                // SMOOTH ZOOM: During gesture, apply DELTA scaling from committed state
+                // This prevents the "squeeze" effect when starting gesture at zoomed-out state
+                // Layouts are already scaled to committedZoom, so we only apply the difference
+                float visualScale = zoomLevel / committedZoom;
+                
+                if (visualScale != 1.0f) {
                     float centerX = getWidth() / 2f;
                     float centerY = getHeight() / 2f;
-                    canvas.scale(zoomLevel, zoomLevel, centerX, centerY);
-                } else {
-                    // ZOOMING IN: Use focal point and pan
-                    float scaledContentWidth = getWidth() * zoomLevel;
-                    float effectivePanX = (scaledContentWidth > getWidth()) ? panX : 0;
-                    canvas.translate(effectivePanX, panY);
-                    canvas.scale(zoomLevel, zoomLevel, focalX, focalY);
+                    
+                    if (zoomLevel < 1.0f) {
+                        // ZOOMING OUT: Scale from center, no pan
+                        canvas.scale(visualScale, visualScale, centerX, centerY);
+                    } else if (committedZoom < 1.0f) {
+                        // TRANSITIONING from zoomed-out to zoomed-in during gesture
+                        // Scale from center during this transition
+                        canvas.scale(visualScale, visualScale, centerX, centerY);
+                    } else {
+                        // ZOOMING IN from >= 1.0x: Use focal point and pan
+                        float scaledContentWidth = getWidth() * zoomLevel;
+                        float effectivePanX = (scaledContentWidth > getWidth()) ? panX : 0;
+                        canvas.translate(effectivePanX, panY);
+                        canvas.scale(visualScale, visualScale, focalX, focalY);
+                    }
                 }
+                // visualScale == 1.0f means no transform needed (gesture just started)
             } else if (committedZoom < 1.0f && zoomLevel < 1.0f) {
                 // COMMITTED ZOOMED OUT: Layouts already scaled via notifyDataSetChanged
                 // No canvas transform needed - pages are centered via Gravity.CENTER_HORIZONTAL
