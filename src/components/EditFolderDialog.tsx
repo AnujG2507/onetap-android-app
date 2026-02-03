@@ -46,7 +46,6 @@ export function EditFolderDialog({
     if (!trimmed) {
       toast({
         title: t('folders.enterName'),
-        duration: 2000,
       });
       return;
     }
@@ -57,7 +56,6 @@ export function EditFolderDialog({
         toast({
           title: t('folders.folderExists'),
           description: t('folders.folderExistsDesc'),
-          duration: 2000,
         });
         return;
       }
@@ -73,7 +71,6 @@ export function EditFolderDialog({
     
     toast({
       title: t('folders.folderUpdated'),
-      duration: 2000,
     });
     triggerHaptic('success');
     onOpenChange(false);

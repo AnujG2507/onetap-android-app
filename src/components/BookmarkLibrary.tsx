@@ -378,7 +378,6 @@ export function BookmarkLibrary({
           refreshLinks();
           toast({
             title: `Moved to ${targetFolder || 'Uncategorized'}`,
-            duration: 2000,
           });
           triggerHaptic('success');
         }
@@ -427,7 +426,6 @@ export function BookmarkLibrary({
     toast({
       title: 'Folder deleted',
       description: 'Bookmarks moved to Uncategorized',
-      duration: 2000,
     });
     triggerHaptic('warning');
   };
@@ -483,7 +481,6 @@ export function BookmarkLibrary({
     refreshLinks();
     toast({
       title: 'Bookmark updated',
-      duration: 2000,
     });
   };
 
@@ -512,7 +509,6 @@ export function BookmarkLibrary({
     } else {
       toast({
         title: 'Moved to trash',
-        duration: 2000,
       });
     }
   };
@@ -525,7 +521,6 @@ export function BookmarkLibrary({
     refreshLinks();
     toast({
       title: 'Bookmark permanently deleted',
-      duration: 2000,
     });
     triggerHaptic('warning');
   };
@@ -537,14 +532,12 @@ export function BookmarkLibrary({
       setShowAddForm(false);
       toast({
         title: 'Bookmark saved',
-        duration: 2000,
       });
       triggerHaptic('success');
     } else if (result.status === 'duplicate') {
       toast({
         title: 'Already saved',
         description: 'This link is already in your bookmarks',
-        duration: 3000,
       });
     }
   };
@@ -554,7 +547,6 @@ export function BookmarkLibrary({
     refreshLinks();
     toast({
       title: 'Selection cleared',
-      duration: 2000,
     });
     triggerHaptic('warning');
   };
@@ -577,7 +569,6 @@ export function BookmarkLibrary({
       title: permanent 
         ? t('library.bulkDeletedPermanent', { count: selectedCount })
         : t('library.bulkDeleted', { count: selectedCount }),
-      duration: 2000,
     });
     triggerHaptic('warning');
   };
@@ -588,7 +579,6 @@ export function BookmarkLibrary({
     });
     toast({
       title: `Creating ${shortlistedLinks.length} shortcut${shortlistedLinks.length > 1 ? 's' : ''}...`,
-      duration: 2000,
     });
     triggerHaptic('success');
   };
@@ -603,7 +593,6 @@ export function BookmarkLibrary({
     toast({
       title: `${count} bookmark${count > 1 ? 's' : ''} moved`,
       description: `Moved to ${folderName || 'Uncategorized'}`,
-      duration: 2000,
     });
     triggerHaptic('success');
   };

@@ -32,7 +32,6 @@ export function CreateFolderDialog({ onFolderCreated }: CreateFolderDialogProps)
     if (!trimmed) {
       toast({
         title: t('folders.enterName'),
-        duration: 2000,
       });
       return;
     }
@@ -41,7 +40,6 @@ export function CreateFolderDialog({ onFolderCreated }: CreateFolderDialogProps)
       toast({
         title: t('folders.folderExists'),
         description: t('folders.folderExistsDesc'),
-        duration: 2000,
       });
       return;
     }
@@ -51,7 +49,6 @@ export function CreateFolderDialog({ onFolderCreated }: CreateFolderDialogProps)
     if (success) {
       toast({
         title: t('folders.folderCreated'),
-        duration: 2000,
       });
       triggerHaptic('success');
       setFolderName('');

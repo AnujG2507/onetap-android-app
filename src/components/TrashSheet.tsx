@@ -157,7 +157,6 @@ export function TrashSheet({ open: controlledOpen, onOpenChange, onRestored, onO
       toast({
         title: t('trash.restored'),
         description: restored.title,
-        duration: 2000,
       });
       triggerHaptic('success');
     }
@@ -170,7 +169,6 @@ export function TrashSheet({ open: controlledOpen, onOpenChange, onRestored, onO
     setSelectedId(null);
     toast({
       title: t('trash.permanentlyDeleted'),
-      duration: 2000,
     });
     triggerHaptic('warning');
   };
@@ -182,7 +180,6 @@ export function TrashSheet({ open: controlledOpen, onOpenChange, onRestored, onO
     toast({
       title: t('trash.trashEmptied'),
       description: t('trash.trashEmptiedDesc'),
-      duration: 2000,
     });
     triggerHaptic('warning');
   };
@@ -195,7 +192,6 @@ export function TrashSheet({ open: controlledOpen, onOpenChange, onRestored, onO
     toast({
       title: t('trash.allRestored'),
       description: t('trash.allRestoredDesc', { count: restored.length }),
-      duration: 2000,
     });
     triggerHaptic('success');
   };
