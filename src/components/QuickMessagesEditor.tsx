@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, X, GripVertical, MessageCircle } from 'lucide-react';
+import { Plus, X, GripVertical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -53,14 +53,9 @@ export function QuickMessagesEditor({
 
   return (
     <div className="space-y-3 landscape:space-y-2">
-      <div className="flex items-center justify-between">
-        <Label className="text-sm landscape:text-xs font-medium text-foreground">
-          {t('whatsapp.quickMessages', 'Quick messages')}
-        </Label>
-        <span className="text-xs landscape:text-[10px] text-muted-foreground">
-          {t('whatsapp.optional', 'Optional')}
-        </span>
-      </div>
+      <Label className="text-sm landscape:text-xs font-medium text-foreground">
+        {t('whatsapp.quickMessages', 'Quick messages')}
+      </Label>
       
       <p className="text-xs landscape:text-[10px] text-muted-foreground">
         {t('whatsapp.quickMessagesHint', 'Messages open as drafts for you to review and send.')}
@@ -141,15 +136,6 @@ export function QuickMessagesEditor({
         </button>
       ) : null}
 
-      {/* Behavior explanation based on message count */}
-      <div className="flex items-start gap-2 landscape:gap-1.5 p-2 landscape:p-1.5 rounded-lg bg-muted/20">
-        <MessageCircle className="h-4 w-4 landscape:h-3.5 landscape:w-3.5 mt-0.5 text-muted-foreground shrink-0" />
-        <p className="text-xs landscape:text-[10px] text-muted-foreground">
-          {messages.length === 0 && t('whatsapp.behaviorNoMessages', 'Opens WhatsApp chat directly.')}
-          {messages.length === 1 && t('whatsapp.behaviorOneMessage', 'Opens chat with message pre-filled.')}
-          {messages.length > 1 && t('whatsapp.behaviorMultipleMessages', 'Shows a chooser, then opens chat with selected message.')}
-        </p>
-      </div>
     </div>
   );
 }

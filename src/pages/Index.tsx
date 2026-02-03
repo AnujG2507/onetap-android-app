@@ -361,8 +361,6 @@ const Index = () => {
           }
         } else if (accessStep === 'contact') {
           setAccessStep('source');
-        } else if (accessStep === 'success') {
-          setAccessStep('source');
         }
       }
     }

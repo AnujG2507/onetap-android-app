@@ -6,7 +6,7 @@ import { UrlInput } from '@/components/UrlInput';
 import { ShortcutCustomizer } from '@/components/ShortcutCustomizer';
 import { ContactShortcutCustomizer } from '@/components/ContactShortcutCustomizer';
 import { SlideshowCustomizer } from '@/components/SlideshowCustomizer';
-import { SuccessScreen } from '@/components/SuccessScreen';
+
 import { ClipboardSuggestion } from '@/components/ClipboardSuggestion';
 import { AppMenu } from '@/components/AppMenu';
 import { TrashSheet } from '@/components/TrashSheet';
@@ -27,7 +27,7 @@ import { createHomeScreenShortcut } from '@/lib/shortcutManager';
 import type { ContentSource, ShortcutIcon, MessageApp, MultiFileSource } from '@/types/shortcut';
 import type { ScheduledActionDestination } from '@/types/scheduledAction';
 
-export type AccessStep = 'source' | 'url' | 'customize' | 'slideshow-customize' | 'contact' | 'success';
+export type AccessStep = 'source' | 'url' | 'customize' | 'slideshow-customize' | 'contact';
 export type ContentSourceType = 'url' | 'file' | null;
 
 interface ContactData {
@@ -68,7 +68,7 @@ export function AccessFlow({
   const [step, setStep] = useState<AccessStep>('source');
   const [contentSource, setContentSource] = useState<ContentSource | null>(null);
   const [slideshowSource, setSlideshowSource] = useState<MultiFileSource | null>(null);
-  const [lastCreatedName, setLastCreatedName] = useState('');
+  
   const [contactData, setContactData] = useState<ContactData | null>(null);
   const [contactMode, setContactMode] = useState<ContactMode>('dial');
   const [isTrashOpen, setIsTrashOpen] = useState(false);
@@ -79,7 +79,7 @@ export function AccessFlow({
   const processedInitialUrlRef = useRef<string | null>(null);
 
   const { t } = useTranslation();
-  const { createShortcut, createContactShortcut, createSlideshowShortcut } = useShortcuts();
+  const { createShortcut, createContactShortcut, createSlideshowShortcut, persistShortcut } = useShortcuts();
   const { toast } = useToast();
   const { settings } = useSettings();
   const { isOnline } = useNetworkStatus();
@@ -100,7 +100,6 @@ export function AccessFlow({
     setContentSource(null);
     setSlideshowSource(null);
     setContactData(null);
-    setLastCreatedName('');
     setPendingActionMode('shortcut');
   }, []);
 
@@ -130,9 +129,6 @@ export function AccessFlow({
         setContentSource(null);
         setPendingActionMode('shortcut');
         break;
-      case 'success':
-        handleReset();
-        break;
       default:
         break;
     }
@@ -147,7 +143,7 @@ export function AccessFlow({
   useSheetBackHandler('access-customize-step', step === 'customize', handleGoBack, 10);
   useSheetBackHandler('access-slideshow-step', step === 'slideshow-customize', handleGoBack, 10);
   useSheetBackHandler('access-contact-step', step === 'contact', handleGoBack, 10);
-  useSheetBackHandler('access-success-step', step === 'success', handleReset, 10);
+  
 
   // Notify parent of step changes
   useEffect(() => {
@@ -388,8 +384,8 @@ export function AccessFlow({
       const success = await createHomeScreenShortcut(shortcut);
 
       if (success) {
-        setLastCreatedName(data.name);
-        setStep('success');
+        persistShortcut(shortcut);
+        handleReset();
       } else {
         toast({
           title: 'Something went wrong',
@@ -422,8 +418,8 @@ export function AccessFlow({
       });
 
       if (success) {
-        setLastCreatedName(name);
-        setStep('success');
+        persistShortcut(shortcut);
+        handleReset();
       } else {
         console.error('[AccessFlow] Failed to create shortcut');
         toast({
@@ -455,8 +451,8 @@ export function AccessFlow({
       const success = await createHomeScreenShortcut(shortcut);
 
       if (success) {
-        setLastCreatedName(name);
-        setStep('success');
+        persistShortcut(shortcut);
+        handleReset();
       } else {
         console.error('[AccessFlow] Failed to create slideshow shortcut');
         toast({
@@ -586,12 +582,6 @@ export function AccessFlow({
         />
       )}
 
-      {step === 'success' && (
-        <SuccessScreen
-          shortcutName={lastCreatedName}
-          onDone={handleReset}
-        />
-      )}
 
       {/* Trash Sheet (controlled from menu) */}
       <TrashSheet 
