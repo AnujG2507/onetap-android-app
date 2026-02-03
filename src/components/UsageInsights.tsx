@@ -25,14 +25,14 @@ export function UsageInsights() {
   };
 
   return (
-    <Card className="bg-card border-border overflow-hidden">
+    <Card className="bg-card border-border overflow-hidden w-full min-w-0">
       <CardHeader className="pb-3">
         <CardTitle className="text-base font-medium flex items-center gap-2">
           <TrendingUp className="h-4 w-4 text-primary" />
           {t('usage.title', 'Usage Insights')}
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4 overflow-hidden">
+      <CardContent className="space-y-4 overflow-hidden min-w-0">
         {/* Stats Grid */}
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-muted/50 rounded-lg p-3 text-center">
@@ -56,9 +56,9 @@ export function UsageInsights() {
         </div>
 
         {/* Encouragement Message */}
-        <div className="bg-primary/10 rounded-lg p-3 flex items-center gap-2">
+        <div className="bg-primary/10 rounded-lg p-3 flex items-center gap-2 min-w-0">
           <Sparkles className="h-4 w-4 text-primary flex-shrink-0" />
-          <p className="text-sm text-foreground">
+          <p className="text-sm text-foreground min-w-0 break-words">
             {getEncouragementMessage()}
           </p>
         </div>
