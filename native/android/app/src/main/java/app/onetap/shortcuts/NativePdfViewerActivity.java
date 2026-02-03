@@ -242,6 +242,9 @@ public class NativePdfViewerActivity extends Activity {
             internalScaleDetector = new ScaleGestureDetector(getContext(), 
                 new ScaleGestureDetector.SimpleOnScaleGestureListener() {
                     private float startZoom = 1.0f;
+                    // CRITICAL: Track accumulated scale factor across frames
+                    // getScaleFactor() returns the DELTA between frames, not from start
+                    private float accumulatedScale = 1.0f;
                     
                     @Override
                     public boolean onScaleBegin(ScaleGestureDetector detector) {
@@ -250,6 +253,7 @@ public class NativePdfViewerActivity extends Activity {
                         // Prevent parent from intercepting touch during scale gesture
                         getParent().requestDisallowInterceptTouchEvent(true);
                         startZoom = zoomLevel;
+                        accumulatedScale = 1.0f;  // Reset accumulator at gesture start
                         beginZoomGesture(detector.getFocusX(), detector.getFocusY());
                         
                         if (scaleCallback != null) {
@@ -260,8 +264,10 @@ public class NativePdfViewerActivity extends Activity {
                     
                     @Override
                     public boolean onScale(ScaleGestureDetector detector) {
-                        float scaleFactor = detector.getScaleFactor();
-                        float newZoom = startZoom * scaleFactor;
+                        // CRITICAL: Accumulate scale factor across frames
+                        // Each call to getScaleFactor() returns the delta from previous frame
+                        accumulatedScale *= detector.getScaleFactor();
+                        float newZoom = startZoom * accumulatedScale;
                         newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newZoom));
                         
                         float fx = detector.getFocusX();
@@ -279,6 +285,8 @@ public class NativePdfViewerActivity extends Activity {
                             fy = fy + (centerY - fy) * t;
                         }
                         
+                        // Update both zoomLevel and pendingZoom to keep them in sync
+                        pendingZoom = newZoom;
                         setZoom(newZoom, fx, fy);
                         
                         if (scaleCallback != null) {
@@ -295,7 +303,9 @@ public class NativePdfViewerActivity extends Activity {
                         // Allow parent to intercept again
                         getParent().requestDisallowInterceptTouchEvent(false);
                         
-                        commitZoomGesture();
+                        // Don't call commitZoomGesture() - zoomLevel is already correct
+                        // Just ensure pendingZoom matches for consistency
+                        pendingZoom = zoomLevel;
                         
                         if (scaleCallback != null) {
                             scaleCallback.onScaleEnd(zoomLevel);
