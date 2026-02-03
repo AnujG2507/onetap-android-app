@@ -940,5 +940,11 @@
     "noNewItems": "No new items to download.",
     "downloadFailed": "Download failed",
     "couldNotDownload": "Could not download."
+  },
+  "permissionWarning": {
+    "title": "Reminders may not work",
+    "notifications": "Notifications blocked",
+    "alarms": "Alarms blocked",
+    "fix": "Fix"
   }
 }
