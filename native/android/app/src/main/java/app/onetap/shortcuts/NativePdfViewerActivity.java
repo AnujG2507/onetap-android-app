@@ -127,8 +127,6 @@ public class NativePdfViewerActivity extends Activity {
     
     // Zoom state (now managed by ZoomableRecyclerView for canvas-level zoom)
     private float currentZoom = 1.0f;
-    private ScaleGestureDetector scaleGestureDetector;
-    private GestureDetector gestureDetector;
     private boolean isScaling = false;
     
     // Double-tap zoom animation
@@ -174,6 +172,30 @@ public class NativePdfViewerActivity extends Activity {
      * - Horizontal panning works when zoomed in
      * - No per-child scale manipulation needed
      */
+    /**
+     * Callback interface for scale events from ZoomableRecyclerView.
+     */
+    private interface ScaleCallback {
+        void onScaleBegin(float startZoom);
+        void onScale(float newZoom, float fx, float fy);
+        void onScaleEnd(float finalZoom);
+        void onSingleTapConfirmed();
+        void onDoubleTap(float x, float y);
+    }
+    
+    /**
+     * Custom RecyclerView that applies canvas-level zoom transformation.
+     * 
+     * This approach (used by Google Drive) ensures:
+     * - All children scale uniformly without overlapping
+     * - RecyclerView layout remains stable during zoom
+     * - Horizontal panning works when zoomed in
+     * - No per-child scale manipulation needed
+     * 
+     * CRITICAL: Gesture detectors are initialized INSIDE this class and handled
+     * in onTouchEvent() BEFORE calling super. This prevents the race condition
+     * where RecyclerView starts scrolling before the scale gesture is recognized.
+     */
     private class ZoomableRecyclerView extends RecyclerView {
         private float zoomLevel = 1.0f;
         private float panX = 0f;
@@ -184,10 +206,122 @@ public class NativePdfViewerActivity extends Activity {
         private float pendingZoom = 1.0f;
         private float gestureStartZoom = 1.0f;
         
+        // Internal gesture detectors (MUST be inside RecyclerView to fix race condition)
+        private ScaleGestureDetector internalScaleDetector;
+        private GestureDetector internalGestureDetector;
+        
+        // Scale mode flag - prevents scroll fling after pinch gesture ends
+        private boolean inScaleMode = false;
+        
+        // Callback for activity-level state updates
+        private ScaleCallback scaleCallback;
+        
+        // Track if scaling is in progress (for panning logic)
+        private boolean isInternalScaling = false;
+        
         public ZoomableRecyclerView(Context context) {
             super(context);
             // Disable overscroll effect during pan
             setOverScrollMode(View.OVER_SCROLL_IF_CONTENT_SCROLLS);
+            initGestureDetectors();
+        }
+        
+        /**
+         * Set callback for scale events.
+         */
+        public void setScaleCallback(ScaleCallback callback) {
+            this.scaleCallback = callback;
+        }
+        
+        /**
+         * Initialize gesture detectors INSIDE the RecyclerView.
+         * This ensures gestures are processed before scroll logic.
+         */
+        private void initGestureDetectors() {
+            // Scale gesture for pinch-to-zoom
+            internalScaleDetector = new ScaleGestureDetector(getContext(), 
+                new ScaleGestureDetector.SimpleOnScaleGestureListener() {
+                    private float startZoom = 1.0f;
+                    
+                    @Override
+                    public boolean onScaleBegin(ScaleGestureDetector detector) {
+                        isInternalScaling = true;
+                        inScaleMode = true;
+                        // Prevent parent from intercepting touch during scale gesture
+                        getParent().requestDisallowInterceptTouchEvent(true);
+                        startZoom = zoomLevel;
+                        beginZoomGesture(detector.getFocusX(), detector.getFocusY());
+                        
+                        if (scaleCallback != null) {
+                            scaleCallback.onScaleBegin(startZoom);
+                        }
+                        return true;
+                    }
+                    
+                    @Override
+                    public boolean onScale(ScaleGestureDetector detector) {
+                        float scaleFactor = detector.getScaleFactor();
+                        float newZoom = startZoom * scaleFactor;
+                        newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newZoom));
+                        
+                        float fx = detector.getFocusX();
+                        float fy = detector.getFocusY();
+                        
+                        // When zooming out below 1.0x, blend focal point toward screen center
+                        // This prevents content from drifting off-screen (Google Drive behavior)
+                        if (newZoom < 1.0f) {
+                            float centerX = getWidth() / 2f;
+                            float centerY = getHeight() / 2f;
+                            // Blend factor: 0 at 1.0x, approaches 1 at MIN_ZOOM
+                            float t = (1.0f - newZoom) / (1.0f - MIN_ZOOM);
+                            t = Math.min(1.0f, t); // Clamp to 1.0
+                            fx = fx + (centerX - fx) * t;
+                            fy = fy + (centerY - fy) * t;
+                        }
+                        
+                        setZoom(newZoom, fx, fy);
+                        
+                        if (scaleCallback != null) {
+                            scaleCallback.onScale(newZoom, fx, fy);
+                        }
+                        return true;
+                    }
+                    
+                    @Override
+                    public void onScaleEnd(ScaleGestureDetector detector) {
+                        isInternalScaling = false;
+                        // NOTE: inScaleMode stays true until ACTION_UP to prevent scroll fling
+                        
+                        // Allow parent to intercept again
+                        getParent().requestDisallowInterceptTouchEvent(false);
+                        
+                        commitZoomGesture();
+                        
+                        if (scaleCallback != null) {
+                            scaleCallback.onScaleEnd(zoomLevel);
+                        }
+                    }
+                });
+            
+            // Tap gesture for show/hide UI and double-tap zoom
+            internalGestureDetector = new GestureDetector(getContext(), 
+                new GestureDetector.SimpleOnGestureListener() {
+                    @Override
+                    public boolean onSingleTapConfirmed(MotionEvent e) {
+                        if (scaleCallback != null) {
+                            scaleCallback.onSingleTapConfirmed();
+                        }
+                        return true;
+                    }
+                    
+                    @Override
+                    public boolean onDoubleTap(MotionEvent e) {
+                        if (scaleCallback != null) {
+                            scaleCallback.onDoubleTap(e.getX(), e.getY());
+                        }
+                        return true;
+                    }
+                });
         }
         
         @Override
@@ -213,7 +347,7 @@ public class NativePdfViewerActivity extends Activity {
         
         @Override
         public boolean onInterceptTouchEvent(MotionEvent e) {
-            // Don't intercept multi-touch events - let them reach the touch listener for scale detection
+            // Don't intercept multi-touch events - let onTouchEvent handle scale detection
             if (e.getPointerCount() > 1) {
                 return false;
             }
@@ -230,16 +364,43 @@ public class NativePdfViewerActivity extends Activity {
         
         @Override
         public boolean onTouchEvent(MotionEvent e) {
+            // CRITICAL: Process gesture detectors FIRST, before any scroll handling
+            // This fixes the race condition where RecyclerView starts scrolling
+            // before the scale gesture is recognized
+            internalScaleDetector.onTouchEvent(e);
+            internalGestureDetector.onTouchEvent(e);
+            
+            int action = e.getActionMasked();
+            
+            // When second finger comes down, enter scale mode immediately
+            if (action == MotionEvent.ACTION_POINTER_DOWN && e.getPointerCount() >= 2) {
+                inScaleMode = true;
+                getParent().requestDisallowInterceptTouchEvent(true);
+            }
+            
+            // If scale detector is active OR we're in multi-touch, consume the event
+            // This prevents RecyclerView from processing as scroll
+            if (internalScaleDetector.isInProgress() || e.getPointerCount() > 1) {
+                return true;  // Consume - no scroll
+            }
+            
+            // If just exited scale mode, consume the final UP to prevent scroll fling
+            if (inScaleMode && (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL)) {
+                inScaleMode = false;
+                getParent().requestDisallowInterceptTouchEvent(false);
+                return true;  // Consume the final UP
+            }
+            
             // Handle horizontal panning when zoomed in
             if (zoomLevel > 1.0f) {
-                switch (e.getActionMasked()) {
+                switch (action) {
                     case MotionEvent.ACTION_DOWN:
                         lastTouchX = e.getX();
                         isPanning = false;
                         break;
                         
                     case MotionEvent.ACTION_MOVE:
-                        if (e.getPointerCount() == 1 && !isScaling) {
+                        if (e.getPointerCount() == 1 && !isInternalScaling) {
                             float dx = e.getX() - lastTouchX;
                             if (Math.abs(dx) > 10) {
                                 isPanning = true;
@@ -261,6 +422,7 @@ public class NativePdfViewerActivity extends Activity {
                 }
             }
             
+            // Allow normal RecyclerView scroll for single-touch when not in scale mode
             return super.onTouchEvent(e);
         }
         
@@ -684,74 +846,38 @@ public class NativePdfViewerActivity extends Activity {
     }
     
     private void setupGestureDetectors() {
-        // Scale gesture for pinch-to-zoom (now controls canvas-level zoom)
-        scaleGestureDetector = new ScaleGestureDetector(this, new ScaleGestureDetector.SimpleOnScaleGestureListener() {
-            private float startZoom = 1.0f;
-            
+        // Set up scale callback for activity-level state updates
+        recyclerView.setScaleCallback(new ScaleCallback() {
             @Override
-            public boolean onScaleBegin(ScaleGestureDetector detector) {
+            public void onScaleBegin(float startZoom) {
                 isScaling = true;
-                // Prevent parent from intercepting touch during scale gesture
-                recyclerView.getParent().requestDisallowInterceptTouchEvent(true);
-                startZoom = recyclerView.getZoomLevel();
-                recyclerView.beginZoomGesture(detector.getFocusX(), detector.getFocusY());
                 crashLogger.addBreadcrumb(CrashLogger.CAT_ZOOM, "Pinch zoom started at " + startZoom + "x");
-                return true;
             }
             
             @Override
-            public boolean onScale(ScaleGestureDetector detector) {
-                float scaleFactor = detector.getScaleFactor();
-                float newZoom = startZoom * scaleFactor;
-                newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newZoom));
-                
-                float fx = detector.getFocusX();
-                float fy = detector.getFocusY();
-                
-                // When zooming out below 1.0x, blend focal point toward screen center
-                // This prevents content from drifting off-screen (Google Drive behavior)
-                if (newZoom < 1.0f) {
-                    float centerX = recyclerView.getWidth() / 2f;
-                    float centerY = recyclerView.getHeight() / 2f;
-                    // Blend factor: 0 at 1.0x, approaches 1 at MIN_ZOOM
-                    float t = (1.0f - newZoom) / (1.0f - MIN_ZOOM);
-                    t = Math.min(1.0f, t); // Clamp to 1.0
-                    fx = fx + (centerX - fx) * t;
-                    fy = fy + (centerY - fy) * t;
-                }
-                
-                recyclerView.setZoom(newZoom, fx, fy);
-                return true;
+            public void onScale(float newZoom, float fx, float fy) {
+                // Visual update handled internally by ZoomableRecyclerView
             }
             
             @Override
-            public void onScaleEnd(ScaleGestureDetector detector) {
+            public void onScaleEnd(float finalZoom) {
                 isScaling = false;
-                // Allow parent to intercept again
-                recyclerView.getParent().requestDisallowInterceptTouchEvent(false);
-                
                 previousZoom = currentZoom;
-                currentZoom = recyclerView.getZoomLevel();
-                recyclerView.commitZoomGesture();
-                
+                currentZoom = finalZoom;
                 crashLogger.addBreadcrumb(CrashLogger.CAT_ZOOM, "Pinch zoom ended: " + previousZoom + "x → " + currentZoom + "x");
                 
                 // Trigger high-res re-render at new zoom level
                 commitZoomAndRerender();
             }
-        });
-        
-        // Tap gesture for show/hide UI and double-tap zoom
-        gestureDetector = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
+            
             @Override
-            public boolean onSingleTapConfirmed(MotionEvent e) {
+            public void onSingleTapConfirmed() {
                 toggleTopBar();
-                return true;
             }
             
             @Override
-            public boolean onDoubleTap(MotionEvent e) {
-                if (isDoubleTapAnimating) return true;
+            public void onDoubleTap(float x, float y) {
+                if (isDoubleTapAnimating) return;
                 
                 float targetZoom;
                 if (currentZoom < 0.9f) {
@@ -765,36 +891,8 @@ public class NativePdfViewerActivity extends Activity {
                     targetZoom = DOUBLE_TAP_ZOOM;
                 }
                 
-                animateDoubleTapZoom(currentZoom, targetZoom, e.getX(), e.getY());
-                return true;
+                animateDoubleTapZoom(currentZoom, targetZoom, x, y);
             }
-        });
-        
-        // Attach touch listener to RecyclerView
-        recyclerView.setOnTouchListener((v, event) -> {
-            int action = event.getActionMasked();
-            
-            // When second finger comes down, prepare for potential scale gesture
-            if (action == MotionEvent.ACTION_POINTER_DOWN && event.getPointerCount() == 2) {
-                v.getParent().requestDisallowInterceptTouchEvent(true);
-            }
-            
-            // Always pass events to gesture detectors
-            scaleGestureDetector.onTouchEvent(event);
-            gestureDetector.onTouchEvent(event);
-            
-            // Consume event if scaling is in progress, or if it's a multi-touch gesture
-            // This prevents RecyclerView scroll from interfering with pinch-to-zoom
-            if (scaleGestureDetector.isInProgress() || event.getPointerCount() > 1) {
-                return true;
-            }
-            
-            // Release scroll lock when back to single touch
-            if (action == MotionEvent.ACTION_POINTER_UP && event.getPointerCount() <= 2) {
-                v.getParent().requestDisallowInterceptTouchEvent(false);
-            }
-            
-            return false; // Allow normal scroll for single-touch
         });
     }
     
