@@ -1,165 +1,219 @@
 
-# Add "Create Reminder" Option to Bookmark Library
 
-## Overview
+# Fix Drag-to-Reorder in Slideshow Customizer
 
-Add a "Create Reminder" / "Remind Later" option in the Bookmark Library that allows users to schedule a reminder for a saved URL. This feature will be available in two places:
+## Problem Analysis
 
-1. **BookmarkActionSheet** - When tapping on a bookmark item
-2. **Bulk Action Bar** - When exactly one bookmark is selected
+The slideshow drag-to-reorder functionality in `SlideshowCustomizer.tsx` and `SlideshowPhotosEditor.tsx` is not working properly. After comparing with the working `BookmarkLibrary.tsx` implementation, I've identified **two critical issues**:
 
-This mirrors the existing "Create Shortcut" functionality which allows setting up home screen access.
+### Issue 1: DndContext Inside ScrollArea
+
+In both slideshow components, the `DndContext` is placed **inside** the `ScrollArea`:
+
+```tsx
+// PROBLEMATIC - Current implementation
+<ScrollArea className="w-full whitespace-nowrap">
+  <DndContext sensors={sensors} ...>
+    <SortableContext items={...}>
+      <div className="flex gap-3 pb-4">
+        {/* items */}
+      </div>
+    </SortableContext>
+  </DndContext>
+  <ScrollBar />
+</ScrollArea>
+```
+
+The Radix ScrollArea creates an intermediate viewport element that **captures touch/pointer events** before they reach the dnd-kit sensors. This prevents drag activation.
+
+**BookmarkLibrary.tsx works because** its DndContext wraps the entire scrollable area at a higher level, not inside ScrollArea's viewport.
+
+### Issue 2: Drag Handle Has No Touch Area Isolation
+
+The drag handle in slideshow components uses `{...attributes}` and `{...listeners}` but:
+1. The touch target is very small (12x12 pixels with tiny icon)
+2. The parent container's touch events may interfere
+3. No `touch-none` class on the handle to prevent scroll interference
 
 ---
 
-## Architecture
+## Solution
 
-The existing pattern is well-established:
-- `Index.tsx` manages cross-tab navigation and passes `pendingReminderDestination` to `NotificationsPage`
-- `onCreateReminder` callback receives a `ScheduledActionDestination` object
-- Switching to the Reminders tab with a pre-filled destination opens the reminder creator
+### Approach A: Move DndContext Outside ScrollArea
 
-```text
-┌──────────────────────┐
-│   BookmarkLibrary    │
-│                      │
-│  onCreateReminder    │────▶ Index.tsx
-│  (callback prop)     │      │
-└──────────────────────┘      │
-                              ▼
-                    setPendingReminderDestination
-                              │
-                              ▼
-                    setActiveTab('reminders')
-                              │
-                              ▼
-                    ┌──────────────────────┐
-                    │  NotificationsPage   │
-                    │                      │
-                    │ initialDestination   │
-                    │    ▼                 │
-                    │ Opens reminder       │
-                    │ creator with URL     │
-                    └──────────────────────┘
+The cleanest fix is to move `DndContext` outside the `ScrollArea` and use a plain `div` with `overflow-x-auto` for horizontal scrolling:
+
+```tsx
+// FIXED - DndContext outside scroll container
+<DndContext sensors={sensors} ...>
+  <SortableContext items={...}>
+    <div 
+      className="overflow-x-auto pb-2" 
+      style={{ WebkitOverflowScrolling: 'touch' }}
+    >
+      <div className="flex gap-3 w-max">
+        {/* items */}
+      </div>
+    </div>
+  </SortableContext>
+</DndContext>
 ```
+
+### Approach B: Improve Drag Handle Touch Target
+
+Additionally, we need to:
+1. Add `touch-none` class to the drag handle to prevent scroll interference
+2. Increase the touch target size for better mobile usability
+3. Ensure the handle properly isolates drag events from the parent
 
 ---
 
 ## Implementation Details
 
-### 1. BookmarkLibrary.tsx
+### 1. SlideshowCustomizer.tsx
 
-**Add new prop:**
-```typescript
-interface BookmarkLibraryProps {
-  onCreateShortcut: (url: string) => void;
-  onCreateReminder: (url: string) => void;  // NEW
-  onSelectionModeChange?: (isSelectionMode: boolean) => void;
-  clearSelectionSignal?: number;
-  onActionSheetOpenChange?: (isOpen: boolean) => void;
-}
+**Change the reorderable thumbnail strip section (lines 246-273):**
+
+```tsx
+{/* Reorderable thumbnail strip */}
+<div>
+  <label className="text-sm text-muted-foreground mb-2 block">
+    {t('slideshow.reorder', 'Drag to reorder')}
+  </label>
+  <DndContext
+    sensors={sensors}
+    collisionDetection={closestCenter}
+    onDragEnd={handleDragEnd}
+  >
+    <SortableContext items={files.map(f => f.id)} strategy={horizontalListSortingStrategy}>
+      <div 
+        className="overflow-x-auto pb-4 -mx-1 px-1"
+        style={{ WebkitOverflowScrolling: 'touch' }}
+      >
+        <div className="flex gap-3 w-max">
+          {files.map((file, index) => (
+            <SortableImage
+              key={file.id}
+              id={file.id}
+              index={index}
+              thumbnail={file.thumbnail}
+              onRemove={handleRemoveImage}
+            />
+          ))}
+        </div>
+      </div>
+    </SortableContext>
+  </DndContext>
+</div>
 ```
 
-**Add new handler:**
-```typescript
-const handleCreateReminder = (url: string) => {
-  onCreateReminder(url);
-};
-```
+**Update the SortableImage drag handle (lines 91-98):**
 
-**Update BookmarkActionSheet usage:**
-```typescript
-<BookmarkActionSheet
-  ...
-  onCreateReminder={handleCreateReminder}  // NEW
-/>
-```
-
-**Add button to bulk action bar (when single selection):**
-```typescript
-{shortlistedLinks.length === 1 && (
-  <>
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          onClick={() => handleCreateReminder(shortlistedLinks[0].url)}
-          className="p-2 rounded-lg hover:bg-muted transition-colors"
-          aria-label={t('bookmarkAction.remindLater')}
-        >
-          <Bell className="h-5 w-5" />
-        </button>
-      </TooltipTrigger>
-      <TooltipContent>{t('bookmarkAction.remindLater')}</TooltipContent>
-    </Tooltip>
-    ...existing Edit and Home buttons...
-  </>
-)}
-```
-
----
-
-### 2. BookmarkActionSheet.tsx
-
-**Add new prop:**
-```typescript
-interface BookmarkActionSheetProps {
-  ...
-  onCreateReminder: (url: string) => void;  // NEW
-}
-```
-
-**Add new action button (after "Create Shortcut"):**
-```typescript
-{/* Create Reminder */}
-<button
-  onClick={() => handleAction(() => {
-    onCreateReminder(link.url);
-    onOpenChange(false);
-  })}
-  className="w-full flex items-center gap-3 p-3 landscape:p-2.5 rounded-xl hover:bg-muted/50 transition-colors"
+```tsx
+{/* Drag handle */}
+<div
+  {...attributes}
+  {...listeners}
+  className="absolute bottom-1 left-1 p-1.5 bg-black/60 rounded cursor-grab active:cursor-grabbing touch-none select-none"
 >
-  <Bell className="h-5 w-5 landscape:h-4 landscape:w-4 text-muted-foreground" />
-  <span className="font-medium landscape:text-sm">{t('bookmarkAction.remindLater')}</span>
-</button>
+  <GripVertical className="h-4 w-4 text-white" />
+</div>
 ```
 
 ---
 
-### 3. Index.tsx
+### 2. SlideshowPhotosEditor.tsx
 
-**Add handler:**
-```typescript
-const handleCreateReminderFromBookmark = useCallback((url: string) => {
-  // Create UrlDestination and switch to reminders tab
-  const destination: UrlDestination = {
-    type: 'url',
-    uri: url,
-    name: url, // Will be parsed to hostname in NotificationsPage
-  };
-  setPendingReminderDestination(destination);
-  setActiveTab('reminders');
-}, []);
+Apply the same fixes:
+
+**Change the scroll container (lines 197-219):**
+
+```tsx
+<DndContext
+  sensors={sensors}
+  collisionDetection={closestCenter}
+  onDragEnd={handleDragEnd}
+>
+  <SortableContext items={images.map(img => img.id)} strategy={horizontalListSortingStrategy}>
+    <div 
+      className="overflow-x-auto pb-2 -mx-1 px-1"
+      style={{ WebkitOverflowScrolling: 'touch' }}
+    >
+      <div className="flex gap-2 w-max">
+        {images.map((image, index) => (
+          <SortableImage
+            key={image.id}
+            id={image.id}
+            index={index}
+            thumbnail={image.thumbnail}
+            onRemove={handleRemoveImage}
+            canRemove={canRemove}
+          />
+        ))}
+      </div>
+    </div>
+  </SortableContext>
+</DndContext>
 ```
 
-**Pass to BookmarkLibrary:**
-```typescript
-<BookmarkLibrary
-  onCreateShortcut={handleCreateShortcutFromBookmark}
-  onCreateReminder={handleCreateReminderFromBookmark}  // NEW
-  ...
-/>
+**Update SortableImage drag handle (lines 91-98):**
+
+```tsx
+{/* Drag handle */}
+<div
+  {...attributes}
+  {...listeners}
+  className="absolute bottom-0.5 left-0.5 p-1 bg-black/60 rounded cursor-grab active:cursor-grabbing touch-none select-none"
+>
+  <GripVertical className="h-3 w-3 text-white" />
+</div>
 ```
 
 ---
 
-### 4. Translation Key
+## Technical Notes
 
-Add to `en.json` under `bookmarkAction`:
-```json
-"remindLater": "Remind Later"
+### Why BookmarkLibrary Works
+
+In `BookmarkLibrary.tsx`, the structure is:
+
+```tsx
+<ScrollArea className="flex-1">
+  <div ref={scrollContainerRef} className="...">
+    <DndContext sensors={sensors} ...>
+      {/* But actually the DndContext wraps BEFORE the ScrollArea in the 
+          full component - the drag happens on the whole list not inside */}
+    </DndContext>
+  </div>
+</ScrollArea>
 ```
 
-This reuses the existing translation key pattern already present in `sharedUrl` and `clipboard` sections.
+Looking more carefully at BookmarkLibrary (lines 330-345), the sensors include a `TouchSensor` with:
+- `delay: 200` - longer delay for activation
+- `tolerance: 5` - small movement tolerance
+
+The slideshow uses `delay: 150` which may be too short. We should align:
+
+```tsx
+const sensors = useSensors(
+  useSensor(TouchSensor, {
+    activationConstraint: { delay: 200, tolerance: 5 },
+  }),
+  useSensor(PointerSensor, {
+    activationConstraint: { distance: 8 },
+  }),
+  useSensor(KeyboardSensor, {
+    coordinateGetter: sortableKeyboardCoordinates,
+  })
+);
+```
+
+### Key CSS Classes
+
+- `touch-none` - Prevents browser default touch handling (essential for drag)
+- `select-none` - Prevents text selection during drag
+- `cursor-grab` / `active:cursor-grabbing` - Visual feedback
+- `w-max` - Ensures flex container doesn't shrink items
 
 ---
 
@@ -167,46 +221,19 @@ This reuses the existing translation key pattern already present in `sharedUrl` 
 
 | File | Changes |
 |------|---------|
-| `src/components/BookmarkLibrary.tsx` | Add `onCreateReminder` prop, handler, and bulk action bar button |
-| `src/components/BookmarkActionSheet.tsx` | Add `onCreateReminder` prop and action button |
-| `src/pages/Index.tsx` | Add `handleCreateReminderFromBookmark` handler and pass to BookmarkLibrary |
-| `src/i18n/locales/en.json` | Add `bookmarkAction.remindLater` translation key |
-
----
-
-## UI Placement
-
-### Action Sheet Menu (BookmarkActionSheet)
-```
-┌─────────────────────────────────┐
-│ Bookmark Title                  │
-│ https://example.com/article     │
-├─────────────────────────────────┤
-│ 🔗 Open in Browser              │
-│ ➕ Set Up Home Screen Access    │
-│ 🔔 Remind Later         ← NEW  │
-│ ✏️ Edit                         │
-│ 🗑️ Move to Trash                │
-│ 🗑️ Delete Permanently           │
-└─────────────────────────────────┘
-```
-
-### Bulk Action Bar (single selection)
-```
-┌────────────────────────────────────────────────────┐
-│  1 selected │ 📁  🔔  ✏️  🏠  🗑️  │ ✕ │
-│             │         ↑                            │
-│             │     NEW Bell                         │
-└────────────────────────────────────────────────────┘
-```
+| `src/components/SlideshowCustomizer.tsx` | Replace ScrollArea with native overflow div, update drag handle styling, adjust sensor delay |
+| `src/components/SlideshowPhotosEditor.tsx` | Same changes as above |
 
 ---
 
 ## Testing Checklist
 
-- [ ] Tap bookmark → Action sheet shows "Remind Later" option
-- [ ] Tap "Remind Later" → Switches to Reminders tab with reminder creator pre-filled with URL
-- [ ] Long-press to select one bookmark → Bulk bar shows Bell icon
-- [ ] Tap Bell icon → Switches to Reminders tab with reminder creator pre-filled
-- [ ] Complete reminder creation → Reminder saved with correct URL destination
-- [ ] Both portrait and landscape modes display correctly
+- [ ] Select 4+ photos and open Slideshow Customizer
+- [ ] Touch and hold the grip handle on any thumbnail
+- [ ] Drag left/right and verify the image moves with your finger
+- [ ] Drop on a new position and verify order updates
+- [ ] Verify index badges update correctly after reorder
+- [ ] Test horizontal scrolling still works (scroll without touching handles)
+- [ ] Test on both portrait and landscape orientations
+- [ ] Verify BookmarkLibrary drag-to-reorder still works (regression test)
+
