@@ -212,7 +212,12 @@ public class NativePdfViewerActivity extends Activity {
         
         @Override
         public boolean onInterceptTouchEvent(MotionEvent e) {
-            // Always intercept to handle horizontal panning when zoomed
+            // Don't intercept multi-touch events - let them reach the touch listener for scale detection
+            if (e.getPointerCount() > 1) {
+                return false;
+            }
+            
+            // Intercept single-touch for horizontal panning when zoomed
             if (zoomLevel > 1.0f && e.getPointerCount() == 1) {
                 return true;
             }
@@ -685,6 +690,8 @@ public class NativePdfViewerActivity extends Activity {
             @Override
             public boolean onScaleBegin(ScaleGestureDetector detector) {
                 isScaling = true;
+                // Prevent parent from intercepting touch during scale gesture
+                recyclerView.getParent().requestDisallowInterceptTouchEvent(true);
                 startZoom = recyclerView.getZoomLevel();
                 recyclerView.beginZoomGesture(detector.getFocusX(), detector.getFocusY());
                 crashLogger.addBreadcrumb(CrashLogger.CAT_ZOOM, "Pinch zoom started at " + startZoom + "x");
@@ -719,6 +726,8 @@ public class NativePdfViewerActivity extends Activity {
             @Override
             public void onScaleEnd(ScaleGestureDetector detector) {
                 isScaling = false;
+                // Allow parent to intercept again
+                recyclerView.getParent().requestDisallowInterceptTouchEvent(false);
                 
                 previousZoom = currentZoom;
                 currentZoom = recyclerView.getZoomLevel();
@@ -762,9 +771,29 @@ public class NativePdfViewerActivity extends Activity {
         
         // Attach touch listener to RecyclerView
         recyclerView.setOnTouchListener((v, event) -> {
+            int action = event.getActionMasked();
+            
+            // When second finger comes down, prepare for potential scale gesture
+            if (action == MotionEvent.ACTION_POINTER_DOWN && event.getPointerCount() == 2) {
+                v.getParent().requestDisallowInterceptTouchEvent(true);
+            }
+            
+            // Always pass events to gesture detectors
             scaleGestureDetector.onTouchEvent(event);
             gestureDetector.onTouchEvent(event);
-            return false; // Allow scroll to proceed
+            
+            // Consume event if scaling is in progress, or if it's a multi-touch gesture
+            // This prevents RecyclerView scroll from interfering with pinch-to-zoom
+            if (scaleGestureDetector.isInProgress() || event.getPointerCount() > 1) {
+                return true;
+            }
+            
+            // Release scroll lock when back to single touch
+            if (action == MotionEvent.ACTION_POINTER_UP && event.getPointerCount() <= 2) {
+                v.getParent().requestDisallowInterceptTouchEvent(false);
+            }
+            
+            return false; // Allow normal scroll for single-touch
         });
     }
     
