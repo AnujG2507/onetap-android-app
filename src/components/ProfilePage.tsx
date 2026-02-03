@@ -330,11 +330,11 @@ export function ProfilePage({}: ProfilePageProps = {}) {
     );
   }
 
-  // Signed in state
-  const userMeta = user.user_metadata;
-  const rawAvatarUrl = userMeta?.avatar_url || userMeta?.picture;
+  // Signed in state - with defensive null checks
+  const userMeta = user?.user_metadata ?? {};
+  const rawAvatarUrl = userMeta?.avatar_url || userMeta?.picture || null;
   const fullName = userMeta?.full_name || userMeta?.name || 'User';
-  const email = user.email || '';
+  const email = user?.email || '';
   
   // Validate avatar URL before attempting to load
   const validAvatarUrl = useMemo(() => 
