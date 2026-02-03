@@ -284,10 +284,10 @@ export default function SlideshowViewer() {
     return (
       <div className="fixed inset-0 bg-black flex items-center justify-center">
         <div className="text-white text-center">
-          <p className="text-lg">{t('slideshow.notFound', 'Slideshow not found')}</p>
+          <p className="text-lg">{t('slideshow.notFound')}</p>
           <Button variant="ghost" onClick={handleClose} className="mt-4 text-white">
             <ArrowLeft className="mr-2 h-4 w-4" />
-            {t('common.back', 'Back')}
+            {t('common.back')}
           </Button>
         </div>
       </div>
@@ -404,7 +404,7 @@ export default function SlideshowViewer() {
                 {/* Play/Pause status indicator (only show if auto-advance is configured) */}
                 {autoAdvanceInterval > 0 && (
                   <span className={`text-white/60 text-xs ${!isPlaying ? 'animate-pulse' : ''}`}>
-                    {isPlaying ? t('slideshow.playing', 'Playing') : t('slideshow.paused', 'Paused')}
+                    {isPlaying ? t('slideshow.playing') : t('slideshow.paused')}
                   </span>
                 )}
                 

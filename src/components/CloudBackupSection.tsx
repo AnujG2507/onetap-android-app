@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Cloud, RefreshCw, LogOut, Loader2, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -11,6 +12,7 @@ import { ImageWithFallback } from '@/components/ui/image-with-fallback';
 import { isValidImageSource } from '@/lib/imageUtils';
 
 export function CloudBackupSection() {
+  const { t } = useTranslation();
   const { user, loading: authLoading, isAuthenticated, signInWithGoogle, signOut } = useAuth();
   const [isSyncing, setIsSyncing] = useState(false);
   const [showRecovery, setShowRecovery] = useState(false);
@@ -30,10 +32,10 @@ export function CloudBackupSection() {
                            error?.message?.includes('invalid') ||
                            error?.message?.includes('signing method');
       toast({
-        title: 'Sign in failed',
+        title: t('cloudBackup.signInFailed'),
         description: isTokenError 
-          ? 'Session expired. Please try signing in again.'
-          : 'Could not sign in with Google. Please try again.',
+          ? t('cloudBackup.sessionExpired')
+          : t('cloudBackup.couldNotSignIn'),
         variant: 'destructive',
       });
     }
@@ -43,13 +45,13 @@ export function CloudBackupSection() {
     try {
       await signOut();
       toast({
-        title: 'Signed out',
-        description: 'You have been signed out successfully.',
+        title: t('cloudBackup.signedOut'),
+        description: t('cloudBackup.signedOutDesc'),
       });
     } catch (error) {
       toast({
-        title: 'Sign out failed',
-        description: 'Could not sign out. Please try again.',
+        title: t('cloudBackup.signOutFailed'),
+        description: t('cloudBackup.couldNotSignOut'),
         variant: 'destructive',
       });
     }
@@ -71,10 +73,9 @@ export function CloudBackupSection() {
       const result = await guardedSync('manual');
       
       if (result.blocked) {
-        // Should not happen for manual sync, but handle gracefully
         toast({
-          title: 'Sync blocked',
-          description: result.blockReason || 'Please try again.',
+          title: t('cloudBackup.syncBlocked'),
+          description: result.blockReason || t('profile.tryAgainLater'),
           variant: 'destructive',
         });
         return;
@@ -83,18 +84,18 @@ export function CloudBackupSection() {
       if (result.success) {
         const hasChanges = result.uploaded > 0 || result.downloaded > 0;
         toast({
-          title: 'Sync complete',
+          title: t('cloudBackup.syncComplete'),
           description: hasChanges 
-            ? `Added ${result.downloaded} from cloud, backed up ${result.uploaded} to cloud.`
-            : 'Everything is already in sync.',
+            ? t('cloudBackup.syncCompleteChanges', { downloaded: result.downloaded, uploaded: result.uploaded })
+            : t('cloudBackup.alreadyInSync'),
         });
         if (result.downloaded > 0) {
           window.location.reload();
         }
       } else {
         toast({
-          title: 'Sync failed',
-          description: result.error || 'Could not sync bookmarks. Try again.',
+          title: t('cloudBackup.syncFailed'),
+          description: result.error || t('cloudBackup.couldNotSync'),
           variant: 'destructive',
         });
       }
@@ -112,8 +113,8 @@ export function CloudBackupSection() {
       
       if (result.blocked) {
         toast({
-          title: 'Upload blocked',
-          description: result.blockReason || 'Please try again.',
+          title: t('cloudBackup.uploadBlocked'),
+          description: result.blockReason || t('profile.tryAgainLater'),
           variant: 'destructive',
         });
         return;
@@ -121,13 +122,13 @@ export function CloudBackupSection() {
       
       if (result.success) {
         toast({
-          title: 'Upload complete',
-          description: `Uploaded ${result.uploaded} items to cloud.`,
+          title: t('cloudBackup.uploadComplete'),
+          description: t('cloudBackup.uploadCompleteDesc', { count: result.uploaded }),
         });
       } else {
         toast({
-          title: 'Upload failed',
-          description: result.error || 'Could not upload.',
+          title: t('cloudBackup.uploadFailed'),
+          description: result.error || t('cloudBackup.couldNotUpload'),
           variant: 'destructive',
         });
       }
@@ -143,8 +144,8 @@ export function CloudBackupSection() {
       
       if (result.blocked) {
         toast({
-          title: 'Download blocked',
-          description: result.blockReason || 'Please try again.',
+          title: t('cloudBackup.downloadBlocked'),
+          description: result.blockReason || t('profile.tryAgainLater'),
           variant: 'destructive',
         });
         return;
@@ -152,18 +153,18 @@ export function CloudBackupSection() {
       
       if (result.success) {
         toast({
-          title: 'Download complete',
+          title: t('cloudBackup.downloadComplete'),
           description: result.downloaded > 0 
-            ? `Downloaded ${result.downloaded} new items.`
-            : 'No new items to download.',
+            ? t('cloudBackup.downloadCompleteDesc', { count: result.downloaded })
+            : t('cloudBackup.noNewItems'),
         });
         if (result.downloaded > 0) {
           window.location.reload();
         }
       } else {
         toast({
-          title: 'Download failed',
-          description: result.error || 'Could not download.',
+          title: t('cloudBackup.downloadFailed'),
+          description: result.error || t('cloudBackup.couldNotDownload'),
           variant: 'destructive',
         });
       }
@@ -177,7 +178,7 @@ export function CloudBackupSection() {
       <div className="px-3 py-4">
         <div className="flex items-center gap-2 text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
-          <span className="text-sm">Loading...</span>
+          <span className="text-sm">{t('cloudBackup.loading')}</span>
         </div>
       </div>
     );
@@ -187,7 +188,7 @@ export function CloudBackupSection() {
     return (
       <>
         <Separator className="my-3" />
-        <p className="text-xs text-muted-foreground px-3 mb-2">Cloud Backup</p>
+        <p className="text-xs text-muted-foreground px-3 mb-2">{t('cloudBackup.title')}</p>
         <Button
           variant="ghost"
           className="w-full justify-start h-12 px-3"
@@ -198,8 +199,8 @@ export function CloudBackupSection() {
               <Cloud className="h-4 w-4 text-primary" />
             </div>
             <div className="text-left">
-              <span className="font-medium block">Sign in with Google</span>
-              <span className="text-xs text-muted-foreground">Sync bookmarks across devices</span>
+              <span className="font-medium block">{t('cloudBackup.signInWithGoogle')}</span>
+              <span className="text-xs text-muted-foreground">{t('cloudBackup.syncDescription')}</span>
             </div>
           </div>
         </Button>
@@ -212,7 +213,7 @@ export function CloudBackupSection() {
   return (
     <>
       <Separator className="my-3" />
-      <p className="text-xs text-muted-foreground px-3 mb-2">Cloud Backup</p>
+      <p className="text-xs text-muted-foreground px-3 mb-2">{t('cloudBackup.title')}</p>
       
       {/* User info */}
       <div className="px-3 py-2 mb-2">
@@ -256,9 +257,9 @@ export function CloudBackupSection() {
             )}
           </div>
           <div className="text-left">
-            <span className="font-medium block">Sync Now</span>
+            <span className="font-medium block">{t('cloudBackup.syncNow')}</span>
             <span className="text-xs text-muted-foreground">
-              Merge local & cloud data safely
+              {t('cloudBackup.syncMergeDesc')}
             </span>
           </div>
         </div>
@@ -272,7 +273,7 @@ export function CloudBackupSection() {
             size="sm"
             className="w-full justify-center h-8 text-xs text-muted-foreground hover:text-foreground"
           >
-            <span>Recovery tools</span>
+            <span>{t('cloudBackup.recoveryTools')}</span>
             <ChevronDown className={cn(
               "h-3 w-3 ms-1 transition-transform",
               showRecovery && "rotate-180"
@@ -281,7 +282,7 @@ export function CloudBackupSection() {
         </CollapsibleTrigger>
         <CollapsibleContent className="space-y-1 pt-1">
           <p className="text-[10px] text-muted-foreground px-3 mb-1">
-            Use only if sync behaves unexpectedly
+            {t('cloudBackup.recoveryHint')}
           </p>
           <Button
             variant="ghost"
@@ -293,7 +294,7 @@ export function CloudBackupSection() {
             {isRecoveryAction ? (
               <Loader2 className="h-3 w-3 me-2 animate-spin" />
             ) : null}
-            Force upload local → cloud
+            {t('cloudBackup.forceUpload')}
           </Button>
           <Button
             variant="ghost"
@@ -305,7 +306,7 @@ export function CloudBackupSection() {
             {isRecoveryAction ? (
               <Loader2 className="h-3 w-3 me-2 animate-spin" />
             ) : null}
-            Force download cloud → local
+            {t('cloudBackup.forceDownload')}
           </Button>
         </CollapsibleContent>
       </Collapsible>
@@ -320,7 +321,7 @@ export function CloudBackupSection() {
           <div className="h-9 w-9 rounded-lg bg-destructive/10 flex items-center justify-center">
             <LogOut className="h-4 w-4 text-destructive" />
           </div>
-          <span className="font-medium">Sign Out</span>
+          <span className="font-medium">{t('cloudBackup.signOut')}</span>
         </div>
       </Button>
     </>

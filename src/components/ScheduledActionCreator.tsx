@@ -392,7 +392,7 @@ export function ScheduledActionCreator({
             >
               <ChevronLeft className="h-5 w-5 rtl:rotate-180" />
             </button>
-            <h2 className="text-lg font-semibold">Enter URL</h2>
+            <h2 className="text-lg font-semibold">{t('scheduledActions.enterUrl')}</h2>
           </div>
 
           <div className="flex-1 px-5 py-6 landscape:px-4 landscape:py-4 space-y-4 landscape:space-y-3">
@@ -432,7 +432,7 @@ export function ScheduledActionCreator({
               disabled={!urlInput.trim()}
               className="w-full h-12 landscape:h-10 rounded-2xl text-base"
             >
-              Continue
+              {t('common.continue')}
             </Button>
           </div>
         </div>
@@ -450,21 +450,21 @@ export function ScheduledActionCreator({
             >
               <ChevronLeft className="h-5 w-5 rtl:rotate-180" />
             </button>
-            <h2 className="text-lg font-semibold">Add a link</h2>
+            <h2 className="text-lg font-semibold">{t('scheduledActions.addLink')}</h2>
           </div>
 
           <div className="flex-1 px-5 py-6 landscape:px-4 landscape:py-4">
             <div className="space-y-3 landscape:grid landscape:grid-cols-2 landscape:gap-3 landscape:space-y-0">
               <DestinationOption
                 icon={<Globe className="h-5 w-5" />}
-                label="Enter URL"
-                description="Type or paste a link"
+                label={t('scheduledActions.enterUrl')}
+                description={t('scheduledActions.typeOrPaste')}
                 onClick={() => setUrlSubStep('input')}
               />
               <DestinationOption
                 icon={<Bookmark className="h-5 w-5" />}
-                label="Saved Bookmark"
-                description="Choose from your library"
+                label={t('scheduledActions.savedBookmark')}
+                description={t('scheduledActions.chooseFromLibrary')}
                 onClick={() => setShowBookmarkPicker(true)}
               />
             </div>
@@ -575,31 +575,31 @@ export function ScheduledActionCreator({
           >
             <ChevronLeft className="h-5 w-5 rtl:rotate-180" />
           </button>
-          <h2 className="text-lg font-semibold">What to open</h2>
+          <h2 className="text-lg font-semibold">{t('scheduledActions.whatToOpen')}</h2>
         </div>
 
         <div className="flex-1 px-5 py-6 landscape:px-4 landscape:py-4">
           <p className="text-sm text-muted-foreground mb-6 landscape:mb-4">
-            Select what should open when this action triggers.
+            {t('scheduledActions.selectDescription')}
           </p>
 
           <div className="space-y-3 landscape:grid landscape:grid-cols-3 landscape:gap-3 landscape:space-y-0">
             <DestinationOption
               icon={<FileText className="h-5 w-5" />}
-              label="Local File"
-              description="Photo, video, PDF, or document"
+              label={t('scheduledActions.localFile')}
+              description={t('scheduledActions.localFileDesc')}
               onClick={handleFileSelect}
             />
             <DestinationOption
               icon={<Link className="h-5 w-5" />}
-              label="Link"
-              description="Website or saved bookmark"
+              label={t('scheduledActions.link')}
+              description={t('scheduledActions.linkDesc')}
               onClick={() => setUrlSubStep('choose')}
             />
             <DestinationOption
               icon={<Phone className="h-5 w-5" />}
-              label="Contact"
-              description="Call someone at a scheduled time"
+              label={t('scheduledActions.contact')}
+              description={t('scheduledActions.contactDesc')}
               onClick={() => setContactSubStep('choose')}
             />
           </div>
@@ -631,7 +631,7 @@ export function ScheduledActionCreator({
         >
           <ChevronLeft className="h-5 w-5 rtl:rotate-180" />
         </button>
-        <h2 className="text-lg font-semibold">Name this action</h2>
+        <h2 className="text-lg font-semibold">{t('scheduledActions.nameAction')}</h2>
       </div>
 
       <div className="flex-1 px-5 py-6 landscape:px-4 landscape:py-4 overflow-y-auto">
@@ -722,11 +722,11 @@ export function ScheduledActionCreator({
           className="w-full h-12 landscape:h-10 rounded-2xl text-base gap-2"
         >
           {isCreating ? (
-            'Scheduling...'
+            t('scheduledActions.scheduling')
           ) : (
             <>
               <Check className="h-5 w-5" />
-              Schedule Action
+              {t('scheduledActions.scheduleAction')}
             </>
           )}
         </Button>

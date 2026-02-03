@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Capacitor } from '@capacitor/core';
 import { App } from '@capacitor/app';
 import { ArrowLeft, AlertCircle, Loader2, RefreshCw, ExternalLink, Share2, ChevronDown } from 'lucide-react';
@@ -63,6 +64,7 @@ function filePathToPlayableUrl(filePath: string): string {
 }
 
 const VideoPlayer = () => {
+  const { t } = useTranslation();
   const [searchParams] = useSearchParams();
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -90,7 +92,7 @@ const VideoPlayer = () => {
 
     if (!videoUri) {
       setState('error');
-      setErrorMessage('No video URI provided');
+      setErrorMessage(t('videoPlayer.noUri'));
       return;
     }
 
@@ -108,7 +110,7 @@ const VideoPlayer = () => {
 
       if (!filePath) {
         setState('error');
-        setErrorMessage('Could not locate video file');
+        setErrorMessage(t('videoPlayer.fileNotFound'));
         setDebugInfo(`URI: ${videoUri}`);
         return;
       }
@@ -124,14 +126,14 @@ const VideoPlayer = () => {
           
           if (!info.success) {
             setState('error');
-            setErrorMessage('Video file not accessible');
+            setErrorMessage(t('videoPlayer.fileNotAccessible'));
             setDebugInfo(`Path: ${filePath}\nError: ${info.error || 'Unknown'}`);
             return;
           }
 
           if (info.size === 0) {
             setState('error');
-            setErrorMessage('Video file is empty');
+            setErrorMessage(t('videoPlayer.fileEmpty'));
             setDebugInfo(`Path: ${filePath}`);
             return;
           }
@@ -161,7 +163,7 @@ const VideoPlayer = () => {
     if (Capacitor.isNativePlatform()) {
       ShortcutPlugin.clearSharedIntent().catch(() => {});
     }
-  }, [videoUri, nonce]);
+  }, [videoUri, nonce, t]);
 
   // Handle video element setup when URL is ready
   useEffect(() => {
@@ -198,13 +200,13 @@ const VideoPlayer = () => {
       setState('error');
       
       if (code === 4) {
-        setErrorMessage('This video format is not supported by your device');
+        setErrorMessage(t('videoPlayer.formatNotSupported'));
       } else if (code === 2) {
-        setErrorMessage('Network error while loading video');
+        setErrorMessage(t('videoPlayer.networkError'));
       } else if (code === 3) {
-        setErrorMessage('Video file appears to be corrupted');
+        setErrorMessage(t('videoPlayer.fileCorrupted'));
       } else {
-        setErrorMessage('Unable to play this video');
+        setErrorMessage(t('videoPlayer.unableToPlay'));
       }
 
       setDebugInfo(
@@ -256,7 +258,7 @@ const VideoPlayer = () => {
       el.removeAttribute('src');
       el.load();
     };
-  }, [playableUrl, state, resolvedPath]);
+  }, [playableUrl, state, resolvedPath, t]);
 
   // Handle back button - exit app since video player is typically launched from shortcut
   const handleBack = useCallback(() => {
@@ -338,7 +340,7 @@ const VideoPlayer = () => {
     return (
       <div className="min-h-screen bg-black flex flex-col items-center justify-center p-4">
         <Loader2 className="h-14 w-14 text-white animate-spin mb-4" />
-        <p className="text-white/70 text-center animate-pulse">Loading video...</p>
+        <p className="text-white/70 text-center animate-pulse">{t('videoPlayer.loading')}</p>
         {debugInfo && (
           <p className="text-xs text-white/40 mt-3 text-center max-w-xs">{debugInfo}</p>
         )}
@@ -352,21 +354,21 @@ const VideoPlayer = () => {
       <div className="min-h-screen bg-black flex flex-col items-center justify-center p-4">
         <div className="text-center max-w-md">
           <AlertCircle className="h-16 w-16 text-destructive mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-white mb-2">Cannot Play Video</h2>
-          <p className="text-muted-foreground mb-6">{errorMessage || 'An unknown error occurred'}</p>
+          <h2 className="text-xl font-semibold text-white mb-2">{t('videoPlayer.cannotPlay')}</h2>
+          <p className="text-muted-foreground mb-6">{errorMessage || t('videoPlayer.unknownError')}</p>
           
           <div className="flex gap-3 justify-center mb-4">
             <Button onClick={handleRetry} variant="outline" className="bg-white/10 border-white/20 text-white hover:bg-white/20">
               <RefreshCw className="h-4 w-4 me-2" />
-              Retry
+              {t('videoPlayer.retry')}
             </Button>
             <Button onClick={handleOpenExternal} variant="outline" className="bg-white/10 border-white/20 text-white hover:bg-white/20">
               <ExternalLink className="h-4 w-4 me-2" />
-              Open with...
+              {t('videoPlayer.openWith')}
             </Button>
             <Button onClick={handleBack} variant="ghost" className="text-white/70 hover:text-white hover:bg-white/10">
               <ArrowLeft className="h-4 w-4 me-2 rtl:rotate-180" />
-              Back
+              {t('videoPlayer.back')}
             </Button>
           </div>
           
@@ -374,7 +376,7 @@ const VideoPlayer = () => {
             <Collapsible open={showDebug} onOpenChange={setShowDebug}>
               <CollapsibleTrigger className="flex items-center gap-2 mx-auto text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors">
                 <ChevronDown className={`h-3 w-3 transition-transform ${showDebug ? 'rotate-180' : ''}`} />
-                {showDebug ? 'Hide details' : 'Show details'}
+                {showDebug ? t('videoPlayer.hideDetails') : t('videoPlayer.showDetails')}
               </CollapsibleTrigger>
               <CollapsibleContent>
                 <pre className="text-xs text-muted-foreground/60 mt-3 font-mono whitespace-pre-wrap text-left bg-white/5 p-3 rounded">

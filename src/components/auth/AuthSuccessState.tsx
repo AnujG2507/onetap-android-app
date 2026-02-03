@@ -1,4 +1,8 @@
+import { useTranslation } from 'react-i18next';
+
 export function AuthSuccessState() {
+  const { t } = useTranslation();
+  
   return (
     <>
       <div className="h-12 w-12 rounded-full bg-green-500/10 flex items-center justify-center mx-auto">
@@ -7,8 +11,8 @@ export function AuthSuccessState() {
         </svg>
       </div>
       <div className="space-y-2">
-        <h1 className="text-xl font-semibold text-foreground">Signed in successfully!</h1>
-        <p className="text-muted-foreground text-sm">Redirecting you now...</p>
+        <h1 className="text-xl font-semibold text-foreground">{t('auth.signedInSuccess')}</h1>
+        <p className="text-muted-foreground text-sm">{t('auth.redirecting')}</p>
       </div>
     </>
   );

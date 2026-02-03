@@ -10,18 +10,18 @@ export function UsageInsights() {
 
   const getEncouragementMessage = () => {
     if (stats.thisMonthTaps === 0) {
-      return t('usage.startUsing', 'Start using your shortcuts to see your stats!');
+      return t('usage.startUsing');
     }
     if (stats.thisMonthTaps < 10) {
-      return t('usage.gettingStarted', "You're getting started! Keep it up!");
+      return t('usage.gettingStarted');
     }
     if (stats.thisMonthTaps < 50) {
-      return t('usage.doingGreat', "You're doing great! {{taps}} taps saved this month.", { taps: stats.thisMonthTaps });
+      return t('usage.doingGreat', { taps: stats.thisMonthTaps });
     }
     if (stats.thisMonthTaps < 100) {
-      return t('usage.powerUser', "Power user! You've saved {{taps}} taps this month! 🔥", { taps: stats.thisMonthTaps });
+      return t('usage.powerUser', { taps: stats.thisMonthTaps });
     }
-    return t('usage.superUser', "🏆 Super user! {{taps}} taps saved this month!", { taps: stats.thisMonthTaps });
+    return t('usage.superUser', { taps: stats.thisMonthTaps });
   };
 
   return (
@@ -29,7 +29,7 @@ export function UsageInsights() {
       <CardHeader className="pb-3">
         <CardTitle className="text-base font-medium flex items-center gap-2">
           <TrendingUp className="h-4 w-4 text-primary" />
-          {t('usage.title', 'Usage Insights')}
+          {t('usage.title')}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4 overflow-hidden min-w-0">
@@ -41,7 +41,7 @@ export function UsageInsights() {
               {stats.totalShortcuts}
             </div>
             <div className="text-xs text-muted-foreground mt-1">
-              {t('usage.shortcuts', 'Shortcuts')}
+              {t('usage.shortcuts')}
             </div>
           </div>
           <div className="bg-muted/50 rounded-lg p-3 text-center">
@@ -50,7 +50,7 @@ export function UsageInsights() {
               {stats.totalTaps}
             </div>
             <div className="text-xs text-muted-foreground mt-1">
-              {t('usage.totalTaps', 'Total Taps')}
+              {t('usage.totalTaps')}
             </div>
           </div>
         </div>
@@ -67,7 +67,7 @@ export function UsageInsights() {
         {stats.weeklyActivity.length > 0 && stats.totalTaps > 0 && (
           <div className="space-y-2">
             <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              {t('usage.weeklyActivity', 'This Week')}
+              {t('usage.weeklyActivity')}
             </h4>
             <div className="h-20 w-full min-w-0">
               <ResponsiveContainer width="100%" height="100%">
@@ -101,7 +101,7 @@ export function UsageInsights() {
         {/* Empty State */}
         {stats.totalShortcuts === 0 && (
           <div className="text-center py-4 text-muted-foreground text-sm">
-            {t('usage.noShortcuts', 'Create your first shortcut to see insights!')}
+            {t('usage.noShortcuts')}
           </div>
         )}
       </CardContent>
