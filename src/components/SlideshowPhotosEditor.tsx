@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { GripVertical, X, Plus, Image } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+
 import { Capacitor } from '@capacitor/core';
 import ShortcutPlugin from '@/plugins/ShortcutPlugin';
 import { MAX_SLIDESHOW_IMAGES } from '@/types/shortcut';
@@ -92,9 +92,9 @@ function SortableImage({ id, index, thumbnail, onRemove, canRemove }: SortableIm
       <div
         {...attributes}
         {...listeners}
-        className="absolute bottom-0.5 left-0.5 p-0.5 bg-black/60 rounded cursor-grab active:cursor-grabbing"
+        className="absolute bottom-0.5 left-0.5 p-1 bg-black/60 rounded cursor-grab active:cursor-grabbing touch-none select-none"
       >
-        <GripVertical className="h-2.5 w-2.5 text-white" />
+        <GripVertical className="h-3 w-3 text-white" />
       </div>
       
       {/* Remove button - only show if more than 2 images */}
@@ -120,10 +120,10 @@ export function SlideshowPhotosEditor({
 
   const sensors = useSensors(
     useSensor(TouchSensor, {
-      activationConstraint: { delay: 150, tolerance: 5 },
+      activationConstraint: { delay: 200, tolerance: 5 },
     }),
     useSensor(PointerSensor, {
-      activationConstraint: { distance: 5 },
+      activationConstraint: { distance: 8 },
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
@@ -194,14 +194,17 @@ export function SlideshowPhotosEditor({
         )}
       </div>
       
-      <ScrollArea className="w-full whitespace-nowrap">
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext items={images.map(img => img.id)} strategy={horizontalListSortingStrategy}>
-            <div className="flex gap-2 pb-2">
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext items={images.map(img => img.id)} strategy={horizontalListSortingStrategy}>
+          <div 
+            className="overflow-x-auto pb-2 -mx-1 px-1"
+            style={{ WebkitOverflowScrolling: 'touch' }}
+          >
+            <div className="flex gap-2 w-max">
               {images.map((image, index) => (
                 <SortableImage
                   key={image.id}
@@ -213,10 +216,9 @@ export function SlideshowPhotosEditor({
                 />
               ))}
             </div>
-          </SortableContext>
-        </DndContext>
-        <ScrollBar orientation="horizontal" />
-      </ScrollArea>
+          </div>
+        </SortableContext>
+      </DndContext>
       
       {images.length < 2 && (
         <p className="text-xs text-destructive">
