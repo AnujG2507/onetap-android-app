@@ -552,6 +552,18 @@ public class ShortcutPlugin extends Plugin {
         if (name != null) ret.put("name", name);
         ret.put("size", size);
 
+        // Generate thumbnail for images (Fix #2 from plan)
+        if (mimeType != null && mimeType.startsWith("image/")) {
+            Context ctx = getContext();
+            if (ctx != null) {
+                String thumbnail = generateImageThumbnailBase64(ctx, uri, 256);
+                if (thumbnail != null) {
+                    ret.put("thumbnail", thumbnail);
+                    android.util.Log.d("ShortcutPlugin", "Generated thumbnail for single image picker");
+                }
+            }
+        }
+
         call.resolve(ret);
     }
 

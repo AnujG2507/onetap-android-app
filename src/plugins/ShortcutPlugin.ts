@@ -47,6 +47,7 @@ export interface ShortcutPluginInterface {
     name?: string;
     mimeType?: string;
     size?: number;
+    thumbnail?: string;  // base64 thumbnail for images (256px)
     error?: string;
   }>;
 

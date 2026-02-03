@@ -93,17 +93,39 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
   }, [shouldFetchFavicon, urlMetadata?.favicon, icon.type]);
   
   useEffect(() => {
-    setIsLoadingThumbnail(true);
-    generateThumbnail(source)
-      .then((thumb) => {
-        if (thumb) {
-          setThumbnail(thumb);
-          setIcon({ type: 'thumbnail', value: thumb });
+    // If we already have thumbnailData from native picker, use it immediately (Fix #5)
+    if (source.thumbnailData) {
+      import('@/lib/imageUtils').then(({ normalizeBase64 }) => {
+        const normalized = normalizeBase64(source.thumbnailData);
+        if (normalized) {
+          console.log('[ShortcutCustomizer] Using pre-generated thumbnail from source');
+          setThumbnail(normalized);
+          setIcon({ type: 'thumbnail', value: normalized });
+          setIsLoadingThumbnail(false);
+          return;
         }
-      })
-      .finally(() => {
-        setIsLoadingThumbnail(false);
+        // Fall through to generateThumbnail if normalization fails
+        fetchThumbnail();
       });
+      return;
+    }
+    
+    // Otherwise try to generate thumbnail
+    fetchThumbnail();
+    
+    function fetchThumbnail() {
+      setIsLoadingThumbnail(true);
+      generateThumbnail(source)
+        .then((thumb) => {
+          if (thumb) {
+            setThumbnail(thumb);
+            setIcon({ type: 'thumbnail', value: thumb });
+          }
+        })
+        .finally(() => {
+          setIsLoadingThumbnail(false);
+        });
+    }
   }, [source]);
   
   // Simulate progress for large files during creation

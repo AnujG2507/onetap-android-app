@@ -306,12 +306,13 @@ export function AccessFlow({
         return;
       } else if (result && result.files.length === 1) {
         // Single image - use existing flow
-        console.log('[AccessFlow] Single image selected from multi-picker');
+        console.log('[AccessFlow] Single image selected from multi-picker, thumbnail:', !!result.files[0].thumbnail);
         setContentSource({
           type: 'file',
           uri: result.files[0].uri,
           mimeType: result.files[0].mimeType,
           name: result.files[0].name,
+          thumbnailData: result.files[0].thumbnail, // Pass thumbnail from native picker
         });
         setStep('customize');
         return;

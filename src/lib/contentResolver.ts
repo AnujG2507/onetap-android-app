@@ -284,6 +284,7 @@ export async function pickFile(filter: FileTypeFilter = 'all'): Promise<ContentS
         mimeType: picked.mimeType,
         name: picked.name,
         fileSize: picked.size,
+        thumbnailData: picked.thumbnail, // Thumbnail from native picker (Fix #3)
         // Mark large videos so native can decide internal vs external player.
         isLargeFile: typeof picked.size === 'number' ? picked.size > VIDEO_CACHE_THRESHOLD : undefined,
       };
@@ -705,8 +706,24 @@ function isOnline(): boolean {
 
 // Generate thumbnail from content
 export async function generateThumbnail(source: ContentSource): Promise<string | null> {
+  // If we already have thumbnail data (from native picker), use it first (Fix #4)
+  if (source.thumbnailData) {
+    const { normalizeBase64 } = await import('@/lib/imageUtils');
+    const normalized = normalizeBase64(source.thumbnailData);
+    if (normalized) {
+      console.log('[ContentResolver] Using pre-generated thumbnail from native picker');
+      return normalized;
+    }
+  }
+
   if (source.mimeType?.startsWith('image/')) {
-    // For images, use the image itself as thumbnail
+    // For content:// URIs on native, we can't load them in JS
+    // Return null and rely on the existing thumbnailData
+    if (Capacitor.isNativePlatform() && source.uri.startsWith('content://')) {
+      console.log('[ContentResolver] Image has content:// URI - thumbnail should come from native');
+      return null;
+    }
+    // For blob: or http: URLs, we can use them directly
     return source.uri;
   }
   
