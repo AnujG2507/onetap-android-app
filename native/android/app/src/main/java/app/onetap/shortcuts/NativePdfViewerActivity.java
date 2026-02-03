@@ -193,19 +193,18 @@ public class NativePdfViewerActivity extends Activity {
         protected void dispatchDraw(Canvas canvas) {
             canvas.save();
             
-            // When zoomed out, center content horizontally
-            float translateX = panX;
             if (zoomLevel < 1.0f) {
-                // Center the scaled content
-                float scaledWidth = getWidth() * zoomLevel;
-                translateX = (getWidth() - scaledWidth) / 2f;
+                // ZOOMED OUT: Scale from screen center, no focal point tracking
+                // This keeps content centered on screen (Google Drive behavior)
+                float centerX = getWidth() / 2f;
+                float centerY = getHeight() / 2f;
+                canvas.scale(zoomLevel, zoomLevel, centerX, centerY);
+            } else if (zoomLevel > 1.0f) {
+                // ZOOMED IN: Pan + scale from focal point
+                canvas.translate(panX, 0);
+                canvas.scale(zoomLevel, zoomLevel, focalX, focalY);
             }
-            
-            // Apply horizontal translation (pan when zoomed in, center when zoomed out)
-            canvas.translate(translateX, 0);
-            
-            // Apply zoom centered on focal point
-            canvas.scale(zoomLevel, zoomLevel, focalX, focalY);
+            // At 1.0x: No transformation needed
             
             super.dispatchDraw(canvas);
             canvas.restore();
@@ -346,6 +345,7 @@ public class NativePdfViewerActivity extends Activity {
         
         /**
          * Animate zoom from current to target level.
+         * For zoom-out, animate focal point toward screen center for smooth transition.
          */
         public void animateZoomTo(float targetZoom, float fx, float fy, Runnable onComplete) {
             if (doubleTapAnimator != null && doubleTapAnimator.isRunning()) {
@@ -354,12 +354,13 @@ public class NativePdfViewerActivity extends Activity {
             
             final float startZoom = zoomLevel;
             final float startPanX = panX;
+            final float startFocalX = focalX;
+            final float startFocalY = focalY;
             
-            // If zooming out, animate pan back to center
+            // Target focal point is center when zooming to or below 1.0x
+            final float targetFocalX = (targetZoom <= 1.0f) ? getWidth() / 2f : fx;
+            final float targetFocalY = (targetZoom <= 1.0f) ? getHeight() / 2f : fy;
             final float targetPanX = (targetZoom <= 1.0f) ? 0 : panX;
-            
-            focalX = fx;
-            focalY = fy;
             
             doubleTapAnimator = ValueAnimator.ofFloat(0f, 1f);
             doubleTapAnimator.setDuration(DOUBLE_TAP_ANIM_DURATION_MS);
@@ -367,11 +368,10 @@ public class NativePdfViewerActivity extends Activity {
             
             doubleTapAnimator.addUpdateListener(animation -> {
                 float progress = (float) animation.getAnimatedValue();
-                float newZoom = startZoom + (targetZoom - startZoom) * progress;
-                float newPanX = startPanX + (targetPanX - startPanX) * progress;
-                
-                zoomLevel = newZoom;
-                panX = newPanX;
+                zoomLevel = startZoom + (targetZoom - startZoom) * progress;
+                panX = startPanX + (targetPanX - startPanX) * progress;
+                focalX = startFocalX + (targetFocalX - startFocalX) * progress;
+                focalY = startFocalY + (targetFocalY - startFocalY) * progress;
                 clampPan();
                 invalidate();
             });
@@ -382,6 +382,8 @@ public class NativePdfViewerActivity extends Activity {
                     zoomLevel = targetZoom;
                     if (targetZoom <= 1.0f) {
                         panX = 0;
+                        focalX = getWidth() / 2f;
+                        focalY = getHeight() / 2f;
                     }
                     clampPan();
                     invalidate();
@@ -695,7 +697,22 @@ public class NativePdfViewerActivity extends Activity {
                 float newZoom = startZoom * scaleFactor;
                 newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newZoom));
                 
-                recyclerView.setZoom(newZoom, detector.getFocusX(), detector.getFocusY());
+                float fx = detector.getFocusX();
+                float fy = detector.getFocusY();
+                
+                // When zooming out below 1.0x, blend focal point toward screen center
+                // This prevents content from drifting off-screen (Google Drive behavior)
+                if (newZoom < 1.0f) {
+                    float centerX = recyclerView.getWidth() / 2f;
+                    float centerY = recyclerView.getHeight() / 2f;
+                    // Blend factor: 0 at 1.0x, approaches 1 at MIN_ZOOM
+                    float t = (1.0f - newZoom) / (1.0f - MIN_ZOOM);
+                    t = Math.min(1.0f, t); // Clamp to 1.0
+                    fx = fx + (centerX - fx) * t;
+                    fy = fy + (centerY - fy) * t;
+                }
+                
+                recyclerView.setZoom(newZoom, fx, fy);
                 return true;
             }
             
