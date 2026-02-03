@@ -4,7 +4,7 @@ import { ArrowLeft, Check, Play, Pause, GripVertical, X, Image, Layers } from 'l
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { IconPicker } from '@/components/IconPicker';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+
 import type { MultiFileSource } from '@/types/shortcut';
 import type { ShortcutIcon } from '@/types/shortcut';
 import { generateGridIcon, generateCoverIcon } from '@/lib/slideshowIconGenerator';
@@ -92,9 +92,9 @@ function SortableImage({ id, index, thumbnail, onRemove }: SortableImageProps) {
       <div
         {...attributes}
         {...listeners}
-        className="absolute bottom-1 left-1 p-1 bg-black/60 rounded cursor-grab active:cursor-grabbing"
+        className="absolute bottom-1 left-1 p-1.5 bg-black/60 rounded cursor-grab active:cursor-grabbing touch-none select-none"
       >
-        <GripVertical className="h-3 w-3 text-white" />
+        <GripVertical className="h-4 w-4 text-white" />
       </div>
       
       {/* Remove button */}
@@ -125,10 +125,10 @@ export function SlideshowCustomizer({ source, onConfirm, onBack }: SlideshowCust
 
   const sensors = useSensors(
     useSensor(TouchSensor, {
-      activationConstraint: { delay: 150, tolerance: 5 },
+      activationConstraint: { delay: 200, tolerance: 5 },
     }),
     useSensor(PointerSensor, {
-      activationConstraint: { distance: 5 },
+      activationConstraint: { distance: 8 },
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
@@ -248,14 +248,17 @@ export function SlideshowCustomizer({ source, onConfirm, onBack }: SlideshowCust
           <label className="text-sm text-muted-foreground mb-2 block">
             {t('slideshow.reorder', 'Drag to reorder')}
           </label>
-          <ScrollArea className="w-full whitespace-nowrap">
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={handleDragEnd}
-            >
-              <SortableContext items={files.map(f => f.id)} strategy={horizontalListSortingStrategy}>
-                <div className="flex gap-3 pb-4">
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext items={files.map(f => f.id)} strategy={horizontalListSortingStrategy}>
+              <div 
+                className="overflow-x-auto pb-4 -mx-1 px-1"
+                style={{ WebkitOverflowScrolling: 'touch' }}
+              >
+                <div className="flex gap-3 w-max">
                   {files.map((file, index) => (
                     <SortableImage
                       key={file.id}
@@ -266,10 +269,9 @@ export function SlideshowCustomizer({ source, onConfirm, onBack }: SlideshowCust
                     />
                   ))}
                 </div>
-              </SortableContext>
-            </DndContext>
-            <ScrollBar orientation="horizontal" />
-          </ScrollArea>
+              </div>
+            </SortableContext>
+          </DndContext>
         </div>
 
         {/* Name input */}
