@@ -1186,7 +1186,8 @@ export function BookmarkLibrary({
         )}
       >
         <span className="text-sm font-medium text-foreground me-2">
-          {t('library.selected', { count: shortlistedLinks.length })}
+          <span className="landscape:hidden">{shortlistedLinks.length}</span>
+          <span className="hidden landscape:inline">{t('library.selected', { count: shortlistedLinks.length })}</span>
         </span>
         
         <div className="h-5 w-px bg-border" />
