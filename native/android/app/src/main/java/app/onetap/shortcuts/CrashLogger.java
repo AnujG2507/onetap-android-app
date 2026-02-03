@@ -324,6 +324,7 @@ public class CrashLogger {
     public static final String CAT_USER_ACTION = "user";
     public static final String CAT_RENDER = "render";
     public static final String CAT_IO = "io";
+    public static final String CAT_UI = "ui";
     public static final String CAT_ZOOM = "zoom";
     public static final String CAT_SCROLL = "scroll";
     public static final String CAT_CACHE = "cache";
