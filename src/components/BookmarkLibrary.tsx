@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Search, Plus, X, Bookmark, Trash2, Home, LayoutGrid, List, FolderInput, Clock, SortDesc, ArrowDownAZ, ArrowUpZA, Folder, ArrowDownUp, Edit2, GripVertical, Link2 } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ToastAction } from '@/components/ui/toast';
@@ -948,11 +949,12 @@ export function BookmarkLibrary({
       )}
 
       {/* Bookmarks List */}
-      <div 
-        ref={scrollContainerRef}
-        onScroll={(e) => {
-          const container = e.currentTarget;
-          const scrollTop = container.scrollTop;
+      <ScrollArea 
+        className="flex-1"
+        onScrollCapture={(e) => {
+          const target = e.target as HTMLElement;
+          if (!target.classList.contains('scroll-area-viewport')) return;
+          const scrollTop = target.scrollTop;
           const scrollDelta = scrollTop - lastScrollTop.current;
           
           // Show button when at top
@@ -970,8 +972,9 @@ export function BookmarkLibrary({
           
           lastScrollTop.current = scrollTop;
         }}
-        className="flex-1 overflow-y-auto ps-5 pe-5 pb-16 overscroll-contain touch-pan-y"
+        viewportClassName="scroll-area-viewport"
       >
+        <div ref={scrollContainerRef} className="ps-5 pe-5 pb-16">
         {filteredLinks.length === 0 && (searchQuery || activeTagFilter) ? (
           <div className="text-center py-12 text-muted-foreground">
             <p>{t('library.noMatch')}</p>
@@ -1147,7 +1150,8 @@ export function BookmarkLibrary({
           </DndContext>
           </>
         ) : null}
-      </div>
+        </div>
+      </ScrollArea>
 
       {/* Action Sheet */}
       <BookmarkActionSheet

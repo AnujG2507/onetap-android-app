@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { User, Cloud, Upload, Download, RefreshCw, LogOut, HardDrive, Clock, Trash2 } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
@@ -256,7 +257,8 @@ export function ProfilePage({}: ProfilePageProps = {}) {
   // Not signed in state
   if (!user) {
     return (
-      <div className="flex-1 flex flex-col pb-20 overflow-y-auto">
+      <ScrollArea className="flex-1">
+        <div className="flex flex-col pb-20">
         {/* Header with Menu */}
         <header className="ps-5 pe-5 pt-header-safe pb-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -321,7 +323,8 @@ export function ProfilePage({}: ProfilePageProps = {}) {
             onDismiss={tutorial.skip}
           />
         )}
-      </div>
+        </div>
+      </ScrollArea>
     );
   }
 
@@ -337,7 +340,8 @@ export function ProfilePage({}: ProfilePageProps = {}) {
   [rawAvatarUrl]);
 
   return (
-    <div className="flex-1 flex flex-col pb-20 overflow-y-auto">
+    <ScrollArea className="flex-1">
+      <div className="flex flex-col pb-20">
       {/* Header with Menu */}
       <header className="ps-5 pe-5 pt-header-safe pb-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -571,6 +575,7 @@ export function ProfilePage({}: ProfilePageProps = {}) {
           onDismiss={tutorial.skip}
         />
       )}
-    </div>
+      </div>
+    </ScrollArea>
   );
 }
