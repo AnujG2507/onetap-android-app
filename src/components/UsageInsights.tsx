@@ -98,38 +98,6 @@ export function UsageInsights() {
           </div>
         )}
 
-        {/* Top Shortcuts */}
-        {stats.mostUsedShortcuts.length > 0 && (
-          <div className="space-y-2">
-            <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              {t('usage.topShortcuts', 'Most Used')}
-            </h4>
-            <div className="space-y-1.5">
-              {stats.mostUsedShortcuts.slice(0, 3).map((shortcut, index) => (
-                <div 
-                  key={shortcut.id} 
-                  className="flex items-center justify-between bg-muted/30 rounded-lg px-3 py-2 min-w-0 overflow-hidden"
-                >
-                  <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
-                    <span className="text-xs font-medium text-muted-foreground w-4">
-                      {index + 1}.
-                    </span>
-                    <span className="text-lg shrink-0">
-                      {shortcut.icon.type === 'emoji' ? shortcut.icon.value : '📎'}
-                    </span>
-                    <span className="text-sm text-foreground truncate flex-1 min-w-0">
-                      {shortcut.name}
-                    </span>
-                  </div>
-                  <span className="text-xs text-muted-foreground whitespace-nowrap ms-2">
-                    {shortcut.usageCount} {t('usage.taps', 'taps')}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* Empty State */}
         {stats.totalShortcuts === 0 && (
           <div className="text-center py-4 text-muted-foreground text-sm">
