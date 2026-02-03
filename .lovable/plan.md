@@ -1,234 +1,170 @@
 
 
-# PDF Page Centering & Panning Enhancement
+# Smooth Zoom-Out Enhancement for PDF Viewer
 
-## Overview
+## Problem
 
-Ensure PDF pages stay horizontally centered when their scaled width is less than the screen width (in both portrait and landscape), and enable smooth one-finger movement in all directions when the zoomed page exceeds screen bounds.
+When zooming out below 1.0x, the PDF viewer becomes glitchy because:
 
----
+1. `adapter.notifyDataSetChanged()` is called every 50ms during the pinch gesture (throttled, but still frequent)
+2. Each call triggers full RecyclerView rebind - recalculating all visible item layouts, finding cached bitmaps, and updating views
+3. This causes visible flickering and layout jumps during the gesture
 
-## Current Behavior
+Meanwhile, zoom above 1.0x is smooth because it only uses canvas transforms (`canvas.scale()`) without any adapter updates.
 
-| Scenario | Current Behavior |
-|----------|-----------------|
-| Zoomed out (< 1.0x) | Pages are centered horizontally via `Gravity.CENTER_HORIZONTAL` ✓ |
-| At 1.0x | Pages fill screen width, no centering needed ✓ |
-| Zoomed in (> 1.0x) | Canvas scales content, horizontal panning available |
-| Orientation change | `screenWidth` not updated - pages may not recenter |
-| Vertical panning when zoomed | Not available - RecyclerView handles scroll |
+## Solution: Canvas-Based Scaling During Gesture
 
----
+Apply the same smooth canvas scaling for ALL zoom levels during the gesture, then commit layout changes only when the gesture ends. This ensures:
 
-## Problem Areas
-
-### 1. Orientation Changes Not Handled
-The `screenWidth` and `screenHeight` are set only in `onCreate()`. When device rotates:
-- Pages may use stale dimensions
-- Centering calculations become incorrect
-- Page scaling doesn't adapt to new screen width
-
-### 2. Pan Direction Limited
-Current panning only allows horizontal movement when zoomed in (> 1.0x):
-```java
-if (zoomLevel > 1.0f) {
-    // Only horizontal pan via panX
-}
-```
-Users expect smooth one-finger movement in all directions when content exceeds screen bounds.
-
-### 3. Centering Logic Needs Refinement
-When a page's scaled width is less than screen width (even when zoomed in), pages should remain centered rather than being pannable.
+- Smooth, consistent zooming at all levels (no flickering)
+- Content remains sharp because layouts are only updated once at gesture end
+- No compromise on content clarity - bitmaps are re-rendered at final zoom level after gesture
 
 ---
 
-## Implementation Plan
+## Implementation
 
-### 1. Handle Orientation Changes
+### 1. Add Gesture State Tracking
 
-Update screen dimensions when configuration changes:
-
-```java
-@Override
-public void onConfigurationChanged(Configuration newConfig) {
-    super.onConfigurationChanged(newConfig);
-    
-    // Update screen dimensions
-    DisplayMetrics metrics = getResources().getDisplayMetrics();
-    screenWidth = metrics.widthPixels;
-    screenHeight = metrics.heightPixels;
-    
-    // Reset pan to recenter
-    if (recyclerView != null) {
-        recyclerView.resetPan();
-        recyclerView.invalidate();
-    }
-    
-    // Trigger adapter rebind for new dimensions
-    if (adapter != null) {
-        adapter.notifyDataSetChanged();
-    }
-}
-```
-
-Add to `AndroidManifest.xml`:
-```xml
-android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout"
-```
-
-### 2. Improve Pan Logic in ZoomableRecyclerView
-
-Replace horizontal-only panning with bidirectional movement:
+Track when a gesture is active to distinguish between "visual preview" and "committed" state:
 
 ```java
-private float panX = 0f;
-private float panY = 0f;  // NEW: Add vertical pan offset
-private float lastTouchX = 0f;
-private float lastTouchY = 0f;  // NEW: Track Y position
-
-// In onTouchEvent():
-case MotionEvent.ACTION_MOVE:
-    if (e.getPointerCount() == 1 && !isInternalScaling) {
-        float dx = e.getX() - lastTouchX;
-        float dy = e.getY() - lastTouchY;
-        
-        // Calculate content bounds
-        float scaledContentWidth = getWidth() * zoomLevel;
-        float scaledContentHeight = getTotalContentHeight() * zoomLevel;
-        
-        // Allow horizontal pan only if content wider than screen
-        if (scaledContentWidth > getWidth()) {
-            if (Math.abs(dx) > 5) isPanning = true;
-            if (isPanning) {
-                panX = clampPanX(panX + dx);
-            }
-        }
-        
-        // Allow vertical pan only if content taller than screen
-        // (Otherwise RecyclerView handles vertical scroll)
-        if (scaledContentHeight > getHeight() && zoomLevel > 1.0f) {
-            if (Math.abs(dy) > 5) isPanning = true;
-            if (isPanning) {
-                panY = clampPanY(panY + dy);
-            }
-        }
-        
-        lastTouchX = e.getX();
-        lastTouchY = e.getY();
-        invalidate();
-    }
-    break;
+// In ZoomableRecyclerView
+private boolean isGestureActive = false;
+private float committedZoom = 1.0f;  // Zoom level when layouts were last updated
 ```
 
-### 3. Update dispatchDraw for Combined Transform
+### 2. Modify dispatchDraw for Gesture-Aware Scaling
 
-Modify canvas transform to include vertical pan:
+During a gesture, apply canvas scaling for all zoom levels (including below 1.0x):
 
 ```java
 @Override
 protected void dispatchDraw(Canvas canvas) {
     canvas.save();
     
-    if (zoomLevel < 1.0f) {
-        // ZOOMED OUT: No canvas transform - layout heights handle sizing
+    if (isGestureActive) {
+        // DURING GESTURE: Canvas-based scaling for all zoom levels
+        // This avoids triggering layout updates that cause flickering
+        float scaledContentWidth = getWidth() * zoomLevel;
+        float effectivePanX = (scaledContentWidth > getWidth()) ? panX : 0;
+        
+        canvas.translate(effectivePanX, panY);
+        canvas.scale(zoomLevel, zoomLevel, focalX, focalY);
+    } else if (zoomLevel < 1.0f) {
+        // COMMITTED ZOOMED OUT: Layouts already scaled, no canvas transform needed
         // Pages are centered via Gravity.CENTER_HORIZONTAL in adapter
     } else if (zoomLevel > 1.0f) {
-        // ZOOMED IN: Pan + scale from focal point
-        // Check if content width exceeds screen before applying horizontal pan
+        // COMMITTED ZOOMED IN: Canvas-based pan + scale
         float scaledContentWidth = getWidth() * zoomLevel;
         float effectivePanX = (scaledContentWidth > getWidth()) ? panX : 0;
         
         canvas.translate(effectivePanX, panY);
         canvas.scale(zoomLevel, zoomLevel, focalX, focalY);
     }
-    // At 1.0x: No transformation needed
+    // At 1.0x committed: No transformation needed
     
     super.dispatchDraw(canvas);
     canvas.restore();
 }
 ```
 
-### 4. Smart Centering with Pan Clamping
+### 3. Update Scale Gesture Callbacks
 
-Update `clampPan()` to handle both directions and auto-center when content fits:
+Set `isGestureActive` flag in the scale detector and remove throttled layout updates:
 
 ```java
-private void clampPan() {
-    // Calculate scaled content dimensions
-    float scaledContentWidth = getWidth() * zoomLevel;
-    
-    // Horizontal: If content fits, center it (panX = 0)
-    // If content exceeds, allow panning within bounds
-    if (scaledContentWidth <= getWidth()) {
-        panX = 0;  // Center content
-    } else {
-        float maxPanX = (scaledContentWidth - getWidth()) / 2;
-        panX = Math.max(-maxPanX, Math.min(maxPanX, panX));
-    }
-    
-    // Vertical pan clamping (for zoomed-in mode)
-    if (zoomLevel <= 1.0f) {
-        panY = 0;  // No vertical pan when zoomed out/at 1.0x
-    } else {
-        // Clamp vertical pan based on content height
-        float visibleContentHeight = getHeight();
-        float scaledVisibleHeight = visibleContentHeight * zoomLevel;
-        float maxPanY = Math.max(0, (scaledVisibleHeight - visibleContentHeight) / 2);
-        panY = Math.max(-maxPanY, Math.min(maxPanY, panY));
-    }
+// In ScaleGestureDetector.onScaleBegin:
+isGestureActive = true;
+
+// In ScaleGestureDetector.onScaleEnd:
+isGestureActive = false;
+committedZoom = zoomLevel;
+```
+
+### 4. Remove Throttled Layout Updates During Gesture
+
+In `onScale()` callback, remove the `notifyDataSetChanged()` call:
+
+```java
+@Override
+public void onScale(float newZoom, float fx, float fy) {
+    currentZoom = newZoom;
+    // REMOVED: Throttled adapter.notifyDataSetChanged() during gesture
+    // Canvas transform now handles visual scaling smoothly
 }
 ```
 
-### 5. Update Zoom Animation to Reset Pan
+### 5. Commit Layout Changes Only at Gesture End
 
-In `animateZoomTo()`, animate pan to 0 when zooming to 1.0x or below:
+Update `onScaleEnd()` to trigger the adapter update once:
 
 ```java
-final float targetPanX = (targetZoom <= 1.0f) ? 0 : panX;
-final float targetPanY = (targetZoom <= 1.0f) ? 0 : panY;
+@Override
+public void onScaleEnd(float finalZoom) {
+    isScaling = false;
+    previousZoom = currentZoom;
+    currentZoom = finalZoom;
+    
+    // Commit layout changes NOW (single update instead of many during gesture)
+    if (finalZoom < 1.0f && adapter != null) {
+        adapter.notifyDataSetChanged();
+    }
+    
+    // Trigger high-res re-render at final zoom
+    commitZoomAndRerender();
+}
+```
+
+### 6. Update Double-Tap Animation for Consistency
+
+Ensure double-tap zoom also uses canvas scaling during animation:
+
+```java
+// In animateZoomTo(), track animation as a gesture
+isGestureActive = true;
+
+// In onAnimationEnd:
+isGestureActive = false;
+committedZoom = targetZoom;
+if (targetZoom < 1.0f && adapter != null) {
+    adapter.notifyDataSetChanged();
+}
 ```
 
 ---
 
-## Technical Details
+## Content Clarity Guarantee
 
-### Content Width Calculation
-At any zoom level, the effective content width is:
-- For individual pages: `pageWidth * (screenWidth / originalPageWidth) * zoomLevel`
-- For the viewport: `screenWidth * zoomLevel`
+This approach ensures **no compromise on content clarity**:
 
-When `screenWidth * zoomLevel <= screenWidth` (i.e., `zoomLevel <= 1.0`), pages are centered via the adapter's `Gravity.CENTER_HORIZONTAL`.
+| Phase | Behavior |
+|-------|----------|
+| During gesture | Canvas scales existing bitmaps (may be slightly soft) |
+| Gesture ends | Layout updates + high-res bitmaps rendered at final zoom |
+| Result | Sharp, clear content at the committed zoom level |
 
-### RecyclerView Integration
-Vertical scrolling through the RecyclerView should continue to work normally:
-- When `zoomLevel <= 1.0`: RecyclerView handles all vertical scroll
-- When `zoomLevel > 1.0`: `panY` handles initial vertical offset within the visible area, then RecyclerView takes over for scrolling between pages
-
-### Gesture Conflict Resolution
-The touch handling priority:
-1. Scale gesture (two fingers) - highest priority
-2. Pan gesture (one finger, content exceeds screen)
-3. RecyclerView scroll (one finger, vertical navigation)
+The slight softness during the gesture is imperceptible because:
+1. Fingers are actively moving, so the user isn't examining detail
+2. The gesture typically lasts < 1 second
+3. Sharp rendering happens immediately at gesture end
 
 ---
 
-## Files to Modify
+## File to Modify
 
 | File | Changes |
 |------|---------|
-| `NativePdfViewerActivity.java` | Add `panY` field, update touch handling, modify `dispatchDraw()`, update `clampPan()`, handle config changes |
-| `AndroidManifest.xml` | Add `configChanges` to prevent activity restart on rotation |
+| `NativePdfViewerActivity.java` | Add `isGestureActive`/`committedZoom` fields, update `dispatchDraw()`, modify scale callbacks, update `animateZoomTo()` |
 
 ---
 
 ## Testing Checklist
 
-- [ ] Portrait: Pages centered when zoomed out (< 1.0x)
-- [ ] Landscape: Pages centered when zoomed out (< 1.0x)
-- [ ] Rotate device: Pages recenter correctly
-- [ ] Zoom to 2.5x: Can pan left/right when page exceeds width
-- [ ] Zoom to 2.5x: Can pan up/down smoothly
-- [ ] One-finger movement: Smooth in all directions when zoomed
-- [ ] At 1.0x zoom: Pages fill width, no horizontal pan
-- [ ] Double-tap zoom: Pan resets to center when zooming out
+- [ ] Zoom out from 1.0x to 0.3x: Smooth transition, no flickering
+- [ ] Release pinch at 0.5x: Layouts update once, pages remain sharp
+- [ ] Zoom in from 0.3x to 2.5x in one gesture: Seamless, no layout jumps
+- [ ] Double-tap zoom to 0.2x: Smooth animation, sharp result
+- [ ] Scroll while zoomed out: Train view pages bind correctly with proper bitmaps
+- [ ] Orientation change during zoom: Layouts recalculate correctly
 
