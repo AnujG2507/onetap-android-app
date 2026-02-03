@@ -270,7 +270,7 @@ export function ProfilePage({}: ProfilePageProps = {}) {
           <AppMenu onOpenTrash={() => setIsTrashOpen(true)} onOpenSettings={() => setShowSettings(true)} />
         </header>
 
-        <div id="tutorial-user-card" className="flex-1 flex flex-col items-center justify-center gap-6 max-w-sm mx-auto text-center mb-6">
+        <div id="tutorial-user-card" className="flex flex-col items-center gap-6 max-w-sm mx-auto text-center px-5 py-8 mb-4">
           <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center">
             <User className="w-10 h-10 text-muted-foreground" />
           </div>
@@ -305,7 +305,9 @@ export function ProfilePage({}: ProfilePageProps = {}) {
         </div>
 
         {/* Usage Insights for signed-out users too */}
-        <UsageInsights />
+        <div className="px-5">
+          <UsageInsights />
+        </div>
         
         {/* Trash Sheet */}
         <TrashSheet 
