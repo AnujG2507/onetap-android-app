@@ -1,35 +1,122 @@
-# PDF Viewer - Google Drive Style Implementation
 
-## ✅ Completed
+# Fix PDF Page Background Extending to Screen Edges
 
-### Visual Parity Fixes
-- [x] Reduced page gap from 8dp to 4dp
-- [x] Made gap zoom-aware (scales with zoom level when < 1.0x)
-- [x] Added subtle page elevation/shadow (2dp)
-- [x] Added floating page badge with range display ("1-5/121")
-- [x] Badge positioned on right side, always visible
+## Problem
 
-### Previous Implementations
-- [x] Train view with dynamic layout heights
-- [x] Fast scroll with page indicator
-- [x] Low-res → high-res atomic swap
-- [x] Pre-render nearby pages (PRERENDER_PAGES = 5)
+When zoomed out in train view, the PDF pages' gray/white background extends to the screen edges on left and right, creating an unappealing visual. Google Drive shows pages as centered narrow tiles with dark background on the sides.
 
-## Deferred (Optional Future Work)
+## Root Cause
 
-### Grid/Thumbnail Navigation
-- [ ] Add grid button (6-dot icon) next to page badge
-- [ ] Full thumbnail grid overlay for page selection
+In the current implementation:
+- Page `ImageView` width is set to `MATCH_PARENT` (fills entire screen width)
+- Only the height is scaled when zoomed out (`getScaledPageHeight()`)
+- The white/gray background (`0xFFFFFFFF` or `0xFFF5F5F5`) extends across the full width
 
----
+This means when zoomed to 0.5x, the page image scales down visually but the container still fills the screen width with its background color.
 
-## Key Changes Made
+## Solution
 
-| Change | Location | Details |
-|--------|----------|---------|
-| PAGE_GAP_DP = 4 | Line 97 | Reduced from 8dp |
-| PAGE_ELEVATION_DP = 2 | Line 100 | Card-like shadows |
-| pageBadge | buildUI() | Floating "1-5/121" badge on right |
-| Zoom-aware gaps | ItemDecoration | Scales gap by currentZoom when < 1.0x |
-| Page elevation | onCreateViewHolder | setElevation + ViewOutlineProvider |
-| Range display | updatePageIndicator | Shows "1-5/121" instead of "1 / 121" |
+Scale both width AND height when zoomed out (< 1.0x), and center the page tiles horizontally:
+
+### Changes Required
+
+**1. Create zoom-aware page width calculator**
+
+Add a new method `getScaledPageWidth()` that mirrors `getScaledPageHeight()`:
+
+```java
+private int getScaledPageWidth(int pageIndex) {
+    // At or above 1.0x: Full screen width
+    if (currentZoom >= 1.0f) {
+        return screenWidth;
+    }
+    // When zoomed out: Scale width proportionally
+    return (int) (screenWidth * currentZoom);
+}
+```
+
+**2. Update adapter to set explicit width**
+
+In `onCreateViewHolder()`:
+- Change width from `MATCH_PARENT` to an explicit value
+- Center the ImageView using a wrapper or gravity
+
+In `onBindViewHolder()`:
+- Update both width and height based on zoom level:
+
+```java
+ViewGroup.LayoutParams params = holder.imageView.getLayoutParams();
+params.width = getScaledPageWidth(position);
+params.height = getScaledPageHeight(position);
+holder.imageView.setLayoutParams(params);
+```
+
+**3. Center page tiles horizontally**
+
+Wrap each page in a `FrameLayout` with `MATCH_PARENT` width and transparent/dark background, then center the actual ImageView inside:
+
+```java
+// In onCreateViewHolder():
+FrameLayout wrapper = new FrameLayout(parent.getContext());
+wrapper.setLayoutParams(new RecyclerView.LayoutParams(
+    ViewGroup.LayoutParams.MATCH_PARENT,
+    ViewGroup.LayoutParams.WRAP_CONTENT
+));
+
+ImageView imageView = new ImageView(parent.getContext());
+FrameLayout.LayoutParams imageParams = new FrameLayout.LayoutParams(
+    ViewGroup.LayoutParams.WRAP_CONTENT,
+    ViewGroup.LayoutParams.WRAP_CONTENT
+);
+imageParams.gravity = Gravity.CENTER_HORIZONTAL;
+imageView.setLayoutParams(imageParams);
+// ... rest of setup
+
+wrapper.addView(imageView);
+return new PageViewHolder(wrapper, imageView);
+```
+
+**4. Update PageViewHolder to hold wrapper reference**
+
+```java
+class PageViewHolder extends RecyclerView.ViewHolder {
+    FrameLayout wrapper;
+    ImageView imageView;
+    int pageIndex = -1;
+    
+    PageViewHolder(FrameLayout wrapper, ImageView imageView) {
+        super(wrapper);
+        this.wrapper = wrapper;
+        this.imageView = imageView;
+    }
+}
+```
+
+**5. Ensure RecyclerView background is dark**
+
+The RecyclerView already has a dark background (`0xFF1A1A1A`), so when the page tiles become narrower, the dark background will show on the sides.
+
+## Files to Modify
+
+| File | Changes |
+|------|---------|
+| `NativePdfViewerActivity.java` | Add `getScaledPageWidth()`, update adapter to wrap ImageView in centered FrameLayout, update `onBindViewHolder()` to set both width and height |
+
+## Visual Result
+
+| Scenario | Before | After |
+|----------|--------|-------|
+| Zoom out (train view) | Gray/white background extends to screen edges | Narrow page tiles centered with dark background on sides |
+| Zoom 1.0x (fit-width) | Page fills screen width | Page fills screen width (no change) |
+| Zoom > 1.0x | Normal zoom behavior | Normal zoom behavior (no change) |
+
+## Testing Checklist
+
+- [ ] Zoom out to 0.5x - pages should be narrow with dark sides
+- [ ] Zoom out fully (0.2x) - 8-10 narrow pages visible, centered
+- [ ] Zoom to 1.0x - pages fill screen width (no visible dark sides)
+- [ ] Zoom in to 2.5x - normal panning and zoom behavior
+- [ ] Scroll through document - pages remain centered
+- [ ] Fast scroll still works correctly
+- [ ] Page shadows still visible
+- [ ] Resume position works correctly
