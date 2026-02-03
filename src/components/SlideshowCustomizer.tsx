@@ -245,6 +245,9 @@ export function SlideshowCustomizer({ source, onConfirm, onBack }: SlideshowCust
 
         {/* Reorderable thumbnail strip */}
         <div>
+          <label className="text-sm text-muted-foreground mb-2 block">
+            {t('slideshow.reorder', 'Drag to reorder')}
+          </label>
           <ScrollArea className="w-full whitespace-nowrap">
             <DndContext
               sensors={sensors}

@@ -211,9 +211,10 @@ export function useShortcuts() {
       resumeEnabled: resumeEnabled,
     };
 
-    // Don't save yet - caller must call persistShortcut after native add succeeds
+    const updated = [...shortcuts, shortcut];
+    saveShortcuts(updated);
     return shortcut;
-  }, []);
+  }, [shortcuts, saveShortcuts]);
 
   const createContactShortcut = useCallback((
     type: 'contact' | 'message',
@@ -237,9 +238,10 @@ export function useShortcuts() {
       quickMessages: type === 'message' && quickMessages?.length ? quickMessages : undefined,
     };
 
-    // Don't save yet - caller must call persistShortcut after native add succeeds
+    const updated = [...shortcuts, shortcut];
+    saveShortcuts(updated);
     return shortcut;
-  }, []);
+  }, [shortcuts, saveShortcuts]);
 
   const createSlideshowShortcut = useCallback((
     images: Array<{ uri: string; thumbnail?: string }>,
@@ -260,16 +262,11 @@ export function useShortcuts() {
       autoAdvanceInterval,
     };
 
-    // Don't save yet - caller must call persistShortcut after native add succeeds
-    return shortcut;
-  }, []);
-
-  // Persist a shortcut after native add succeeds (atomic creation)
-  const persistShortcut = useCallback((shortcut: ShortcutData) => {
     const updated = [...shortcuts, shortcut];
     saveShortcuts(updated);
+    return shortcut;
   }, [shortcuts, saveShortcuts]);
-
+  
   // Helper to detect file type from MIME type (robust detection)
   function detectFileTypeFromMime(mimeType?: string, filename?: string): 'image' | 'video' | 'pdf' | 'document' | undefined {
     if (mimeType) {
@@ -404,7 +401,6 @@ export function useShortcuts() {
     createShortcut,
     createContactShortcut,
     createSlideshowShortcut,
-    persistShortcut,
     deleteShortcut,
     incrementUsage,
     updateShortcut,
