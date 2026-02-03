@@ -13,6 +13,7 @@ import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.pdf.PdfRenderer;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -1367,7 +1368,13 @@ public class NativePdfViewerActivity extends Activity {
     private void exitViewer() {
         hideHandler.removeCallbacks(hideRunnable);
         saveResumeState();
-        finish();
+        
+        // Exit to home screen (not back to One Tap app)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            finishAndRemoveTask();
+        } else {
+            finish();
+        }
         overridePendingTransition(0, android.R.anim.fade_out);
     }
     
