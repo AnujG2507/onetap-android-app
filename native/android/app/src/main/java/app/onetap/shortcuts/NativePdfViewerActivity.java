@@ -39,6 +39,8 @@ import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.graphics.drawable.GradientDrawable;
+import android.view.ViewOutlineProvider;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -93,8 +95,11 @@ public class NativePdfViewerActivity extends Activity {
     // Low-res scale factor for instant preview (0.5x = half resolution)
     private static final float LOW_RES_SCALE = 0.5f;
     
-    // Page gap in dp
-    private static final int PAGE_GAP_DP = 8;
+    // Page gap in dp (reduced from 8 for Drive-like appearance)
+    private static final int PAGE_GAP_DP = 4;
+    
+    // Page elevation for card-like shadow effect
+    private static final int PAGE_ELEVATION_DP = 2;
     
     // Scroll threshold for header show/hide (in pixels)
     private static final int SCROLL_THRESHOLD = 20;
@@ -114,6 +119,10 @@ public class NativePdfViewerActivity extends Activity {
     
     // Fast scroll overlay
     private FastScrollOverlay fastScrollOverlay;
+    
+    // Floating page badge (Drive-style)
+    private TextView pageBadge;
+    private int pageGapPx;
     
     // PDF URI for "Open with" feature
     private Uri pdfUri;
@@ -1037,6 +1046,26 @@ public class NativePdfViewerActivity extends Activity {
         ));
         root.addView(fastScrollOverlay);
         
+        // Floating page badge (Drive-style) - positioned on right side
+        pageBadge = new TextView(this);
+        pageBadge.setTextColor(0xFFFFFFFF);
+        pageBadge.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        pageBadge.setPadding(dpToPx(10), dpToPx(6), dpToPx(10), dpToPx(6));
+        
+        GradientDrawable badgeBg = new GradientDrawable();
+        badgeBg.setColor(0xCC424242);
+        badgeBg.setCornerRadius(dpToPx(16));
+        pageBadge.setBackground(badgeBg);
+        
+        FrameLayout.LayoutParams badgeParams = new FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        badgeParams.gravity = Gravity.END | Gravity.CENTER_VERTICAL;
+        badgeParams.setMarginEnd(dpToPx(16));
+        pageBadge.setLayoutParams(badgeParams);
+        root.addView(pageBadge);
+        
         // Top bar with gradient background
         topBar = new FrameLayout(this);
         int topBarHeight = dpToPx(56);
@@ -1355,15 +1384,20 @@ public class NativePdfViewerActivity extends Activity {
         LinearLayoutManager layoutManager = new LinearLayoutManager(this, RecyclerView.VERTICAL, false);
         recyclerView.setLayoutManager(layoutManager);
         
-        // Add page gap decoration
-        int pageGapPx = dpToPx(PAGE_GAP_DP);
+        // Add page gap decoration (zoom-aware for Drive-like appearance)
+        pageGapPx = dpToPx(PAGE_GAP_DP);
         recyclerView.addItemDecoration(new RecyclerView.ItemDecoration() {
             @Override
             public void getItemOffsets(@NonNull Rect outRect, @NonNull View view, 
                     @NonNull RecyclerView parent, @NonNull RecyclerView.State state) {
                 int position = parent.getChildAdapterPosition(view);
                 if (position > 0) {
-                    outRect.top = pageGapPx;
+                    // Scale gap proportionally when zoomed out for tighter train view
+                    int gap = pageGapPx;
+                    if (currentZoom < 1.0f) {
+                        gap = Math.max(dpToPx(2), (int)(pageGapPx * currentZoom));
+                    }
+                    outRect.top = gap;
                 }
             }
         });
@@ -1468,16 +1502,37 @@ public class NativePdfViewerActivity extends Activity {
     }
     
     private void updatePageIndicator() {
-        if (pageIndicator == null || pageWidths == null) return;
+        if (pageWidths == null) return;
         
         LinearLayoutManager layoutManager = (LinearLayoutManager) recyclerView.getLayoutManager();
         if (layoutManager == null) return;
         
-        int currentPage = layoutManager.findFirstVisibleItemPosition() + 1;
+        int firstVisible = layoutManager.findFirstVisibleItemPosition();
+        int lastVisible = layoutManager.findLastVisibleItemPosition();
         int totalPages = pageWidths.length;
         
-        if (currentPage > 0 && totalPages > 0) {
-            pageIndicator.setText(currentPage + " / " + totalPages);
+        if (firstVisible < 0 || totalPages <= 0) return;
+        
+        // Display 1-indexed pages
+        int firstPage = firstVisible + 1;
+        int lastPage = lastVisible + 1;
+        
+        // Format: "1-5/121" for multiple visible, "1/121" for single page
+        String rangeText;
+        if (firstPage == lastPage) {
+            rangeText = firstPage + "/" + totalPages;
+        } else {
+            rangeText = firstPage + "-" + lastPage + "/" + totalPages;
+        }
+        
+        // Update floating page badge (Drive-style)
+        if (pageBadge != null) {
+            pageBadge.setText(rangeText);
+        }
+        
+        // Update header indicator (legacy, shows simpler format)
+        if (pageIndicator != null) {
+            pageIndicator.setText(firstPage + " / " + totalPages);
         }
     }
     
@@ -1900,6 +1955,14 @@ public class NativePdfViewerActivity extends Activity {
             ));
             imageView.setScaleType(ImageView.ScaleType.FIT_CENTER);
             imageView.setBackgroundColor(0xFFFFFFFF);
+            
+            // Add subtle elevation for card-like shadow effect (Drive-style)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                imageView.setElevation(dpToPx(PAGE_ELEVATION_DP));
+                imageView.setOutlineProvider(ViewOutlineProvider.BOUNDS);
+                imageView.setClipToOutline(true);
+            }
+            
             return new PageViewHolder(imageView);
         }
         
