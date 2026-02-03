@@ -1,113 +1,125 @@
 
-# Fix Profile Page Overflow Issue
+# Fix Horizontal Overflow in Profile Page
 
-## Problem Analysis
+## Problem
 
-The Profile page content is stretching outside the visible screen area, causing the "Weekly Activity" chart in the Usage Insights section to be cut off.
+The Profile page is experiencing **horizontal overflow** when the Usage Insights section displays the weekly activity chart. This happens in both signed-in and signed-out states.
 
-### Root Cause
+## Root Cause
 
-In the **signed-out state** of `ProfilePage.tsx`, the layout structure has a conflict:
+The chart library (`recharts` `ResponsiveContainer`) calculates its width based on its parent element. In a flex/scroll container without explicit width constraints, the chart can expand beyond the viewport width.
 
-```tsx
-<ScrollArea className="flex-1">
-  <div className="flex flex-col pb-20">
-    {/* Header */}
-    <header className="ps-5 pe-5 pt-header-safe pb-4 ...">
-    
-    {/* Sign-in section - THIS IS THE PROBLEM */}
-    <div id="tutorial-user-card" className="flex-1 flex flex-col items-center justify-center gap-6 ...">
-```
-
-The sign-in section uses `flex-1` which tries to expand to fill available space, but since it's inside a `ScrollArea`, this creates a conflict:
-1. `ScrollArea` needs content to have a natural height to scroll
-2. `flex-1` tries to expand infinitely
-3. The content ends up stretching beyond the viewport without proper scrolling
-
-### The Working Pattern
-
-Looking at the **signed-in state** (lines 342-578), the structure is correct:
-- No `flex-1` on internal content
-- Natural content height flows properly
-- `pb-20` provides clearance for the fixed bottom navigation
-
----
+The issue is in the layout chain:
+1. `ScrollArea` creates a viewport that doesn't constrain width
+2. The content wrapper inside `ScrollArea` has no `min-w-0` to prevent flex children from expanding
+3. `ResponsiveContainer` detects an unconstrained width and overflows
 
 ## Solution
 
-Remove `flex-1` from the sign-in section container in the signed-out state. The content should have a natural height and let `ScrollArea` handle the scrolling. Also add horizontal padding (`px-5`) to the UsageInsights wrapper for visual consistency with the header.
+Apply width constraints at multiple levels for defense in depth:
 
-### Before (Problematic)
+### 1. ScrollArea Viewport - Add overflow-x-hidden
+
+In `ProfilePage.tsx`, use the `viewportClassName` prop on `ScrollArea` to prevent horizontal scrolling:
+
 ```tsx
-<div id="tutorial-user-card" className="flex-1 flex flex-col items-center justify-center gap-6 max-w-sm mx-auto text-center mb-6">
+<ScrollArea className="flex-1" viewportClassName="overflow-x-hidden">
 ```
 
-### After (Fixed)
+### 2. Content Wrapper - Add min-w-0 and w-full
+
+Add `min-w-0 w-full` to the main content wrapper to constrain flex child widths:
+
 ```tsx
-<div id="tutorial-user-card" className="flex flex-col items-center justify-center gap-6 max-w-sm mx-auto text-center px-5 py-8 mb-6">
+<div className="flex flex-col pb-20 min-w-0 w-full">
 ```
 
-Key changes:
-1. **Remove `flex-1`** - This was causing the content to try to expand infinitely
-2. **Add `py-8`** - Provides vertical spacing now that the section isn't trying to center-fill the viewport
-3. **Add `px-5`** - Consistent horizontal padding matching the signed-in state
-4. **Wrap UsageInsights in a padded div** - For consistent horizontal padding
+### 3. UsageInsights Wrapper - Defense in depth
 
----
+The wrapper already has `px-5`, but add `w-full min-w-0 overflow-hidden` for additional safety:
 
-## Implementation Details
-
-### File: `src/components/ProfilePage.tsx`
-
-**Change 1: Fix the sign-in section container (line 273)**
-
-From:
 ```tsx
-<div id="tutorial-user-card" className="flex-1 flex flex-col items-center justify-center gap-6 max-w-sm mx-auto text-center mb-6">
-```
-
-To:
-```tsx
-<div id="tutorial-user-card" className="flex flex-col items-center gap-6 max-w-sm mx-auto text-center px-5 py-8 mb-4">
-```
-
-**Change 2: Add padding wrapper for UsageInsights (line 308)**
-
-From:
-```tsx
-{/* Usage Insights for signed-out users too */}
-<UsageInsights />
-```
-
-To:
-```tsx
-{/* Usage Insights for signed-out users too */}
-<div className="px-5">
+<div className="px-5 w-full min-w-0 overflow-hidden">
   <UsageInsights />
 </div>
 ```
 
 ---
 
-## Visual Result
+## Implementation Details
 
-### Before
-- Sign-in card and Usage Insights overflow the screen
-- Weekly Activity chart cut off at bottom
-- Content not properly scrollable
+### File: src/components/ProfilePage.tsx
 
-### After
-- All content fits within scrollable area
-- Weekly Activity chart fully visible
-- Consistent padding matches signed-in state layout
-- Proper clearance above bottom navigation (`pb-20`)
+**Change 1: Signed-out state ScrollArea (line 260)**
+
+Add `viewportClassName` prop:
+
+```tsx
+<ScrollArea className="flex-1" viewportClassName="overflow-x-hidden">
+```
+
+**Change 2: Signed-out content wrapper (line 261)**
+
+Add width constraints:
+
+```tsx
+<div className="flex flex-col pb-20 min-w-0 w-full">
+```
+
+**Change 3: Signed-out UsageInsights wrapper (line 308)**
+
+Add width and overflow constraints:
+
+```tsx
+<div className="px-5 w-full min-w-0 overflow-hidden">
+  <UsageInsights />
+</div>
+```
+
+**Change 4: Signed-in state ScrollArea (line 345)**
+
+Add `viewportClassName` prop:
+
+```tsx
+<ScrollArea className="flex-1" viewportClassName="overflow-x-hidden">
+```
+
+**Change 5: Signed-in content wrapper (line 346)**
+
+Add width constraints:
+
+```tsx
+<div className="flex flex-col pb-20 min-w-0 w-full">
+```
+
+**Change 6: Signed-in UsageInsights wrapper (line 451)**
+
+Add width and overflow constraints:
+
+```tsx
+<div className="mb-4 w-full min-w-0 overflow-hidden">
+  <UsageInsights />
+</div>
+```
+
+---
+
+## Why This Works
+
+| Class | Purpose |
+|-------|---------|
+| `overflow-x-hidden` on viewport | Prevents horizontal scroll at the ScrollArea level |
+| `min-w-0` on flex children | Allows flex items to shrink below their intrinsic width |
+| `w-full` | Constrains element to parent width (100%) |
+| `overflow-hidden` on wrapper | Clips any overflow from chart rendering |
 
 ---
 
 ## Testing Checklist
 
-- Verify signed-out Profile page scrolls properly
-- Confirm Usage Insights card with Weekly Activity is fully visible
-- Check that bottom navigation doesn't overlap content
-- Verify signed-in Profile page is unaffected
-- Test in both portrait and landscape orientations
+- Verify Profile page (signed-out) has no horizontal scroll
+- Verify Profile page (signed-in) has no horizontal scroll
+- Verify weekly activity chart displays correctly
+- Verify page scrolls vertically without issues
+- Test in portrait and landscape orientations
+- Check that other pages (Access, Reminders, Bookmarks) are unaffected
