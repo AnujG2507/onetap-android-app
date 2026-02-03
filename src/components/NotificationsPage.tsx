@@ -47,6 +47,7 @@ import { EmptyStateWithValueProp } from './EmptyStateWithValueProp';
 import { TutorialCoachMarks } from './TutorialCoachMarks';
 import { BatteryOptimizationHelp } from './BatteryOptimizationHelp';
 import { MissedNotificationsBanner } from './MissedNotificationsBanner';
+import { PermissionWarningBanner } from './PermissionWarningBanner';
 import type { ScheduledAction, RecurrenceType, ScheduledActionDestination } from '@/types/scheduledAction';
 import { 
   getSelectedIds, 
@@ -652,6 +653,18 @@ export function NotificationsPage({
           </div>
         )}
       </header>
+
+      {/* Permission Warning Banner - shows when notifications/alarms permission denied */}
+      {permissionStatus.checked && !allPermissionsGranted && (
+        <div className="px-5 pb-3 shrink-0">
+          <PermissionWarningBanner
+            notificationsGranted={permissionStatus.notifications}
+            alarmsGranted={permissionStatus.alarms}
+            onRequestPermissions={handleRequestAllPermissions}
+            onOpenAlarmSettings={openAlarmSettings}
+          />
+        </div>
+      )}
 
       {/* Missed Notifications Banner */}
       <div className="px-5 pb-3 shrink-0">

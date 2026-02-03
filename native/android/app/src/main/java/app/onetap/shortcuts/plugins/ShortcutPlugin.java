@@ -98,6 +98,10 @@ import android.content.ComponentName;
         @Permission(
             alias = "mediaVideo",
             strings = { "android.permission.READ_MEDIA_VIDEO" }
+        ),
+        @Permission(
+            alias = "notifications",
+            strings = { "android.permission.POST_NOTIFICATIONS" }
         )
     }
 )
@@ -3249,18 +3253,10 @@ public class ShortcutPlugin extends Plugin {
                     result.put("granted", true);
                     call.resolve(result);
                 } else {
-                    // Request permission
-                    ActivityCompat.requestPermissions(
-                        activity,
-                        new String[]{ Manifest.permission.POST_NOTIFICATIONS },
-                        1001
-                    );
-                    
-                    // For simplicity, return optimistic result
-                    // In production, use permission callback
-                    JSObject result = new JSObject();
-                    result.put("granted", false);
-                    call.resolve(result);
+                    // Save the call to resolve later in the callback
+                    saveCall(call);
+                    // Request permission using Capacitor's mechanism
+                    requestPermissionForAlias("notifications", call, "notificationPermissionCallback");
                 }
             } else {
                 JSObject result = new JSObject();
@@ -3273,6 +3269,28 @@ public class ShortcutPlugin extends Plugin {
             result.put("granted", true);
             call.resolve(result);
         }
+    }
+
+    @PermissionCallback
+    private void notificationPermissionCallback(PluginCall call) {
+        if (call == null) {
+            return;
+        }
+        
+        Activity activity = getActivity();
+        boolean granted = false;
+        
+        if (activity != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            int permission = ContextCompat.checkSelfPermission(
+                activity, 
+                Manifest.permission.POST_NOTIFICATIONS
+            );
+            granted = permission == PackageManager.PERMISSION_GRANTED;
+        }
+        
+        JSObject result = new JSObject();
+        result.put("granted", granted);
+        call.resolve(result);
     }
 
     @PluginMethod
