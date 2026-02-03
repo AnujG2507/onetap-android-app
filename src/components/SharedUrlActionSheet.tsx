@@ -191,10 +191,7 @@ export function SharedUrlActionSheet({
                     <span className="text-sm landscape:text-xs font-medium text-foreground">{t('sharedUrl.saveToLibrary')}</span>
                   </>
                 ) : (
-                  <>
-                    <Share2 className="h-4 w-4 landscape:h-3.5 landscape:w-3.5 text-primary" />
-                    <span className="text-sm landscape:text-xs font-medium text-foreground">{t('sharedUrl.linkReceived')}</span>
-                  </>
+                  <Share2 className="h-4 w-4 landscape:h-3.5 landscape:w-3.5 text-primary" />
                 )}
               </div>
               <button
