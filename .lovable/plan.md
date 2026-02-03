@@ -1,209 +1,191 @@
 
 
-# Fix: Zoom-Out Support with Consistent Gap Behavior
+# Fix: Proper Zoom Implementation (Google Drive Style)
 
 ## Problem Analysis
 
-### Issue 1: No Zoom-Out Capability
-Current `MIN_ZOOM = 1.0f` prevents zooming out. Users cannot see multiple pages at once for faster navigation through large documents.
+The current zoom-out behavior is broken because:
 
-### Issue 2: Potential Gap Issues During Zoom-Out
-The current canvas-level zoom approach scales the entire RecyclerView drawing. When zooming out:
-- Pages shrink visually
-- But gaps (8dp fixed decoration) would also shrink proportionally with canvas scale
-- The relative gap-to-page ratio stays the same, so gaps should remain proportional
+1. **Focal point scaling doesn't work for zoom-out**: When `canvas.scale(0.5, 0.5, focalX, focalY)` is applied, content shrinks toward the focal point, causing it to drift off-screen instead of staying centered
+2. **Centering logic is incomplete**: The horizontal centering `(getWidth() - scaledWidth) / 2f` doesn't account for the focal-point-based scale transformation that follows it
+3. **Scale and translate order**: The current order causes the focal point to be applied in the wrong coordinate space
 
-However, to allow viewing ~5 pages at once, we need MIN_ZOOM ≈ 0.2 (1/5), which requires careful handling.
+### How Google Drive Does It
+
+Google Drive PDF viewer uses a simpler approach:
+- **Zoomed out (< 1.0x)**: Scale uniformly from center of screen, no focal point tracking
+- **At 1.0x**: No transformation, pages fit width normally  
+- **Zoomed in (> 1.0x)**: Scale from focal point, allow horizontal panning
 
 ## Solution
 
-### 1. Adjust Zoom Range Constants
+### 1. Separate Zoom Behavior by Range
+
+When zoomed out, ignore focal point and scale from screen center:
 
 ```java
-// Before
-private static final float MIN_ZOOM = 1.0f;
-private static final float MAX_ZOOM = 5.0f;
-private static final float DOUBLE_TAP_ZOOM = 2.5f;
-
-// After
-private static final float MIN_ZOOM = 0.2f;   // Show ~5 pages
-private static final float MAX_ZOOM = 5.0f;
-private static final float DOUBLE_TAP_ZOOM = 2.5f;
-private static final float FIT_PAGE_ZOOM = 1.0f;  // Default fit-to-width
-```
-
-### 2. Update ZoomableRecyclerView Pan/Zoom Logic
-
-When zoomed out (zoomLevel < 1.0), the content is smaller than the screen width. We need to:
-- Center the content horizontally (no panning needed when content fits)
-- Disable horizontal pan when zoomed out
-- Ensure focal point behavior works correctly for zoom-out gestures
-
-```java
-private void clampPan() {
-    // When zoomed out or at 1.0x, center content (no pan)
-    if (zoomLevel <= 1.0f) {
-        panX = 0;
-        return;
-    }
-    // When zoomed in, allow panning
-    float contentWidth = getWidth() * zoomLevel;
-    float maxPan = contentWidth - getWidth();
-    panX = Math.max(-maxPan, Math.min(0, panX));
-}
-
 @Override
 protected void dispatchDraw(Canvas canvas) {
     canvas.save();
     
-    // When zoomed out, center content horizontally
-    float translateX = panX;
     if (zoomLevel < 1.0f) {
-        // Center the scaled content
-        float scaledWidth = getWidth() * zoomLevel;
-        translateX = (getWidth() - scaledWidth) / 2f;
+        // ZOOMED OUT: Scale from center, no focal point
+        float centerX = getWidth() / 2f;
+        float centerY = getHeight() / 2f;
+        canvas.scale(zoomLevel, zoomLevel, centerX, centerY);
+    } else if (zoomLevel > 1.0f) {
+        // ZOOMED IN: Pan + scale from focal point
+        canvas.translate(panX, 0);
+        canvas.scale(zoomLevel, zoomLevel, focalX, focalY);
     }
-    
-    canvas.translate(translateX, 0);
-    canvas.scale(zoomLevel, zoomLevel, focalX, focalY);
+    // At 1.0x: No transformation needed
     
     super.dispatchDraw(canvas);
     canvas.restore();
 }
 ```
 
-### 3. Update Double-Tap Behavior
+### 2. Adjust Focal Point Tracking for Zoom-Out
 
-Current double-tap toggles between 1.0x and 2.5x. With zoom-out support, a more intuitive behavior:
-- If zoomed out (< 1.0x): tap to fit-to-width (1.0x)
-- If at fit-to-width (≈ 1.0x): tap to zoom in (2.5x)
-- If zoomed in (> 1.5x): tap to fit-to-width (1.0x)
+During pinch-to-zoom-out, the focal point should transition to screen center:
 
 ```java
 @Override
-public boolean onDoubleTap(MotionEvent e) {
-    if (isDoubleTapAnimating) return true;
+public boolean onScale(ScaleGestureDetector detector) {
+    float scaleFactor = detector.getScaleFactor();
+    float newZoom = startZoom * scaleFactor;
+    newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newZoom));
     
-    float targetZoom;
-    if (currentZoom < 0.9f) {
-        // Zoomed out → fit to width
-        targetZoom = FIT_PAGE_ZOOM;
-    } else if (currentZoom > 1.5f) {
-        // Zoomed in → fit to width
-        targetZoom = FIT_PAGE_ZOOM;
-    } else {
-        // At fit → zoom in
-        targetZoom = DOUBLE_TAP_ZOOM;
+    float fx = detector.getFocusX();
+    float fy = detector.getFocusY();
+    
+    // When zooming out, blend focal point toward center
+    if (newZoom < 1.0f) {
+        float centerX = recyclerView.getWidth() / 2f;
+        float centerY = recyclerView.getHeight() / 2f;
+        float t = 1.0f - newZoom; // 0 at 1.0x, 0.8 at 0.2x
+        fx = fx + (centerX - fx) * t;
+        fy = fy + (centerY - fy) * t;
     }
     
-    animateDoubleTapZoom(currentZoom, targetZoom, e.getX(), e.getY());
+    recyclerView.setZoom(newZoom, fx, fy);
     return true;
 }
 ```
 
-### 4. Horizontal Panning Guard
+### 3. Improve Double-Tap Animation for Zoom-Out
 
-Ensure horizontal panning is only enabled when zoomed in (content wider than screen):
+When double-tapping from zoomed state, animate smoothly to center:
 
 ```java
-@Override
-public boolean onInterceptTouchEvent(MotionEvent e) {
-    // Only intercept for horizontal panning when zoomed IN
-    if (zoomLevel > 1.0f && e.getPointerCount() == 1) {
-        return true;
-    }
-    return super.onInterceptTouchEvent(e);
-}
-
-@Override
-public boolean onTouchEvent(MotionEvent e) {
-    // Handle horizontal panning only when zoomed in
-    if (zoomLevel > 1.0f) {
-        // ... existing panning logic
-    }
-    return super.onTouchEvent(e);
+public void animateZoomTo(float targetZoom, float fx, float fy, Runnable onComplete) {
+    // ...
+    final float startZoom = zoomLevel;
+    final float startPanX = panX;
+    final float startFocalX = focalX;
+    final float startFocalY = focalY;
+    
+    // Target focal point is center when zooming out
+    final float targetFocalX = (targetZoom <= 1.0f) ? getWidth() / 2f : fx;
+    final float targetFocalY = (targetZoom <= 1.0f) ? getHeight() / 2f : fy;
+    final float targetPanX = (targetZoom <= 1.0f) ? 0 : panX;
+    
+    doubleTapAnimator.addUpdateListener(animation -> {
+        float progress = (float) animation.getAnimatedValue();
+        zoomLevel = startZoom + (targetZoom - startZoom) * progress;
+        panX = startPanX + (targetPanX - startPanX) * progress;
+        focalX = startFocalX + (targetFocalX - startFocalX) * progress;
+        focalY = startFocalY + (targetFocalY - startFocalY) * progress;
+        clampPan();
+        invalidate();
+    });
+    // ...
 }
 ```
 
-### 5. Update Scale Gesture MIN_ZOOM Reference
+### 4. Ensure Vertical Scroll Position Adjusts During Zoom-Out
 
-In `setZoom()` and `updateZoomGesture()`, the clamping already uses `MIN_ZOOM` constant, so changing that value will automatically allow zoom-out.
+When zooming out, the visible content should stay in view. Add scroll adjustment:
+
+```java
+@Override
+public void onScaleEnd(ScaleGestureDetector detector) {
+    isScaling = false;
+    float newZoom = recyclerView.getZoomLevel();
+    
+    // If significantly zoomed out, scroll to keep content visible
+    if (newZoom < 0.5f && previousZoom >= 1.0f) {
+        // Scroll to show more pages
+        LinearLayoutManager lm = (LinearLayoutManager) recyclerView.getLayoutManager();
+        if (lm != null) {
+            int firstVisible = lm.findFirstVisibleItemPosition();
+            // Keep first visible page at a reasonable position
+            lm.scrollToPositionWithOffset(firstVisible, 0);
+        }
+    }
+    
+    previousZoom = currentZoom;
+    currentZoom = newZoom;
+    recyclerView.commitZoomGesture();
+    commitZoomAndRerender();
+}
+```
 
 ## Technical Changes
 
 ### File: `NativePdfViewerActivity.java`
 
-| Line | Change |
-|------|--------|
-| 77 | Change `MIN_ZOOM` from `1.0f` to `0.2f` |
-| 79 | Add `FIT_PAGE_ZOOM = 1.0f` constant |
-| 192-203 | Update `dispatchDraw()` to center content when zoomed out |
-| 205-211 | Update `onInterceptTouchEvent()` to only intercept when zoomed in |
-| 279-291 | Update `clampPan()` (already correct, just verify) |
-| 752-766 | Update double-tap logic to handle zoom-out state |
+| Section | Change |
+|---------|--------|
+| `ZoomableRecyclerView.dispatchDraw()` (lines 192-212) | Separate zoom-out vs zoom-in rendering logic |
+| `ZoomableRecyclerView.animateZoomTo()` (lines 350-395) | Animate focal point toward center when zooming out |
+| `setupGestureDetectors()` - `onScale()` (lines 693-700) | Blend focal point toward center during zoom-out gesture |
+| `setupGestureDetectors()` - `onScaleEnd()` (lines 703-714) | Add scroll adjustment for large zoom-out transitions |
 
-## Expected Behavior After Changes
+## Expected Behavior After Fix
 
 | Gesture | Before | After |
 |---------|--------|-------|
-| Pinch out (zoom out) | Stops at 1.0x | Goes to 0.2x (5 pages visible) |
-| Pinch in (zoom in) | Works up to 5x | Same |
-| Double-tap when zoomed out | N/A | Animates to 1.0x fit-to-width |
-| Double-tap at 1.0x | Zooms to 2.5x | Same |
-| Double-tap when zoomed in | Returns to 1.0x | Same |
-| Horizontal pan when zoomed out | N/A | Disabled (content centered) |
-| Horizontal pan when zoomed in | Works | Same |
-| Page gaps when zoomed out | N/A | Scale proportionally (no large gaps) |
+| Pinch out to 0.5x | Content drifts off-screen | Content shrinks toward center, stays visible |
+| Pinch out to 0.2x | Not working properly | Shows ~5 pages, centered on screen |
+| Double-tap when zoomed out | May jump erratically | Smooth animation to 1.0x, centered |
+| Pinch in from zoomed out | Focal point jumps | Smooth transition, focal point blends naturally |
+| Gaps when zoomed out | May appear uneven | Proportionally scaled with pages |
 
-## Visual Representation
+## Visual Comparison
 
 ```text
-At MIN_ZOOM (0.2x):
+BEFORE (broken):
 ┌─────────────────────────────────────┐
-│  ┌─────┐  ┌─────┐  ┌─────┐  ┌─────┐ │
-│  │ P1  │  │ P2  │  │ P3  │  │ P4  │ │
-│  └─────┘  └─────┘  └─────┘  └─────┘ │
-│  ┌─────┐                            │
-│  │ P5  │  ...                       │
-│  └─────┘                            │
+│                                     │
+│              ┌─────┐                │  Pages drift toward
+│              │ P1  │                │  focal point, off-center
+│              └─────┘                │
+│                    ┌─────┐          │
+│                    │ P2  │          │
+│                                     │
 └─────────────────────────────────────┘
-Content is centered, pages visible with proportional gaps
 
-At FIT_PAGE_ZOOM (1.0x):
+AFTER (fixed):
 ┌─────────────────────────────────────┐
-│ ┌─────────────────────────────────┐ │
-│ │                                 │ │
-│ │           Page 1                │ │
-│ │                                 │ │
-│ └─────────────────────────────────┘ │
-│ ┌─────────────────────────────────┐ │
-│ │           Page 2                │ │
+│                                     │
+│        ┌─────┐  ┌─────┐  ┌─────┐    │  Content centered,
+│        │ P1  │  │ P2  │  │ P3  │    │  multiple pages visible
+│        └─────┘  └─────┘  └─────┘    │
+│        ┌─────┐  ┌─────┐             │
+│        │ P4  │  │ P5  │             │
+│        └─────┘  └─────┘             │
 └─────────────────────────────────────┘
-Pages fill width, normal reading mode
-
-At MAX_ZOOM (5.0x):
-┌─────────────────────────────────────┐
-│ ┌───────────────────────────────────│──...
-│ │                                   │
-│ │     Detail of Page 1              │
-│ │                                   │
-│ │     (pan left/right to see more)  │
-│ │                                   │
-└─────────────────────────────────────┘
-Pan enabled to see full width
 ```
 
 ## Testing Checklist
 
-- [ ] Pinch out allows zooming to ~0.2x (5 pages visible)
-- [ ] Content stays centered when zoomed out (no horizontal drift)
-- [ ] Page gaps remain proportional (no large gaps at zoom-out)
-- [ ] Pinch in still works up to 5x
-- [ ] Double-tap from zoomed-out returns to 1.0x
-- [ ] Double-tap from 1.0x zooms to 2.5x
-- [ ] Double-tap from zoomed-in returns to 1.0x
-- [ ] Horizontal pan disabled when zoomed out
-- [ ] Horizontal pan works when zoomed in
-- [ ] Resume position saves/restores zoom correctly for < 1.0x values
-- [ ] Smooth animations during zoom transitions
+- [ ] Pinch out smoothly transitions to showing multiple pages
+- [ ] Content stays centered when zoomed out (not drifting)
+- [ ] Pinch out to MIN_ZOOM (0.2x) shows approximately 5 pages
+- [ ] Gaps between pages remain proportional (no large gaps)
+- [ ] Double-tap from zoomed-out animates smoothly to 1.0x
+- [ ] Pinch in from zoomed-out transitions smoothly with focal tracking
+- [ ] Vertical scrolling works correctly when zoomed out
+- [ ] Resume position saves/restores correctly for zoom < 1.0x
 
