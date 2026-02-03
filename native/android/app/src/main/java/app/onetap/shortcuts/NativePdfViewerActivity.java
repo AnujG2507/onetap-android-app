@@ -121,8 +121,7 @@ public class NativePdfViewerActivity extends Activity {
     private static final int FAST_SCROLL_AUTO_HIDE_MS = 1500;
     private static final int FAST_SCROLL_POPUP_MARGIN_DP = 56;
     
-    // Layout update throttle for train view (zoom < 1.0x) during pinch gesture
-    private static final int LAYOUT_UPDATE_THROTTLE_MS = 50;
+    // NOTE: LAYOUT_UPDATE_THROTTLE_MS removed - no longer needed with canvas-based gesture scaling
     
     // Core components
     private ZoomableRecyclerView recyclerView;
@@ -189,8 +188,7 @@ public class NativePdfViewerActivity extends Activity {
     private int screenHeight;
     private float density;
     
-    // Throttle tracking for train view layout updates during pinch
-    private long lastLayoutUpdateTime = 0;
+    // NOTE: lastLayoutUpdateTime removed - no longer needed with canvas-based gesture scaling
     
     // Background rendering (2 threads for low-res + high-res parallel rendering)
     private ExecutorService renderExecutor;
@@ -265,6 +263,14 @@ public class NativePdfViewerActivity extends Activity {
         // Track if scaling is in progress (for panning logic)
         private boolean isInternalScaling = false;
         
+        // SMOOTH ZOOM: Track if a gesture/animation is active for canvas-only scaling
+        // During gesture, use canvas scaling for ALL zoom levels (including < 1.0x)
+        // This avoids layout flickering from frequent notifyDataSetChanged() calls
+        private boolean isGestureActive = false;
+        
+        // The zoom level at which layouts were last committed (via notifyDataSetChanged)
+        private float committedZoom = 1.0f;
+        
         public ZoomableRecyclerView(Context context) {
             super(context);
             // Disable overscroll effect during pan
@@ -296,6 +302,7 @@ public class NativePdfViewerActivity extends Activity {
                     public boolean onScaleBegin(ScaleGestureDetector detector) {
                         isInternalScaling = true;
                         inScaleMode = true;
+                        isGestureActive = true;  // SMOOTH ZOOM: Enable canvas-only scaling
                         // Prevent parent from intercepting touch during scale gesture
                         getParent().requestDisallowInterceptTouchEvent(true);
                         startZoom = zoomLevel;
@@ -344,6 +351,8 @@ public class NativePdfViewerActivity extends Activity {
                     @Override
                     public void onScaleEnd(ScaleGestureDetector detector) {
                         isInternalScaling = false;
+                        isGestureActive = false;  // SMOOTH ZOOM: Disable canvas-only scaling
+                        committedZoom = zoomLevel;  // SMOOTH ZOOM: Record committed zoom level
                         // NOTE: inScaleMode stays true until ACTION_UP to prevent scroll fling
                         
                         // Allow parent to intercept again
@@ -384,20 +393,27 @@ public class NativePdfViewerActivity extends Activity {
         protected void dispatchDraw(Canvas canvas) {
             canvas.save();
             
-            if (zoomLevel < 1.0f) {
-                // ZOOMED OUT: No canvas transform - layout heights handle sizing
-                // This allows RecyclerView to bind more pages for train view
-                // Pages are centered via Gravity.CENTER_HORIZONTAL in adapter
+            if (isGestureActive) {
+                // SMOOTH ZOOM: During gesture/animation, use canvas scaling for ALL zoom levels
+                // This avoids triggering layout updates that cause flickering during pinch
+                // Content may appear slightly soft during gesture, but will be sharp after commit
+                float scaledContentWidth = getWidth() * zoomLevel;
+                float effectivePanX = (scaledContentWidth > getWidth()) ? panX : 0;
+                
+                canvas.translate(effectivePanX, panY);
+                canvas.scale(zoomLevel, zoomLevel, focalX, focalY);
+            } else if (committedZoom < 1.0f && zoomLevel < 1.0f) {
+                // COMMITTED ZOOMED OUT: Layouts already scaled via notifyDataSetChanged
+                // No canvas transform needed - pages are centered via Gravity.CENTER_HORIZONTAL
             } else if (zoomLevel > 1.0f) {
-                // ZOOMED IN: Pan + scale from focal point
-                // Only apply horizontal pan if content is wider than screen
+                // COMMITTED ZOOMED IN: Canvas-based pan + scale
                 float scaledContentWidth = getWidth() * zoomLevel;
                 float effectivePanX = (scaledContentWidth > getWidth()) ? panX : 0;
                 
                 canvas.translate(effectivePanX, panY);
                 canvas.scale(zoomLevel, zoomLevel, focalX, focalY);
             }
-            // At 1.0x: No transformation needed
+            // At 1.0x committed: No transformation needed
             
             super.dispatchDraw(canvas);
             canvas.restore();
@@ -723,6 +739,9 @@ public class NativePdfViewerActivity extends Activity {
                 doubleTapAnimator.cancel();
             }
             
+            // SMOOTH ZOOM: Enable canvas-only scaling during animation
+            isGestureActive = true;
+            
             final float startZoom = zoomLevel;
             final float startPanX = panX;
             final float startPanY = panY;
@@ -754,6 +773,10 @@ public class NativePdfViewerActivity extends Activity {
             doubleTapAnimator.addListener(new android.animation.AnimatorListenerAdapter() {
                 @Override
                 public void onAnimationEnd(android.animation.Animator animation) {
+                    // SMOOTH ZOOM: Commit changes after animation ends
+                    isGestureActive = false;
+                    committedZoom = targetZoom;
+                    
                     zoomLevel = targetZoom;
                     if (targetZoom <= 1.0f) {
                         panX = 0;
@@ -1494,16 +1517,9 @@ public class NativePdfViewerActivity extends Activity {
             @Override
             public void onScale(float newZoom, float fx, float fy) {
                 currentZoom = newZoom;
-                
-                // Trigger throttled layout update during gesture for train view
-                // This makes zoom out feel instant instead of waiting for gesture end
-                if (newZoom < 1.0f && adapter != null) {
-                    long now = System.currentTimeMillis();
-                    if (now - lastLayoutUpdateTime > LAYOUT_UPDATE_THROTTLE_MS) {
-                        lastLayoutUpdateTime = now;
-                        adapter.notifyDataSetChanged();
-                    }
-                }
+                // SMOOTH ZOOM: No throttled layout updates during gesture
+                // Canvas-based scaling now handles all zoom levels smoothly
+                // Layout will be committed once in onScaleEnd via commitZoomAndRerender()
             }
             
             @Override
