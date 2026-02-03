@@ -400,6 +400,33 @@ public class ShortcutPlugin extends Plugin {
                 final ShortcutInfo finalShortcutInfo = shortcutInfo;
                 getActivity().runOnUiThread(() -> {
                     try {
+                        // Android 12+ fix: Register as dynamic shortcut BEFORE pinning
+                        // This ensures getPinnedShortcuts() returns this shortcut on API 31+
+                        // Without this, pinned shortcuts created via requestPinShortcut() alone
+                        // won't appear in getPinnedShortcuts(), breaking sync functionality.
+                        try {
+                            List<ShortcutInfo> dynamicShortcuts = new ArrayList<>(shortcutManager.getDynamicShortcuts());
+                            
+                            // Remove existing shortcut with same ID if present (for updates)
+                            dynamicShortcuts.removeIf(s -> s.getId().equals(finalShortcutInfo.getId()));
+                            dynamicShortcuts.add(finalShortcutInfo);
+                            
+                            // Enforce Android's limit of max dynamic shortcuts per activity
+                            int maxShortcuts = shortcutManager.getMaxShortcutCountPerActivity();
+                            while (dynamicShortcuts.size() > maxShortcuts) {
+                                // Remove oldest (first) shortcut to make room
+                                dynamicShortcuts.remove(0);
+                                android.util.Log.d("ShortcutPlugin", "Removed oldest dynamic shortcut to stay within limit of " + maxShortcuts);
+                            }
+                            
+                            shortcutManager.setDynamicShortcuts(dynamicShortcuts);
+                            android.util.Log.d("ShortcutPlugin", "Registered as dynamic shortcut for Android 12+ tracking. Total dynamic: " + dynamicShortcuts.size());
+                        } catch (Exception e) {
+                            // Non-fatal: shortcut will still be pinned, just won't sync properly on Android 12+
+                            android.util.Log.w("ShortcutPlugin", "Failed to register dynamic shortcut (non-fatal): " + e.getMessage());
+                        }
+                        
+                        // Now request pinning
                         boolean requested = shortcutManager.requestPinShortcut(finalShortcutInfo, null);
                         android.util.Log.d("ShortcutPlugin", "requestPinShortcut returned: " + requested);
 
