@@ -375,6 +375,13 @@ const Index = () => {
     setActiveTab('access');
   }, []);
 
+  // Handler for creating reminder from bookmark library
+  const handleCreateReminderFromBookmark = useCallback((url: string) => {
+    console.log('[Index] Creating reminder from bookmark:', url);
+    setPendingReminderDestination({ type: 'url', uri: url, name: url });
+    setActiveTab('reminders');
+  }, []);
+
   // Clear the URL once AccessFlow has consumed it
   const handleInitialUrlConsumed = useCallback(() => {
     setShortcutUrlFromBookmark(null);
@@ -518,6 +525,7 @@ const Index = () => {
         >
           <BookmarkLibrary
             onCreateShortcut={handleCreateShortcutFromBookmark}
+            onCreateReminder={handleCreateReminderFromBookmark}
             onSelectionModeChange={setIsBookmarkSelectionMode}
             clearSelectionSignal={bookmarkClearSignal}
             onActionSheetOpenChange={setIsBookmarkActionSheetOpen}

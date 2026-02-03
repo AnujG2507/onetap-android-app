@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Search, Plus, X, Bookmark, Trash2, Home, LayoutGrid, List, FolderInput, Clock, SortDesc, ArrowDownAZ, ArrowUpZA, Folder, ArrowDownUp, Edit2, GripVertical, Link2 } from 'lucide-react';
+import { Search, Plus, X, Bookmark, Trash2, Home, LayoutGrid, List, FolderInput, Clock, SortDesc, ArrowDownAZ, ArrowUpZA, Folder, ArrowDownUp, Edit2, GripVertical, Link2, Bell } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -84,6 +84,7 @@ type SortMode = 'manual' | 'newest' | 'alphabetical' | 'folder';
 
 interface BookmarkLibraryProps {
   onCreateShortcut: (url: string) => void;
+  onCreateReminder: (url: string) => void;
   onSelectionModeChange?: (isSelectionMode: boolean) => void;
   /** Increment this value to request clearing the current shortlist/selection from a parent (e.g. Android back button). */
   clearSelectionSignal?: number;
@@ -93,6 +94,7 @@ interface BookmarkLibraryProps {
 
 export function BookmarkLibrary({ 
   onCreateShortcut, 
+  onCreateReminder,
   onSelectionModeChange, 
   clearSelectionSignal,
   onActionSheetOpenChange,
@@ -1163,6 +1165,7 @@ export function BookmarkLibrary({
         }}
         onOpenExternal={handleOpenExternal}
         onCreateShortcut={onCreateShortcut}
+        onCreateReminder={onCreateReminder}
         onEdit={handleEdit}
         onDelete={handleDelete}
         onPermanentDelete={handlePermanentDelete}
@@ -1204,6 +1207,18 @@ export function BookmarkLibrary({
           
           {shortlistedLinks.length === 1 && (
             <>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => onCreateReminder(shortlistedLinks[0].url)}
+                    className="p-2 rounded-lg hover:bg-muted transition-colors"
+                    aria-label={t('bookmarkAction.remindLater')}
+                  >
+                    <Bell className="h-5 w-5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>{t('bookmarkAction.remindLater')}</TooltipContent>
+              </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button

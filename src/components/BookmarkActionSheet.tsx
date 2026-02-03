@@ -6,7 +6,8 @@ import {
   Edit2, 
   Trash2, 
   X, 
-  Tag
+  Tag,
+  Bell
 } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Input } from '@/components/ui/input';
@@ -33,6 +34,7 @@ interface BookmarkActionSheetProps {
   onOpenChange: (open: boolean) => void;
   onOpenExternal: (url: string) => void;
   onCreateShortcut: (url: string) => void;
+  onCreateReminder: (url: string) => void;
   onEdit: (id: string, updates: { title?: string; description?: string; tag?: string | null; url?: string }) => void;
   onDelete: (id: string) => void;
   onPermanentDelete: (id: string) => void;
@@ -45,6 +47,7 @@ export function BookmarkActionSheet({
   onOpenChange,
   onOpenExternal,
   onCreateShortcut,
+  onCreateReminder,
   onEdit,
   onDelete,
   onPermanentDelete,
@@ -349,6 +352,18 @@ export function BookmarkActionSheet({
               >
                 <Plus className="h-5 w-5 landscape:h-4 landscape:w-4 text-muted-foreground" />
                 <span className="font-medium landscape:text-sm">{t('bookmarkAction.createShortcut')}</span>
+              </button>
+
+              {/* Create Reminder */}
+              <button
+                onClick={() => handleAction(() => {
+                  onCreateReminder(link.url);
+                  onOpenChange(false);
+                })}
+                className="w-full flex items-center gap-3 p-3 landscape:p-2.5 rounded-xl hover:bg-muted/50 transition-colors"
+              >
+                <Bell className="h-5 w-5 landscape:h-4 landscape:w-4 text-muted-foreground" />
+                <span className="font-medium landscape:text-sm">{t('bookmarkAction.remindLater')}</span>
               </button>
 
               {/* Edit */}

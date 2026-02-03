@@ -275,7 +275,8 @@
     "descriptionPlaceholder": "Description (optional)",
     "tagLabel": "Tag",
     "urlRequired": "URL is required",
-    "invalidUrl": "Please enter a valid URL"
+    "invalidUrl": "Please enter a valid URL",
+    "remindLater": "Remind Later"
   },
   "scheduledActions": {
     "title": "Scheduled Actions",
