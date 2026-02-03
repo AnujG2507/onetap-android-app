@@ -1047,6 +1047,7 @@ public class NativePdfViewerActivity extends Activity {
         root.addView(fastScrollOverlay);
         
         // Floating page badge (Drive-style) - positioned on right side
+        // Uses TOP gravity with dynamic translationY for page-following behavior
         pageBadge = new TextView(this);
         pageBadge.setTextColor(0xFFFFFFFF);
         pageBadge.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
@@ -1061,8 +1062,10 @@ public class NativePdfViewerActivity extends Activity {
             ViewGroup.LayoutParams.WRAP_CONTENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
         );
-        badgeParams.gravity = Gravity.END | Gravity.CENTER_VERTICAL;
+        // Use TOP gravity for manual Y positioning via translationY
+        badgeParams.gravity = Gravity.END | Gravity.TOP;
         badgeParams.setMarginEnd(dpToPx(16));
+        badgeParams.topMargin = 0; // Will be positioned via translationY
         pageBadge.setLayoutParams(badgeParams);
         root.addView(pageBadge);
         
@@ -1528,6 +1531,35 @@ public class NativePdfViewerActivity extends Activity {
         // Update floating page badge (Drive-style)
         if (pageBadge != null) {
             pageBadge.setText(rangeText);
+            
+            // Position badge vertically aligned with the first visible page's center
+            View firstView = layoutManager.findViewByPosition(firstVisible);
+            if (firstView != null && pageBadge.getHeight() > 0) {
+                // Get the center Y of the first visible page on screen
+                int[] pageLocation = new int[2];
+                firstView.getLocationOnScreen(pageLocation);
+                int pageCenterY = pageLocation[1] + (firstView.getHeight() / 2);
+                
+                // Get badge parent location for relative positioning
+                int[] parentLocation = new int[2];
+                ((View) pageBadge.getParent()).getLocationOnScreen(parentLocation);
+                
+                // Calculate target Y relative to parent
+                int badgeHeight = pageBadge.getHeight();
+                int targetY = pageCenterY - parentLocation[1] - (badgeHeight / 2);
+                
+                // Clamp to safe bounds (below top bar, above bottom with margin)
+                int minY = dpToPx(64);  // Below top bar
+                int maxY = screenHeight - badgeHeight - dpToPx(16);
+                targetY = Math.max(minY, Math.min(maxY, targetY));
+                
+                // Smoothly animate to new position
+                pageBadge.animate()
+                    .translationY(targetY)
+                    .setDuration(100)
+                    .setInterpolator(new DecelerateInterpolator())
+                    .start();
+            }
         }
         
         // Update header indicator (legacy, shows simpler format)
@@ -1553,6 +1585,18 @@ public class NativePdfViewerActivity extends Activity {
                 .setDuration(200)
                 .withStartAction(() -> topBar.setVisibility(View.VISIBLE))
                 .start();
+            
+            // Show page badge with slide-in animation
+            if (pageBadge != null) {
+                pageBadge.setClickable(true);
+                pageBadge.setEnabled(true);
+                pageBadge.animate()
+                    .alpha(1f)
+                    .translationX(0)  // Slide in from right
+                    .setDuration(200)
+                    .start();
+            }
+            
             scheduleHide();
         } else if (topBar != null && isTopBarVisible) {
             // Already visible, just reschedule hide
@@ -1572,6 +1616,17 @@ public class NativePdfViewerActivity extends Activity {
                     // Keep visibility but make it hidden via alpha/translation
                 })
                 .start();
+            
+            // Hide page badge with slide-out animation, disable interaction
+            if (pageBadge != null) {
+                pageBadge.setClickable(false);
+                pageBadge.setEnabled(false);
+                pageBadge.animate()
+                    .alpha(0f)
+                    .translationX(dpToPx(60))  // Slide out to right
+                    .setDuration(200)
+                    .start();
+            }
         }
     }
     
