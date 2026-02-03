@@ -1,224 +1,359 @@
 
 
-# PDF Viewer Zoom Crash Analysis
+# PDF Viewer Comprehensive Stability Analysis
 
-## Root Cause Identification
+## Executive Summary
 
-After thorough code review, I've identified **multiple critical issues** that can cause crashes during zoom operations:
-
----
-
-### Critical Issue #1: Removed `previousZoom` Field Declaration
-
-**Location:** Lines 109-113 (the last diff removed it)
-
-The last edit removed the `previousZoom` field declaration at line 113:
-```java
-private FrameLayout errorView;
-// private float previousZoom = 1.0f;  ← REMOVED
-```
-
-But there's **still a valid declaration at line 109**:
-```java
-private float previousZoom = 1.0f;
-```
-
-**However**, the diff shows this was removed from line 113, which means if the original file had TWO declarations, one was removed but now I see one remains at line 109. This is correct. Let me re-check...
-
-Actually, looking at the current file (lines 109), `previousZoom` IS declared:
-```java
-// Previous zoom level (for fallback bitmap lookup during transitions)
-private float previousZoom = 1.0f;
-```
-
-So the field exists. This is NOT the crash cause.
+After thorough review of the 1,463-line `NativePdfViewerActivity.java`, I've identified **7 critical issues** that can cause crashes even without zoom interactions. The current implementation has good foundations but contains race conditions, lifecycle management gaps, and null-safety issues that manifest as crashes in various scenarios.
 
 ---
 
-### Critical Issue #2: ConcurrentModificationException in `pendingRenders` Set
+## Critical Issues Identified
 
-**Location:** Lines 101, 700, 741-746, 866-870, 1341-1343
+### Issue #1: Race Condition in `onDestroy()` — Null Before Close
 
-The `pendingRenders` HashSet is accessed from:
-- **Main thread**: `commitZoomAndRerender()` (line 700: `pendingRenders.clear()`)
-- **Main thread**: `prerenderVisiblePages()` (lines 741-746: check and add)
-- **Main thread**: `prerenderAdjacentPages()` (lines 866-870: check and add)
-- **Main thread**: `onBindViewHolder()` (lines 1341-1343: check and add)
-- **Background thread**: `renderPageAsync()` (lines 1115, 1170, 1208, 1224, 1234: remove)
+**Location:** Lines 1284-1302
 
-**Problem**: While most additions happen on the main thread, removals happen on background threads via `renderExecutor`. A regular `HashSet` is NOT thread-safe. Concurrent access will cause:
-- `ConcurrentModificationException`
-- Silent data corruption leading to unpredictable crashes
-
----
-
-### Critical Issue #3: Null `pdfRenderer` Access in Background Thread
-
-**Location:** Lines 1147-1152, 1205-1218
-
+**Current code:**
 ```java
-synchronized (pdfRenderer) {  // ← Can crash if pdfRenderer is null
-    if (pdfRenderer == null || pageIndex < 0 ...) {
+if (renderExecutor != null) {
+    renderExecutor.shutdownNow();
+}
+// ... background threads may still be running here ...
+
+if (pdfRenderer != null) {
+    try {
+        pdfRenderer.close();
+    } catch (Exception ignored) {}
+}
+// pdfRenderer is STILL not null here - background thread can try to use it
 ```
 
-The `synchronized` block uses `pdfRenderer` as the monitor object. If `pdfRenderer` becomes null (e.g., during `onDestroy()`), this throws `NullPointerException`.
+**Problem:** `shutdownNow()` interrupts threads but doesn't wait for them to finish. A background thread inside `renderPageAsync()` can be between the `localRenderer` capture and the `synchronized` block when `pdfRenderer.close()` is called. This causes:
+- `IllegalStateException: Already closed` if thread enters synchronized after close
+- Use-after-close crashes
 
-**Crash sequence:**
-1. User zooms → triggers `renderPageAsync()` on background thread
-2. User exits viewer → `onDestroy()` runs, sets `pdfRenderer = null` (after closing)
-3. Background thread reaches `synchronized(pdfRenderer)` → NPE crash
-
----
-
-### Critical Issue #4: Race Condition During Rapid Zoom
-
-**Location:** Lines 466, 651, 654-656
-
-In `onScaleEnd()` and `animateDoubleTapZoom.onAnimationEnd()`:
+**Fix:** Set `pdfRenderer = null` BEFORE closing, and use `awaitTermination()`:
 ```java
-previousZoom = currentZoom;  // or baseZoom
-currentZoom = endZoom;
-pendingZoom = endZoom;
-```
+// Capture and null the reference first (signals threads to exit)
+PdfRenderer rendererToClose = pdfRenderer;
+pdfRenderer = null;
 
-If a user rapidly zooms in/out (pinch followed by double-tap, or multiple fast pinches), these values can be overwritten before the previous render completes. This leads to:
-- `previousZoom` being incorrect for fallback bitmap lookup
-- Cache keys mismatching expected values
-- Visual glitches or IndexOutOfBoundsException
+if (renderExecutor != null) {
+    renderExecutor.shutdownNow();
+    try {
+        renderExecutor.awaitTermination(500, TimeUnit.MILLISECONDS);
+    } catch (InterruptedException ignored) {}
+}
 
----
-
-### Critical Issue #5: Possible IndexOutOfBoundsException in Animation
-
-**Location:** Lines 601-619, 636-642
-
-```java
-final float[][] pivotCache = new float[last - first + 1][2];
-
-for (int i = first; i <= last; i++) {
-    ...
-    pivotCache[i - first][0] = localX;  // Can throw AIOOBE
-```
-
-If `last < first` (which can happen if RecyclerView has no visible items), then:
-- Array size becomes 0 or negative → `NegativeArraySizeException`
-- Access `pivotCache[-1]` → `ArrayIndexOutOfBoundsException`
-
-Also in the animation update listener:
-```java
-for (int i = animFirst; i <= animLast; i++) {
-    View child = lm.findViewByPosition(i);
-```
-
-If layout changes during animation, `findViewByPosition()` can return null for previously-visible positions.
-
----
-
-### Critical Issue #6: Missing Null Check for `layoutManager`
-
-**Location:** Lines 530, 590-594, 633
-
-While some methods check `if (layoutManager == null) return;`, the animation update listener does NOT have early exit:
-```java
-doubleTapAnimator.addUpdateListener(animation -> {
-    LinearLayoutManager lm = (LinearLayoutManager) recyclerView.getLayoutManager();
-    if (lm == null) return;  // This exists ✓
-```
-
-But the outer method `animateDoubleTapZoom()` can start the animator even if layout is null:
-```java
-LinearLayoutManager layoutManager = (LinearLayoutManager) recyclerView.getLayoutManager();
-if (layoutManager == null) {
-    isDoubleTapAnimating = false;
-    return;  // This exists ✓
+// Now safe to close
+if (rendererToClose != null) {
+    try { rendererToClose.close(); } catch (Exception ignored) {}
 }
 ```
 
-This seems OK, but there's still a potential issue...
+---
+
+### Issue #2: `renderExecutor` Can Be Null When Error State Shows
+
+**Location:** Lines 203-208, 1371-1372
+
+**Current code:**
+```java
+if (pdfUri == null) {
+    Log.e(TAG, "No PDF URI provided");
+    buildUI();              // This sets up recyclerView
+    showCalmErrorState();   // This hides recyclerView
+    return;                 // renderExecutor is NEVER initialized
+}
+```
+
+But in `onBindViewHolder`:
+```java
+renderExecutor.execute(() -> renderPageAsync(position, currentZoom, false));
+```
+
+**Problem:** If `pdfUri` is null, `renderExecutor` stays null. While `showCalmErrorState()` hides the RecyclerView, if there's any path that triggers `onBindViewHolder` (e.g., accessibility services scanning views), it will NPE.
+
+**Fix:** Initialize `renderExecutor` before `buildUI()`, or add null check in adapter.
 
 ---
 
-## Summary of Crash Causes (Most to Least Likely)
+### Issue #3: `pageWidths`/`pageHeights` Null Access in Adapter
 
-| Priority | Issue | Crash Type | Likelihood |
-|----------|-------|------------|------------|
-| **1** | Non-thread-safe `pendingRenders` HashSet | `ConcurrentModificationException` | **Very High** |
-| **2** | `synchronized(pdfRenderer)` when null | `NullPointerException` | **High** |
-| **3** | Negative array size in animation | `NegativeArraySizeException` | **Medium** |
-| **4** | `pivotCache` out of bounds | `ArrayIndexOutOfBoundsException` | **Medium** |
-| **5** | Race conditions in zoom state | Visual bugs / edge crashes | **Lower** |
+**Location:** Lines 1107-1108, 1441
+
+**Current code in `getScaledPageHeight()`:**
+```java
+if (pageWidths == null || pageIndex < 0 || pageIndex >= pageWidths.length) {
+    return screenHeight / 2; // Fallback
+}
+```
+
+**Current code in `getItemCount()`:**
+```java
+return pageWidths != null ? pageWidths.length : 0;
+```
+
+**Problem:** If `openPdf()` fails after `buildUI()` but before setting `pageWidths`, and something triggers adapter binding (accessibility, layout inspection), we can crash. The `getItemCount()` returns 0, which is correct, but other methods still need protection.
+
+**This is actually handled correctly** - `getItemCount()` returns 0 when `pageWidths` is null, preventing `onBindViewHolder` calls. ✓
+
+---
+
+### Issue #4: Missing Null Check for `renderExecutor` in `prerenderAdjacentPages()`
+
+**Location:** Lines 863-880
+
+```java
+private void prerenderAdjacentPages() {
+    if (adapter == null || pdfRenderer == null) return;  // Good
+    // ... but no check for renderExecutor
+    renderExecutor.execute(() -> ...);  // Can NPE
+}
+```
+
+**Problem:** Called from scroll listener. If the activity is in a partially destroyed state or initialization failed, this crashes.
+
+**Fix:** Add `renderExecutor == null` to the guard.
+
+---
+
+### Issue #5: Missing Null Check for `renderExecutor` in `prerenderVisiblePages()`
+
+**Location:** Lines 739-756
+
+Same issue as above:
+```java
+private void prerenderVisiblePages() {
+    if (adapter == null || pdfRenderer == null) return;  // Good
+    // ... but no check for renderExecutor
+    renderExecutor.execute(() -> ...);  // Can NPE
+}
+```
+
+---
+
+### Issue #6: `recyclerView` Touch Listener After Error State
+
+**Location:** Lines 512-517
+
+```java
+recyclerView.setOnTouchListener((v, event) -> {
+    scaleGestureDetector.onTouchEvent(event);
+    gestureDetector.onTouchEvent(event);
+    return false;
+});
+```
+
+**Problem:** `setupGestureDetectors()` is called in `onCreate()` even when `pdfUri` is null (before the early return). Wait, let me re-check the flow...
+
+Looking at lines 203-208:
+```java
+if (pdfUri == null) {
+    buildUI();
+    showCalmErrorState();
+    return;  // setupGestureDetectors() is NEVER called
+}
+```
+
+Actually, `setupGestureDetectors()` is called at line 227, AFTER the null check. So this is **safe**. ✓
+
+---
+
+### Issue #7: `pdfRenderer` Used After Close in Scroll Listener
+
+**Location:** Lines 848-854, 863-871
+
+```java
+recyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
+    @Override
+    public void onScrolled(@NonNull RecyclerView rv, int dx, int dy) {
+        updatePageIndicator();
+        prerenderAdjacentPages();  // Uses pdfRenderer
+    }
+});
+```
+
+And `prerenderAdjacentPages()`:
+```java
+int total = pdfRenderer.getPageCount();  // NPE if null
+```
+
+**Problem:** During `onDestroy()`, scroll events can still fire if RecyclerView is animating. After `pdfRenderer` is set to null, this crashes.
+
+**Current guard at line 864:**
+```java
+if (adapter == null || pdfRenderer == null) return;
+```
+
+This is **correctly handled**. ✓ But the access at line 871:
+```java
+int total = pdfRenderer.getPageCount();
+```
+
+This is AFTER the null check, so it's **safe** as long as pdfRenderer isn't nulled between check and use. Since we're on main thread throughout, this is **safe**. ✓
+
+---
+
+## Additional Robustness Improvements
+
+### Issue #8: `updatePageIndicator()` Missing Adapter Check
+
+**Location:** Lines 884-901
+
+```java
+private void updatePageIndicator() {
+    if (pdfRenderer == null || pageIndicator == null) return;
+    
+    LinearLayoutManager layoutManager = (LinearLayoutManager) recyclerView.getLayoutManager();
+    if (layoutManager == null) return;
+    
+    int first = layoutManager.findFirstVisibleItemPosition();
+    if (first < 0) return;
+    
+    int total = pdfRenderer.getPageCount();  // ← Safe after null check above
+```
+
+This is **correctly handled**. ✓
+
+---
+
+### Issue #9: `setupRecyclerView()` Called Before Null Check
+
+**Location:** Lines 237-238
+
+```java
+if (!openPdf(pdfUri)) {
+    Log.e(TAG, "Failed to open PDF");
+    showCalmErrorState();
+    return;  // setupRecyclerView() is NEVER called
+}
+
+setupRecyclerView();  // Only called if openPdf succeeds
+```
+
+This is **correctly handled**. ✓
+
+---
+
+## Summary of Required Fixes
+
+| Priority | Issue | Fix |
+|----------|-------|-----|
+| **Critical** | Race condition in `onDestroy()` | Null `pdfRenderer` before close, await executor termination |
+| **Critical** | Missing `renderExecutor` null check in `prerenderAdjacentPages()` | Add null guard |
+| **Critical** | Missing `renderExecutor` null check in `prerenderVisiblePages()` | Add null guard |
+| **High** | `renderExecutor` null when error state shows | Initialize earlier or add null checks in adapter |
 
 ---
 
 ## Implementation Plan
 
-### Fix 1: Make `pendingRenders` Thread-Safe
+### Step 1: Fix `onDestroy()` Race Condition
 
-Replace the regular `HashSet` with a thread-safe alternative:
-
-```java
-// OLD:
-private final Set<String> pendingRenders = new HashSet<>();
-
-// NEW:
-private final Set<String> pendingRenders = 
-    java.util.Collections.synchronizedSet(new HashSet<>());
-```
-
-Or use `ConcurrentHashMap.newKeySet()` for better performance:
-```java
-private final Set<String> pendingRenders = ConcurrentHashMap.newKeySet();
-```
-
-### Fix 2: Guard Against Null `pdfRenderer` in Synchronized Block
+**File:** `NativePdfViewerActivity.java`
+**Lines:** 1274-1303
 
 ```java
-// Before synchronized block:
-PdfRenderer renderer = pdfRenderer;
-if (renderer == null) {
-    pendingRenders.remove(...);
-    return;
-}
-
-synchronized (renderer) {
-    // Use 'renderer' instead of 'pdfRenderer'
-}
-```
-
-### Fix 3: Guard Animation Array Bounds
-
-```java
-int first = layoutManager.findFirstVisibleItemPosition();
-int last = layoutManager.findLastVisibleItemPosition();
-
-// Add bounds check
-if (first < 0 || last < first) {
-    isDoubleTapAnimating = false;
-    return;
-}
-```
-
-### Fix 4: Validate Visible Range Before Creating Array
-
-Already partially covered by Fix 3, but also:
-```java
-final int arraySize = Math.max(0, last - first + 1);
-final float[][] pivotCache = new float[arraySize][2];
-```
-
-### Fix 5: Add Null-Safe Child Handling in Animation Loop
-
-```java
-for (int i = animFirst; i <= animLast; i++) {
-    View child = lm.findViewByPosition(i);
-    if (child instanceof ImageView) {  // Already handles null
-        child.setScaleX(scaleFactor);
-        child.setScaleY(scaleFactor);
+@Override
+protected void onDestroy() {
+    super.onDestroy();
+    hideHandler.removeCallbacks(hideRunnable);
+    
+    // Cancel any running zoom animation
+    if (doubleTapAnimator != null && doubleTapAnimator.isRunning()) {
+        doubleTapAnimator.cancel();
+    }
+    doubleTapAnimator = null;
+    
+    // CRITICAL: Capture and null references BEFORE shutting down executor
+    // This signals background threads to exit gracefully
+    PdfRenderer rendererToClose = pdfRenderer;
+    ParcelFileDescriptor fdToClose = fileDescriptor;
+    pdfRenderer = null;      // <-- Signal threads to exit
+    fileDescriptor = null;
+    
+    // Shutdown executor and wait briefly for threads to finish
+    if (renderExecutor != null) {
+        renderExecutor.shutdownNow();
+        try {
+            renderExecutor.awaitTermination(500, java.util.concurrent.TimeUnit.MILLISECONDS);
+        } catch (InterruptedException ignored) {
+            Thread.currentThread().interrupt();
+        }
+        renderExecutor = null;  // <-- Prevent further use
+    }
+    
+    // Evict bitmaps
+    if (bitmapCache != null) {
+        bitmapCache.evictAll();
+    }
+    
+    // Now safe to close PDF resources
+    if (rendererToClose != null) {
+        try {
+            rendererToClose.close();
+        } catch (Exception ignored) {}
+    }
+    
+    if (fdToClose != null) {
+        try {
+            fdToClose.close();
+        } catch (Exception ignored) {}
     }
 }
 ```
 
-This already checks `instanceof ImageView`, which implicitly handles null. ✓
+### Step 2: Add Null Guards for `renderExecutor`
+
+**In `prerenderVisiblePages()` (line 740):**
+```java
+private void prerenderVisiblePages() {
+    if (adapter == null || pdfRenderer == null || renderExecutor == null) return;
+    // ... rest unchanged
+}
+```
+
+**In `prerenderAdjacentPages()` (line 864):**
+```java
+private void prerenderAdjacentPages() {
+    if (adapter == null || pdfRenderer == null || renderExecutor == null) return;
+    // ... rest unchanged
+}
+```
+
+**In `onBindViewHolder()` (line 1370):**
+```java
+if (!pendingRenders.contains(highKey) && renderExecutor != null) {
+    pendingRenders.add(highKey);
+    renderExecutor.execute(() -> renderPageAsync(position, currentZoom, false));
+}
+```
+
+### Step 3: Initialize Executor Earlier (Defensive)
+
+Move executor initialization before `buildUI()` in `onCreate()`:
+
+```java
+// Initialize render executor early (before UI, handles all paths)
+renderExecutor = Executors.newFixedThreadPool(3);
+
+// Build UI first (needed for error state)
+buildUI();
+
+if (pdfUri == null) {
+    Log.e(TAG, "No PDF URI provided");
+    showCalmErrorState();
+    return;
+}
+```
+
+### Step 4: Add Import for TimeUnit
+
+```java
+import java.util.concurrent.TimeUnit;
+```
 
 ---
 
@@ -234,19 +369,21 @@ This already checks `instanceof ImageView`, which implicitly handles null. ✓
 
 After implementing fixes:
 
-1. **Rapid zoom test**: Pinch in/out rapidly 10+ times without pause
-2. **Double-tap during pinch**: Start pinching, then double-tap mid-gesture
-3. **Exit during zoom**: Pinch zoom, then immediately press back
-4. **Empty page test**: Zoom when RecyclerView has no visible items (edge case)
-5. **Memory pressure test**: Open large PDF, zoom extensively, check for crashes
+1. **Normal open/close**: Open PDF, close immediately → no crash
+2. **Close during scroll**: Scroll rapidly, press back mid-scroll → no crash  
+3. **Close during render**: Open large PDF, press back while pages loading → no crash
+4. **Null URI test**: Trigger viewer with null URI → calm error state, no crash
+5. **Rapid open/close**: Open viewer, close, reopen rapidly → no crash
+6. **Background/foreground**: Open PDF, go to home, return → resume works
+7. **Zoom + close**: Start pinch zoom, press back mid-gesture → no crash
 
 ---
 
 ## Technical Notes
 
-- All fixes are **surgical** - no architectural changes
-- Thread-safety fix uses standard Java concurrency primitives
+- All fixes are backward-compatible
 - No new dependencies required
-- Maintains existing visual behavior and performance characteristics
-- Compatible with atomic swap strategy
+- Executor shutdown with timeout prevents indefinite waiting
+- Thread interruption is handled gracefully
+- Null-before-close pattern is standard Android lifecycle management
 
