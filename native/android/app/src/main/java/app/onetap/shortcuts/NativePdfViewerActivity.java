@@ -160,9 +160,16 @@ public class NativePdfViewerActivity extends Activity {
     // Render generation counter (invalidates old renders when zoom changes)
     private final AtomicInteger renderGeneration = new AtomicInteger(0);
     
+    // Crash logger instance for this activity
+    private final CrashLogger crashLogger = CrashLogger.getInstance();
+    
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        
+        // Initialize crash logging
+        crashLogger.initialize(this);
+        crashLogger.addBreadcrumb(CrashLogger.CAT_LIFECYCLE, "PdfViewer.onCreate started");
         
         // KEEP SCREEN AWAKE during reading
         // Uses FLAG_KEEP_SCREEN_ON which is:
@@ -206,6 +213,8 @@ public class NativePdfViewerActivity extends Activity {
         renderExecutor = Executors.newFixedThreadPool(3);
         
         if (pdfUri == null) {
+            crashLogger.recordError("PdfViewer", "onCreate", "No PDF URI provided", 
+                "shortcutId", String.valueOf(shortcutId));
             Log.e(TAG, "No PDF URI provided");
             // Build UI first so we can show error state
             buildUI();
@@ -213,6 +222,8 @@ public class NativePdfViewerActivity extends Activity {
             return;
         }
         
+        crashLogger.addBreadcrumb(CrashLogger.CAT_IO, "Opening PDF: " + pdfUri);
+        crashLogger.setCustomKey("pdf_shortcut_id", shortcutId != null ? shortcutId : "none");
         Log.d(TAG, "Opening PDF: " + pdfUri + ", shortcutId=" + shortcutId + ", resume=" + resumeEnabled);
         
         // Load resume state if enabled
@@ -443,6 +454,7 @@ public class NativePdfViewerActivity extends Activity {
                 isScaling = true;
                 focalX = detector.getFocusX();
                 focalY = detector.getFocusY();
+                crashLogger.addBreadcrumb(CrashLogger.CAT_ZOOM, "Pinch zoom started at " + currentZoom + "x");
                 return true;
             }
             
@@ -472,6 +484,7 @@ public class NativePdfViewerActivity extends Activity {
                 
                 // Commit zoom level
                 currentZoom = pendingZoom;
+                crashLogger.addBreadcrumb(CrashLogger.CAT_ZOOM, "Pinch zoom ended: " + previousZoom + "x → " + currentZoom + "x");
                 
                 // CRITICAL: Do NOT reset visual scale here - that causes the snap-back
                 // Instead, trigger high-res re-render and keep scaled bitmap visible
@@ -580,6 +593,8 @@ public class NativePdfViewerActivity extends Activity {
      * - Trigger high-res render only after animation completes
      */
     private void animateDoubleTapZoom(float startZoom, float endZoom) {
+        crashLogger.addBreadcrumb(CrashLogger.CAT_ZOOM, "Double-tap zoom: " + startZoom + "x → " + endZoom + "x");
+        
         // Cancel any existing animation
         if (doubleTapAnimator != null && doubleTapAnimator.isRunning()) {
             doubleTapAnimator.cancel();
@@ -792,15 +807,21 @@ public class NativePdfViewerActivity extends Activity {
     }
     
     private boolean openPdf(Uri uri) {
+        long startTime = System.currentTimeMillis();
+        crashLogger.addBreadcrumb(CrashLogger.CAT_IO, "openPdf started: " + uri);
+        
         try {
             fileDescriptor = getContentResolver().openFileDescriptor(uri, "r");
             if (fileDescriptor == null) {
+                crashLogger.recordError("PdfViewer", "openPdf", "FileDescriptor is null",
+                    "uri", uri.toString());
                 Log.e(TAG, "Failed to open file descriptor");
                 return false;
             }
             
             pdfRenderer = new PdfRenderer(fileDescriptor);
             int pageCount = pdfRenderer.getPageCount();
+            crashLogger.setCustomKey("pdf_page_count", String.valueOf(pageCount));
             Log.d(TAG, "Opened PDF with " + pageCount + " pages");
             
             // Pre-cache all page dimensions to avoid synchronous access during binding
@@ -813,15 +834,24 @@ public class NativePdfViewerActivity extends Activity {
                 pageHeights[i] = page.getHeight();
                 page.close();
             }
+            
+            crashLogger.logPerformance("PdfViewer", "openPdf", System.currentTimeMillis() - startTime);
+            crashLogger.addBreadcrumb(CrashLogger.CAT_IO, "openPdf success: " + pageCount + " pages");
             Log.d(TAG, "Cached dimensions for " + pageCount + " pages");
             
             return true;
             
         } catch (IOException e) {
+            crashLogger.recordError("PdfViewer", "openPdf", e, "uri", uri.toString());
             Log.e(TAG, "Failed to open PDF: " + e.getMessage());
             return false;
         } catch (SecurityException e) {
+            crashLogger.recordError("PdfViewer", "openPdf", e, "uri", uri.toString());
             Log.e(TAG, "Security exception opening PDF: " + e.getMessage());
+            return false;
+        } catch (OutOfMemoryError oom) {
+            crashLogger.recordError("PdfViewer", "openPdf", oom, "uri", uri.toString());
+            Log.e(TAG, "OOM opening PDF: " + oom.getMessage());
             return false;
         }
     }
@@ -1119,6 +1149,7 @@ public class NativePdfViewerActivity extends Activity {
      */
     private void renderPageAsync(int pageIndex, float targetZoom, boolean lowResOnly) {
         final int generation = renderGeneration.get();
+        final long startTime = System.currentTimeMillis();
         
         try {
             // Check if this render is still valid
@@ -1129,6 +1160,8 @@ public class NativePdfViewerActivity extends Activity {
             
             // Use cached dimensions instead of opening page just for size
             if (pageWidths == null || pageIndex < 0 || pageIndex >= pageWidths.length) {
+                crashLogger.logWarning("PdfViewer", "Invalid page index: " + pageIndex + 
+                    ", pageWidths=" + (pageWidths != null ? pageWidths.length : "null"));
                 Log.e(TAG, "Invalid page index or dimensions not cached: " + pageIndex);
                 pendingRenders.remove(getCacheKey(pageIndex, targetZoom, false));
                 return;
@@ -1260,7 +1293,25 @@ public class NativePdfViewerActivity extends Activity {
                     adapter.updatePageBitmap(pageIndex, highBitmap, finalHeight, false);
                 }
             });
+        } catch (OutOfMemoryError oom) {
+            // Critical: OOM during bitmap creation
+            crashLogger.recordError("PdfViewer", "renderPageAsync", oom,
+                "pageIndex", String.valueOf(pageIndex),
+                "targetZoom", String.valueOf(targetZoom),
+                "lowResOnly", String.valueOf(lowResOnly));
+            Log.e(TAG, "OOM rendering page " + pageIndex, oom);
+            pendingRenders.remove(getCacheKey(pageIndex, targetZoom, false));
+            
+            // Try to recover by clearing cache
+            if (bitmapCache != null) {
+                bitmapCache.evictAll();
+            }
         } catch (Exception e) {
+            crashLogger.recordError("PdfViewer", "renderPageAsync", e,
+                "pageIndex", String.valueOf(pageIndex),
+                "targetZoom", String.valueOf(targetZoom),
+                "lowResOnly", String.valueOf(lowResOnly),
+                "renderTime", String.valueOf(System.currentTimeMillis() - startTime));
             Log.e(TAG, "Failed to render page " + pageIndex, e);
             pendingRenders.remove(getCacheKey(pageIndex, targetZoom, false));
         }
@@ -1275,6 +1326,8 @@ public class NativePdfViewerActivity extends Activity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        crashLogger.addBreadcrumb(CrashLogger.CAT_LIFECYCLE, "PdfViewer.onDestroy started");
+        
         hideHandler.removeCallbacks(hideRunnable);
         
         // Cancel any running zoom animation
@@ -1293,11 +1346,16 @@ public class NativePdfViewerActivity extends Activity {
         
         // Shutdown executor and wait briefly for threads to finish
         if (renderExecutor != null) {
+            crashLogger.addBreadcrumb(CrashLogger.CAT_LIFECYCLE, "Shutting down render executor");
             renderExecutor.shutdownNow();
             try {
-                renderExecutor.awaitTermination(500, TimeUnit.MILLISECONDS);
+                boolean terminated = renderExecutor.awaitTermination(500, TimeUnit.MILLISECONDS);
+                if (!terminated) {
+                    crashLogger.logWarning("PdfViewer", "Executor did not terminate within 500ms");
+                }
             } catch (InterruptedException ignored) {
                 Thread.currentThread().interrupt();
+                crashLogger.logWarning("PdfViewer", "Executor shutdown interrupted");
             }
             renderExecutor = null;  // Prevent further use
         }
@@ -1311,14 +1369,22 @@ public class NativePdfViewerActivity extends Activity {
         if (rendererToClose != null) {
             try {
                 rendererToClose.close();
-            } catch (Exception ignored) {}
+                crashLogger.addBreadcrumb(CrashLogger.CAT_IO, "PdfRenderer closed");
+            } catch (Exception e) {
+                crashLogger.recordError("PdfViewer", "onDestroy", e, "resource", "pdfRenderer");
+            }
         }
         
         if (fdToClose != null) {
             try {
                 fdToClose.close();
-            } catch (Exception ignored) {}
+                crashLogger.addBreadcrumb(CrashLogger.CAT_IO, "FileDescriptor closed");
+            } catch (Exception e) {
+                crashLogger.recordError("PdfViewer", "onDestroy", e, "resource", "fileDescriptor");
+            }
         }
+        
+        crashLogger.addBreadcrumb(CrashLogger.CAT_LIFECYCLE, "PdfViewer.onDestroy complete");
     }
     
     @Override
