@@ -18,6 +18,7 @@ import android.graphics.RectF;
 import android.graphics.Shader;
 import android.graphics.Typeface;
 import android.graphics.pdf.PdfRenderer;
+import android.content.res.Configuration;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -242,6 +243,7 @@ public class NativePdfViewerActivity extends Activity {
     private class ZoomableRecyclerView extends RecyclerView {
         private float zoomLevel = 1.0f;
         private float panX = 0f;
+        private float panY = 0f;  // Vertical pan for zoomed-in mode
         private float focalX = 0f;
         private float focalY = 0f;
         
@@ -384,9 +386,14 @@ public class NativePdfViewerActivity extends Activity {
             if (zoomLevel < 1.0f) {
                 // ZOOMED OUT: No canvas transform - layout heights handle sizing
                 // This allows RecyclerView to bind more pages for train view
+                // Pages are centered via Gravity.CENTER_HORIZONTAL in adapter
             } else if (zoomLevel > 1.0f) {
                 // ZOOMED IN: Pan + scale from focal point
-                canvas.translate(panX, 0);
+                // Only apply horizontal pan if content is wider than screen
+                float scaledContentWidth = getWidth() * zoomLevel;
+                float effectivePanX = (scaledContentWidth > getWidth()) ? panX : 0;
+                
+                canvas.translate(effectivePanX, panY);
                 canvas.scale(zoomLevel, zoomLevel, focalX, focalY);
             }
             // At 1.0x: No transformation needed
@@ -410,6 +417,7 @@ public class NativePdfViewerActivity extends Activity {
         }
         
         private float lastTouchX = 0f;
+        private float lastTouchY = 0f;  // Track Y for vertical panning
         private boolean isPanning = false;
         
         @Override
@@ -441,23 +449,44 @@ public class NativePdfViewerActivity extends Activity {
                 return true;  // Consume the final UP
             }
             
-            // Handle horizontal panning when zoomed in
+            // Handle bidirectional panning when zoomed in
             if (zoomLevel > 1.0f) {
                 switch (action) {
                     case MotionEvent.ACTION_DOWN:
                         lastTouchX = e.getX();
+                        lastTouchY = e.getY();
                         isPanning = false;
                         break;
                         
                     case MotionEvent.ACTION_MOVE:
                         if (e.getPointerCount() == 1 && !isInternalScaling) {
                             float dx = e.getX() - lastTouchX;
-                            if (Math.abs(dx) > 10) {
+                            float dy = e.getY() - lastTouchY;
+                            
+                            // Calculate scaled content dimensions
+                            float scaledContentWidth = getWidth() * zoomLevel;
+                            float scaledContentHeight = getHeight() * zoomLevel;
+                            
+                            // Start panning if movement exceeds threshold
+                            if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
                                 isPanning = true;
                             }
+                            
                             if (isPanning) {
-                                setPanX(panX + dx);
+                                // Horizontal pan only if content wider than screen
+                                if (scaledContentWidth > getWidth()) {
+                                    panX = panX + dx;
+                                }
+                                
+                                // Vertical pan only if zoomed in (content taller than viewport)
+                                if (scaledContentHeight > getHeight()) {
+                                    panY = panY + dy;
+                                }
+                                
+                                clampPan();
                                 lastTouchX = e.getX();
+                                lastTouchY = e.getY();
+                                invalidate();
                             }
                         }
                         break;
@@ -502,18 +531,38 @@ public class NativePdfViewerActivity extends Activity {
         /**
          * Clamp pan to content bounds.
          */
+        /**
+         * Clamp pan to content bounds with smart centering.
+         * When content fits within screen, center it (pan = 0).
+         * When content exceeds screen, allow panning within bounds.
+         */
         private void clampPan() {
-            if (zoomLevel <= 1.0f) {
-                panX = 0;
-                return;
+            // Calculate scaled content dimensions
+            float scaledContentWidth = getWidth() * zoomLevel;
+            float scaledContentHeight = getHeight() * zoomLevel;
+            
+            // HORIZONTAL: If content fits, center it (panX = 0)
+            // If content exceeds, allow panning within bounds
+            if (scaledContentWidth <= getWidth() || zoomLevel <= 1.0f) {
+                panX = 0;  // Center content
+            } else {
+                float maxPanX = (scaledContentWidth - getWidth()) / 2f;
+                panX = Math.max(-maxPanX, Math.min(maxPanX, panX));
             }
             
-            // Calculate max pan based on zoom
-            float contentWidth = getWidth() * zoomLevel;
-            float maxPan = contentWidth - getWidth();
-            
-            // Pan can go from -maxPan to 0 (content slides left to show right edge)
-            panX = Math.max(-maxPan, Math.min(0, panX));
+            // VERTICAL: No pan when zoomed out/at 1.0x
+            // When zoomed in, clamp vertical pan based on content height
+            if (zoomLevel <= 1.0f) {
+                panY = 0;  // No vertical pan when zoomed out/at 1.0x
+            } else {
+                // Clamp vertical pan based on content height
+                if (scaledContentHeight <= getHeight()) {
+                    panY = 0;  // Content fits, center it
+                } else {
+                    float maxPanY = (scaledContentHeight - getHeight()) / 2f;
+                    panY = Math.max(-maxPanY, Math.min(maxPanY, panY));
+                }
+            }
         }
         
         /**
@@ -529,9 +578,18 @@ public class NativePdfViewerActivity extends Activity {
         public void resetZoom() {
             this.zoomLevel = 1.0f;
             this.panX = 0f;
+            this.panY = 0f;
             this.focalX = getWidth() / 2f;
             this.focalY = getHeight() / 2f;
             invalidate();
+        }
+        
+        /**
+         * Reset pan offsets (used during orientation changes).
+         */
+        public void resetPan() {
+            this.panX = 0f;
+            this.panY = 0f;
         }
         
         /**
@@ -572,13 +630,16 @@ public class NativePdfViewerActivity extends Activity {
             
             final float startZoom = zoomLevel;
             final float startPanX = panX;
+            final float startPanY = panY;
             final float startFocalX = focalX;
             final float startFocalY = focalY;
             
             // Target focal point is center when zooming to or below 1.0x
             final float targetFocalX = (targetZoom <= 1.0f) ? getWidth() / 2f : fx;
             final float targetFocalY = (targetZoom <= 1.0f) ? getHeight() / 2f : fy;
+            // Reset pan to 0 when zooming to or below 1.0x
             final float targetPanX = (targetZoom <= 1.0f) ? 0 : panX;
+            final float targetPanY = (targetZoom <= 1.0f) ? 0 : panY;
             
             doubleTapAnimator = ValueAnimator.ofFloat(0f, 1f);
             doubleTapAnimator.setDuration(DOUBLE_TAP_ANIM_DURATION_MS);
@@ -588,6 +649,7 @@ public class NativePdfViewerActivity extends Activity {
                 float progress = (float) animation.getAnimatedValue();
                 zoomLevel = startZoom + (targetZoom - startZoom) * progress;
                 panX = startPanX + (targetPanX - startPanX) * progress;
+                panY = startPanY + (targetPanY - startPanY) * progress;
                 focalX = startFocalX + (targetFocalX - startFocalX) * progress;
                 focalY = startFocalY + (targetFocalY - startFocalY) * progress;
                 clampPan();
@@ -600,6 +662,7 @@ public class NativePdfViewerActivity extends Activity {
                     zoomLevel = targetZoom;
                     if (targetZoom <= 1.0f) {
                         panX = 0;
+                        panY = 0;
                         focalX = getWidth() / 2f;
                         focalY = getHeight() / 2f;
                     }
@@ -1010,6 +1073,37 @@ public class NativePdfViewerActivity extends Activity {
         
         // Schedule auto-hide
         scheduleHide();
+    }
+    
+    /**
+     * Handle orientation changes without activity restart.
+     * Updates screen dimensions and recenters pages.
+     */
+    @Override
+    public void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        
+        // Update screen dimensions
+        DisplayMetrics metrics = getResources().getDisplayMetrics();
+        screenWidth = metrics.widthPixels;
+        screenHeight = metrics.heightPixels;
+        
+        crashLogger.addBreadcrumb(CrashLogger.CAT_UI, 
+            "Orientation changed: " + screenWidth + "x" + screenHeight);
+        
+        // Reset pan to recenter content
+        if (recyclerView != null) {
+            recyclerView.resetPan();
+            recyclerView.invalidate();
+        }
+        
+        // Trigger adapter rebind for new dimensions
+        if (adapter != null) {
+            adapter.notifyDataSetChanged();
+        }
+        
+        // Re-render visible pages at new dimensions
+        mainHandler.postDelayed(this::prerenderVisiblePages, 100);
     }
     
     private void setupImmersiveMode() {
