@@ -541,4 +541,30 @@ export class ShortcutPluginWeb implements ShortcutPluginInterface {
     // The message won't be shown since this is web-only
     return { success: true };
   }
+
+  // ========== Crash Logs (Web Fallback) ==========
+
+  async getCrashLogs(): Promise<{
+    success: boolean;
+    errorLog?: string;
+    breadcrumbs?: string[];
+    sessionId?: string;
+    sessionDurationSeconds?: number;
+    error?: string;
+  }> {
+    console.log('[ShortcutPluginWeb] getCrashLogs called (web fallback)');
+    // On web, return empty logs - crash logging is native-only
+    return { 
+      success: true, 
+      errorLog: 'Crash logs are only available on Android devices.',
+      breadcrumbs: [],
+      sessionId: 'web-session',
+      sessionDurationSeconds: 0
+    };
+  }
+
+  async clearCrashLogs(): Promise<{ success: boolean }> {
+    console.log('[ShortcutPluginWeb] clearCrashLogs called (web fallback)');
+    return { success: true };
+  }
 }

@@ -72,6 +72,7 @@ import app.onetap.shortcuts.ScheduledActionReceiver;
 import app.onetap.shortcuts.NotificationHelper;
 import app.onetap.shortcuts.NotificationClickActivity;
 import app.onetap.shortcuts.NativeUsageTracker;
+import app.onetap.shortcuts.CrashLogger;
 
 import app.onetap.shortcuts.MainActivity;
 import android.content.SharedPreferences;
@@ -4411,6 +4412,61 @@ public class ShortcutPlugin extends Plugin {
         activity.runOnUiThread(() -> {
             android.widget.Toast.makeText(activity, message, toastDuration).show();
         });
+        
+        JSObject result = new JSObject();
+        result.put("success", true);
+        call.resolve(result);
+    }
+
+    // ========== Crash Logs ==========
+
+    /**
+     * Get native crash logs for debugging.
+     * Returns persisted error log and recent breadcrumbs from CrashLogger.
+     */
+    @PluginMethod
+    public void getCrashLogs(PluginCall call) {
+        CrashLogger logger = CrashLogger.getInstance();
+        
+        // Initialize with context if not already done
+        Context context = getContext();
+        if (context != null) {
+            logger.initialize(context);
+        }
+        
+        JSObject result = new JSObject();
+        result.put("success", true);
+        result.put("errorLog", logger.getPersistedErrorLog());
+        result.put("sessionId", logger.getSessionId());
+        result.put("sessionDurationSeconds", logger.getSessionDurationSeconds());
+        
+        // Get recent breadcrumbs
+        String[] breadcrumbs = logger.getRecentBreadcrumbs(50);
+        JSArray breadcrumbArray = new JSArray();
+        for (String b : breadcrumbs) {
+            if (b != null) {
+                breadcrumbArray.put(b);
+            }
+        }
+        result.put("breadcrumbs", breadcrumbArray);
+        
+        call.resolve(result);
+    }
+
+    /**
+     * Clear persisted crash logs.
+     */
+    @PluginMethod
+    public void clearCrashLogs(PluginCall call) {
+        CrashLogger logger = CrashLogger.getInstance();
+        
+        // Initialize with context if not already done
+        Context context = getContext();
+        if (context != null) {
+            logger.initialize(context);
+        }
+        
+        logger.clearErrorLog();
         
         JSObject result = new JSObject();
         result.put("success", true);

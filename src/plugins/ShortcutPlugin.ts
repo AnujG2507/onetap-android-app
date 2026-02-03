@@ -331,6 +331,22 @@ export interface ShortcutPluginInterface {
     message: string;
     duration?: 'short' | 'long';
   }): Promise<{ success: boolean }>;
+
+  // ========== Crash Logs ==========
+
+  // Get native crash logs for debugging.
+  // Returns persisted error log and recent breadcrumbs from CrashLogger.
+  getCrashLogs(): Promise<{
+    success: boolean;
+    errorLog?: string;
+    breadcrumbs?: string[];
+    sessionId?: string;
+    sessionDurationSeconds?: number;
+    error?: string;
+  }>;
+
+  // Clear persisted crash logs.
+  clearCrashLogs(): Promise<{ success: boolean }>;
 }
 
 // This plugin bridges to native Android code
