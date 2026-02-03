@@ -336,6 +336,10 @@ public class NativePdfViewerActivity extends Activity {
                             t = Math.min(1.0f, t); // Clamp to 1.0
                             fx = fx + (centerX - fx) * t;
                             fy = fy + (centerY - fy) * t;
+                            
+                            // Reset pan when zooming out below 1.0x to ensure centering
+                            panX = 0;
+                            panY = 0;
                         }
                         
                         // Update both zoomLevel and pendingZoom to keep them in sync
@@ -396,12 +400,19 @@ public class NativePdfViewerActivity extends Activity {
             if (isGestureActive) {
                 // SMOOTH ZOOM: During gesture/animation, use canvas scaling for ALL zoom levels
                 // This avoids triggering layout updates that cause flickering during pinch
-                // Content may appear slightly soft during gesture, but will be sharp after commit
-                float scaledContentWidth = getWidth() * zoomLevel;
-                float effectivePanX = (scaledContentWidth > getWidth()) ? panX : 0;
-                
-                canvas.translate(effectivePanX, panY);
-                canvas.scale(zoomLevel, zoomLevel, focalX, focalY);
+                if (zoomLevel < 1.0f) {
+                    // ZOOMING OUT: Always scale from screen center, no pan
+                    // This ensures content stays perfectly centered during zoom-out gestures
+                    float centerX = getWidth() / 2f;
+                    float centerY = getHeight() / 2f;
+                    canvas.scale(zoomLevel, zoomLevel, centerX, centerY);
+                } else {
+                    // ZOOMING IN: Use focal point and pan
+                    float scaledContentWidth = getWidth() * zoomLevel;
+                    float effectivePanX = (scaledContentWidth > getWidth()) ? panX : 0;
+                    canvas.translate(effectivePanX, panY);
+                    canvas.scale(zoomLevel, zoomLevel, focalX, focalY);
+                }
             } else if (committedZoom < 1.0f && zoomLevel < 1.0f) {
                 // COMMITTED ZOOMED OUT: Layouts already scaled via notifyDataSetChanged
                 // No canvas transform needed - pages are centered via Gravity.CENTER_HORIZONTAL
