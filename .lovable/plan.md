@@ -1,44 +1,32 @@
 
 
-# PDF Viewer Center Alignment Enhancement
+# Fix: Eliminate "Squeeze" When Starting Gesture at Zoomed-Out State
 
-## Overview
+## Problem Diagnosis
 
-Ensure the PDF viewer content stays perfectly center-aligned at all zoom levels during both gesture (pinch) and committed (released) states.
+When the PDF is committed at a zoom level below 1.0x (e.g., 0.5x), the pages are already physically scaled via layout parameters. When the user places two fingers on the screen to begin a pinch gesture, `isGestureActive` becomes `true`, and `dispatchDraw` suddenly applies a canvas scale of 0.5x on top of the already-scaled layouts — effectively scaling the content to 25%.
 
----
-
-## Current Behavior Analysis
-
-| Zoom Level | State | Centering Method | Issue |
-|------------|-------|------------------|-------|
-| < 1.0x | Committed | Layout `Gravity.CENTER_HORIZONTAL` | Works correctly ✓ |
-| < 1.0x | During gesture | Canvas scaling around focal point | May not center properly |
-| = 1.0x | Any | Full-width layout | Works correctly ✓ |
-| > 1.0x | Any | Canvas scaling + pan | Content can be panned off-center |
-
----
-
-## Problem Areas
-
-### 1. Gesture-Mode Centering When Zooming Out
-During a pinch-to-zoom gesture below 1.0x, the canvas scaling uses `effectivePanX` based on whether scaled width exceeds screen width. However, when zoomed out, the scaled content is narrower than the screen but may not be perfectly centered because:
-- `focalX` from the pinch gesture may not be screen center
-- Previous `panX` offset may persist
-
-### 2. Zoomed-In Mode Pan Reset
-When zooming from a panned state back toward 1.0x, the pan offsets should animate toward zero to ensure centering when the gesture ends.
-
-### 3. Canvas Origin for Zoomed-Out
-When using canvas scaling for zoom < 1.0x during gesture, the scaling should be from screen center to keep content visually centered.
+**This causes the visible "squeeze" or jump as soon as the gesture is detected, even before any pinch movement occurs.**
 
 ---
 
 ## Solution
 
-### 1. Force Center-Based Canvas Scaling When Zooming Out
+When entering gesture mode from a committed zoomed-out state, we must NOT apply canvas scaling immediately. Instead, we should:
 
-In `dispatchDraw`, when zoom level is below 1.0x (during gesture), always scale from screen center and ignore pan offsets:
+1. **Track the zoom baseline**: When `isGestureActive` becomes true, record the `committedZoom` as a "baseline" that layouts already represent
+2. **Apply only the DELTA scaling**: During the gesture, canvas should only scale by the ratio `zoomLevel / committedZoom`, not by the absolute `zoomLevel`
+
+This ensures a seamless visual transition:
+- At gesture start: `zoomLevel == committedZoom` → canvas scale = 1.0 (no change)
+- As user pinches out: `zoomLevel > committedZoom` → canvas scales up smoothly
+- As user pinches in: `zoomLevel < committedZoom` → canvas scales down smoothly
+
+---
+
+## Implementation
+
+### 1. Modify `dispatchDraw` to Use Delta Scaling
 
 ```java
 @Override
@@ -46,86 +34,66 @@ protected void dispatchDraw(Canvas canvas) {
     canvas.save();
     
     if (isGestureActive) {
-        if (zoomLevel < 1.0f) {
-            // ZOOMING OUT: Always scale from center, no pan
+        // SMOOTH ZOOM: During gesture, apply DELTA scaling from committed state
+        // This prevents the "squeeze" effect when starting gesture at zoomed-out state
+        
+        // Calculate the visual scale factor relative to committed layouts
+        float visualScale = zoomLevel / committedZoom;
+        
+        if (visualScale != 1.0f) {
             float centerX = getWidth() / 2f;
             float centerY = getHeight() / 2f;
-            canvas.scale(zoomLevel, zoomLevel, centerX, centerY);
-        } else {
-            // ZOOMING IN: Use focal point and pan
-            float scaledContentWidth = getWidth() * zoomLevel;
-            float effectivePanX = (scaledContentWidth > getWidth()) ? panX : 0;
-            canvas.translate(effectivePanX, panY);
-            canvas.scale(zoomLevel, zoomLevel, focalX, focalY);
+            
+            if (zoomLevel < 1.0f) {
+                // ZOOMING OUT: Scale from center, no pan
+                canvas.scale(visualScale, visualScale, centerX, centerY);
+            } else if (committedZoom < 1.0f) {
+                // TRANSITIONING from zoomed-out to zoomed-in during gesture
+                // Scale from center during this transition
+                canvas.scale(visualScale, visualScale, centerX, centerY);
+            } else {
+                // ZOOMING IN from >= 1.0x: Use focal point and pan
+                float scaledContentWidth = getWidth() * zoomLevel;
+                float effectivePanX = (scaledContentWidth > getWidth()) ? panX : 0;
+                canvas.translate(effectivePanX, panY);
+                canvas.scale(visualScale, visualScale, focalX, focalY);
+            }
         }
+        // visualScale == 1.0f means no transform needed (gesture just started)
     } else if (committedZoom < 1.0f && zoomLevel < 1.0f) {
-        // COMMITTED ZOOMED OUT: Layouts handle centering, no canvas transform
+        // COMMITTED ZOOMED OUT: Layouts already scaled, no canvas transform
     } else if (zoomLevel > 1.0f) {
-        // COMMITTED ZOOMED IN: Canvas pan + scale
+        // COMMITTED ZOOMED IN: Canvas-based pan + scale
         float scaledContentWidth = getWidth() * zoomLevel;
         float effectivePanX = (scaledContentWidth > getWidth()) ? panX : 0;
         canvas.translate(effectivePanX, panY);
         canvas.scale(zoomLevel, zoomLevel, focalX, focalY);
     }
-    // At 1.0x: No transform
+    // At 1.0x committed: No transformation needed
     
     super.dispatchDraw(canvas);
     canvas.restore();
 }
 ```
 
-### 2. Reset Pan When Transitioning to Zoomed-Out
+### 2. Ensure `committedZoom` Is Correct Before Gesture Starts
 
-In `onScale()`, reset pan offsets when zoom goes below 1.0x to prevent off-center content:
-
-```java
-if (newZoom < 1.0f) {
-    panX = 0;
-    panY = 0;
-}
-```
-
-### 3. Ensure Focal Point Is Centered for Zoom-Out Animation
-
-In `animateZoomTo()`, when target zoom is <= 1.0x, animate focal point to screen center (already partially implemented, but ensure it's consistent):
-
-```java
-final float targetFocalX = (targetZoom <= 1.0f) ? getWidth() / 2f : fx;
-final float targetFocalY = (targetZoom <= 1.0f) ? getHeight() / 2f : fy;
-```
-
-### 4. Update Focal Point During Gesture for Smooth Centering
-
-When zooming out below 1.0x, smoothly blend the focal point toward screen center (already implemented at lines 331-339, but verify it propagates correctly):
-
-```java
-// In onScale:
-if (newZoom < 1.0f) {
-    float centerX = getWidth() / 2f;
-    float centerY = getHeight() / 2f;
-    float t = (1.0f - newZoom) / (1.0f - MIN_ZOOM);
-    t = Math.min(1.0f, t);
-    focalX = focalX + (centerX - focalX) * t;
-    focalY = focalY + (centerY - focalY) * t;
-}
-```
+The `committedZoom` must accurately reflect the current layout state. Verify it's set correctly:
+- At initial load: `committedZoom = 1.0f` (default)
+- After any `notifyDataSetChanged()`: `committedZoom = zoomLevel`
+- After animation completes: `committedZoom = targetZoom`
 
 ---
 
-## Technical Details
+## Technical Explanation
 
-### Center-Based Scaling Math
-
-When scaling from screen center:
-- Content width after scale: `screenWidth * zoomLevel`
-- Horizontal margin on each side: `(screenWidth - scaledWidth) / 2`
-- Canvas `scale(zoom, zoom, centerX, centerY)` automatically centers the scaled content
-
-### Pan Clamping for Zoomed-In
-
-The existing `clampPan()` already handles this correctly:
-- Resets panX/panY to 0 when content fits within screen
-- Clamps to bounds when content exceeds screen
+| State | `zoomLevel` | `committedZoom` | `visualScale` | Canvas Effect |
+|-------|-------------|-----------------|---------------|---------------|
+| Committed at 0.5x, gesture starts | 0.5 | 0.5 | 1.0 | No change |
+| Pinch out to 0.7x | 0.7 | 0.5 | 1.4 | 40% larger |
+| Pinch in to 0.3x | 0.3 | 0.5 | 0.6 | 40% smaller |
+| Pinch to 1.0x | 1.0 | 0.5 | 2.0 | Double (back to fit-width) |
+| Gesture ends at 0.7x | 0.7 | 0.7 (updated) | 1.0 | Layouts updated |
 
 ---
 
@@ -133,16 +101,16 @@ The existing `clampPan()` already handles this correctly:
 
 | File | Changes |
 |------|---------|
-| `NativePdfViewerActivity.java` | Update `dispatchDraw()` to use center-based scaling for zoom < 1.0x during gesture, reset pan when zoom drops below 1.0x |
+| `NativePdfViewerActivity.java` | Update `dispatchDraw()` to use delta scaling (`zoomLevel / committedZoom`) instead of absolute `zoomLevel` |
 
 ---
 
 ## Testing Checklist
 
-- [ ] Zoom out from 1.0x to 0.3x: Content stays centered throughout gesture
-- [ ] Zoom out then release: Pages remain perfectly centered
-- [ ] Zoom in to 2.5x then zoom out to 0.5x in one gesture: Smooth centered transition
-- [ ] Double-tap to zoom out (e.g., to MIN_ZOOM): Content centered
-- [ ] Pan while zoomed in at 2.5x, then zoom out to 0.5x: Pan resets, content centers
-- [ ] Portrait and landscape: Content centered in both orientations
+- [ ] Start at 0.5x zoom, place two fingers: No visual change
+- [ ] Pinch out from 0.5x to 0.8x: Smooth zoom, no jump at gesture start
+- [ ] Pinch in from 0.5x to 0.3x: Smooth zoom, no jump
+- [ ] Start at 1.0x, pinch out to 0.5x: Smooth transition
+- [ ] Start at 2.0x, pinch to 0.5x: Smooth throughout
+- [ ] Double-tap cycles: Smooth animations without jumps
 
