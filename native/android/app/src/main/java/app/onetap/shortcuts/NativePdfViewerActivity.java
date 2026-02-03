@@ -1057,15 +1057,29 @@ public class NativePdfViewerActivity extends Activity {
         headerSpace.setLayoutParams(headerSpaceParams);
         headerSpace.setBackgroundColor(0xFF1C1C1E); // Match header color for seamless transition
         
-        // Top bar - solid opaque premium background
+        // Top bar - solid opaque premium background with subtle bottom border
         topBar = new FrameLayout(this);
         int topBarHeight = dpToPx(56);
         topBar.setLayoutParams(new FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, topBarHeight
         ));
-        topBar.setBackgroundColor(0xFF1C1C1E); // Premium dark gray
+        
+        // Create layered background with bottom border
+        GradientDrawable topBarBg = new GradientDrawable();
+        topBarBg.setColor(0xFF1C1C1E); // Premium dark gray
+        topBar.setBackground(topBarBg);
         topBar.setElevation(dpToPx(4)); // Subtle shadow
         topBar.setPadding(dpToPx(8), 0, dpToPx(8), 0);
+        
+        // Add subtle bottom border line
+        View borderLine = new View(this);
+        borderLine.setBackgroundColor(0x33FFFFFF); // 20% white for subtle separator
+        FrameLayout.LayoutParams borderParams = new FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, dpToPx(1)
+        );
+        borderParams.gravity = Gravity.BOTTOM;
+        borderLine.setLayoutParams(borderParams);
+        topBar.addView(borderLine);
         
         // Close button with circular ripple
         closeButton = new ImageButton(this);
