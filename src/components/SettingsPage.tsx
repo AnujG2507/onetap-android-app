@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { 
   ChevronLeft,
@@ -15,7 +15,14 @@ import {
   Loader2,
   BookOpen,
   Play,
+  Bug,
+  Copy,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
+import { toast } from 'sonner';
+import ShortcutPlugin from '@/plugins/ShortcutPlugin';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
@@ -60,6 +67,18 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
   const [languageSheetOpen, setLanguageSheetOpen] = useState(false);
   const [isChangingLanguage, setIsChangingLanguage] = useState(false);
   const [changingTo, setChangingTo] = useState<string | null>(null);
+  
+  // Debug logs state
+  const [crashLogs, setCrashLogs] = useState<{
+    errorLog?: string;
+    breadcrumbs?: string[];
+    sessionId?: string;
+    sessionDurationSeconds?: number;
+  } | null>(null);
+  const [isLoadingLogs, setIsLoadingLogs] = useState(false);
+  const [logsExpanded, setLogsExpanded] = useState(false);
+  
+  const isNative = Capacitor.isNativePlatform();
   
   const currentLanguage = i18n.language?.split('-')[0] || 'en';
   const currentLanguageConfig = supportedLanguages.find(l => l.code === currentLanguage);
@@ -114,6 +133,67 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
   const handleResetTutorials = () => {
     resetAllTutorials();
     window.location.reload();
+  };
+
+  // Fetch crash logs
+  const fetchCrashLogs = useCallback(async () => {
+    setIsLoadingLogs(true);
+    try {
+      const result = await ShortcutPlugin.getCrashLogs();
+      if (result.success) {
+        setCrashLogs({
+          errorLog: result.errorLog,
+          breadcrumbs: result.breadcrumbs,
+          sessionId: result.sessionId,
+          sessionDurationSeconds: result.sessionDurationSeconds,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fetch crash logs:', error);
+    } finally {
+      setIsLoadingLogs(false);
+    }
+  }, []);
+
+  // Load logs when expanded
+  useEffect(() => {
+    if (logsExpanded && !crashLogs) {
+      fetchCrashLogs();
+    }
+  }, [logsExpanded, crashLogs, fetchCrashLogs]);
+
+  const handleCopyLogs = async () => {
+    if (!crashLogs) return;
+    
+    const logText = [
+      `=== OneTap Debug Logs ===`,
+      `Session ID: ${crashLogs.sessionId || 'N/A'}`,
+      `Session Duration: ${crashLogs.sessionDurationSeconds || 0}s`,
+      ``,
+      `=== Error Log ===`,
+      crashLogs.errorLog || '(No errors recorded)',
+      ``,
+      `=== Recent Breadcrumbs ===`,
+      ...(crashLogs.breadcrumbs?.filter(b => b) || ['(No breadcrumbs)']),
+    ].join('\n');
+    
+    try {
+      await navigator.clipboard.writeText(logText);
+      toast.success(t('settingsPage.logsCopied'));
+    } catch {
+      toast.error('Failed to copy logs');
+    }
+  };
+
+  const handleClearLogs = async () => {
+    try {
+      await ShortcutPlugin.clearCrashLogs();
+      setCrashLogs(null);
+      toast.success(t('settingsPage.logsCleared'));
+    } catch (error) {
+      console.error('Failed to clear logs:', error);
+      toast.error('Failed to clear logs');
+    }
   };
 
   return (
@@ -337,6 +417,115 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
                 </p>
               </div>
             </CardContent>
+          </Card>
+
+          {/* Debug Logs Section */}
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Bug className="h-4 w-4 text-muted-foreground" />
+                  {t('settingsPage.debugLogs')}
+                </CardTitle>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setLogsExpanded(!logsExpanded)}
+                  className="h-8 w-8 p-0"
+                >
+                  {logsExpanded ? (
+                    <ChevronUp className="h-4 w-4" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+              <CardDescription>{t('settingsPage.debugLogsDesc')}</CardDescription>
+            </CardHeader>
+            
+            {logsExpanded && (
+              <CardContent className="space-y-4">
+                {isLoadingLogs ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : (
+                  <>
+                    {/* Session info */}
+                    {crashLogs && (
+                      <div className="text-xs text-muted-foreground space-y-1">
+                        <p>Session: {crashLogs.sessionId || 'N/A'}</p>
+                        <p>Duration: {crashLogs.sessionDurationSeconds || 0}s</p>
+                        {!isNative && (
+                          <p className="text-amber-500">{t('settingsPage.debugLogsNativeOnly')}</p>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* Error log */}
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">{t('settingsPage.errorLog')}</p>
+                      <div className="bg-muted/50 rounded-lg p-3 max-h-32 overflow-y-auto">
+                        <pre className="text-xs text-muted-foreground whitespace-pre-wrap break-all font-mono">
+                          {crashLogs?.errorLog || t('settingsPage.noErrors')}
+                        </pre>
+                      </div>
+                    </div>
+                    
+                    {/* Recent breadcrumbs */}
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">{t('settingsPage.breadcrumbs')}</p>
+                      <div className="bg-muted/50 rounded-lg p-3 max-h-40 overflow-y-auto">
+                        {crashLogs?.breadcrumbs?.filter(b => b).length ? (
+                          <ul className="text-xs text-muted-foreground space-y-1 font-mono">
+                            {crashLogs.breadcrumbs.filter(b => b).slice(0, 20).map((b, i) => (
+                              <li key={i} className="break-all">{b}</li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">{t('settingsPage.noBreadcrumbs')}</p>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Actions */}
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 gap-2"
+                        onClick={handleCopyLogs}
+                        disabled={!crashLogs}
+                      >
+                        <Copy className="h-4 w-4" />
+                        {t('settingsPage.copyLogs')}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 gap-2"
+                        onClick={handleClearLogs}
+                        disabled={!crashLogs}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        {t('settingsPage.clearLogs')}
+                      </Button>
+                    </div>
+                    
+                    {/* Refresh button */}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full gap-2"
+                      onClick={fetchCrashLogs}
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                      {t('settingsPage.refreshLogs')}
+                    </Button>
+                  </>
+                )}
+              </CardContent>
+            )}
           </Card>
         </div>
       </ScrollArea>

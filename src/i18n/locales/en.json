@@ -494,7 +494,19 @@
     "videoPlayer": "Video Player",
     "videoPlayerDesc": "Configure video playback behavior",
     "pipMode": "Picture-in-Picture",
-    "pipModeDesc": "Continue watching in a floating window when leaving the player"
+    "pipModeDesc": "Continue watching in a floating window when leaving the player",
+    "debugLogs": "Debug Logs",
+    "debugLogsDesc": "View native crash reports and breadcrumbs for troubleshooting",
+    "debugLogsNativeOnly": "Full logs available on Android device only",
+    "errorLog": "Error Log",
+    "noErrors": "(No errors recorded)",
+    "breadcrumbs": "Recent Breadcrumbs",
+    "noBreadcrumbs": "(No breadcrumbs recorded)",
+    "copyLogs": "Copy",
+    "clearLogs": "Clear",
+    "refreshLogs": "Refresh",
+    "logsCopied": "Logs copied to clipboard",
+    "logsCleared": "Logs cleared"
   },
   "shortcutCustomizer": {
     "setUpAccess": "Set up access",
