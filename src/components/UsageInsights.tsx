@@ -25,14 +25,14 @@ export function UsageInsights() {
   };
 
   return (
-    <Card className="bg-card border-border">
+    <Card className="bg-card border-border overflow-hidden">
       <CardHeader className="pb-3">
         <CardTitle className="text-base font-medium flex items-center gap-2">
           <TrendingUp className="h-4 w-4 text-primary" />
           {t('usage.title', 'Usage Insights')}
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 overflow-hidden">
         {/* Stats Grid */}
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-muted/50 rounded-lg p-3 text-center">
@@ -69,7 +69,7 @@ export function UsageInsights() {
             <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
               {t('usage.weeklyActivity', 'This Week')}
             </h4>
-            <div className="h-20">
+            <div className="h-20 w-full min-w-0">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={stats.weeklyActivity} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
                   <XAxis 
