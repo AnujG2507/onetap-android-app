@@ -194,13 +194,11 @@ public class NativePdfViewerActivity extends Activity {
             protected int sizeOf(String key, Bitmap bitmap) {
                 return bitmap.getByteCount() / 1024;
             }
-            
-            @Override
-            protected void entryRemoved(boolean evicted, String key, Bitmap oldValue, Bitmap newValue) {
-                if (evicted && oldValue != null && !oldValue.isRecycled()) {
-                    oldValue.recycle();
-                }
-            }
+            // NOTE: entryRemoved() intentionally NOT overridden
+            // Previously we called bitmap.recycle() here, but this caused race conditions:
+            // The LruCache evicts bitmaps while ImageViews still reference them,
+            // leading to "Canvas: trying to use a recycled bitmap" crashes.
+            // Modern Android (API 11+) handles bitmap GC efficiently without manual recycling.
         };
         
         // Extract intent data
@@ -1428,21 +1426,22 @@ public class NativePdfViewerActivity extends Activity {
             String lowKey = getCacheKey(position, currentZoom, true);
             
             Bitmap cached = bitmapCache.get(highKey);
-            if (cached != null) {
+            // Defense-in-depth: Check if bitmap was recycled (shouldn't happen, but guards against edge cases)
+            if (cached != null && !cached.isRecycled()) {
                 // Best case: high-res at current zoom
                 holder.imageView.setImageBitmap(cached);
                 return;
             }
             
             cached = bitmapCache.get(lowKey);
-            if (cached != null) {
+            if (cached != null && !cached.isRecycled()) {
                 // Good: low-res at current zoom
                 holder.imageView.setImageBitmap(cached);
             } else {
                 // Fallback: try previous zoom level (avoids white flash during zoom transition)
                 // This bitmap will be visually scaled but better than white
                 Bitmap fallback = findFallbackBitmap(position);
-                if (fallback != null) {
+                if (fallback != null && !fallback.isRecycled()) {
                     holder.imageView.setImageBitmap(fallback);
                 } else {
                     // Last resort: white placeholder
@@ -1491,7 +1490,8 @@ public class NativePdfViewerActivity extends Activity {
                     String highKey = getCacheKey(pageIndex, currentZoom, false);
                     boolean shouldUpdate = !isLowRes || current == null || bitmapCache.get(highKey) == null;
                     
-                    if (shouldUpdate) {
+                    // Defense-in-depth: Skip update if bitmap was recycled
+                    if (shouldUpdate && bitmap != null && !bitmap.isRecycled()) {
                         // ATOMIC SWAP: Set bitmap AND reset scale in the same frame
                         imageView.setImageBitmap(bitmap);
                         
