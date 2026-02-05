@@ -329,8 +329,8 @@ function patchVersionInfo() {
  * Configure release signing in app/build.gradle
  * Uses modern Gradle DSL with explicit = assignments
  * 
- * SAFETY: If release keystore is not available, falls back to debug signing
- * to prevent NullPointerException in signReleaseBundle task
+ * SAFETY: Always use debug signing for release builds unless CI provides keystore
+ * This prevents NullPointerException in signReleaseBundle task
  */
 function patchReleaseSigning() {
   const appBuildGradle = path.join(ANDROID_DIR, "app", "build.gradle");
@@ -343,28 +343,34 @@ function patchReleaseSigning() {
   const before = readFile(appBuildGradle);
   let after = before;
 
-  // Check if signing config already exists
-  if (after.includes("signingConfigs {") && after.includes("release {")) {
+  // Check if signing config already exists and is properly configured
+  if (after.includes("signingConfigs {") && after.includes("release {") && after.includes("storeFile")) {
     console.log(`[patch-android] Signing config already present.`);
     return;
   }
 
-  // Add signingConfigs block inside android { } with modern assignment syntax
-  // CRITICAL: Use conditional logic to fall back to debug if release keystore is missing
-  // This prevents NullPointerException when signing release builds without proper keystore
+  // STRATEGY: Define a release signing config that ALWAYS has a valid storeFile
+  // - If KEYSTORE_PATH env is set and file exists, use it
+  // - Otherwise, copy debug keystore settings (always exists)
+  // This ensures signReleaseBundle never gets a null storeFile
   const signingConfig = `
     signingConfigs {
         release {
-            // Check for release keystore - if not found, config stays null
             def keystorePath = System.getenv("KEYSTORE_PATH")
-            if (keystorePath) {
-                def ksFile = file(keystorePath)
-                if (ksFile.exists()) {
-                    storeFile = ksFile
-                    storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
-                    keyAlias = System.getenv("KEY_ALIAS") ?: "onetap-key"
-                    keyPassword = System.getenv("KEY_PASSWORD") ?: ""
-                }
+            def ksFile = keystorePath ? file(keystorePath) : null
+            
+            if (ksFile != null && ksFile.exists()) {
+                // CI/Production: Use release keystore from environment
+                storeFile = ksFile
+                storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
+                keyAlias = System.getenv("KEY_ALIAS") ?: "onetap-key"
+                keyPassword = System.getenv("KEY_PASSWORD") ?: ""
+            } else {
+                // Local development: Use debug keystore (always exists)
+                storeFile = file(System.getProperty("user.home") + "/.android/debug.keystore")
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
             }
         }
     }
@@ -376,16 +382,14 @@ function patchReleaseSigning() {
     `$1${signingConfig}`
   );
 
-  // Update release buildType to use signing config with SAFE FALLBACK:
-  // - If signingConfigs.release.storeFile is null, fall back to signingConfigs.debug
-  // - This prevents NullPointerException in signReleaseBundle
+  // Update release buildType to use the release signing config
+  // Since we guarantee storeFile is never null above, this is safe
   const buildTypesRe = /(buildTypes\s*\{[\s\S]*?release\s*\{)/;
   if (buildTypesRe.test(after)) {
     after = after.replace(
       buildTypesRe,
       `$1
-            // Use release signing if available, otherwise fall back to debug
-            signingConfig = signingConfigs.release.storeFile != null ? signingConfigs.release : signingConfigs.debug
+            signingConfig = signingConfigs.release
             minifyEnabled = false
             shrinkResources = false`
     );
@@ -393,7 +397,7 @@ function patchReleaseSigning() {
 
   if (after !== before) {
     writeFile(appBuildGradle, after);
-    console.log(`[patch-android] Added release signing configuration with debug fallback.`);
+    console.log(`[patch-android] Added release signing configuration (falls back to debug keystore).`);
   }
 }
 
