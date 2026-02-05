@@ -328,6 +328,9 @@ function patchVersionInfo() {
 /**
  * Configure release signing in app/build.gradle
  * Uses modern Gradle DSL with explicit = assignments
+ * 
+ * SAFETY: If release keystore is not available, falls back to debug signing
+ * to prevent NullPointerException in signReleaseBundle task
  */
 function patchReleaseSigning() {
   const appBuildGradle = path.join(ANDROID_DIR, "app", "build.gradle");
@@ -341,22 +344,27 @@ function patchReleaseSigning() {
   let after = before;
 
   // Check if signing config already exists
-  if (after.includes("signingConfigs")) {
+  if (after.includes("signingConfigs {") && after.includes("release {")) {
     console.log(`[patch-android] Signing config already present.`);
     return;
   }
 
   // Add signingConfigs block inside android { } with modern assignment syntax
+  // CRITICAL: Use conditional logic to fall back to debug if release keystore is missing
+  // This prevents NullPointerException when signing release builds without proper keystore
   const signingConfig = `
     signingConfigs {
         release {
-            def keystorePath = System.getenv("KEYSTORE_PATH") ?: "onetap-release.jks"
-            def ksFile = file(keystorePath)
-            if (ksFile.exists()) {
-                storeFile = ksFile
-                storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
-                keyAlias = "onetap-key"
-                keyPassword = System.getenv("KEY_PASSWORD") ?: ""
+            // Check for release keystore - if not found, config stays null
+            def keystorePath = System.getenv("KEYSTORE_PATH")
+            if (keystorePath) {
+                def ksFile = file(keystorePath)
+                if (ksFile.exists()) {
+                    storeFile = ksFile
+                    storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
+                    keyAlias = System.getenv("KEY_ALIAS") ?: "onetap-key"
+                    keyPassword = System.getenv("KEY_PASSWORD") ?: ""
+                }
             }
         }
     }
@@ -368,15 +376,16 @@ function patchReleaseSigning() {
     `$1${signingConfig}`
   );
 
-  // Update release buildType to use signing config with CORRECT settings:
-  // - minifyEnabled = false means shrinkResources MUST also be false
-  // - shrinkResources requires minifyEnabled = true
+  // Update release buildType to use signing config with SAFE FALLBACK:
+  // - If signingConfigs.release.storeFile is null, fall back to signingConfigs.debug
+  // - This prevents NullPointerException in signReleaseBundle
   const buildTypesRe = /(buildTypes\s*\{[\s\S]*?release\s*\{)/;
   if (buildTypesRe.test(after)) {
     after = after.replace(
       buildTypesRe,
       `$1
-            signingConfig = signingConfigs.release
+            // Use release signing if available, otherwise fall back to debug
+            signingConfig = signingConfigs.release.storeFile != null ? signingConfigs.release : signingConfigs.debug
             minifyEnabled = false
             shrinkResources = false`
     );
@@ -384,7 +393,7 @@ function patchReleaseSigning() {
 
   if (after !== before) {
     writeFile(appBuildGradle, after);
-    console.log(`[patch-android] Added release signing configuration.`);
+    console.log(`[patch-android] Added release signing configuration with debug fallback.`);
   }
 }
 
