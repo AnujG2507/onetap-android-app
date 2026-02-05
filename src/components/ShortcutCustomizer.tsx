@@ -276,13 +276,13 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
               </p>
               <div className="flex flex-col items-center gap-2">
                 <div
-                  className="h-14 w-14 landscape:h-12 landscape:w-12 rounded-2xl flex items-center justify-center elevation-2 overflow-hidden relative"
+                  className="h-14 w-14 landscape:h-12 landscape:w-12 rounded-2xl flex items-center justify-center elevation-2 overflow-hidden relative bg-muted"
                   style={
                     icon.type === 'favicon'
                       ? { backgroundColor: '#FFFFFF' }
-                      : icon.type === 'thumbnail' || icon.type === 'platform'
-                        ? {} 
-                        : { backgroundColor: 'hsl(var(--primary))' }
+                      : icon.type === 'emoji' || icon.type === 'text'
+                        ? { backgroundColor: 'hsl(var(--primary))' }
+                        : {}
                   }
                 >
                   {isLoadingThumbnail && (

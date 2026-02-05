@@ -27,8 +27,8 @@ export function ContentPreview({ source, className }: ContentPreviewProps) {
   // Build priority-ordered list of image sources
   const imageSources = useMemo(() => {
     if (!isImage) return [];
-    return buildImageSources(source.uri, source.thumbnailData);
-  }, [isImage, source.uri, source.thumbnailData]);
+    return buildImageSources(source.thumbnailData, source.uri);
+  }, [isImage, source.thumbnailData, source.uri]);
 
   return (
     <div
