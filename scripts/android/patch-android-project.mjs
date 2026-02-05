@@ -282,9 +282,8 @@ function patchReleaseSigning() {
       buildTypesRe,
       `$1
             signingConfig signingConfigs.release
-            minifyEnabled true
-            shrinkResources true
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'`
+            minifyEnabled false
+            shrinkResources false`
     );
   }
 
