@@ -110,50 +110,84 @@ function patchGradleWrapper() {
 }
 
 
-function patchSdkVersionsInFile(filePath) {
-  if (!fileExists(filePath)) return false;
-
-  const before = readFile(filePath);
-  let after = before;
-
-  // Modern SDK property names (Gradle 9+ compatible)
-  // First try modern names, then fall back to deprecated names
-  after = replaceNumberAssignment(after, "minSdk", MIN_SDK);
-  after = replaceNumberAssignment(after, "compileSdk", COMPILE_SDK);
-  after = replaceNumberAssignment(after, "targetSdk", TARGET_SDK);
+/**
+ * Patch SDK versions by directly injecting explicit values into app/build.gradle
+ * This avoids relying on variables.gradle ext properties which cause AGP 8+ issues
+ */
+function patchSdkVersions() {
+  const appBuildGradle = path.join(ANDROID_DIR, "app", "build.gradle");
+  const variablesGradle = path.join(ANDROID_DIR, "variables.gradle");
   
-  // Also handle deprecated names and convert them to modern syntax
-  after = replaceNumberAssignment(after, "minSdkVersion", MIN_SDK);
-  after = replaceNumberAssignment(after, "compileSdkVersion", COMPILE_SDK);
-  after = replaceNumberAssignment(after, "targetSdkVersion", TARGET_SDK);
-  
-  // Rename deprecated property names to modern equivalents
-  after = after.replace(/\bminSdkVersion\s*=/g, "minSdk =");
-  after = after.replace(/\bcompileSdkVersion\s*=/g, "compileSdk =");
-  after = after.replace(/\btargetSdkVersion\s*=/g, "targetSdk =");
-
-  if (after !== before) {
-    writeFile(filePath, after);
-    console.log(
-      `[patch-android] Patched SDK versions in ${path.relative(process.cwd(), filePath)} (min=${MIN_SDK}, compile=${COMPILE_SDK}, target=${TARGET_SDK}).`,
-    );
-    return true;
+  if (!fileExists(appBuildGradle)) {
+    console.log(`[patch-android] Skipping SDK patch: app/build.gradle not found.`);
+    return;
   }
 
-  return false;
-}
+  const before = readFile(appBuildGradle);
+  let after = before;
 
-function patchSdkVersions() {
-  const variablesGradle = path.join(ANDROID_DIR, "variables.gradle");
-  const appBuildGradle = path.join(ANDROID_DIR, "app", "build.gradle");
+  // Remove any references to ext/rootProject properties for SDK versions
+  // These cause "Cannot get property 'compileSdkVersion' on extra properties" errors
+  after = after.replace(/compileSdkVersion\s*rootProject\.ext\.compileSdkVersion/g, `compileSdk = ${COMPILE_SDK}`);
+  after = after.replace(/compileSdk\s*=?\s*rootProject\.ext\.compileSdk\w*/g, `compileSdk = ${COMPILE_SDK}`);
+  after = after.replace(/compileSdkVersion\s+rootProject\.ext\.compileSdk\w*/g, `compileSdk = ${COMPILE_SDK}`);
+  
+  after = after.replace(/minSdkVersion\s*rootProject\.ext\.minSdkVersion/g, `minSdk = ${MIN_SDK}`);
+  after = after.replace(/minSdk\s*=?\s*rootProject\.ext\.minSdk\w*/g, `minSdk = ${MIN_SDK}`);
+  after = after.replace(/minSdkVersion\s+rootProject\.ext\.minSdk\w*/g, `minSdk = ${MIN_SDK}`);
+  
+  after = after.replace(/targetSdkVersion\s*rootProject\.ext\.targetSdkVersion/g, `targetSdk = ${TARGET_SDK}`);
+  after = after.replace(/targetSdk\s*=?\s*rootProject\.ext\.targetSdk\w*/g, `targetSdk = ${TARGET_SDK}`);
+  after = after.replace(/targetSdkVersion\s+rootProject\.ext\.targetSdk\w*/g, `targetSdk = ${TARGET_SDK}`);
 
-  const patchedVariables = patchSdkVersionsInFile(variablesGradle);
-  const patchedAppBuild = patchSdkVersionsInFile(appBuildGradle);
+  // Replace deprecated property names with modern equivalents and explicit values
+  // Handle: compileSdkVersion 34 or compileSdkVersion = 34
+  after = after.replace(/compileSdkVersion\s*=?\s*\d+/g, `compileSdk = ${COMPILE_SDK}`);
+  after = after.replace(/minSdkVersion\s*=?\s*\d+/g, `minSdk = ${MIN_SDK}`);
+  after = after.replace(/targetSdkVersion\s*=?\s*\d+/g, `targetSdk = ${TARGET_SDK}`);
 
-  if (!patchedVariables && !patchedAppBuild) {
-    console.log(
-      `[patch-android] Could not patch SDK versions (no variables.gradle/app/build.gradle found). Your Android folder might be incomplete.`,
+  // Update existing modern properties with correct values
+  after = after.replace(/compileSdk\s*=\s*\d+/g, `compileSdk = ${COMPILE_SDK}`);
+  after = after.replace(/minSdk\s*=\s*\d+/g, `minSdk = ${MIN_SDK}`);
+  after = after.replace(/targetSdk\s*=\s*\d+/g, `targetSdk = ${TARGET_SDK}`);
+
+  // If compileSdk is not present at all, inject it after "android {"
+  if (!after.includes("compileSdk")) {
+    after = after.replace(
+      /(android\s*\{)/,
+      `$1\n    compileSdk = ${COMPILE_SDK}`
     );
+  }
+
+  // Ensure namespace is set with proper syntax
+  if (!after.includes('namespace')) {
+    after = after.replace(
+      /(android\s*\{)/,
+      `$1\n    namespace = "app.onetap.shortcuts"`
+    );
+  }
+
+  if (after !== before) {
+    writeFile(appBuildGradle, after);
+    console.log(
+      `[patch-android] Patched SDK versions in app/build.gradle (compileSdk=${COMPILE_SDK}, minSdk=${MIN_SDK}, targetSdk=${TARGET_SDK}).`,
+    );
+  }
+
+  // Also patch variables.gradle if it exists (for consistency)
+  if (fileExists(variablesGradle)) {
+    const varBefore = readFile(variablesGradle);
+    let varAfter = varBefore;
+    
+    // Update the ext block values
+    varAfter = varAfter.replace(/minSdkVersion\s*=\s*\d+/g, `minSdkVersion = ${MIN_SDK}`);
+    varAfter = varAfter.replace(/compileSdkVersion\s*=\s*\d+/g, `compileSdkVersion = ${COMPILE_SDK}`);
+    varAfter = varAfter.replace(/targetSdkVersion\s*=\s*\d+/g, `targetSdkVersion = ${TARGET_SDK}`);
+    
+    if (varAfter !== varBefore) {
+      writeFile(variablesGradle, varAfter);
+      console.log(`[patch-android] Updated variables.gradle SDK values.`);
+    }
   }
 }
 
@@ -521,7 +555,7 @@ function patchGradleModernization() {
   const exts = new Set([".gradle", ".gradle.kts"]);
   let patchedCount = 0;
 
-  function modernizeGradleContent(content) {
+  function modernizeGradleContent(content, filePath) {
     let out = content;
 
     // Remove deprecated jcenter() repository
@@ -537,6 +571,21 @@ function patchGradleModernization() {
     
     // Fix deprecated packagingOptions -> packaging (AGP 8+)
     out = out.replace(/\bpackagingOptions\s*\{/g, "packaging {");
+    
+    // === CRITICAL: Fix SDK version properties ===
+    // Replace rootProject.ext references with explicit values
+    out = out.replace(/rootProject\.ext\.compileSdkVersion/g, String(COMPILE_SDK));
+    out = out.replace(/rootProject\.ext\.compileSdk/g, String(COMPILE_SDK));
+    out = out.replace(/rootProject\.ext\.minSdkVersion/g, String(MIN_SDK));
+    out = out.replace(/rootProject\.ext\.minSdk/g, String(MIN_SDK));
+    out = out.replace(/rootProject\.ext\.targetSdkVersion/g, String(TARGET_SDK));
+    out = out.replace(/rootProject\.ext\.targetSdk/g, String(TARGET_SDK));
+    
+    // Replace deprecated SDK property names with modern equivalents
+    // compileSdkVersion NUMBER -> compileSdk = NUMBER
+    out = out.replace(/\bcompileSdkVersion\s+(\d+)/g, `compileSdk = $1`);
+    out = out.replace(/\bminSdkVersion\s+(\d+)/g, `minSdk = $1`);
+    out = out.replace(/\btargetSdkVersion\s+(\d+)/g, `targetSdk = $1`);
     
     // Fix common deprecated property assignments (ensure = is present)
     // applicationId without =
@@ -557,8 +606,9 @@ function patchGradleModernization() {
     // Fix multiDexEnabled
     out = out.replace(/(\bmultiDexEnabled)\s+(true|false)(?!\s*[=\)])/g, "$1 = $2");
     
-    // Fix proguardFiles - this uses varargs, but ensure proper syntax
-    // Keep proguardFiles as-is since it's a method call, not assignment
+    // Fix versionCode and versionName assignments
+    out = out.replace(/(\bversionCode)\s+(\d+)(?!\s*[=\)])/g, "$1 = $2");
+    out = out.replace(/(\bversionName)\s+(['"])([^'"]+)\2(?!\s*[=\)])/g, '$1 = $2$3$2');
     
     return out;
   }
