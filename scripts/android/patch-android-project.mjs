@@ -281,9 +281,9 @@ function patchReleaseSigning() {
     after = after.replace(
       buildTypesRe,
       `$1
-            signingConfig signingConfigs.release
-            minifyEnabled false
-            shrinkResources false`
+            signingConfig = signingConfigs.release
+            minifyEnabled = false
+            shrinkResources = false`
     );
   }
 
