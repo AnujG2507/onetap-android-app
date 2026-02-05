@@ -1,3 +1,8 @@
+// LANGUAGE SUPPORT TEMPORARILY DISABLED
+// This entire component is intentionally unused for the English-only launch.
+// Do not delete. Will be re-enabled in a future update.
+// The component is preserved in full below but is not rendered anywhere.
+
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Globe, Check, Loader2 } from 'lucide-react';

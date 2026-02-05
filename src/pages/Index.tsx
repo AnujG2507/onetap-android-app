@@ -10,6 +10,9 @@ import { ProfilePage } from '@/components/ProfilePage';
 import { NotificationsPage } from '@/components/NotificationsPage';
 import { SharedUrlActionSheet } from '@/components/SharedUrlActionSheet';
 import { OnboardingFlow } from '@/components/OnboardingFlow';
+// LANGUAGE SUPPORT TEMPORARILY DISABLED
+// This import is preserved for future re-enablement. Component is not rendered.
+// Do not delete. Will be re-enabled in a future update.
 import { LanguageSelectionStep } from '@/components/LanguageSelectionStep';
 import { MessageChooserSheet } from '@/components/MessageChooserSheet';
 import { ShortcutEditSheet } from '@/components/ShortcutEditSheet';
@@ -448,7 +451,9 @@ const Index = () => {
     return 'animate-fade-in';
   };
 
-  // Show language selection first for new users
+  // LANGUAGE SUPPORT TEMPORARILY DISABLED
+  // This condition will never be true during English-only launch (hasSelectedLanguage is always true).
+  // Do not delete. Will be re-enabled in a future update.
   if (!hasSelectedLanguage) {
     return <LanguageSelectionStep onContinue={markLanguageSelected} />;
   }

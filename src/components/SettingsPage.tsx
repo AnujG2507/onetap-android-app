@@ -5,8 +5,11 @@ import {
   Sun, 
   Moon, 
   Monitor, 
-  Globe, 
-  Clipboard, 
+  // LANGUAGE SUPPORT TEMPORARILY DISABLED
+  // Globe icon import preserved for future re-enablement.
+  // Do not delete. Will be re-enabled in a future update.
+  // Globe,
+  Clipboard,
   Bell,
   Trash2,
   RotateCcw,
@@ -47,8 +50,11 @@ import { useSettings } from '@/hooks/useSettings';
 import { useOnboarding } from '@/hooks/useOnboarding';
 import { useSheetBackHandler } from '@/hooks/useSheetBackHandler';
 import { resetAllTutorials } from '@/hooks/useTutorial';
-import { supportedLanguages } from '@/i18n';
-import i18n from '@/i18n';
+// LANGUAGE SUPPORT TEMPORARILY DISABLED
+// These imports are preserved for future re-enablement.
+// Do not delete. Will be re-enabled in a future update.
+// import { supportedLanguages } from '@/i18n';
+// import i18n from '@/i18n';
 import type { TrashRetentionDays } from '@/lib/settingsManager';
 
 type ThemeOption = 'light' | 'dark' | 'system';
@@ -63,10 +69,12 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
   const { settings, updateSettings } = useSettings();
   const { resetOnboarding } = useOnboarding();
   
-  // Language picker state
-  const [languageSheetOpen, setLanguageSheetOpen] = useState(false);
-  const [isChangingLanguage, setIsChangingLanguage] = useState(false);
-  const [changingTo, setChangingTo] = useState<string | null>(null);
+  // LANGUAGE SUPPORT TEMPORARILY DISABLED
+  // Language picker state preserved for future re-enablement.
+  // Do not delete. Will be re-enabled in a future update.
+  // const [languageSheetOpen, setLanguageSheetOpen] = useState(false);
+  // const [isChangingLanguage, setIsChangingLanguage] = useState(false);
+  // const [changingTo, setChangingTo] = useState<string | null>(null);
   
   // Debug logs state
   const [crashLogs, setCrashLogs] = useState<{
@@ -80,12 +88,19 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
   
   const isNative = Capacitor.isNativePlatform();
   
-  const currentLanguage = i18n.language?.split('-')[0] || 'en';
-  const currentLanguageConfig = supportedLanguages.find(l => l.code === currentLanguage);
+  // LANGUAGE SUPPORT TEMPORARILY DISABLED
+  // Language detection preserved for future re-enablement.
+  // Do not delete. Will be re-enabled in a future update.
+  // const currentLanguage = i18n.language?.split('-')[0] || 'en';
+  // const currentLanguageConfig = supportedLanguages.find(l => l.code === currentLanguage);
 
-  // Register language sheet with back handler
-  const handleCloseLanguageSheet = useCallback(() => setLanguageSheetOpen(false), []);
-  useSheetBackHandler('settings-language-sheet', languageSheetOpen, handleCloseLanguageSheet);
+  // LANGUAGE SUPPORT TEMPORARILY DISABLED
+  // Language sheet back handler preserved for future re-enablement.
+  // Do not delete. Will be re-enabled in a future update.
+  // const handleCloseLanguageSheet = useCallback(() => setLanguageSheetOpen(false), []);
+  // useSheetBackHandler('settings-language-sheet', languageSheetOpen, handleCloseLanguageSheet);
+
+  // LANGUAGE SUPPORT TEMPORARILY DISABLED - see above
 
   // Theme options
   const themeOptions: { value: ThemeOption; label: string; icon: React.ReactNode }[] = [
@@ -102,28 +117,31 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
     { value: 60, label: t('settingsPage.retention60') },
   ];
 
-  const handleLanguageChange = async (code: string) => {
-    if (code === currentLanguage || isChangingLanguage) return;
-    
-    setIsChangingLanguage(true);
-    setChangingTo(code);
-    
-    try {
-      await i18n.changeLanguage(code);
-      
-      // Update document direction for RTL languages
-      const lang = supportedLanguages.find(l => l.code === code);
-      document.documentElement.dir = lang?.rtl ? 'rtl' : 'ltr';
-      
-      await new Promise(resolve => setTimeout(resolve, 100));
-      setLanguageSheetOpen(false);
-    } catch (error) {
-      console.error('Failed to change language:', error);
-    } finally {
-      setIsChangingLanguage(false);
-      setChangingTo(null);
-    }
-  };
+  // LANGUAGE SUPPORT TEMPORARILY DISABLED
+  // Language change handler preserved for future re-enablement.
+  // Do not delete. Will be re-enabled in a future update.
+  // const handleLanguageChange = async (code: string) => {
+  //   if (code === currentLanguage || isChangingLanguage) return;
+  //   
+  //   setIsChangingLanguage(true);
+  //   setChangingTo(code);
+  //   
+  //   try {
+  //     await i18n.changeLanguage(code);
+  //     
+  //     // Update document direction for RTL languages
+  //     const lang = supportedLanguages.find(l => l.code === code);
+  //     document.documentElement.dir = lang?.rtl ? 'rtl' : 'ltr';
+  //     
+  //     await new Promise(resolve => setTimeout(resolve, 100));
+  //     setLanguageSheetOpen(false);
+  //   } catch (error) {
+  //     console.error('Failed to change language:', error);
+  //   } finally {
+  //     setIsChangingLanguage(false);
+  //     setChangingTo(null);
+  //   }
+  // };
 
   const handleResetOnboarding = () => {
     resetOnboarding();
@@ -245,7 +263,9 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
             </CardContent>
           </Card>
 
-          {/* Language Section */}
+          {/* LANGUAGE SUPPORT TEMPORARILY DISABLED
+              Language Section preserved for future re-enablement.
+              Do not delete. Will be re-enabled in a future update.
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
@@ -265,6 +285,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
               </Button>
             </CardContent>
           </Card>
+          */}
 
           {/* Notifications Section */}
           <Card>
@@ -530,7 +551,9 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
         </div>
       </ScrollArea>
 
-      {/* Language Picker Sheet */}
+      {/* LANGUAGE SUPPORT TEMPORARILY DISABLED
+          Language Picker Sheet preserved for future re-enablement.
+          Do not delete. Will be re-enabled in a future update.
       <Sheet open={languageSheetOpen} onOpenChange={setLanguageSheetOpen}>
         <SheetContent side="bottom" className="rounded-t-2xl max-h-[85vh] flex flex-col">
           <SheetHeader className="text-start shrink-0">
@@ -574,6 +597,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
           </ScrollArea>
         </SheetContent>
       </Sheet>
+      */}
     </div>
   );
 }

@@ -1,26 +1,41 @@
-import { useEffect, useState } from 'react';
-import { useTranslation } from 'react-i18next';
-import { supportedLanguages } from '@/i18n';
+// LANGUAGE SUPPORT TEMPORARILY DISABLED
+// This hook previously detected RTL languages and updated document direction.
+// For the English-only launch, it always returns LTR values.
+// Do not delete. The original logic is preserved in comments for future re-enablement.
+
+// Original imports (commented out for English-only launch):
+// import { useEffect, useState } from 'react';
+// import { useTranslation } from 'react-i18next';
+// import { supportedLanguages } from '@/i18n';
 
 /**
  * Hook to detect and respond to RTL (Right-to-Left) language direction.
  * Provides utilities for handling RTL-aware swipe gestures and positioning.
+ * 
+ * LANGUAGE SUPPORT TEMPORARILY DISABLED
+ * This hook always returns LTR values for the English-only launch.
+ * Do not delete. Will be re-enabled in a future update.
  */
 export function useRTL() {
-  const { i18n } = useTranslation();
-  const [isRTL, setIsRTL] = useState(false);
+  // LANGUAGE SUPPORT TEMPORARILY DISABLED
+  // Original dynamic RTL detection logic:
+  // const { i18n } = useTranslation();
+  // const [isRTL, setIsRTL] = useState(false);
+  //
+  // useEffect(() => {
+  //   // Check if current language is RTL
+  //   const currentLangCode = i18n.language?.split('-')[0] || 'en';
+  //   const currentLang = supportedLanguages.find(l => l.code === currentLangCode);
+  //   const rtl = currentLang?.rtl || false;
+  //   
+  //   setIsRTL(rtl);
+  //   
+  //   // Also ensure document direction is set correctly
+  //   document.documentElement.dir = rtl ? 'rtl' : 'ltr';
+  // }, [i18n.language]);
 
-  useEffect(() => {
-    // Check if current language is RTL
-    const currentLangCode = i18n.language?.split('-')[0] || 'en';
-    const currentLang = supportedLanguages.find(l => l.code === currentLangCode);
-    const rtl = currentLang?.rtl || false;
-    
-    setIsRTL(rtl);
-    
-    // Also ensure document direction is set correctly
-    document.documentElement.dir = rtl ? 'rtl' : 'ltr';
-  }, [i18n.language]);
+  // For English-only launch, always LTR
+  const isRTL = false;
 
   /**
    * Returns the correct swipe direction multiplier for RTL.
