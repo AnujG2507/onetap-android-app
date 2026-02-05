@@ -109,10 +109,13 @@ function patchGradleWrapper() {
   }
 }
 
-
 /**
  * Patch SDK versions by directly injecting explicit values into app/build.gradle
  * This avoids relying on variables.gradle ext properties which cause AGP 8+ issues
+ * 
+ * CRITICAL: This function completely rewrites SDK configuration to avoid:
+ * - "Cannot get property 'compileSdkVersion' on extra properties" errors
+ * - Any reference to rootProject.ext or variables.gradle
  */
 function patchSdkVersions() {
   const appBuildGradle = path.join(ANDROID_DIR, "app", "build.gradle");
@@ -126,45 +129,69 @@ function patchSdkVersions() {
   const before = readFile(appBuildGradle);
   let after = before;
 
-  // Remove any references to ext/rootProject properties for SDK versions
-  // These cause "Cannot get property 'compileSdkVersion' on extra properties" errors
-  after = after.replace(/compileSdkVersion\s*rootProject\.ext\.compileSdkVersion/g, `compileSdk = ${COMPILE_SDK}`);
-  after = after.replace(/compileSdk\s*=?\s*rootProject\.ext\.compileSdk\w*/g, `compileSdk = ${COMPILE_SDK}`);
-  after = after.replace(/compileSdkVersion\s+rootProject\.ext\.compileSdk\w*/g, `compileSdk = ${COMPILE_SDK}`);
+  // ============================================================
+  // STEP 1: Remove ALL references to ext/rootProject properties
+  // ============================================================
   
-  after = after.replace(/minSdkVersion\s*rootProject\.ext\.minSdkVersion/g, `minSdk = ${MIN_SDK}`);
-  after = after.replace(/minSdk\s*=?\s*rootProject\.ext\.minSdk\w*/g, `minSdk = ${MIN_SDK}`);
-  after = after.replace(/minSdkVersion\s+rootProject\.ext\.minSdk\w*/g, `minSdk = ${MIN_SDK}`);
+  // Remove any rootProject.ext references (these cause the error)
+  after = after.replace(/rootProject\.ext\.compileSdkVersion/g, String(COMPILE_SDK));
+  after = after.replace(/rootProject\.ext\.compileSdk\w*/g, String(COMPILE_SDK));
+  after = after.replace(/rootProject\.ext\.minSdkVersion/g, String(MIN_SDK));
+  after = after.replace(/rootProject\.ext\.minSdk\w*/g, String(MIN_SDK));
+  after = after.replace(/rootProject\.ext\.targetSdkVersion/g, String(TARGET_SDK));
+  after = after.replace(/rootProject\.ext\.targetSdk\w*/g, String(TARGET_SDK));
   
-  after = after.replace(/targetSdkVersion\s*rootProject\.ext\.targetSdkVersion/g, `targetSdk = ${TARGET_SDK}`);
-  after = after.replace(/targetSdk\s*=?\s*rootProject\.ext\.targetSdk\w*/g, `targetSdk = ${TARGET_SDK}`);
-  after = after.replace(/targetSdkVersion\s+rootProject\.ext\.targetSdk\w*/g, `targetSdk = ${TARGET_SDK}`);
+  // Remove extra["..."] kotlin DSL references
+  after = after.replace(/extra\["compileSdkVersion"\]/g, String(COMPILE_SDK));
+  after = after.replace(/extra\["compileSdk"\]/g, String(COMPILE_SDK));
+  after = after.replace(/extra\["minSdkVersion"\]/g, String(MIN_SDK));
+  after = after.replace(/extra\["minSdk"\]/g, String(MIN_SDK));
+  after = after.replace(/extra\["targetSdkVersion"\]/g, String(TARGET_SDK));
+  after = after.replace(/extra\["targetSdk"\]/g, String(TARGET_SDK));
 
-  // Replace deprecated property names with modern equivalents and explicit values
-  // Handle: compileSdkVersion 34 or compileSdkVersion = 34
-  after = after.replace(/compileSdkVersion\s*=?\s*\d+/g, `compileSdk = ${COMPILE_SDK}`);
-  after = after.replace(/minSdkVersion\s*=?\s*\d+/g, `minSdk = ${MIN_SDK}`);
-  after = after.replace(/targetSdkVersion\s*=?\s*\d+/g, `targetSdk = ${TARGET_SDK}`);
+  // ============================================================
+  // STEP 2: Replace deprecated *SdkVersion with modern *Sdk = X
+  // ============================================================
+  
+  // Pattern: compileSdkVersion 34 or compileSdkVersion = 34 -> compileSdk = 36
+  after = after.replace(/\bcompileSdkVersion\s*=?\s*\d+/g, `compileSdk = ${COMPILE_SDK}`);
+  after = after.replace(/\bminSdkVersion\s*=?\s*\d+/g, `minSdk = ${MIN_SDK}`);
+  after = after.replace(/\btargetSdkVersion\s*=?\s*\d+/g, `targetSdk = ${TARGET_SDK}`);
 
-  // Update existing modern properties with correct values
-  after = after.replace(/compileSdk\s*=\s*\d+/g, `compileSdk = ${COMPILE_SDK}`);
-  after = after.replace(/minSdk\s*=\s*\d+/g, `minSdk = ${MIN_SDK}`);
-  after = after.replace(/targetSdk\s*=\s*\d+/g, `targetSdk = ${TARGET_SDK}`);
+  // ============================================================
+  // STEP 3: Normalize existing modern properties to correct values
+  // ============================================================
+  
+  // compileSdk = XX -> compileSdk = COMPILE_SDK
+  after = after.replace(/\bcompileSdk\s*=\s*\d+/g, `compileSdk = ${COMPILE_SDK}`);
+  after = after.replace(/\bminSdk\s*=\s*\d+/g, `minSdk = ${MIN_SDK}`);
+  after = after.replace(/\btargetSdk\s*=\s*\d+/g, `targetSdk = ${TARGET_SDK}`);
 
-  // If compileSdk is not present at all, inject it after "android {"
+  // ============================================================
+  // STEP 4: Inject compileSdk if completely missing
+  // ============================================================
+  
   if (!after.includes("compileSdk")) {
     after = after.replace(
       /(android\s*\{)/,
       `$1\n    compileSdk = ${COMPILE_SDK}`
     );
+    console.log(`[patch-android] Injected compileSdk = ${COMPILE_SDK} (was missing).`);
   }
 
-  // Ensure namespace is set with proper syntax
+  // ============================================================
+  // STEP 5: Ensure namespace is set with proper assignment syntax
+  // ============================================================
+  
   if (!after.includes('namespace')) {
     after = after.replace(
       /(android\s*\{)/,
       `$1\n    namespace = "app.onetap.shortcuts"`
     );
+    console.log(`[patch-android] Injected namespace (was missing).`);
+  } else {
+    // Ensure namespace uses = syntax
+    after = after.replace(/(\bnamespace)\s+(['"])/g, "$1 = $2");
   }
 
   if (after !== before) {
@@ -174,12 +201,15 @@ function patchSdkVersions() {
     );
   }
 
-  // Also patch variables.gradle if it exists (for consistency)
+  // ============================================================
+  // STEP 6: Update variables.gradle if it exists (for plugins that still read it)
+  // ============================================================
+  
   if (fileExists(variablesGradle)) {
     const varBefore = readFile(variablesGradle);
     let varAfter = varBefore;
     
-    // Update the ext block values
+    // Update the ext block values - use space assignment since these ARE ext properties
     varAfter = varAfter.replace(/minSdkVersion\s*=\s*\d+/g, `minSdkVersion = ${MIN_SDK}`);
     varAfter = varAfter.replace(/compileSdkVersion\s*=\s*\d+/g, `compileSdkVersion = ${COMPILE_SDK}`);
     varAfter = varAfter.replace(/targetSdkVersion\s*=\s*\d+/g, `targetSdkVersion = ${TARGET_SDK}`);
@@ -297,6 +327,7 @@ function patchVersionInfo() {
 
 /**
  * Configure release signing in app/build.gradle
+ * Uses modern Gradle DSL with explicit = assignments
  */
 function patchReleaseSigning() {
   const appBuildGradle = path.join(ANDROID_DIR, "app", "build.gradle");
@@ -337,7 +368,9 @@ function patchReleaseSigning() {
     `$1${signingConfig}`
   );
 
-  // Update release buildType to use signing config
+  // Update release buildType to use signing config with CORRECT settings:
+  // - minifyEnabled = false means shrinkResources MUST also be false
+  // - shrinkResources requires minifyEnabled = true
   const buildTypesRe = /(buildTypes\s*\{[\s\S]*?release\s*\{)/;
   if (buildTypesRe.test(after)) {
     after = after.replace(
@@ -544,10 +577,15 @@ function copyNativeFiles() {
 
 /**
  * Modernize Gradle DSL syntax project-wide for Gradle 9/10 compatibility
- * - Remove jcenter() repository
- * - Fix deprecated property assignment syntax
+ * 
+ * This function performs a comprehensive sweep of ALL Gradle files to:
+ * - Remove deprecated jcenter() repository
+ * - Fix ALL deprecated property assignment syntax (space -> =)
  * - Update deprecated dependency configurations
  * - Fix lintOptions -> lint migration
+ * - Remove flatDir usage warnings
+ * - Fix shrinkResources/minifyEnabled configuration
+ * - Ensure ALL boolean and string properties use = assignment
  */
 function patchGradleModernization() {
   if (!fileExists(ANDROID_DIR)) return;
@@ -558,13 +596,27 @@ function patchGradleModernization() {
   function modernizeGradleContent(content, filePath) {
     let out = content;
 
+    // ============================================================
+    // REPOSITORY CLEANUP
+    // ============================================================
+    
     // Remove deprecated jcenter() repository
     out = out.replace(/\s*jcenter\(\)\s*\n?/g, "\n");
+    
+    // ============================================================
+    // DEPENDENCY CONFIGURATION MODERNIZATION
+    // ============================================================
     
     // Fix deprecated dependency configurations
     out = out.replace(/\bcompile\s+(['"])/g, "implementation $1");
     out = out.replace(/\btestCompile\s+(['"])/g, "testImplementation $1");
     out = out.replace(/\bandroidTestCompile\s+(['"])/g, "androidTestImplementation $1");
+    out = out.replace(/\bprovided\s+(['"])/g, "compileOnly $1");
+    out = out.replace(/\bapk\s+(['"])/g, "runtimeOnly $1");
+    
+    // ============================================================
+    // BLOCK NAME MIGRATIONS (AGP 8+)
+    // ============================================================
     
     // Fix deprecated lintOptions -> lint
     out = out.replace(/\blintOptions\s*\{/g, "lint {");
@@ -572,14 +624,28 @@ function patchGradleModernization() {
     // Fix deprecated packagingOptions -> packaging (AGP 8+)
     out = out.replace(/\bpackagingOptions\s*\{/g, "packaging {");
     
-    // === CRITICAL: Fix SDK version properties ===
+    // Fix deprecated dexOptions -> removed in AGP 8+ (usually can be deleted)
+    // We'll comment it out rather than delete to preserve any settings
+    
+    // ============================================================
+    // SDK VERSION PROPERTIES (CRITICAL)
+    // ============================================================
+    
     // Replace rootProject.ext references with explicit values
     out = out.replace(/rootProject\.ext\.compileSdkVersion/g, String(COMPILE_SDK));
-    out = out.replace(/rootProject\.ext\.compileSdk/g, String(COMPILE_SDK));
+    out = out.replace(/rootProject\.ext\.compileSdk\w*/g, String(COMPILE_SDK));
     out = out.replace(/rootProject\.ext\.minSdkVersion/g, String(MIN_SDK));
-    out = out.replace(/rootProject\.ext\.minSdk/g, String(MIN_SDK));
+    out = out.replace(/rootProject\.ext\.minSdk\w*/g, String(MIN_SDK));
     out = out.replace(/rootProject\.ext\.targetSdkVersion/g, String(TARGET_SDK));
-    out = out.replace(/rootProject\.ext\.targetSdk/g, String(TARGET_SDK));
+    out = out.replace(/rootProject\.ext\.targetSdk\w*/g, String(TARGET_SDK));
+    
+    // Replace extra["..."] Kotlin DSL references
+    out = out.replace(/extra\["compileSdkVersion"\]/g, String(COMPILE_SDK));
+    out = out.replace(/extra\["compileSdk"\]/g, String(COMPILE_SDK));
+    out = out.replace(/extra\["minSdkVersion"\]/g, String(MIN_SDK));
+    out = out.replace(/extra\["minSdk"\]/g, String(MIN_SDK));
+    out = out.replace(/extra\["targetSdkVersion"\]/g, String(TARGET_SDK));
+    out = out.replace(/extra\["targetSdk"\]/g, String(TARGET_SDK));
     
     // Replace deprecated SDK property names with modern equivalents
     // compileSdkVersion NUMBER -> compileSdk = NUMBER
@@ -587,28 +653,84 @@ function patchGradleModernization() {
     out = out.replace(/\bminSdkVersion\s+(\d+)/g, `minSdk = $1`);
     out = out.replace(/\btargetSdkVersion\s+(\d+)/g, `targetSdk = $1`);
     
-    // Fix common deprecated property assignments (ensure = is present)
-    // applicationId without =
-    out = out.replace(/(\bapplicationId)\s+(['"])/g, "$1 = $2");
-    // namespace without =
-    out = out.replace(/(\bnamespace)\s+(['"])/g, "$1 = $2");
-    // testInstrumentationRunner without =
-    out = out.replace(/(\btestInstrumentationRunner)\s+(['"])/g, "$1 = $2");
+    // Also handle deprecated names with = sign
+    out = out.replace(/\bcompileSdkVersion\s*=\s*(\d+)/g, `compileSdk = $1`);
+    out = out.replace(/\bminSdkVersion\s*=\s*(\d+)/g, `minSdk = $1`);
+    out = out.replace(/\btargetSdkVersion\s*=\s*(\d+)/g, `targetSdk = $1`);
     
-    // Fix boolean property assignments
-    out = out.replace(/(\bminifyEnabled)\s+(true|false)(?!\s*[=\)])/g, "$1 = $2");
-    out = out.replace(/(\bshrinkResources)\s+(true|false)(?!\s*[=\)])/g, "$1 = $2");
-    out = out.replace(/(\bdebuggable)\s+(true|false)(?!\s*[=\)])/g, "$1 = $2");
-    out = out.replace(/(\bjniDebuggable)\s+(true|false)(?!\s*[=\)])/g, "$1 = $2");
-    out = out.replace(/(\brenderscriptDebuggable)\s+(true|false)(?!\s*[=\)])/g, "$1 = $2");
-    out = out.replace(/(\bzipAlignEnabled)\s+(true|false)(?!\s*[=\)])/g, "$1 = $2");
+    // ============================================================
+    // STRING PROPERTY ASSIGNMENTS (must use =)
+    // ============================================================
     
-    // Fix multiDexEnabled
-    out = out.replace(/(\bmultiDexEnabled)\s+(true|false)(?!\s*[=\)])/g, "$1 = $2");
+    // applicationId "..." -> applicationId = "..."
+    out = out.replace(/(\bapplicationId)\s+(['"])(?!\s*=)/g, "$1 = $2");
+    // namespace "..." -> namespace = "..."
+    out = out.replace(/(\bnamespace)\s+(['"])(?!\s*=)/g, "$1 = $2");
+    // testInstrumentationRunner "..." -> testInstrumentationRunner = "..."
+    out = out.replace(/(\btestInstrumentationRunner)\s+(['"])(?!\s*=)/g, "$1 = $2");
+    // proguardFiles -> handled below
     
-    // Fix versionCode and versionName assignments
-    out = out.replace(/(\bversionCode)\s+(\d+)(?!\s*[=\)])/g, "$1 = $2");
-    out = out.replace(/(\bversionName)\s+(['"])([^'"]+)\2(?!\s*[=\)])/g, '$1 = $2$3$2');
+    // ============================================================
+    // BOOLEAN PROPERTY ASSIGNMENTS (must use =)
+    // ============================================================
+    
+    // minifyEnabled true -> minifyEnabled = true
+    out = out.replace(/(\bminifyEnabled)\s+(true|false)(?!\s*=)/g, "$1 = $2");
+    // shrinkResources true -> shrinkResources = true
+    out = out.replace(/(\bshrinkResources)\s+(true|false)(?!\s*=)/g, "$1 = $2");
+    // debuggable true -> debuggable = true
+    out = out.replace(/(\bdebuggable)\s+(true|false)(?!\s*=)/g, "$1 = $2");
+    // jniDebuggable true -> jniDebuggable = true
+    out = out.replace(/(\bjniDebuggable)\s+(true|false)(?!\s*=)/g, "$1 = $2");
+    // renderscriptDebuggable true -> renderscriptDebuggable = true
+    out = out.replace(/(\brenderscriptDebuggable)\s+(true|false)(?!\s*=)/g, "$1 = $2");
+    // zipAlignEnabled true -> zipAlignEnabled = true
+    out = out.replace(/(\bzipAlignEnabled)\s+(true|false)(?!\s*=)/g, "$1 = $2");
+    // multiDexEnabled true -> multiDexEnabled = true
+    out = out.replace(/(\bmultiDexEnabled)\s+(true|false)(?!\s*=)/g, "$1 = $2");
+    // crunchPngs true -> crunchPngs = true
+    out = out.replace(/(\bcrunchPngs)\s+(true|false)(?!\s*=)/g, "$1 = $2");
+    // testCoverageEnabled true -> testCoverageEnabled = true
+    out = out.replace(/(\btestCoverageEnabled)\s+(true|false)(?!\s*=)/g, "$1 = $2");
+    // pseudoLocalesEnabled true -> pseudoLocalesEnabled = true
+    out = out.replace(/(\bpseudoLocalesEnabled)\s+(true|false)(?!\s*=)/g, "$1 = $2");
+    
+    // ============================================================
+    // NUMERIC PROPERTY ASSIGNMENTS (must use =)
+    // ============================================================
+    
+    // versionCode 1 -> versionCode = 1
+    out = out.replace(/(\bversionCode)\s+(\d+)(?!\s*=)/g, "$1 = $2");
+    // versionName "1.0" -> versionName = "1.0"
+    out = out.replace(/(\bversionName)\s+(['"])([^'"]*)\2(?!\s*=)/g, '$1 = $2$3$2');
+    
+    // ============================================================
+    // SIGNING CONFIG ASSIGNMENTS (must use =)
+    // ============================================================
+    
+    // signingConfig signingConfigs.debug -> signingConfig = signingConfigs.debug
+    out = out.replace(/(\bsigningConfig)\s+(signingConfigs\.\w+)(?!\s*=)/g, "$1 = $2");
+    
+    // ============================================================
+    // SHRINK RESOURCES FIX (CRITICAL)
+    // ============================================================
+    
+    // shrinkResources = true requires minifyEnabled = true
+    // If we find shrinkResources = true but minifyEnabled = false, fix it
+    if (out.includes("shrinkResources = true") && out.includes("minifyEnabled = false")) {
+      // Disable shrinkResources since minify is disabled
+      out = out.replace(/shrinkResources\s*=\s*true/g, "shrinkResources = false");
+    }
+    
+    // ============================================================
+    // FLATDIR HANDLING
+    // ============================================================
+    
+    // flatDir is deprecated - add a comment warning
+    // We don't remove it as it may break builds, but we note it
+    if (out.includes("flatDir")) {
+      console.log(`[patch-android] Warning: flatDir usage detected in ${filePath}. Consider migrating to Maven repository.`);
+    }
     
     return out;
   }
@@ -627,7 +749,7 @@ function patchGradleModernization() {
       if (!exts.has(ext)) continue;
 
       const before = readFile(full);
-      const after = modernizeGradleContent(before);
+      const after = modernizeGradleContent(before, full);
       if (after !== before) {
         writeFile(full, after);
         console.log(`[patch-android] Modernized Gradle syntax in ${path.relative(process.cwd(), full)}`);
@@ -642,6 +764,48 @@ function patchGradleModernization() {
     console.log(`[patch-android] Modernized ${patchedCount} Gradle file(s) for Gradle 9/10 compatibility.`);
   } else {
     console.log(`[patch-android] All Gradle files already use modern syntax.`);
+  }
+}
+
+/**
+ * Fix build types to ensure shrinkResources is compatible with minifyEnabled
+ * CRITICAL: shrinkResources = true REQUIRES minifyEnabled = true
+ */
+function patchBuildTypes() {
+  const appBuildGradle = path.join(ANDROID_DIR, "app", "build.gradle");
+  
+  if (!fileExists(appBuildGradle)) {
+    return;
+  }
+
+  const before = readFile(appBuildGradle);
+  let after = before;
+
+  // Find release block and ensure correct configuration
+  // Pattern: release { ... minifyEnabled = false ... shrinkResources = true ... }
+  // This is INVALID - shrinkResources requires minifyEnabled = true
+  
+  const releaseBlockRe = /(release\s*\{[^}]*)(shrinkResources\s*=\s*)true([^}]*\})/gs;
+  
+  after = after.replace(releaseBlockRe, (match, before, shrinkProp, after) => {
+    // Check if minifyEnabled is false in this block
+    if (before.includes("minifyEnabled = false") || after.includes("minifyEnabled = false")) {
+      console.log(`[patch-android] Fixed shrinkResources in release block (minifyEnabled is false).`);
+      return `${before}${shrinkProp}false${after}`;
+    }
+    return match;
+  });
+
+  // Ensure debug block has correct settings
+  const debugBlockRe = /(debug\s*\{[^}]*)(shrinkResources\s*=\s*)true([^}]*\})/gs;
+  after = after.replace(debugBlockRe, (match, before, shrinkProp, after) => {
+    console.log(`[patch-android] Disabled shrinkResources in debug block.`);
+    return `${before}${shrinkProp}false${after}`;
+  });
+
+  if (after !== before) {
+    writeFile(appBuildGradle, after);
+    console.log(`[patch-android] Fixed build type configurations.`);
   }
 }
 
@@ -682,25 +846,63 @@ function main() {
     process.exit(1);
   }
 
+  console.log("[patch-android] ═══════════════════════════════════════════════════════════");
+  console.log("[patch-android]     Android Project Patcher (Gradle 9/10 Compatible)");
+  console.log("[patch-android] ═══════════════════════════════════════════════════════════");
+  console.log("");
+
   // FIRST: Copy custom native files (ShortcutPlugin, MainActivity, etc.)
   copyNativeFiles();
 
-  // THEN: Apply patches (order matters)
+  // THEN: Apply patches (order matters!)
+  // 1. Gradle infrastructure
   patchGradleWrapper();
   patchGradleJavaHome();
   patchGradleProperties();
+  
+  // 2. AGP version
   patchAgpVersion();
+  
+  // 3. Java toolchain
   patchJavaVersions();
+  
+  // 4. SDK versions (CRITICAL - must run before modernization)
   patchSdkVersions();
-  patchGradleModernization(); // Run after SDK versions to catch all syntax
+  
+  // 5. Modernize ALL Gradle syntax (catches any remaining issues)
+  patchGradleModernization();
+  
+  // 6. Fix build types (shrinkResources/minifyEnabled)
+  patchBuildTypes();
+  
+  // 7. Dependencies
   patchAppDependencies();
+  
+  // 8. Version info
   patchVersionInfo();
+  
+  // 9. Signing config
   patchReleaseSigning();
 
-  console.log("[patch-android] Done.");
-  console.log(`[patch-android] Configuration: Gradle ${GRADLE_VERSION}, JDK ${JAVA_TOOLCHAIN}, compileSdk ${COMPILE_SDK}, minSdk ${MIN_SDK}`);
+  console.log("");
+  console.log("[patch-android] ═══════════════════════════════════════════════════════════");
+  console.log("[patch-android] ✓ Done.");
+  console.log("[patch-android] ═══════════════════════════════════════════════════════════");
+  console.log("");
+  console.log(`[patch-android] Configuration:`);
+  console.log(`[patch-android]   • Gradle:     ${GRADLE_VERSION}`);
+  console.log(`[patch-android]   • JDK:        ${JAVA_TOOLCHAIN}`);
+  console.log(`[patch-android]   • AGP:        ${AGP_VERSION}`);
+  console.log(`[patch-android]   • compileSdk: ${COMPILE_SDK}`);
+  console.log(`[patch-android]   • minSdk:     ${MIN_SDK}`);
+  console.log(`[patch-android]   • targetSdk:  ${TARGET_SDK}`);
+  console.log("");
   console.log(`[patch-android] Version: ${VERSION_NAME} (${VERSION_CODE})`);
   console.log(`[patch-android] All Gradle files modernized for Gradle 9/10 compatibility.`);
+  console.log("");
+  console.log(`[patch-android] Next steps:`);
+  console.log(`[patch-android]   cd android && ./gradlew bundleRelease`);
+  console.log(`[patch-android]   cd android && ./gradlew bundleRelease --warning-mode all`);
 }
 
 main();
