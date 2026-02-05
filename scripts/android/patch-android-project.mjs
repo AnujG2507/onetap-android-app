@@ -67,9 +67,16 @@ function upsertLine(content, startsWith, line) {
 }
 
 function replaceNumberAssignment(content, key, value) {
-  // Matches: key = 22  OR  key=22
-  const re = new RegExp(`(^\\s*${key}\\s*=\\s*)\\d+`, "m");
-  if (re.test(content)) return content.replace(re, `$1${value}`);
+  // Matches: key = 22  OR  key=22  OR key 22 (deprecated)
+  const assignmentRe = new RegExp(`(^\\s*${key}\\s*=\\s*)\\d+`, "m");
+  const deprecatedRe = new RegExp(`(^\\s*${key}\\s+)(\\d+)`, "m");
+  
+  if (assignmentRe.test(content)) {
+    return content.replace(assignmentRe, `$1${value}`);
+  } else if (deprecatedRe.test(content)) {
+    // Convert deprecated syntax to modern assignment syntax
+    return content.replace(deprecatedRe, `$1= ${value}`);
+  }
   return content;
 }
 
@@ -109,9 +116,21 @@ function patchSdkVersionsInFile(filePath) {
   const before = readFile(filePath);
   let after = before;
 
+  // Modern SDK property names (Gradle 9+ compatible)
+  // First try modern names, then fall back to deprecated names
+  after = replaceNumberAssignment(after, "minSdk", MIN_SDK);
+  after = replaceNumberAssignment(after, "compileSdk", COMPILE_SDK);
+  after = replaceNumberAssignment(after, "targetSdk", TARGET_SDK);
+  
+  // Also handle deprecated names and convert them to modern syntax
   after = replaceNumberAssignment(after, "minSdkVersion", MIN_SDK);
   after = replaceNumberAssignment(after, "compileSdkVersion", COMPILE_SDK);
   after = replaceNumberAssignment(after, "targetSdkVersion", TARGET_SDK);
+  
+  // Rename deprecated property names to modern equivalents
+  after = after.replace(/\bminSdkVersion\s*=/g, "minSdk =");
+  after = after.replace(/\bcompileSdkVersion\s*=/g, "compileSdk =");
+  after = after.replace(/\btargetSdkVersion\s*=/g, "targetSdk =");
 
   if (after !== before) {
     writeFile(filePath, after);
@@ -189,6 +208,7 @@ function patchAppDependencies() {
 
 /**
  * Configure version code and version name in app/build.gradle
+ * Uses modern Gradle assignment syntax (= operator)
  */
 function patchVersionInfo() {
   const appBuildGradle = path.join(ANDROID_DIR, "app", "build.gradle");
@@ -201,27 +221,35 @@ function patchVersionInfo() {
   const before = readFile(appBuildGradle);
   let after = before;
 
-  // Update versionCode
-  const versionCodeRe = /versionCode\s+\d+/;
-  if (versionCodeRe.test(after)) {
-    after = after.replace(versionCodeRe, `versionCode ${VERSION_CODE}`);
+  // Update versionCode - handle both deprecated and modern syntax
+  const versionCodeDeprecatedRe = /versionCode\s+(\d+)/;
+  const versionCodeModernRe = /versionCode\s*=\s*\d+/;
+  
+  if (versionCodeModernRe.test(after)) {
+    after = after.replace(versionCodeModernRe, `versionCode = ${VERSION_CODE}`);
+  } else if (versionCodeDeprecatedRe.test(after)) {
+    after = after.replace(versionCodeDeprecatedRe, `versionCode = ${VERSION_CODE}`);
   } else {
     // Insert after defaultConfig {
     after = after.replace(
       /(defaultConfig\s*\{)/,
-      `$1\n        versionCode ${VERSION_CODE}`
+      `$1\n        versionCode = ${VERSION_CODE}`
     );
   }
 
-  // Update versionName
-  const versionNameRe = /versionName\s*["'][^"']+["']/;
-  if (versionNameRe.test(after)) {
-    after = after.replace(versionNameRe, `versionName "${VERSION_NAME}"`);
+  // Update versionName - handle both deprecated and modern syntax
+  const versionNameDeprecatedRe = /versionName\s+["']([^"']+)["']/;
+  const versionNameModernRe = /versionName\s*=\s*["'][^"']+["']/;
+  
+  if (versionNameModernRe.test(after)) {
+    after = after.replace(versionNameModernRe, `versionName = "${VERSION_NAME}"`);
+  } else if (versionNameDeprecatedRe.test(after)) {
+    after = after.replace(versionNameDeprecatedRe, `versionName = "${VERSION_NAME}"`);
   } else {
     // Insert after versionCode
     after = after.replace(
-      /(versionCode\s+\d+)/,
-      `$1\n        versionName "${VERSION_NAME}"`
+      /(versionCode\s*=\s*\d+)/,
+      `$1\n        versionName = "${VERSION_NAME}"`
     );
   }
 
@@ -253,17 +281,17 @@ function patchReleaseSigning() {
     return;
   }
 
-  // Add signingConfigs block inside android { }
+  // Add signingConfigs block inside android { } with modern assignment syntax
   const signingConfig = `
     signingConfigs {
         release {
             def keystorePath = System.getenv("KEYSTORE_PATH") ?: "onetap-release.jks"
             def ksFile = file(keystorePath)
             if (ksFile.exists()) {
-                storeFile ksFile
-                storePassword System.getenv("KEYSTORE_PASSWORD") ?: ""
-                keyAlias "onetap-key"
-                keyPassword System.getenv("KEY_PASSWORD") ?: ""
+                storeFile = ksFile
+                storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
+                keyAlias = "onetap-key"
+                keyPassword = System.getenv("KEY_PASSWORD") ?: ""
             }
         }
     }
@@ -480,6 +508,122 @@ function copyNativeFiles() {
   console.log(`[patch-android] Native files copied successfully.`);
 }
 
+/**
+ * Modernize Gradle DSL syntax project-wide for Gradle 9/10 compatibility
+ * - Remove jcenter() repository
+ * - Fix deprecated property assignment syntax
+ * - Update deprecated dependency configurations
+ * - Fix lintOptions -> lint migration
+ */
+function patchGradleModernization() {
+  if (!fileExists(ANDROID_DIR)) return;
+
+  const exts = new Set([".gradle", ".gradle.kts"]);
+  let patchedCount = 0;
+
+  function modernizeGradleContent(content) {
+    let out = content;
+
+    // Remove deprecated jcenter() repository
+    out = out.replace(/\s*jcenter\(\)\s*\n?/g, "\n");
+    
+    // Fix deprecated dependency configurations
+    out = out.replace(/\bcompile\s+(['"])/g, "implementation $1");
+    out = out.replace(/\btestCompile\s+(['"])/g, "testImplementation $1");
+    out = out.replace(/\bandroidTestCompile\s+(['"])/g, "androidTestImplementation $1");
+    
+    // Fix deprecated lintOptions -> lint
+    out = out.replace(/\blintOptions\s*\{/g, "lint {");
+    
+    // Fix deprecated packagingOptions -> packaging (AGP 8+)
+    out = out.replace(/\bpackagingOptions\s*\{/g, "packaging {");
+    
+    // Fix common deprecated property assignments (ensure = is present)
+    // applicationId without =
+    out = out.replace(/(\bapplicationId)\s+(['"])/g, "$1 = $2");
+    // namespace without =
+    out = out.replace(/(\bnamespace)\s+(['"])/g, "$1 = $2");
+    // testInstrumentationRunner without =
+    out = out.replace(/(\btestInstrumentationRunner)\s+(['"])/g, "$1 = $2");
+    
+    // Fix boolean property assignments
+    out = out.replace(/(\bminifyEnabled)\s+(true|false)(?!\s*[=\)])/g, "$1 = $2");
+    out = out.replace(/(\bshrinkResources)\s+(true|false)(?!\s*[=\)])/g, "$1 = $2");
+    out = out.replace(/(\bdebuggable)\s+(true|false)(?!\s*[=\)])/g, "$1 = $2");
+    out = out.replace(/(\bjniDebuggable)\s+(true|false)(?!\s*[=\)])/g, "$1 = $2");
+    out = out.replace(/(\brenderscriptDebuggable)\s+(true|false)(?!\s*[=\)])/g, "$1 = $2");
+    out = out.replace(/(\bzipAlignEnabled)\s+(true|false)(?!\s*[=\)])/g, "$1 = $2");
+    
+    // Fix multiDexEnabled
+    out = out.replace(/(\bmultiDexEnabled)\s+(true|false)(?!\s*[=\)])/g, "$1 = $2");
+    
+    // Fix proguardFiles - this uses varargs, but ensure proper syntax
+    // Keep proguardFiles as-is since it's a method call, not assignment
+    
+    return out;
+  }
+
+  function walk(dir) {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        // Skip build outputs and cache directories
+        if (entry.name === "build" || entry.name === ".gradle" || entry.name === ".cxx") continue;
+        walk(full);
+        continue;
+      }
+
+      const ext = path.extname(entry.name);
+      if (!exts.has(ext)) continue;
+
+      const before = readFile(full);
+      const after = modernizeGradleContent(before);
+      if (after !== before) {
+        writeFile(full, after);
+        console.log(`[patch-android] Modernized Gradle syntax in ${path.relative(process.cwd(), full)}`);
+        patchedCount++;
+      }
+    }
+  }
+
+  walk(ANDROID_DIR);
+  
+  if (patchedCount > 0) {
+    console.log(`[patch-android] Modernized ${patchedCount} Gradle file(s) for Gradle 9/10 compatibility.`);
+  } else {
+    console.log(`[patch-android] All Gradle files already use modern syntax.`);
+  }
+}
+
+/**
+ * Ensure gradle.properties has forward-compatible settings
+ */
+function patchGradleProperties() {
+  const gradleProps = path.join(ANDROID_DIR, "gradle.properties");
+  if (!fileExists(gradleProps)) return;
+
+  const before = readFile(gradleProps);
+  let after = before;
+
+  // Disable deprecated Jetifier if not needed (most modern libs don't need it)
+  // But keep it enabled for safety with older Capacitor plugins
+  // after = upsertLine(after, "android.enableJetifier=", "android.enableJetifier=false");
+
+  // Enable non-transitive R classes (recommended for Gradle 8+)
+  after = upsertLine(after, "android.nonTransitiveRClass=", "android.nonTransitiveRClass=true");
+  
+  // Enable build cache
+  after = upsertLine(after, "org.gradle.caching=", "org.gradle.caching=true");
+  
+  // Use parallel execution
+  after = upsertLine(after, "org.gradle.parallel=", "org.gradle.parallel=true");
+
+  if (after !== before) {
+    writeFile(gradleProps, after.endsWith("\n") ? after : after + "\n");
+    console.log(`[patch-android] Updated gradle.properties with modern settings.`);
+  }
+}
+
 function main() {
   if (!fileExists(ANDROID_DIR)) {
     console.error(
@@ -491,12 +635,14 @@ function main() {
   // FIRST: Copy custom native files (ShortcutPlugin, MainActivity, etc.)
   copyNativeFiles();
 
-  // THEN: Apply patches
+  // THEN: Apply patches (order matters)
   patchGradleWrapper();
   patchGradleJavaHome();
+  patchGradleProperties();
   patchAgpVersion();
   patchJavaVersions();
   patchSdkVersions();
+  patchGradleModernization(); // Run after SDK versions to catch all syntax
   patchAppDependencies();
   patchVersionInfo();
   patchReleaseSigning();
@@ -504,6 +650,7 @@ function main() {
   console.log("[patch-android] Done.");
   console.log(`[patch-android] Configuration: Gradle ${GRADLE_VERSION}, JDK ${JAVA_TOOLCHAIN}, compileSdk ${COMPILE_SDK}, minSdk ${MIN_SDK}`);
   console.log(`[patch-android] Version: ${VERSION_NAME} (${VERSION_CODE})`);
+  console.log(`[patch-android] All Gradle files modernized for Gradle 9/10 compatibility.`);
 }
 
 main();
