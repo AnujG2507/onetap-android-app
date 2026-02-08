@@ -96,6 +96,11 @@ public class NativePdfViewerActivity extends Activity {
     private static final float MIN_ZOOM = 0.2f;  // Show ~5 pages when zoomed out
     private static final float MAX_ZOOM = 5.0f;
     private static final float DOUBLE_TAP_ZOOM = 2.5f;
+    
+    // Maximum bitmap memory in bytes (~100MB for ARGB_8888 = ~25 million pixels)
+    // This prevents Canvas "too large bitmap" crashes on high zoom
+    private static final long MAX_BITMAP_BYTES = 100 * 1024 * 1024;
+    private static final int MAX_BITMAP_DIMENSION = 4096; // Hardware texture limit on most devices
     private static final float FIT_PAGE_ZOOM = 1.0f;  // Default fit-to-width
     
     // Pre-render pages above/below viewport for smooth scrolling
@@ -2068,6 +2073,36 @@ public class NativePdfViewerActivity extends Activity {
     }
     
     /**
+     * Calculate safe bitmap dimensions that won't exceed Android's canvas limits.
+     * Maintains aspect ratio while capping total size.
+     * 
+     * This prevents RuntimeException: "Canvas: trying to draw too large bitmap"
+     * which occurs at high zoom levels (e.g., 5.0x on large PDFs).
+     */
+    private int[] getSafeBitmapDimensions(int requestedWidth, int requestedHeight) {
+        // Check against max dimension (hardware texture limit)
+        int maxDim = Math.max(requestedWidth, requestedHeight);
+        float scale = 1.0f;
+        
+        if (maxDim > MAX_BITMAP_DIMENSION) {
+            scale = (float) MAX_BITMAP_DIMENSION / maxDim;
+        }
+        
+        int width = (int) (requestedWidth * scale);
+        int height = (int) (requestedHeight * scale);
+        
+        // Check against max memory (ARGB_8888 = 4 bytes per pixel)
+        long totalBytes = (long) width * height * 4;
+        if (totalBytes > MAX_BITMAP_BYTES) {
+            float memoryScale = (float) Math.sqrt((double) MAX_BITMAP_BYTES / totalBytes);
+            width = (int) (width * memoryScale);
+            height = (int) (height * memoryScale);
+        }
+        
+        return new int[] { Math.max(1, width), Math.max(1, height) };
+    }
+    
+    /**
      * Render a page asynchronously with low-res → high-res atomic swap.
      */
     private void renderPageAsync(int pageIndex, float targetZoom, boolean lowResOnly) {
@@ -2094,8 +2129,13 @@ public class NativePdfViewerActivity extends Activity {
             
             // --- Low-res pass ---
             float lowScale = baseScale * targetZoom * LOW_RES_SCALE;
-            int lowWidth = Math.max(1, (int) (pageWidth * lowScale));
-            int lowHeight = Math.max(1, (int) (pageHeight * lowScale));
+            int requestedLowWidth = Math.max(1, (int) (pageWidth * lowScale));
+            int requestedLowHeight = Math.max(1, (int) (pageHeight * lowScale));
+            
+            // Clamp to safe dimensions to prevent Canvas crash
+            int[] safeLowDims = getSafeBitmapDimensions(requestedLowWidth, requestedLowHeight);
+            int lowWidth = safeLowDims[0];
+            int lowHeight = safeLowDims[1];
             
             Bitmap lowBitmap = Bitmap.createBitmap(lowWidth, lowHeight, Bitmap.Config.ARGB_8888);
             lowBitmap.eraseColor(Color.WHITE);
@@ -2156,8 +2196,21 @@ public class NativePdfViewerActivity extends Activity {
             
             // --- High-res pass ---
             float highScale = baseScale * targetZoom;
-            int highWidth = Math.max(1, (int) (pageWidth * highScale));
-            int highHeight = Math.max(1, (int) (pageHeight * highScale));
+            int requestedHighWidth = Math.max(1, (int) (pageWidth * highScale));
+            int requestedHighHeight = Math.max(1, (int) (pageHeight * highScale));
+            
+            // Clamp to safe dimensions to prevent Canvas crash
+            int[] safeHighDims = getSafeBitmapDimensions(requestedHighWidth, requestedHighHeight);
+            int highWidth = safeHighDims[0];
+            int highHeight = safeHighDims[1];
+            
+            if (highWidth != requestedHighWidth || highHeight != requestedHighHeight) {
+                Log.d(TAG, "Clamped bitmap from " + requestedHighWidth + "x" + requestedHighHeight + 
+                      " to " + highWidth + "x" + highHeight + " for page " + pageIndex);
+                crashLogger.addBreadcrumb(CrashLogger.CAT_IO, 
+                    "Bitmap clamped: " + requestedHighWidth + "x" + requestedHighHeight + 
+                    " → " + highWidth + "x" + highHeight);
+            }
             
             Bitmap highBitmap = Bitmap.createBitmap(highWidth, highHeight, Bitmap.Config.ARGB_8888);
             highBitmap.eraseColor(Color.WHITE);
