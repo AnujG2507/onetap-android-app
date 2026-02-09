@@ -1,73 +1,76 @@
-# Welcome to your Lovable project
+# OneTap Shortcuts
 
-## Project info
+**"One tap to what matters. Nothing else."**
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+A paid Android app that creates home screen shortcuts for instant access to URLs, contacts, files, PDFs, videos, and scheduled reminders. Local-first, calm, and privacy-respecting.
 
-## How can I edit this code?
+---
 
-There are several ways of editing your application.
+## Documentation
 
-**Use Lovable**
+| Document | Purpose |
+|----------|---------|
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Technical architecture, stack, project structure |
+| [DEPLOYMENT.md](DEPLOYMENT.md) | Build pipeline, CI/CD, environments |
+| [RELEASE_PROCESS.md](RELEASE_PROCESS.md) | How to ship updates safely |
+| [SUPABASE.md](SUPABASE.md) | Backend schema, edge functions, auth |
+| [PRODUCT_IDEOLOGY.md](PRODUCT_IDEOLOGY.md) | Core principles and constraints |
+| [APP_SUMMARY.md](APP_SUMMARY.md) | Comprehensive app summary and data model |
+| [ANDROID_SETUP.md](ANDROID_SETUP.md) | Local Android development setup |
+| [UBUNTU_SETUP.md](UBUNTU_SETUP.md) | Ubuntu VM setup guide |
+| [PLAY_STORE_CHECKLIST.md](PLAY_STORE_CHECKLIST.md) | Pre-publish checklist |
+| [GOOGLE_PLAY_PUBLISHING.md](GOOGLE_PLAY_PUBLISHING.md) | Publishing strategies reference |
+| [LANGUAGE_SUPPORT_REENABLE.md](LANGUAGE_SUPPORT_REENABLE.md) | Multi-language re-enablement guide |
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+---
 
-Changes made via Lovable will be committed automatically to this repo.
+## Quick Start (Development)
 
-**Use your preferred IDE**
+```bash
+# Clone and install
+git clone <repo-url>
+cd onetap-app
+npm install
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Web development
 npm run dev
+
+# Android (requires JDK 21, Android Studio)
+node scripts/android/clean-rebuild-android.mjs --run
 ```
 
-**Edit a file directly in GitHub**
+See [ANDROID_SETUP.md](ANDROID_SETUP.md) for full setup instructions.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+---
 
-**Use GitHub Codespaces**
+## Stack
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+- **Frontend:** React 18, TypeScript, Vite, Tailwind CSS, shadcn/ui
+- **Native:** Capacitor 8, Android (Java, minSdk 31)
+- **Backend:** Lovable Cloud (optional, for sync only)
+- **Auth:** Google OAuth via Android App Links
+- **CI/CD:** GitHub Actions → Google Play
 
-## What technologies are used for this project?
+---
 
-This project is built with:
+## Principles
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+- **Local-first:** All data on device, cloud is optional and additive-only
+- **Calm UX:** No intrusive notifications, no anxiety-inducing indicators
+- **Resource-respectful:** No background services, no polling, no analytics
+- **Paid upfront:** No ads, no subscriptions, no tracking
 
-## How can I deploy this project?
+See [PRODUCT_IDEOLOGY.md](PRODUCT_IDEOLOGY.md) for the full manifesto.
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+---
 
-## Can I connect a custom domain to my Lovable project?
+## Repository Rules
 
-Yes, you can!
+- `main` is always production-ready
+- All development in `feature/*` branches
+- Tag-based releases trigger CI (`v1.0.0`)
+- Human review required before merge and release
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+---
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+*A product by a solo entrepreneur. Built to last.*
