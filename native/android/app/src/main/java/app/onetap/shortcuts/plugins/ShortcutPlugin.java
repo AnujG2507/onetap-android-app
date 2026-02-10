@@ -2686,6 +2686,83 @@ public class ShortcutPlugin extends Plugin {
             android.util.Log.d("ShortcutPlugin", "VIEW_PDF data: " + dataString + 
                                ", shortcutId=" + shortcutId + ", resume=" + resume);
             call.resolve(result);
+        } else if (Intent.ACTION_SEND_MULTIPLE.equals(action)) {
+            // Handle multiple files shared via Share Sheet
+            android.util.Log.d("ShortcutPlugin", "ACTION_SEND_MULTIPLE detected");
+            
+            ArrayList<Uri> uris = intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM);
+            if (uris == null || uris.isEmpty()) {
+                android.util.Log.w("ShortcutPlugin", "SEND_MULTIPLE but no URIs found");
+                call.resolve(null);
+                return;
+            }
+            
+            ContentResolver resolver = getContext().getContentResolver();
+            int imageCount = 0;
+            int totalCount = uris.size();
+            boolean hasNonImage = false;
+            boolean hasImage = false;
+            
+            // Classify all URIs by MIME type
+            for (Uri uri : uris) {
+                String mimeType = resolver.getType(uri);
+                if (mimeType != null && mimeType.startsWith("image/")) {
+                    imageCount++;
+                    hasImage = true;
+                } else {
+                    hasNonImage = true;
+                }
+            }
+            
+            boolean allImages = hasImage && !hasNonImage;
+            boolean mixed = hasImage && hasNonImage;
+            
+            JSObject result = new JSObject();
+            result.put("action", action);
+            result.put("type", type);
+            result.put("multipleFiles", true);
+            result.put("fileCount", totalCount);
+            result.put("allImages", allImages);
+            result.put("mixed", mixed);
+            
+            // Only provide file details when all images (the only valid multi-file path)
+            if (allImages) {
+                JSArray filesArray = new JSArray();
+                for (Uri uri : uris) {
+                    // Take persistable read permission so URIs survive activity restarts
+                    try {
+                        getContext().getContentResolver().takePersistableUriPermission(
+                            uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    } catch (SecurityException e) {
+                        android.util.Log.w("ShortcutPlugin", "Could not take persistable permission for: " + uri + " - " + e.getMessage());
+                    }
+                    
+                    String mimeType = resolver.getType(uri);
+                    String name = null;
+                    try {
+                        Cursor cursor = resolver.query(uri, new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null);
+                        if (cursor != null) {
+                            if (cursor.moveToFirst()) {
+                                name = cursor.getString(0);
+                            }
+                            cursor.close();
+                        }
+                    } catch (Exception e) {
+                        android.util.Log.w("ShortcutPlugin", "Could not get display name for: " + uri);
+                    }
+                    
+                    JSObject fileObj = new JSObject();
+                    fileObj.put("uri", uri.toString());
+                    fileObj.put("mimeType", mimeType);
+                    if (name != null) fileObj.put("name", name);
+                    filesArray.put(fileObj);
+                }
+                result.put("files", filesArray);
+            }
+            
+            android.util.Log.d("ShortcutPlugin", "SEND_MULTIPLE: count=" + totalCount + 
+                ", allImages=" + allImages + ", mixed=" + mixed);
+            call.resolve(result);
         } else {
             android.util.Log.d("ShortcutPlugin", "No shared content found");
             call.resolve(null);

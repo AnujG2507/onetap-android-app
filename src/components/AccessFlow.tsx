@@ -45,6 +45,14 @@ interface AccessFlowProps {
   initialUrlForShortcut?: string | null;
   /** Called when the initial URL has been consumed */
   onInitialUrlConsumed?: () => void;
+  /** Single file shared from Share Sheet - routes directly to customize step */
+  initialFileSource?: ContentSource | null;
+  /** Called when the initial file source has been consumed */
+  onInitialFileConsumed?: () => void;
+  /** Multiple images shared from Share Sheet - routes directly to slideshow customize */
+  initialSlideshowSource?: MultiFileSource | null;
+  /** Called when the initial slideshow source has been consumed */
+  onInitialSlideshowConsumed?: () => void;
   /** Called when user wants to navigate to bookmarks tab */
   onGoToBookmarks?: () => void;
   /** Called when user wants to navigate to notifications tab */
@@ -60,6 +68,10 @@ export function AccessFlow({
   onContentSourceTypeChange,
   initialUrlForShortcut,
   onInitialUrlConsumed,
+  initialFileSource,
+  onInitialFileConsumed,
+  initialSlideshowSource,
+  onInitialSlideshowConsumed,
   onGoToBookmarks,
   onGoToNotifications,
   onCreateReminder,
@@ -177,6 +189,26 @@ export function AccessFlow({
       onInitialUrlConsumed?.();
     }
   }, [initialUrlForShortcut, onInitialUrlConsumed]);
+
+  // Handle initial file source from Share Sheet (single file -> customize step)
+  useEffect(() => {
+    if (initialFileSource) {
+      console.log('[AccessFlow] Processing shared file source:', initialFileSource.uri, initialFileSource.mimeType);
+      setContentSource(initialFileSource);
+      setStep('customize');
+      onInitialFileConsumed?.();
+    }
+  }, [initialFileSource, onInitialFileConsumed]);
+
+  // Handle initial slideshow source from Share Sheet (multiple images -> slideshow step)
+  useEffect(() => {
+    if (initialSlideshowSource) {
+      console.log('[AccessFlow] Processing shared slideshow source:', initialSlideshowSource.files.length, 'images');
+      setSlideshowSource(initialSlideshowSource);
+      setStep('slideshow-customize');
+      onInitialSlideshowConsumed?.();
+    }
+  }, [initialSlideshowSource, onInitialSlideshowConsumed]);
 
   const handleClipboardCreateShortcut = (url: string) => {
     dismissDetection();
