@@ -2,16 +2,19 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { App } from '@capacitor/app';
 import ShortcutPlugin from '@/plugins/ShortcutPlugin';
-import type { ContentSource } from '@/types/shortcut';
+import type { ContentSource, MultiFileSource } from '@/types/shortcut';
+import { useToast } from '@/hooks/use-toast';
 
 // Hook to handle content shared via Android Share Sheet
 // Supports both initial launch and app resume (when app is already open)
 export function useSharedContent() {
   const navigate = useNavigate();
   const [sharedContent, setSharedContent] = useState<ContentSource | null>(null);
+  const [sharedMultiFiles, setSharedMultiFiles] = useState<MultiFileSource | null>(null);
   const [sharedAction, setSharedAction] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const lastProcessedRef = useRef<string | null>(null);
+  const { toast } = useToast();
 
   const checkSharedContent = useCallback(async () => {
     try {
@@ -37,6 +40,49 @@ export function useSharedContent() {
             setIsLoading(false);
             return;
           }
+        }
+
+        // Handle multi-file shares (ACTION_SEND_MULTIPLE)
+        if (shared.multipleFiles) {
+          const shareId = `multi-${shared.fileCount}-${shared.allImages}-${shared.mixed}`;
+          if (lastProcessedRef.current === shareId) {
+            console.log('[useSharedContent] Already processed this multi-file share, skipping');
+            setIsLoading(false);
+            return;
+          }
+          lastProcessedRef.current = shareId;
+
+          if (shared.allImages && shared.files && shared.files.length > 1) {
+            // Case B: Multiple images -> slideshow
+            console.log('[useSharedContent] Multiple images shared, routing to slideshow:', shared.files.length);
+            setSharedMultiFiles({
+              type: 'slideshow',
+              files: shared.files.map(f => ({
+                uri: f.uri,
+                mimeType: f.mimeType,
+                name: f.name,
+              })),
+            });
+          } else if (shared.allImages && shared.files && shared.files.length === 1) {
+            // Single image via SEND_MULTIPLE -> treat as single file
+            console.log('[useSharedContent] Single image via SEND_MULTIPLE, routing as single file');
+            setSharedContent({
+              type: 'file',
+              uri: shared.files[0].uri,
+              mimeType: shared.files[0].mimeType,
+              name: shared.files[0].name,
+            });
+          } else if (shared.mixed) {
+            // Case D: Mixed types -> toast + exit
+            console.log('[useSharedContent] Mixed file types shared, rejecting');
+            toast({ title: 'Please share only one file type at a time.' });
+          } else {
+            // Case C: Multiple non-image files -> toast + exit
+            console.log('[useSharedContent] Multiple non-image files shared, rejecting');
+            toast({ title: 'Multiple non-image files are not supported.' });
+          }
+          setIsLoading(false);
+          return;
         }
 
         // Handle both text (URLs, etc.) and data (file URIs)
@@ -159,6 +205,7 @@ export function useSharedContent() {
   const clearSharedContent = useCallback(async () => {
     console.log('[useSharedContent] Clearing shared content');
     setSharedContent(null);
+    setSharedMultiFiles(null);
     setSharedAction(null);
     
     // Clear the native intent to prevent re-processing
@@ -179,7 +226,7 @@ export function useSharedContent() {
     checkSharedContent();
   }, [checkSharedContent]);
 
-  return { sharedContent, sharedAction, isLoading, clearSharedContent, recheckSharedContent };
+  return { sharedContent, sharedMultiFiles, sharedAction, isLoading, clearSharedContent, recheckSharedContent };
 }
 
 // Extract first URL from text that may contain other content

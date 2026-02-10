@@ -100,7 +100,11 @@ const Index = () => {
   const [editingShortcut, setEditingShortcut] = useState<ShortcutData | null>(null);
   
   // Handle shared content from Android Share Sheet (always active regardless of tab)
-  const { sharedContent, sharedAction, isLoading: isLoadingShared, clearSharedContent } = useSharedContent();
+  const { sharedContent, sharedMultiFiles, sharedAction, isLoading: isLoadingShared, clearSharedContent } = useSharedContent();
+  
+  // State for passing shared files/slideshow into AccessFlow
+  const [initialFileSource, setInitialFileSource] = useState<import('@/types/shortcut').ContentSource | null>(null);
+  const [initialSlideshowSource, setInitialSlideshowSource] = useState<import('@/types/shortcut').MultiFileSource | null>(null);
   
   // Check if shortlist has items
   const hasShortlist = getShortlistedLinks().length > 0;
@@ -238,15 +242,33 @@ const Index = () => {
         return;
       }
 
-      // For files, switch to Access tab and let AccessFlow handle it via initialUrlForShortcut
-      // (File handling is done in AccessFlow since it needs the customize step)
-      if (activeTab !== 'access') {
-        setActiveTab('access');
+      // For files, switch to Access tab and route directly into the correct customize step
+      if (sharedContent.type === 'file') {
+        console.log('[Index] File shared, routing to AccessFlow with initialFileSource');
+        setInitialFileSource(sharedContent);
+        if (activeTab !== 'access') {
+          setActiveTab('access');
+        }
+        clearSharedContent();
+        return;
       }
-      // Clear the shared content - AccessFlow will pick up any file content on its own
+
+      // Clear the shared content for any unhandled types
       clearSharedContent();
     }
   }, [sharedContent, sharedAction, isLoadingShared, clearSharedContent, navigate, activeTab]);
+
+  // Handle multi-file shares (slideshow)
+  useEffect(() => {
+    if (sharedMultiFiles) {
+      console.log('[Index] Multi-file share detected, routing to slideshow:', sharedMultiFiles.files.length);
+      setInitialSlideshowSource(sharedMultiFiles);
+      if (activeTab !== 'access') {
+        setActiveTab('access');
+      }
+      clearSharedContent();
+    }
+  }, [sharedMultiFiles, clearSharedContent, activeTab]);
 
   // Handle shared URL action: Save to Library
   const handleSaveSharedToLibrary = useCallback((data?: { title?: string; description?: string; tag?: string | null }) => {
@@ -492,6 +514,10 @@ const Index = () => {
             onContentSourceTypeChange={handleContentSourceTypeChange}
             initialUrlForShortcut={shortcutUrlFromBookmark}
             onInitialUrlConsumed={handleInitialUrlConsumed}
+            initialFileSource={initialFileSource}
+            onInitialFileConsumed={() => setInitialFileSource(null)}
+            initialSlideshowSource={initialSlideshowSource}
+            onInitialSlideshowConsumed={() => setInitialSlideshowSource(null)}
             onGoToBookmarks={() => handleTabChange('bookmarks')}
             onGoToNotifications={() => handleTabChange('reminders')}
             onCreateReminder={(destination) => {

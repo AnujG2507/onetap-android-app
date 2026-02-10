@@ -115,6 +115,20 @@
                 <data android:mimeType="application/*" />
             </intent-filter>
 
+            <!-- Share Sheet: Handle multiple shared images (slideshow) -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+
+            <!-- Share Sheet: Handle multiple shared files (for rejection routing) -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+
             <!-- Internal video player fallback action -->
             <intent-filter>
                 <action android:name="app.onetap.PLAY_VIDEO" />

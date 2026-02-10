@@ -37,6 +37,12 @@ export interface ShortcutPluginInterface {
     // PDF viewer extras
     shortcutId?: string;
     resume?: boolean | string;
+    // Multi-file share fields (ACTION_SEND_MULTIPLE)
+    multipleFiles?: boolean;
+    fileCount?: number;
+    allImages?: boolean;
+    mixed?: boolean;
+    files?: Array<{ uri: string; mimeType?: string; name?: string }>;
   } | null>;
 
   // Native file picker (Android): returns a persistent content:// URI.
