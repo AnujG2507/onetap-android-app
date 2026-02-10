@@ -305,6 +305,37 @@ The app has four bottom tabs:
 | Bookmarks | `BookmarkLibrary.tsx` | Browse and organize saved links |
 | Profile | `ProfilePage.tsx` | Settings, cloud sync, account |
 
+### Share Sheet Integration
+
+The Android manifest declares a catch-all `*/*` intent filter for `ACTION_SEND` (single files) and `image/*` for `ACTION_SEND_MULTIPLE` (slideshow). When content is shared to the app:
+
+```
+Content shared via Android Share Sheet
+        │
+        ├── URL (text/plain) ──▶ SharedUrlActionSheet
+        │                         ├── Quick Save (instant save to library)
+        │                         ├── Edit & Save (edit metadata first)
+        │                         ├── One Tap Access (create shortcut)
+        │                         └── Remind Later (schedule reminder)
+        │
+        ├── Video file ──▶ Native video player (auto-play)
+        │
+        ├── Single file ──▶ SharedFileActionSheet
+        │                    ├── One Tap Access (create shortcut)
+        │                    └── Remind Later (schedule reminder)
+        │
+        ├── Multiple images ──▶ SharedFileActionSheet (slideshow)
+        │                        └── One Tap Access (create slideshow)
+        │
+        └── Mixed/unsupported ──▶ Toast + exit
+```
+
+**Key files:**
+- `src/hooks/useSharedContent.ts` — Intercepts shared content from native layer
+- `src/components/SharedUrlActionSheet.tsx` — Action picker for shared URLs
+- `src/components/SharedFileActionSheet.tsx` — Action picker for shared files
+- `src/pages/Index.tsx` — Routes shared content to the appropriate action sheet
+
 ---
 
 ## 10. Project Structure

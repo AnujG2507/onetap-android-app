@@ -25,7 +25,15 @@ A local-first Android app that lets users create home screen shortcuts for quick
 - Native Android notifications via `NotificationHelper.java`
 - Persists across device reboots (`BootReceiver.java`)
 
-### 4. Cloud Sync (Optional)
+### 4. Android Share Sheet Integration
+- App appears in the Android Share Sheet for **any** file type (catch-all `*/*` intent filter) and URLs
+- **Shared URLs** → `SharedUrlActionSheet` with 4 options: Quick Save, Edit & Save, One Tap Access, Remind Later
+- **Shared files** (single) → `SharedFileActionSheet` with 2 options: One Tap Access, Remind Later
+- **Shared images** (multiple) → `SharedFileActionSheet` (slideshow variant) with One Tap Access only
+- Videos shared via Share Sheet auto-open in the native video player
+- All action sheets include swipe-to-close gesture, back button handling, and exit animation
+
+### 5. Cloud Sync (Optional)
 - Google OAuth authentication
 - Bidirectional sync: local ↔ cloud
 - **Local is source of truth**—cloud is additive-only
@@ -199,6 +207,8 @@ markSyncCompleted(trigger, success)
 - `BookmarkLibrary.tsx` - Main library view
 - `ScheduledActionCreator.tsx` - Reminder creation
 - `ShortcutCustomizer.tsx` - Shortcut configuration
+- `SharedUrlActionSheet.tsx` - Action picker for shared URLs (Quick Save, Edit & Save, Shortcut, Remind Later)
+- `SharedFileActionSheet.tsx` - Action picker for shared files (One Tap Access, Remind Later)
 - `CloudBackupSection.tsx` - Sync controls
 - `SyncStatusIndicator.tsx` - Ambient sync status dot
 
@@ -249,4 +259,4 @@ markSyncCompleted(trigger, success)
 
 ---
 
-*Last updated: January 2026*
+*Last updated: February 2026*
