@@ -9,6 +9,7 @@ import { AccessFlow, AccessStep, ContentSourceType } from '@/components/AccessFl
 import { ProfilePage } from '@/components/ProfilePage';
 import { NotificationsPage } from '@/components/NotificationsPage';
 import { SharedUrlActionSheet } from '@/components/SharedUrlActionSheet';
+import { SharedFileActionSheet } from '@/components/SharedFileActionSheet';
 import { OnboardingFlow } from '@/components/OnboardingFlow';
 // LANGUAGE SUPPORT TEMPORARILY DISABLED
 // This import is preserved for future re-enablement. Component is not rendered.
@@ -65,6 +66,8 @@ const Index = () => {
   const [slideDirection, setSlideDirection] = useState<'left' | 'right' | null>(null);
   const [activeActionsCount, setActiveActionsCount] = useState(() => getActiveCount());
   const [pendingReminderDestination, setPendingReminderDestination] = useState<ScheduledActionDestination | null>(null);
+  const [pendingSharedFile, setPendingSharedFile] = useState<import('@/types/shortcut').ContentSource | null>(null);
+  const [pendingSharedMultiFiles, setPendingSharedMultiFiles] = useState<import('@/types/shortcut').MultiFileSource | null>(null);
   const lastSharedIdRef = useRef<string | null>(null);
   const previousTabRef = useRef<TabType>('access');
 
@@ -242,13 +245,10 @@ const Index = () => {
         return;
       }
 
-      // For files, switch to Access tab and route directly into the correct customize step
+      // For files, show action sheet before routing
       if (sharedContent.type === 'file') {
-        console.log('[Index] File shared, routing to AccessFlow with initialFileSource');
-        setInitialFileSource(sharedContent);
-        if (activeTab !== 'access') {
-          setActiveTab('access');
-        }
+        console.log('[Index] File shared, showing file action sheet');
+        setPendingSharedFile(sharedContent);
         clearSharedContent();
         return;
       }
@@ -258,17 +258,22 @@ const Index = () => {
     }
   }, [sharedContent, sharedAction, isLoadingShared, clearSharedContent, navigate, activeTab]);
 
-  // Handle multi-file shares (slideshow)
+  // Handle multi-file shares (slideshow) - show action sheet first
   useEffect(() => {
     if (sharedMultiFiles) {
-      console.log('[Index] Multi-file share detected, routing to slideshow:', sharedMultiFiles.files.length);
-      setInitialSlideshowSource(sharedMultiFiles);
-      if (activeTab !== 'access') {
-        setActiveTab('access');
-      }
+      console.log('[Index] Multi-file share detected, showing file action sheet:', sharedMultiFiles.files.length);
+      // Create a display-only ContentSource for the action sheet
+      const displaySource: import('@/types/shortcut').ContentSource = {
+        type: 'file',
+        uri: sharedMultiFiles.files[0]?.uri || '',
+        mimeType: 'image/*',
+        name: `${sharedMultiFiles.files.length} images`,
+      };
+      setPendingSharedFile(displaySource);
+      setPendingSharedMultiFiles(sharedMultiFiles);
       clearSharedContent();
     }
-  }, [sharedMultiFiles, clearSharedContent, activeTab]);
+  }, [sharedMultiFiles, clearSharedContent]);
 
   // Handle shared URL action: Save to Library
   const handleSaveSharedToLibrary = useCallback((data?: { title?: string; description?: string; tag?: string | null }) => {
@@ -318,6 +323,43 @@ const Index = () => {
   // Handle dismissing the shared URL action sheet
   const handleDismissSharedUrl = useCallback(() => {
     setPendingSharedUrl(null);
+  }, []);
+
+  // Handle shared file action: Create Shortcut (One Tap Access)
+  const handleCreateSharedFileShortcut = useCallback(() => {
+    if (!pendingSharedFile) return;
+    if (pendingSharedMultiFiles) {
+      // Multi-file → slideshow
+      setInitialSlideshowSource(pendingSharedMultiFiles);
+    } else {
+      // Single file
+      setInitialFileSource(pendingSharedFile);
+    }
+    if (activeTab !== 'access') {
+      setActiveTab('access');
+    }
+    setPendingSharedFile(null);
+    setPendingSharedMultiFiles(null);
+  }, [pendingSharedFile, pendingSharedMultiFiles, activeTab]);
+
+  // Handle shared file action: Create Reminder
+  const handleCreateSharedFileReminder = useCallback(() => {
+    if (!pendingSharedFile) return;
+    setPendingReminderDestination({
+      type: 'file',
+      uri: pendingSharedFile.uri,
+      name: pendingSharedFile.name || 'File',
+      mimeType: pendingSharedFile.mimeType,
+    });
+    setActiveTab('reminders');
+    setPendingSharedFile(null);
+    setPendingSharedMultiFiles(null);
+  }, [pendingSharedFile]);
+
+  // Handle dismissing the shared file action sheet
+  const handleDismissSharedFile = useCallback(() => {
+    setPendingSharedFile(null);
+    setPendingSharedMultiFiles(null);
   }, []);
 
   // Handle clearing bookmark selection
@@ -609,6 +651,19 @@ const Index = () => {
           onCreateShortcut={handleCreateSharedShortcut}
           onCreateReminder={handleCreateSharedReminder}
           onDismiss={handleDismissSharedUrl}
+        />
+      )}
+
+      {/* Shared File Action Picker (always available, regardless of active tab) */}
+      {pendingSharedFile && (
+        <SharedFileActionSheet
+          file={pendingSharedFile}
+          onCreateShortcut={handleCreateSharedFileShortcut}
+          onCreateReminder={handleCreateSharedFileReminder}
+          onDismiss={handleDismissSharedFile}
+          hideReminder={!!pendingSharedMultiFiles}
+          displayName={pendingSharedMultiFiles ? `${pendingSharedMultiFiles.files.length} images` : undefined}
+          displaySubtitle={pendingSharedMultiFiles ? 'Slideshow' : undefined}
         />
       )}
 
