@@ -87,35 +87,7 @@
                 <data android:scheme="onetap" android:host="slideshow" />
             </intent-filter>
 
-            <!-- Share Sheet: Handle shared text (URLs, etc.) -->
-            <intent-filter>
-                <action android:name="android.intent.action.SEND" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="text/*" />
-            </intent-filter>
-            
-            <!-- Share Sheet: Handle shared images -->
-            <intent-filter>
-                <action android:name="android.intent.action.SEND" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="image/*" />
-            </intent-filter>
-            
-            <!-- Share Sheet: Handle shared videos -->
-            <intent-filter>
-                <action android:name="android.intent.action.SEND" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="video/*" />
-            </intent-filter>
-            
-            <!-- Share Sheet: Handle shared documents -->
-            <intent-filter>
-                <action android:name="android.intent.action.SEND" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="application/*" />
-            </intent-filter>
-
-            <!-- Share Sheet: Handle any single shared file (catch-all) -->
+            <!-- Share Sheet: Handle any single shared file (catch-all for all MIME types) -->
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
