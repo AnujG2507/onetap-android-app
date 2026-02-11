@@ -396,9 +396,13 @@ npx cap sync android   ← Copies dist/ into the Android project
        │
        ▼
 patch-android-project  ← Copies native/ files, configures Gradle
+       │                     (injects mandatory release signing —
+       │                      build FAILS if RELEASE_STORE_FILE,
+       │                      RELEASE_STORE_PASSWORD, RELEASE_KEY_ALIAS,
+       │                      or RELEASE_KEY_PASSWORD env vars are missing)
        │
        ▼
-./gradlew bundleRelease  ← Produces a signed .aab file
+./gradlew bundleRelease  ← Produces a release-signed .aab file
        │
        ▼
 Upload to Play Store   ← CI does this automatically (internal track)
