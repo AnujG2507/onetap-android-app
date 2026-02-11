@@ -1,77 +1,79 @@
 
 
-# Fix: Mandatory Release Signing (No Debug Fallback)
+# Fix: Allow Debug Builds Without Release Signing Env Vars
 
-## Root Cause
+## Problem
 
-The `patchReleaseSigning()` function in `scripts/android/patch-android-project.mjs` generates a `signingConfigs.release` block that **falls back to the debug keystore** when environment variables are missing (lines 369-374). This means `./gradlew bundleRelease` always succeeds -- but produces a debug-signed AAB that Google Play rejects.
+The current `signingConfigs.release` block throws `GradleException` during Gradle **configuration phase**, which runs for ALL tasks — including `assembleDebug`. This means developers cannot run debug builds locally without setting all 4 release signing env vars.
 
-## Changes
+## Solution
 
-### 1. `scripts/android/patch-android-project.mjs` -- Rewrite `patchReleaseSigning()`
+Wrap the validation logic so it only triggers when a **release** build task is actually requested. Gradle evaluates `signingConfigs` eagerly, so we use a `gradle.taskGraph.whenReady` guard to defer the check.
 
-Replace the current function (lines 328-401) with a strict version that:
+### Change: `scripts/android/patch-android-project.mjs` — `patchReleaseSigning()`
 
-- Reads `RELEASE_STORE_FILE`, `RELEASE_STORE_PASSWORD`, `RELEASE_KEY_ALIAS`, `RELEASE_KEY_PASSWORD` from environment variables
-- Throws a Gradle `GradleException` if **any** value is missing or the keystore file doesn't exist
-- Uses only `=` assignment syntax (Gradle 9/10 safe)
-- Never references `signingConfigs.debug`
-- Sets `signingConfig = signingConfigs.release` in the `release` build type
-- Does NOT touch `minifyEnabled`, `shrinkResources`, or any other build type property (those are handled by other functions)
+Replace the current `signingConfig` Groovy block (lines 357-374) with a version that:
 
-Generated Gradle block:
+1. **Always defines** `signingConfigs.release` with the env var reads (no throws at config time)
+2. **Defers validation** to `gradle.taskGraph.whenReady` — only checks when a release task is in the graph
+3. If any env var is missing or keystore not found during a release build, throws `GradleException`
+4. Debug builds (`assembleDebug`, `installDebug`, etc.) work without any env vars
+
+New generated Groovy block:
 
 ```groovy
 signingConfigs {
     release {
-        def ksPath = System.getenv("RELEASE_STORE_FILE")
-        if (ksPath == null || ksPath.isEmpty()) {
-            throw new GradleException("RELEASE_STORE_FILE env var is required for release builds")
+        def ksPath = System.getenv("RELEASE_STORE_FILE") ?: ""
+        if (!ksPath.isEmpty()) {
+            storeFile = file(ksPath)
+            storePassword = System.getenv("RELEASE_STORE_PASSWORD") ?: ""
+            keyAlias = System.getenv("RELEASE_KEY_ALIAS") ?: ""
+            keyPassword = System.getenv("RELEASE_KEY_PASSWORD") ?: ""
         }
-        def ksFile = file(ksPath)
-        if (!ksFile.exists()) {
-            throw new GradleException("Keystore not found: " + ksFile.absolutePath)
+    }
+}
+
+gradle.taskGraph.whenReady { taskGraph ->
+    def isRelease = taskGraph.allTasks.any { it.name.toLowerCase().contains("release") }
+    if (isRelease) {
+        def cfg = android.signingConfigs.release
+        if (cfg.storeFile == null || !cfg.storeFile.exists()) {
+            throw new GradleException("Release signing: RELEASE_STORE_FILE is missing or keystore not found. Set all 4 env vars for release builds.")
         }
-        storeFile = ksFile
-        storePassword = System.getenv("RELEASE_STORE_PASSWORD") ?: { throw new GradleException("RELEASE_STORE_PASSWORD env var is required") }()
-        keyAlias = System.getenv("RELEASE_KEY_ALIAS") ?: { throw new GradleException("RELEASE_KEY_ALIAS env var is required") }()
-        keyPassword = System.getenv("RELEASE_KEY_PASSWORD") ?: { throw new GradleException("RELEASE_KEY_PASSWORD env var is required") }()
+        if (!cfg.storePassword || cfg.storePassword.isEmpty()) {
+            throw new GradleException("Release signing: RELEASE_STORE_PASSWORD env var is required")
+        }
+        if (!cfg.keyAlias || cfg.keyAlias.isEmpty()) {
+            throw new GradleException("Release signing: RELEASE_KEY_ALIAS env var is required")
+        }
+        if (!cfg.keyPassword || cfg.keyPassword.isEmpty()) {
+            throw new GradleException("Release signing: RELEASE_KEY_PASSWORD env var is required")
+        }
     }
 }
 ```
 
-The release build type injection will only set `signingConfig = signingConfigs.release` (no minifyEnabled/shrinkResources -- those are already handled by `patchBuildTypes()`).
+The `buildTypes.release.signingConfig = signingConfigs.release` line stays unchanged.
 
-### 2. `.github/workflows/android-release.yml` -- Align env var names
+### Update console log message
 
-Update the "Build release AAB" step to pass the new env var names the Gradle script expects:
+Change the success log from:
+> "Added mandatory release signing configuration (no debug fallback)."
 
-| Old env var | New env var |
-|-------------|-------------|
-| `KEYSTORE_PATH` | `RELEASE_STORE_FILE` |
-| `KEYSTORE_PASSWORD` | `RELEASE_STORE_PASSWORD` |
-| (missing) | `RELEASE_KEY_ALIAS` (set to `onetap-key`) |
-| `KEY_PASSWORD` | `RELEASE_KEY_PASSWORD` |
-
-### 3. `ANDROID_SETUP.md` / `ARCHITECTURE.md` -- Update signing docs
-
-Update the documentation to reflect:
-- The new mandatory env var names
-- That release builds now **fail** if signing is not configured (no silent debug fallback)
-- Local development note: `./gradlew assembleDebug` still works without any env vars
+to:
+> "Added release signing configuration (mandatory for release, optional for debug)."
 
 ## What Does NOT Change
 
-- No keystore files are created, modified, or deleted
-- ProGuard, R8, and resource shrinking settings are untouched
-- Debug signing is untouched
-- No hardcoded secrets
-- All other patch functions remain the same
+- Release builds still **fail hard** if env vars are missing
+- No debug fallback for release builds (signingConfigs.debug is never referenced)
+- CI pipeline, keystore files, ProGuard, R8 settings are untouched
+- Documentation already states debug builds work without env vars — no doc changes needed
 
-## Success Criteria
+## File Changes
 
-- `./gradlew bundleRelease` **fails** if `RELEASE_STORE_FILE` is missing
-- `./gradlew bundleRelease` **succeeds** and produces a Play-uploadable AAB when all 4 env vars are set
-- No Gradle 9/10 deprecation warnings from the signing config
-- CI pipeline passes with existing GitHub secrets (just mapped to new names)
+| File | Change |
+|------|--------|
+| `scripts/android/patch-android-project.mjs` | Rewrite signing block to defer validation to taskGraph.whenReady |
 
