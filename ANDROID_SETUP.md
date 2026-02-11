@@ -81,7 +81,7 @@ The `patch-android-project.mjs` script applies **Gradle 9/10 compatible** config
 - **Sets JDK 21** in gradle.properties
 - **Adds dependencies**: SwipeRefreshLayout, ExoPlayer/Media3, RecyclerView, ExifInterface
 - **Removes deprecated patterns**: jcenter(), old dependency configurations
-- **Configures release signing** with environment variables
+- **Configures mandatory release signing** — requires `RELEASE_STORE_FILE`, `RELEASE_STORE_PASSWORD`, `RELEASE_KEY_ALIAS`, `RELEASE_KEY_PASSWORD` env vars; build **fails** if any are missing (no debug fallback)
 
 ## After Code Changes
 
@@ -248,10 +248,32 @@ If Google sign-in completes but opens in the browser instead of the app:
    adb shell pm verify-app-links --re-verify app.onetap.shortcuts
    ```
 
-## Release APK
+## Release Build (Signed AAB)
 
-1. `npx cap open android`
-2. Build → Generate Signed Bundle/APK → APK
-3. Find APK in `android/app/release/`
+Release builds **require** four environment variables. The build will **fail** if any are missing — there is no fallback to debug signing.
+
+| Variable | Description |
+|----------|-------------|
+| `RELEASE_STORE_FILE` | Path to the `.jks` keystore file |
+| `RELEASE_STORE_PASSWORD` | Keystore password |
+| `RELEASE_KEY_ALIAS` | Signing key alias (e.g., `onetap-key`) |
+| `RELEASE_KEY_PASSWORD` | Signing key password |
+
+### Local release build
+
+```bash
+export RELEASE_STORE_FILE=/path/to/onetap-release.jks
+export RELEASE_STORE_PASSWORD=your_store_password
+export RELEASE_KEY_ALIAS=onetap-key
+export RELEASE_KEY_PASSWORD=your_key_password
+
+node scripts/android/clean-rebuild-android.mjs --release
+```
+
+### CI (GitHub Actions)
+
+The CI pipeline (`android-release.yml`) maps GitHub Secrets to these env vars automatically. See [DEPLOYMENT.md](DEPLOYMENT.md) for details.
+
+**Note:** `./gradlew assembleDebug` still works without any env vars — only release builds enforce signing.
 
 **Important:** Add your release keystore SHA256 fingerprint to `assetlinks.json` on your website domain before releasing.

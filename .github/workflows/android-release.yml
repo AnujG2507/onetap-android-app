@@ -145,9 +145,10 @@ jobs:
       - name: Build release AAB
         working-directory: android
         env:
-          KEYSTORE_PATH: onetap-release.jks
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          RELEASE_STORE_FILE: onetap-release.jks
+          RELEASE_STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: onetap-key
+          RELEASE_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: ./gradlew bundleRelease --no-daemon --stacktrace
       
       - name: Verify AAB was created

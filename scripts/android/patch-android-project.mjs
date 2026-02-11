@@ -327,10 +327,12 @@ function patchVersionInfo() {
 
 /**
  * Configure release signing in app/build.gradle
- * Uses modern Gradle DSL with explicit = assignments
+ * Uses modern Gradle DSL with explicit = assignments (Gradle 9/10 safe)
  * 
- * SAFETY: Always use debug signing for release builds unless CI provides keystore
- * This prevents NullPointerException in signReleaseBundle task
+ * MANDATORY: Release builds MUST have all 4 env vars set:
+ *   RELEASE_STORE_FILE, RELEASE_STORE_PASSWORD, RELEASE_KEY_ALIAS, RELEASE_KEY_PASSWORD
+ * If any are missing, the Gradle build will throw GradleException and fail.
+ * Debug builds are unaffected.
  */
 function patchReleaseSigning() {
   const appBuildGradle = path.join(ANDROID_DIR, "app", "build.gradle");
@@ -349,29 +351,24 @@ function patchReleaseSigning() {
     return;
   }
 
-  // STRATEGY: Define a release signing config that ALWAYS has a valid storeFile
-  // - If KEYSTORE_PATH env is set and file exists, use it
-  // - Otherwise, copy debug keystore settings (always exists)
-  // This ensures signReleaseBundle never gets a null storeFile
+  // STRATEGY: Define a release signing config that ALWAYS requires valid env vars.
+  // If any env var is missing or the keystore file doesn't exist, Gradle throws
+  // a GradleException and the build fails immediately. No debug fallback.
   const signingConfig = `
     signingConfigs {
         release {
-            def keystorePath = System.getenv("KEYSTORE_PATH")
-            def ksFile = keystorePath ? file(keystorePath) : null
-            
-            if (ksFile != null && ksFile.exists()) {
-                // CI/Production: Use release keystore from environment
-                storeFile = ksFile
-                storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
-                keyAlias = System.getenv("KEY_ALIAS") ?: "onetap-key"
-                keyPassword = System.getenv("KEY_PASSWORD") ?: ""
-            } else {
-                // Local development: Use debug keystore (always exists)
-                storeFile = file(System.getProperty("user.home") + "/.android/debug.keystore")
-                storePassword = "android"
-                keyAlias = "androiddebugkey"
-                keyPassword = "android"
+            def ksPath = System.getenv("RELEASE_STORE_FILE")
+            if (ksPath == null || ksPath.isEmpty()) {
+                throw new GradleException("RELEASE_STORE_FILE env var is required for release builds")
             }
+            def ksFile = file(ksPath)
+            if (!ksFile.exists()) {
+                throw new GradleException("Keystore not found: " + ksFile.absolutePath)
+            }
+            storeFile = ksFile
+            storePassword = System.getenv("RELEASE_STORE_PASSWORD") ?: { throw new GradleException("RELEASE_STORE_PASSWORD env var is required") }()
+            keyAlias = System.getenv("RELEASE_KEY_ALIAS") ?: { throw new GradleException("RELEASE_KEY_ALIAS env var is required") }()
+            keyPassword = System.getenv("RELEASE_KEY_PASSWORD") ?: { throw new GradleException("RELEASE_KEY_PASSWORD env var is required") }()
         }
     }
 `;
@@ -383,21 +380,19 @@ function patchReleaseSigning() {
   );
 
   // Update release buildType to use the release signing config
-  // Since we guarantee storeFile is never null above, this is safe
+  // Only sets signingConfig — minifyEnabled/shrinkResources are handled by patchBuildTypes()
   const buildTypesRe = /(buildTypes\s*\{[\s\S]*?release\s*\{)/;
   if (buildTypesRe.test(after)) {
     after = after.replace(
       buildTypesRe,
       `$1
-            signingConfig = signingConfigs.release
-            minifyEnabled = false
-            shrinkResources = false`
+            signingConfig = signingConfigs.release`
     );
   }
 
   if (after !== before) {
     writeFile(appBuildGradle, after);
-    console.log(`[patch-android] Added release signing configuration (falls back to debug keystore).`);
+    console.log(`[patch-android] Added mandatory release signing configuration (no debug fallback).`);
   }
 }
 
