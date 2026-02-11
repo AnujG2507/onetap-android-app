@@ -351,24 +351,38 @@ function patchReleaseSigning() {
     return;
   }
 
-  // STRATEGY: Define a release signing config that ALWAYS requires valid env vars.
-  // If any env var is missing or the keystore file doesn't exist, Gradle throws
-  // a GradleException and the build fails immediately. No debug fallback.
+  // STRATEGY: Define release signing config that reads env vars without throwing at config time.
+  // Validation is deferred to gradle.taskGraph.whenReady so debug builds work without env vars.
+  // Release builds still fail hard if any env var is missing.
   const signingConfig = `
     signingConfigs {
         release {
-            def ksPath = System.getenv("RELEASE_STORE_FILE")
-            if (ksPath == null || ksPath.isEmpty()) {
-                throw new GradleException("RELEASE_STORE_FILE env var is required for release builds")
+            def ksPath = System.getenv("RELEASE_STORE_FILE") ?: ""
+            if (!ksPath.isEmpty()) {
+                storeFile = file(ksPath)
+                storePassword = System.getenv("RELEASE_STORE_PASSWORD") ?: ""
+                keyAlias = System.getenv("RELEASE_KEY_ALIAS") ?: ""
+                keyPassword = System.getenv("RELEASE_KEY_PASSWORD") ?: ""
             }
-            def ksFile = file(ksPath)
-            if (!ksFile.exists()) {
-                throw new GradleException("Keystore not found: " + ksFile.absolutePath)
+        }
+    }
+
+    gradle.taskGraph.whenReady { taskGraph ->
+        def isRelease = taskGraph.allTasks.any { it.name.toLowerCase().contains("release") }
+        if (isRelease) {
+            def cfg = android.signingConfigs.release
+            if (cfg.storeFile == null || !cfg.storeFile.exists()) {
+                throw new GradleException("Release signing: RELEASE_STORE_FILE is missing or keystore not found. Set all 4 env vars for release builds.")
             }
-            storeFile = ksFile
-            storePassword = System.getenv("RELEASE_STORE_PASSWORD") ?: { throw new GradleException("RELEASE_STORE_PASSWORD env var is required") }()
-            keyAlias = System.getenv("RELEASE_KEY_ALIAS") ?: { throw new GradleException("RELEASE_KEY_ALIAS env var is required") }()
-            keyPassword = System.getenv("RELEASE_KEY_PASSWORD") ?: { throw new GradleException("RELEASE_KEY_PASSWORD env var is required") }()
+            if (!cfg.storePassword || cfg.storePassword.isEmpty()) {
+                throw new GradleException("Release signing: RELEASE_STORE_PASSWORD env var is required")
+            }
+            if (!cfg.keyAlias || cfg.keyAlias.isEmpty()) {
+                throw new GradleException("Release signing: RELEASE_KEY_ALIAS env var is required")
+            }
+            if (!cfg.keyPassword || cfg.keyPassword.isEmpty()) {
+                throw new GradleException("Release signing: RELEASE_KEY_PASSWORD env var is required")
+            }
         }
     }
 `;
@@ -392,7 +406,7 @@ function patchReleaseSigning() {
 
   if (after !== before) {
     writeFile(appBuildGradle, after);
-    console.log(`[patch-android] Added mandatory release signing configuration (no debug fallback).`);
+    console.log(`[patch-android] Added release signing configuration (mandatory for release, optional for debug).`);
   }
 }
 
