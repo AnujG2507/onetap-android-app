@@ -315,7 +315,12 @@ const Index = () => {
     if (!pendingSharedUrl) return;
     
     // Switch to reminders tab and set destination for reminder creation
-    setPendingReminderDestination({ type: 'url', uri: pendingSharedUrl, name: pendingSharedUrl });
+    try {
+      const hostname = new URL(pendingSharedUrl).hostname.replace('www.', '');
+      setPendingReminderDestination({ type: 'url', uri: pendingSharedUrl, name: hostname });
+    } catch {
+      setPendingReminderDestination({ type: 'url', uri: pendingSharedUrl, name: pendingSharedUrl });
+    }
     setActiveTab('reminders');
     setPendingSharedUrl(null);
   }, [pendingSharedUrl]);

@@ -9,7 +9,7 @@ import { IconPicker } from './IconPicker';
 import { ContentPreview } from './ContentPreview';
 import { ImageWithFallback } from '@/components/ui/image-with-fallback';
 import { PlatformIcon } from '@/components/PlatformIcon';
-import { getContentName, generateThumbnail, getPlatformEmoji, getFileTypeEmoji, getDetectedPlatform } from '@/lib/contentResolver';
+import { getContentName, generateThumbnail, getPlatformEmoji, getFileTypeEmoji, getDetectedPlatform, smartTruncate } from '@/lib/contentResolver';
 import { buildImageSources } from '@/lib/imageUtils';
 import { detectPlatform } from '@/lib/platformIcons';
 import { useUrlMetadata } from '@/hooks/useUrlMetadata';
@@ -28,6 +28,7 @@ const LARGE_FILE_THRESHOLD = 10 * 1024 * 1024;
 export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustomizerProps) {
   const { t } = useTranslation();
   const [name, setName] = useState(() => getContentName(source));
+  const [hasManuallyEditedName, setHasManuallyEditedName] = useState(false);
   const [thumbnail, setThumbnail] = useState<string | null>(null);
   const [resumeEnabled, setResumeEnabled] = useState(false);
   
@@ -98,6 +99,14 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
       setIcon({ type: 'favicon', value: urlMetadata.favicon });
     }
   }, [shouldFetchFavicon, urlMetadata?.favicon, icon.type]);
+
+  // Auto-update name when page title loads (if user hasn't manually edited)
+  useEffect(() => {
+    if (isUrlSource && urlMetadata?.title && !hasManuallyEditedName) {
+      const truncatedTitle = smartTruncate(urlMetadata.title, 50);
+      setName(truncatedTitle);
+    }
+  }, [isUrlSource, urlMetadata?.title, hasManuallyEditedName]);
   
   useEffect(() => {
     // If we already have thumbnailData from native picker, use it immediately (Fix #5)
@@ -221,10 +230,13 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
           <div className="relative">
             <Input
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => {
+                setName(e.target.value);
+                setHasManuallyEditedName(true);
+              }}
               placeholder={t('shortcutCustomizer.namePlaceholder')}
               className="h-12 text-base pe-10"
-              maxLength={30}
+              maxLength={50}
             />
             {name && (
               <button

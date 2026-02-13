@@ -23,7 +23,7 @@ import {
 interface SavedLinksSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSelectLink: (url: string) => void;
+  onSelectLink: (url: string, title?: string) => void;
   onGoToBookmarks?: () => void;
 }
 
@@ -111,8 +111,8 @@ export function SavedLinksSheet({ open, onOpenChange, onSelectLink, onGoToBookma
     return result;
   }, [links, searchQuery, activeTagFilter]);
 
-  const handleSelect = (url: string) => {
-    onSelectLink(url);
+  const handleSelect = (link: SavedLink) => {
+    onSelectLink(link.url, link.title || undefined);
     onOpenChange(false);
   };
 
@@ -405,7 +405,7 @@ export function SavedLinksSheet({ open, onOpenChange, onSelectLink, onGoToBookma
               {filteredLinks.map((link) => (
                 <button
                   key={link.id}
-                  onClick={() => handleSelect(link.url)}
+                  onClick={() => handleSelect(link)}
                   className={cn(
                     "w-full flex items-start gap-3 p-3 rounded-xl",
                     "bg-muted/30 hover:bg-muted/50",

@@ -121,6 +121,14 @@ export function isValidUrl(string: string): boolean {
   return isLocalhost || isIPAddress || hasDomain;
 }
 
+// Smart truncate: breaks at word boundary, adds ellipsis
+export function smartTruncate(text: string, maxLen = 50): string {
+  if (text.length <= maxLen) return text;
+  const truncated = text.slice(0, maxLen);
+  const lastSpace = truncated.lastIndexOf(' ');
+  return (lastSpace > maxLen * 0.6 ? truncated.slice(0, lastSpace) : truncated) + '...';
+}
+
 // Get file name from path or URL
 export function getContentName(source: ContentSource): string {
   if (source.name) return source.name;
