@@ -237,6 +237,10 @@ function patchAppDependencies() {
 
   // Dependencies to add
   const dependencies = [
+    // AndroidX Core - provides ContextCompat, ActivityCompat, FileProvider (used in ShortcutPlugin)
+    { name: "androidx.core:core", dep: 'implementation "androidx.core:core:1.15.0"' },
+    // AndroidX Activity - provides ActivityResult (used in Capacitor plugin callbacks)
+    { name: "androidx.activity:activity", dep: 'implementation "androidx.activity:activity:1.9.3"' },
     // SwipeRefreshLayout for DesktopWebViewActivity
     { name: "swiperefreshlayout", dep: 'implementation "androidx.swiperefreshlayout:swiperefreshlayout:1.2.0"' },
     // ExoPlayer for NativeVideoPlayerActivity (Media3)
