@@ -1,4 +1,4 @@
-package app.onetap.shortcuts;
+package app.onetap.access;
 
 import android.app.AlarmManager;
 import android.app.PendingIntent;

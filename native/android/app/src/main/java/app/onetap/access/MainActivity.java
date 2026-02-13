@@ -1,11 +1,11 @@
-package app.onetap.shortcuts;
+package app.onetap.access;
 
 import android.content.Intent;
-import android.net.Uri;
 import android.os.Bundle;
+import android.net.Uri;
 import android.util.Log;
 import com.getcapacitor.BridgeActivity;
-import app.onetap.shortcuts.plugins.ShortcutPlugin;
+import app.onetap.access.plugins.ShortcutPlugin;
 
 public class MainActivity extends BridgeActivity {
     private static final String TAG = "MainActivity";

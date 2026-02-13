@@ -186,7 +186,7 @@ function patchSdkVersions() {
   if (!after.includes('namespace')) {
     after = after.replace(
       /(android\s*\{)/,
-      `$1\n    namespace = "app.onetap.shortcuts"`
+      `$1\n    namespace = "app.onetap.access"`
     );
     console.log(`[patch-android] Injected namespace (was missing).`);
   } else {

@@ -171,14 +171,14 @@ The `native/android/app/src/main/AndroidManifest.xml` already declares the App L
 
 ```bash
 # Check if Android verified the domain
-adb shell pm get-app-links app.onetap.shortcuts
+adb shell pm get-app-links app.onetap.access
 
 # Test the deep link manually
 adb shell am start -W -a android.intent.action.VIEW \
   -d "https://onetapapp.in/auth-callback?code=test"
 
 # Force re-verification
-adb shell pm verify-app-links --re-verify app.onetap.shortcuts
+adb shell pm verify-app-links --re-verify app.onetap.access
 ```
 
 ## Environment Check
@@ -239,13 +239,13 @@ If Google sign-in completes but opens in the browser instead of the app:
 
 3. **Check App Links verification status:**
    ```bash
-   adb shell pm get-app-links app.onetap.shortcuts
+   adb shell pm get-app-links app.onetap.access
    ```
    Look for `verified` status
 
 4. **Force re-verification:**
    ```bash
-   adb shell pm verify-app-links --re-verify app.onetap.shortcuts
+   adb shell pm verify-app-links --re-verify app.onetap.access
    ```
 
 ## Release Build (Signed AAB)

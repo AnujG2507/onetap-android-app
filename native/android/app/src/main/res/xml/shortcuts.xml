@@ -9,8 +9,8 @@
         android:shortcutLongLabel="@string/shortcut_manage_long_label">
         <intent
             android:action="android.intent.action.VIEW"
-            android:targetPackage="app.onetap.shortcuts"
-            android:targetClass="app.onetap.shortcuts.MainActivity"
+            android:targetPackage="app.onetap.access"
+            android:targetClass="app.onetap.access.MainActivity"
             android:data="onetap://manage-shortcuts" />
         <categories android:name="android.shortcut.conversation" />
     </shortcut>
