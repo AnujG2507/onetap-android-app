@@ -131,7 +131,7 @@ export function smartTruncate(text: string, maxLen = 50): string {
 
 // Get file name from path or URL
 export function getContentName(source: ContentSource): string {
-  if (source.name) return source.name;
+  if (source.name) return smartTruncate(source.name, 50);
   
   try {
     if (source.type === 'url' || source.type === 'share') {

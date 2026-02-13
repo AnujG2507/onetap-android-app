@@ -43,6 +43,8 @@ interface AccessFlowProps {
   onContentSourceTypeChange?: (type: ContentSourceType) => void;
   /** URL to create shortcut from (e.g., from bookmark library) */
   initialUrlForShortcut?: string | null;
+  /** Pre-fetched title for the initial URL (avoids re-fetch for recognized platforms) */
+  initialTitleForShortcut?: string;
   /** Called when the initial URL has been consumed */
   onInitialUrlConsumed?: () => void;
   /** Single file shared from Share Sheet - routes directly to customize step */
@@ -67,6 +69,7 @@ export function AccessFlow({
   onStepChange, 
   onContentSourceTypeChange,
   initialUrlForShortcut,
+  initialTitleForShortcut,
   onInitialUrlConsumed,
   initialFileSource,
   onInitialFileConsumed,
@@ -182,6 +185,7 @@ export function AccessFlow({
       setContentSource({
         type: 'url',
         uri: initialUrlForShortcut,
+        name: initialTitleForShortcut || undefined,
       });
       setStep('customize');
       

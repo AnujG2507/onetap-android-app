@@ -55,10 +55,10 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
     return null;
   }, [source.type, source.uri]);
   
-  // Fetch favicon for unrecognized URLs
+  // Fetch metadata for all URL sources (title for all, favicon for unrecognized)
   const isUrlSource = source.type === 'url' || source.type === 'share';
   const shouldFetchFavicon = isUrlSource && !detectedPlatform;
-  const { metadata: urlMetadata } = useUrlMetadata(shouldFetchFavicon ? source.uri : null);
+  const { metadata: urlMetadata } = useUrlMetadata(isUrlSource ? source.uri : null);
   
   // Get initial icon based on source type - prefer platform icons for recognized URLs
   const getInitialIcon = (): ShortcutIcon => {
