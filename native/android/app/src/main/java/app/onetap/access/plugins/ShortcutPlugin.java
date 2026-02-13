@@ -1,25 +1,39 @@
 package app.onetap.access.plugins;
 
+// Android framework imports
 import android.Manifest;
 import android.app.Activity;
 import android.app.PendingIntent;
+import android.appwidget.AppWidgetManager;
+import android.content.ClipData;
+import android.content.ComponentName;
 import android.content.ContentResolver;
+import android.content.ContentUris;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.content.pm.ShortcutInfo;
 import android.content.pm.ShortcutManager;
+import android.content.res.AssetFileDescriptor;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Matrix;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.Rect;
+import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.graphics.drawable.Icon;
+import android.media.MediaMetadataRetriever;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
+import android.os.ParcelFileDescriptor;
 import android.provider.ContactsContract;
 import android.provider.MediaStore;
 import android.provider.OpenableColumns;
@@ -27,6 +41,14 @@ import android.util.Base64;
 import android.util.Log;
 import android.webkit.MimeTypeMap;
 
+// AndroidX imports
+import androidx.activity.result.ActivityResult;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+import androidx.core.content.FileProvider;
+import androidx.exifinterface.media.ExifInterface;
+
+// Capacitor imports
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
@@ -37,6 +59,7 @@ import com.getcapacitor.annotation.ActivityCallback;
 import com.getcapacitor.annotation.Permission;
 import com.getcapacitor.annotation.PermissionCallback;
 
+// Java standard library
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -45,38 +68,33 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URL;
 import java.net.HttpURLConnection;
-
-import org.json.JSONException;
-import org.json.JSONObject;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 
-import app.onetap.access.DesktopWebViewActivity;
-import app.onetap.access.NativeVideoPlayerActivity;
-import app.onetap.access.PDFProxyActivity;
-import app.onetap.access.VideoProxyActivity;
-import app.onetap.access.ContactProxyActivity;
-import app.onetap.access.WhatsAppProxyActivity;
-import app.onetap.access.ShortcutEditProxyActivity;
-import app.onetap.access.LinkProxyActivity;
-import app.onetap.access.MessageProxyActivity;
-import app.onetap.access.FileProxyActivity;
-import app.onetap.access.SlideshowProxyActivity;
-import app.onetap.access.ScheduledActionReceiver;
-import app.onetap.access.NotificationHelper;
-import app.onetap.access.NotificationClickActivity;
-import app.onetap.access.NativeUsageTracker;
-import app.onetap.access.CrashLogger;
-
-import app.onetap.access.MainActivity;
-import android.content.SharedPreferences;
 import org.json.JSONArray;
 import org.json.JSONException;
-import android.appwidget.AppWidgetManager;
-import android.content.ComponentName;
+import org.json.JSONObject;
+
+// App-specific imports
+import app.onetap.access.ContactProxyActivity;
+import app.onetap.access.CrashLogger;
+import app.onetap.access.DesktopWebViewActivity;
+import app.onetap.access.FileProxyActivity;
+import app.onetap.access.LinkProxyActivity;
+import app.onetap.access.MainActivity;
+import app.onetap.access.MessageProxyActivity;
+import app.onetap.access.NativeUsageTracker;
+import app.onetap.access.NativeVideoPlayerActivity;
+import app.onetap.access.NotificationClickActivity;
+import app.onetap.access.NotificationHelper;
+import app.onetap.access.PDFProxyActivity;
+import app.onetap.access.ScheduledActionReceiver;
+import app.onetap.access.ShortcutEditProxyActivity;
+import app.onetap.access.SlideshowProxyActivity;
+import app.onetap.access.VideoProxyActivity;
+import app.onetap.access.WhatsAppProxyActivity;
 
 @CapacitorPlugin(
     name = "ShortcutPlugin",
