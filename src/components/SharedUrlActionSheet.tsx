@@ -19,7 +19,7 @@ import { triggerHaptic } from '@/lib/haptics';
 interface SharedUrlActionSheetProps {
   url: string;
   onSaveToLibrary: (data?: { title?: string; description?: string; tag?: string | null }) => void;
-  onCreateShortcut: () => void;
+  onCreateShortcut: (title?: string) => void;
   onCreateReminder: () => void;
   onDismiss: () => void;
 }
@@ -140,7 +140,7 @@ export function SharedUrlActionSheet({
 
   const handleCreateShortcut = () => {
     setIsExiting(true);
-    setTimeout(onCreateShortcut, 200);
+    setTimeout(() => onCreateShortcut(metadata?.title || undefined), 200);
   };
 
   const handleCreateReminder = () => {

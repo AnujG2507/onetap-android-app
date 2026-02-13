@@ -61,6 +61,7 @@ const Index = () => {
   const [bookmarkClearSignal, setBookmarkClearSignal] = useState(0);
   const [notificationsClearSignal, setNotificationsClearSignal] = useState(0);
   const [shortcutUrlFromBookmark, setShortcutUrlFromBookmark] = useState<string | null>(null);
+  const [shortcutTitleFromShare, setShortcutTitleFromShare] = useState<string | undefined>(undefined);
   const [showExitConfirmation, setShowExitConfirmation] = useState(false);
   const [pendingSharedUrl, setPendingSharedUrl] = useState<string | null>(null);
   const [slideDirection, setSlideDirection] = useState<'left' | 'right' | null>(null);
@@ -301,11 +302,12 @@ const Index = () => {
   }, [pendingSharedUrl, toast]);
 
   // Handle shared URL action: Create Shortcut
-  const handleCreateSharedShortcut = useCallback(() => {
+  const handleCreateSharedShortcut = useCallback((title?: string) => {
     if (!pendingSharedUrl) return;
     
     // Switch to access tab and set URL for shortcut creation
     setShortcutUrlFromBookmark(pendingSharedUrl);
+    setShortcutTitleFromShare(title);
     setActiveTab('access');
     setPendingSharedUrl(null);
   }, [pendingSharedUrl]);
@@ -457,6 +459,7 @@ const Index = () => {
   // Clear the URL once AccessFlow has consumed it
   const handleInitialUrlConsumed = useCallback(() => {
     setShortcutUrlFromBookmark(null);
+    setShortcutTitleFromShare(undefined);
   }, []);
 
   // Track step and content type changes from AccessFlow
@@ -560,6 +563,7 @@ const Index = () => {
             onStepChange={handleAccessStepChange}
             onContentSourceTypeChange={handleContentSourceTypeChange}
             initialUrlForShortcut={shortcutUrlFromBookmark}
+            initialTitleForShortcut={shortcutTitleFromShare}
             onInitialUrlConsumed={handleInitialUrlConsumed}
             initialFileSource={initialFileSource}
             onInitialFileConsumed={() => setInitialFileSource(null)}
