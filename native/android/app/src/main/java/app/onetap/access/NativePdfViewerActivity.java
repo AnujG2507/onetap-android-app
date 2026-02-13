@@ -1,4 +1,4 @@
-package app.onetap.shortcuts;
+package app.onetap.access;
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;

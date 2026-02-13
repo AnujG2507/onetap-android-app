@@ -1,4 +1,4 @@
-package app.onetap.shortcuts;
+package app.onetap.access;
 
 import android.content.Context;
 import android.content.SharedPreferences;

@@ -1,4 +1,4 @@
-package app.onetap.shortcuts;
+package app.onetap.access;
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
@@ -126,9 +126,9 @@ public class NativeVideoPlayerActivity extends Activity {
     private boolean isPipEnabled = true; // User preference from settings
     private int videoWidth = 16;
     private int videoHeight = 9;
-    private static final String PIP_ACTION_PLAY_PAUSE = "app.onetap.shortcuts.PIP_PLAY_PAUSE";
-    private static final String PIP_ACTION_SEEK_BACK = "app.onetap.shortcuts.PIP_SEEK_BACK";
-    private static final String PIP_ACTION_SEEK_FORWARD = "app.onetap.shortcuts.PIP_SEEK_FORWARD";
+    private static final String PIP_ACTION_PLAY_PAUSE = "app.onetap.access.PIP_PLAY_PAUSE";
+    private static final String PIP_ACTION_SEEK_BACK = "app.onetap.access.PIP_SEEK_BACK";
+    private static final String PIP_ACTION_SEEK_FORWARD = "app.onetap.access.PIP_SEEK_FORWARD";
     private static final long PIP_SEEK_INCREMENT_MS = 10000;
     private BroadcastReceiver pipActionReceiver;
 

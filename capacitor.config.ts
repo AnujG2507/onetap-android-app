@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'app.onetap.shortcuts',
+  appId: 'app.onetap.access',
   appName: 'OneTap',
   webDir: 'dist',
   // For live reload during development, uncomment and set your local IP:

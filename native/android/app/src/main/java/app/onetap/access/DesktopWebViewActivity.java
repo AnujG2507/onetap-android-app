@@ -1,4 +1,4 @@
-package app.onetap.shortcuts;
+package app.onetap.access;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;

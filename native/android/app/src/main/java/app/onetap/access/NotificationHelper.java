@@ -1,4 +1,4 @@
-package app.onetap.shortcuts;
+package app.onetap.access;
 
 import android.app.Notification;
 import android.app.NotificationChannel;

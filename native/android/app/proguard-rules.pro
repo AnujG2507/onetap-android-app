@@ -61,38 +61,38 @@
 # ----------------------------------------------------------------------------
 
 # Keep all OneTap activity classes
--keep class app.onetap.shortcuts.** { *; }
+-keep class app.onetap.access.** { *; }
 
 # Keep the ShortcutPlugin specifically
--keep class app.onetap.shortcuts.plugins.ShortcutPlugin { *; }
+-keep class app.onetap.access.plugins.ShortcutPlugin { *; }
 
 # Keep all activity classes for intent handling
--keep class app.onetap.shortcuts.MainActivity { *; }
--keep class app.onetap.shortcuts.LinkProxyActivity { *; }
--keep class app.onetap.shortcuts.ContactProxyActivity { *; }
--keep class app.onetap.shortcuts.FileProxyActivity { *; }
--keep class app.onetap.shortcuts.PDFProxyActivity { *; }
--keep class app.onetap.shortcuts.VideoProxyActivity { *; }
--keep class app.onetap.shortcuts.MessageProxyActivity { *; }
--keep class app.onetap.shortcuts.WhatsAppProxyActivity { *; }
--keep class app.onetap.shortcuts.SlideshowProxyActivity { *; }
--keep class app.onetap.shortcuts.ShortcutEditProxyActivity { *; }
--keep class app.onetap.shortcuts.DesktopWebViewActivity { *; }
--keep class app.onetap.shortcuts.NativeVideoPlayerActivity { *; }
--keep class app.onetap.shortcuts.NativePdfViewerActivity { *; }
--keep class app.onetap.shortcuts.NotificationClickActivity { *; }
+-keep class app.onetap.access.MainActivity { *; }
+-keep class app.onetap.access.LinkProxyActivity { *; }
+-keep class app.onetap.access.ContactProxyActivity { *; }
+-keep class app.onetap.access.FileProxyActivity { *; }
+-keep class app.onetap.access.PDFProxyActivity { *; }
+-keep class app.onetap.access.VideoProxyActivity { *; }
+-keep class app.onetap.access.MessageProxyActivity { *; }
+-keep class app.onetap.access.WhatsAppProxyActivity { *; }
+-keep class app.onetap.access.SlideshowProxyActivity { *; }
+-keep class app.onetap.access.ShortcutEditProxyActivity { *; }
+-keep class app.onetap.access.DesktopWebViewActivity { *; }
+-keep class app.onetap.access.NativeVideoPlayerActivity { *; }
+-keep class app.onetap.access.NativePdfViewerActivity { *; }
+-keep class app.onetap.access.NotificationClickActivity { *; }
 
 # Keep broadcast receivers
--keep class app.onetap.shortcuts.BootReceiver { *; }
--keep class app.onetap.shortcuts.ScheduledActionReceiver { *; }
+-keep class app.onetap.access.BootReceiver { *; }
+-keep class app.onetap.access.ScheduledActionReceiver { *; }
 
 # Keep widget classes
--keep class app.onetap.shortcuts.QuickCreateWidget { *; }
+-keep class app.onetap.access.QuickCreateWidget { *; }
 
 # Keep helper classes
--keep class app.onetap.shortcuts.NotificationHelper { *; }
--keep class app.onetap.shortcuts.NativeUsageTracker { *; }
--keep class app.onetap.shortcuts.CrashLogger { *; }
+-keep class app.onetap.access.NotificationHelper { *; }
+-keep class app.onetap.access.NativeUsageTracker { *; }
+-keep class app.onetap.access.CrashLogger { *; }
 
 # ----------------------------------------------------------------------------
 # ANDROIDX MEDIA3 / EXOPLAYER

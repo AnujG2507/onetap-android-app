@@ -3,7 +3,7 @@
     "relation": ["delegate_permission/common.handle_all_urls"],
     "target": {
       "namespace": "android_app",
-      "package_name": "app.onetap.shortcuts",
+      "package_name": "app.onetap.access",
       "sha256_cert_fingerprints": [
         "33:0F:35:2A:41:C5:DC:9F:98:14:06:8E:51:DC:9C:CA:FA:1A:C3:DF:0F:83:5D:37:AC:D6:DF:51:C5:65:80:E0"
       ]
