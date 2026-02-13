@@ -18,7 +18,7 @@ interface ClipboardSuggestionProps {
   url: string;
   onCreateShortcut: (url: string) => void;
   onSaveToLibrary: (url: string, data?: { title?: string; description?: string; tag?: string | null }) => void;
-  onCreateReminder: (url: string) => void;
+  onCreateReminder: (url: string, title?: string) => void;
   onDismiss: () => void;
 }
 
@@ -159,7 +159,7 @@ export function ClipboardSuggestion({
   const handleCreateReminder = () => {
     setIsExiting(true);
     setTimeout(() => {
-      onCreateReminder(url);
+      onCreateReminder(url, metadata?.title || undefined);
     }, 150);
   };
 

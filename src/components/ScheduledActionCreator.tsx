@@ -1,5 +1,5 @@
 // Scheduled Action Creator - multi-step flow for creating a scheduled action
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,7 +13,8 @@ import { PhoneNumberInput } from '@/components/PhoneNumberInput';
 import { useScheduledActions } from '@/hooks/useScheduledActions';
 import { useSheetBackHandler } from '@/hooks/useSheetBackHandler';
 import { triggerHaptic } from '@/lib/haptics';
-import { pickFile, isValidUrl } from '@/lib/contentResolver';
+import { pickFile, isValidUrl, smartTruncate } from '@/lib/contentResolver';
+import { useUrlMetadata } from '@/hooks/useUrlMetadata';
 import ShortcutPlugin from '@/plugins/ShortcutPlugin';
 import { SavedLinksSheet } from './SavedLinksSheet';
 import { Clipboard as CapClipboard } from '@capacitor/clipboard';
@@ -67,7 +68,19 @@ export function ScheduledActionCreator({
   const [contactName, setContactName] = useState('');
   const [contactPhone, setContactPhone] = useState('');
   const [isContactPhoneValid, setIsContactPhoneValid] = useState(false);
+  const [hasManuallyEditedName, setHasManuallyEditedName] = useState(false);
 
+  // Fetch URL metadata for auto-filling name
+  const urlForMetadata = destination?.type === 'url' ? destination.uri : null;
+  const { metadata: urlMetadata } = useUrlMetadata(urlForMetadata);
+
+  // Auto-update name when page title loads (if user hasn't manually edited)
+  useEffect(() => {
+    if (urlMetadata?.title && !hasManuallyEditedName && destination?.type === 'url') {
+      const truncatedTitle = smartTruncate(urlMetadata.title, 50);
+      setName(truncatedTitle);
+    }
+  }, [urlMetadata?.title, hasManuallyEditedName, destination?.type]);
   // Back button handler for internal step navigation
   // Determine if we should intercept the back button (when not on exit step)
   const shouldInterceptBack = 
@@ -208,20 +221,20 @@ export function ScheduledActionCreator({
     }
   };
 
-  const handleBookmarkSelect = (url: string) => {
+  const handleBookmarkSelect = (url: string, title?: string) => {
     setShowBookmarkPicker(false);
     try {
       const hostname = new URL(url).hostname.replace('www.', '');
       handleDestinationSelect({
         type: 'url',
         uri: url,
-        name: hostname,
+        name: title || hostname,
       });
     } catch {
       handleDestinationSelect({
         type: 'url',
         uri: url,
-        name: 'Link',
+        name: title || 'Link',
       });
     }
   };
@@ -646,7 +659,7 @@ export function ScheduledActionCreator({
               <Input
                 id="action-name"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) => { setName(e.target.value); setHasManuallyEditedName(true); }}
                 placeholder={destination ? getSuggestedName(destination) : 'My action'}
                 className="h-12 landscape:h-10 rounded-xl text-base"
                 autoFocus

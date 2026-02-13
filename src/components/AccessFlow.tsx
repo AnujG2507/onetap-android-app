@@ -237,21 +237,21 @@ export function AccessFlow({
     });
   };
 
-  const handleClipboardCreateReminder = (url: string) => {
+  const handleClipboardCreateReminder = (url: string, title?: string) => {
     dismissDetection();
     try {
       const hostname = new URL(url).hostname.replace('www.', '');
       const destination: ScheduledActionDestination = {
         type: 'url',
         uri: url,
-        name: hostname,
+        name: title || hostname,
       };
       onCreateReminder?.(destination);
     } catch {
       onCreateReminder?.({
         type: 'url',
         uri: url,
-        name: 'Link',
+        name: title || 'Link',
       });
     }
   };
@@ -261,7 +261,7 @@ export function AccessFlow({
     setShowBookmarkPicker(true);
   };
 
-  const handleBookmarkSelected = (url: string) => {
+  const handleBookmarkSelected = (url: string, title?: string) => {
     setShowBookmarkPicker(false);
     
     if (pendingActionMode === 'reminder') {
@@ -271,14 +271,14 @@ export function AccessFlow({
         const destination: ScheduledActionDestination = {
           type: 'url',
           uri: url,
-          name: hostname,
+          name: title || hostname,
         };
         onCreateReminder?.(destination);
       } catch {
         onCreateReminder?.({
           type: 'url',
           uri: url,
-          name: 'Bookmark',
+          name: title || 'Bookmark',
         });
       }
     } else {
