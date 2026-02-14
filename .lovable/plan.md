@@ -1,88 +1,51 @@
 
 
-# Fix CALL_PHONE Permission Request Across All OEMs
+# Fix Bottom Button Overlap with Android Navigation Bar
 
 ## Problem
 
-The current `requestCallPermission` in `ShortcutPlugin.java` has two bugs:
+On OnePlus (and potentially other OEMs with 3-button navigation), the "Add to Home Screen" button overlaps with the system navigation bar. This happens because:
 
-1. **`CALL_PHONE` is not registered** in the `@CapacitorPlugin` permissions annotation, so Capacitor's built-in permission callback system cannot manage it
-2. **The method resolves immediately** with `granted: false` after calling `ActivityCompat.requestPermissions`, instead of waiting for the user to respond to the system dialog
-
-On Samsung, this happens to work because the shortcut creation proceeds anyway and `ContactProxyActivity` handles the fallback. But on OnePlus, Xiaomi, OPPO, and Vivo, the permission dialog may appear briefly or not at all, and the JS layer never learns the user granted permission.
+1. **`env(safe-area-inset-bottom)` returns 0** on many Android devices with 3-button navigation -- the CSS environment variable is only reliably populated on devices using gesture navigation or devices with a notch/cutout.
+2. **The fallback value of `16px` is too small** -- on 3-button navigation, the bar is typically ~48dp tall, so 16px is completely insufficient.
+3. **Some components are missing `safe-bottom` entirely** -- `ContactShortcutCustomizer` and `SlideshowCustomizer` have no bottom padding protection at all.
 
 ## Solution
 
-### Part 1 -- Register CALL_PHONE in Capacitor permissions (ShortcutPlugin.java)
+### 1. Increase the `safe-bottom` fallback and add a minimum padding (index.css)
 
-Add a new permission alias `"callPhone"` to the `@CapacitorPlugin` annotation:
+Replace the current `safe-bottom` class with a more robust version that uses `max()` to ensure a minimum bottom padding of `24px` even when `env(safe-area-inset-bottom)` reports 0:
 
-```text
-@Permission(
-    alias = "callPhone",
-    strings = { Manifest.permission.CALL_PHONE }
-)
-```
-
-### Part 2 -- Use Capacitor's callback system for requestCallPermission (ShortcutPlugin.java)
-
-Replace the current `requestCallPermission` method that uses raw `ActivityCompat.requestPermissions` and resolves immediately. Instead, use Capacitor's `requestPermissionForAlias` with a `@PermissionCallback`, following the same pattern already used by `storagePermissionCallback`:
-
-```text
-@PluginMethod
-public void requestCallPermission(PluginCall call) {
-    if (getPermissionState("callPhone") == PermissionState.GRANTED) {
-        JSObject result = new JSObject();
-        result.put("granted", true);
-        call.resolve(result);
-    } else {
-        requestPermissionForAlias("callPhone", call, "callPermissionCallback");
-    }
-}
-
-@PermissionCallback
-private void callPermissionCallback(PluginCall call) {
-    JSObject result = new JSObject();
-    result.put("granted", getPermissionState("callPhone") == PermissionState.GRANTED);
-    call.resolve(result);
+```css
+.safe-bottom {
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 24px);
 }
 ```
 
-This ensures the JS `await ShortcutPlugin.requestCallPermission()` only resolves **after** the user has responded to the system permission dialog.
+This ensures all screens get at least 24px of breathing room from the bottom edge, which prevents overlap with the 3-button navigation bar on OEMs like OnePlus and Xiaomi.
 
-### Part 3 -- Update checkCallPermission to use Capacitor state (ShortcutPlugin.java)
+### 2. Add `safe-bottom` to ContactShortcutCustomizer.tsx
 
-Simplify `checkCallPermission` to use the same Capacitor permission state:
+The confirm button container (line 264-273) currently has no safe-bottom padding. Wrap the bottom section in a container with `safe-bottom`:
 
-```text
-@PluginMethod
-public void checkCallPermission(PluginCall call) {
-    JSObject result = new JSObject();
-    result.put("granted", getPermissionState("callPhone") == PermissionState.GRANTED);
-    call.resolve(result);
-}
-```
+Change the spacer + button area to include `safe-bottom` on the outer scrollable container or add it to a bottom-pinned wrapper, matching the pattern used in `ShortcutCustomizer`.
 
-### No JS changes needed
+### 3. Fix SlideshowCustomizer.tsx bottom button
 
-The existing code in `shortcutManager.ts` (lines 191-207) already:
-- Checks permission before creating a contact shortcut
-- Requests permission if not granted
-- Continues regardless of result (fallback to dialer)
+The slideshow customizer uses `pb-safe` (line 398) which is not a defined CSS class. Replace it with the standard `safe-bottom` class to use the corrected utility.
 
-The only issue was the native side resolving immediately. With the Capacitor callback fix, the `await` will now properly wait for the user's response.
-
-## Files Changed
+## Summary of File Changes
 
 | File | Change |
 |------|--------|
-| `ShortcutPlugin.java` (annotation, line 99-121) | Add `callPhone` permission alias |
-| `ShortcutPlugin.java` (requestCallPermission, line 3417-3453) | Use `requestPermissionForAlias` + callback |
-| `ShortcutPlugin.java` (checkCallPermission, line 3399-3415) | Use `getPermissionState` |
+| `src/index.css` (line 104-106) | Update `.safe-bottom` to use `max()` for a 24px minimum |
+| `src/components/ContactShortcutCustomizer.tsx` (line 274) | Add `safe-bottom` to the outer container |
+| `src/components/SlideshowCustomizer.tsx` (line 398) | Replace undefined `pb-safe` with `safe-bottom` |
 
 ## Why This Fixes All OEMs
 
-- Capacitor's `requestPermissionForAlias` uses the standard Android permission flow and hooks into the activity result lifecycle correctly
-- The `@PermissionCallback` ensures the JS promise only resolves after the system dialog is dismissed
-- This is the same proven pattern used for storage and notification permissions in the same file, which already work across all OEMs
+- `max()` picks the larger of the safe area inset and the fixed 24px minimum
+- On gesture navigation devices: `env()` returns the correct inset (usually 20-34px), `max()` uses that
+- On 3-button navigation (OnePlus, Xiaomi, etc.): `env()` returns 0, `max()` falls back to 24px
+- Samsung is unaffected since it already reports correct inset values
 
