@@ -241,6 +241,7 @@ function WeekCalendar({ selectedDate, onDateSelect, onOpenFullCalendar }: WeekCa
         {/* Month header with navigation */}
         <div className="flex items-center justify-between">
           <motion.button
+            type="button"
             whileTap={{ scale: 0.85 }}
             whileHover={{ scale: 1.05 }}
             onClick={() => {
@@ -272,6 +273,7 @@ function WeekCalendar({ selectedDate, onDateSelect, onOpenFullCalendar }: WeekCa
           </motion.div>
           
           <motion.button
+            type="button"
             whileTap={{ scale: 0.85 }}
             whileHover={{ scale: 1.05 }}
             onClick={() => {
@@ -311,6 +313,7 @@ function WeekCalendar({ selectedDate, onDateSelect, onOpenFullCalendar }: WeekCa
                 
                 return (
                   <motion.button
+                    type="button"
                     key={date.toISOString()}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -393,6 +396,7 @@ function WeekCalendar({ selectedDate, onDateSelect, onOpenFullCalendar }: WeekCa
           <div className="flex items-center gap-2 bg-muted/50 rounded-full p-1.5">
             {[0, 1, 2, 3, 4].map((i) => (
               <motion.button
+                type="button"
                 key={i}
                 whileTap={{ scale: 0.9 }}
                 onClick={() => {
@@ -412,6 +416,7 @@ function WeekCalendar({ selectedDate, onDateSelect, onOpenFullCalendar }: WeekCa
           
           {/* Pick specific date button - premium styling */}
           <motion.button
+            type="button"
             whileTap={{ scale: 0.95 }}
             whileHover={{ scale: 1.02 }}
             onClick={() => {
