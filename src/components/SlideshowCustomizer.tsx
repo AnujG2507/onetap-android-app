@@ -395,7 +395,7 @@ export function SlideshowCustomizer({ source, onConfirm, onBack }: SlideshowCust
       </div>
 
       {/* Fixed bottom button */}
-      <div className="fixed bottom-0 left-0 right-0 p-5 safe-bottom bg-gradient-to-t from-background via-background to-transparent">
+      <div className="fixed bottom-0 left-0 right-0 p-5 safe-bottom-action bg-gradient-to-t from-background via-background to-transparent">
         <Button
           onClick={handleSubmit}
           disabled={files.length < 2 || isSubmitting}

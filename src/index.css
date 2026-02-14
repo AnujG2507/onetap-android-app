@@ -110,6 +110,11 @@ All colors MUST be HSL.
     padding-top: env(safe-area-inset-top, 0px);
   }
 
+  /* Safe area for action buttons outside bottom nav — 16px minimum floor */
+  .safe-bottom-action {
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 16px);
+  }
+
   /* Header-safe utilities: combines safe area + visual padding */
   .pt-header-safe {
     padding-top: calc(env(safe-area-inset-top, 0px) + 1rem);

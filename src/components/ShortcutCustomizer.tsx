@@ -351,7 +351,7 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
         </div>
       </div>
       
-      <div className="p-4 landscape:p-3 safe-bottom space-y-3 landscape:space-y-2">
+      <div className="p-4 landscape:p-3 safe-bottom-action space-y-3 landscape:space-y-2">
         {/* Progress indicator for large files */}
         {isCreating && isLargeFile && (
           <div className="space-y-3 landscape:space-y-2 p-4 landscape:p-3 rounded-xl bg-muted/30 border border-border/50 animate-fade-in">

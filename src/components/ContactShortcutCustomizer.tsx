@@ -180,7 +180,7 @@ export function ContactShortcutCustomizer({
         </h1>
       </header>
 
-      <div className="flex-1 px-5 pb-6 landscape:px-4 landscape:pb-4 flex flex-col gap-6 landscape:gap-3 overflow-y-auto safe-bottom">
+      <div className="flex-1 px-5 pb-6 landscape:px-4 landscape:pb-4 flex flex-col gap-6 landscape:gap-3 overflow-y-auto safe-bottom-action">
         <div className="landscape:grid landscape:grid-cols-2 landscape:gap-6 contents landscape:block">
           {/* Left column in landscape: Contact info, phone, name */}
           <div className="space-y-6 landscape:space-y-3 contents landscape:block">
