@@ -1,42 +1,56 @@
 
 
-## Fix: "Add to Home Screen" Button Overlapping Android Navigation Bar
+## Fix: Phone Number Input Clearing on Manual Entry
 
-The global `.safe-bottom` class was recently changed to only use `env(safe-area-inset-bottom)`, which returns 0 on devices with 3-button navigation. The bottom nav bar looks correct with this, but the shortcut creation screens (which don't show the bottom nav) now have their action buttons sitting too close to the native navigation bar.
+### Problem
 
-### Approach
+The `PhoneNumberInput` component has a feedback loop between the user's typing and the `useEffect` that syncs the `value` prop back into local state:
 
-Add a dedicated CSS utility class `.safe-bottom-action` that enforces a 16px minimum bottom padding, and apply it to the four screens that have bottom action buttons outside the bottom nav:
+1. User types a digit into the national number field
+2. `handleNationalNumberChange` formats and calls `onChange(e164, isValid)` to notify the parent
+3. Parent stores the new value, which flows back as the `value` prop
+4. The `useEffect` (line 54) reacts to `value` changing, re-parses it, and overwrites `nationalNumber`
+5. For short US numbers (+1), parsing/formatting produces unexpected results, clearing the field
+
+This is especially bad for +1 (US/CA) because short partial numbers like "+12" or "+123" may be ambiguous to the parser.
+
+### Solution
+
+Add a ref (`isInternalChange`) to track whether the `value` change originated from the user's own typing. When it did, skip the `useEffect` re-parse so the local `nationalNumber` state remains untouched.
 
 ### Changes
 
-**1. `src/index.css`** -- Add new utility class
+**File: `src/components/PhoneNumberInput.tsx`**
 
-Add a `.safe-bottom-action` class with a 16px minimum floor for screens where action buttons sit at the bottom edge without the bottom nav:
+1. Add a `useRef` for tracking internal changes:
+   ```typescript
+   const isInternalChange = useRef(false);
+   ```
 
-```css
-.safe-bottom-action {
-  padding-bottom: max(env(safe-area-inset-bottom, 0px), 16px);
-}
-```
+2. In `handleNationalNumberChange`, set the ref to `true` before calling `onChange`:
+   ```typescript
+   isInternalChange.current = true;
+   onChange(e164 || input, validation === 'valid');
+   ```
 
-**2. `src/components/ShortcutCustomizer.tsx`** (line 354)
+3. Same in `handleCountryChange` and `handlePaste` -- set `isInternalChange.current = true` before calling `onChange`.
 
-Replace `safe-bottom` with `safe-bottom-action` on the button container.
+4. In the `useEffect` that watches `value` (line 54-70), skip processing if `isInternalChange` is true:
+   ```typescript
+   useEffect(() => {
+     if (isInternalChange.current) {
+       isInternalChange.current = false;
+       return;
+     }
+     // ... existing parsing logic for external value changes (e.g., contact picker)
+   }, [value]);
+   ```
 
-**3. `src/components/ContactShortcutCustomizer.tsx`** (line 183)
+5. In `handleClear`, also set `isInternalChange.current = true` before calling `onChange`.
 
-Replace `safe-bottom` with `safe-bottom-action` on the scrollable content container.
+This preserves the existing behavior for external value changes (like picking a contact), while preventing the feedback loop during manual typing.
 
-**4. `src/components/SlideshowCustomizer.tsx`** (line 398)
+### Technical Detail
 
-Replace `safe-bottom` with `safe-bottom-action` on the fixed bottom button container.
-
-**5. `src/components/UrlInput.tsx`** (line 282)
-
-Replace `safe-bottom` with `safe-bottom-action` on the button container.
-
-### What stays the same
-
-The `BottomNav.tsx` continues using the existing `.safe-bottom` class (flush with the edge), which is the behavior you confirmed works well.
+The `useEffect` watching `value` is still needed for cases where the parent sets the value externally (e.g., contact picker populates the phone number). The ref simply distinguishes between "value changed because user typed" vs "value changed because parent set it externally".
 
