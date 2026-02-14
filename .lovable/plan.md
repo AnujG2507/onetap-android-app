@@ -1,49 +1,69 @@
 
 
-# Fix Bookmark Swipe-to-Delete Being Overridden by Tab Swipe
+# Fix CALL_PHONE Permission Not Triggering on Samsung Galaxy
 
 ## Problem
 
-The bookmarks tab container (in `Index.tsx` line 606) spreads `{...swipeHandlers}` for tab navigation. `BookmarkItem` also has its own `onTouchStart/Move/End` handlers for swipe-to-delete. Since both are on different DOM levels, when a user swipes horizontally on a bookmark item:
+On Samsung Galaxy devices, the CALL_PHONE permission prompt never appears when creating a contact shortcut. This happens because:
 
-1. The bookmark's touch handler detects a delete swipe and updates `swipeX`
-2. The parent's touch handler also detects a horizontal swipe and triggers tab navigation
-3. Tab navigation wins, overriding the delete gesture
+1. **Permanently denied state**: Samsung One UI aggressively remembers permission denials. After denying once (or selecting "Don't ask again"), `requestPermissions()` silently does nothing -- no dialog appears, no callback fires, and the Capacitor PluginCall hangs indefinitely.
+
+2. **No fallback for permanently denied**: The current code only has two paths: "already granted" and "request it". There's no handling for the third state: "permanently denied, system won't show the prompt."
+
+3. **Late request timing**: The permission is requested deep inside `createHomeScreenShortcut()`, after multiple async operations. While this isn't a web API gesture issue, it means any failure here blocks the entire shortcut creation flow.
 
 ## Solution
 
-In `BookmarkItem.tsx`, stop touch event propagation once a horizontal delete swipe is confirmed. This prevents the event from bubbling up to the parent's swipe navigation handler.
+### 1. Native: Add permanent-denial detection in `ShortcutPlugin.java`
 
-### Changes in `src/components/BookmarkItem.tsx`
+In `requestCallPermission`, before calling `requestPermissionForAlias`, check `shouldShowRequestPermissionRationale`:
+- If permission is NOT granted AND rationale is `false`, the user has permanently denied it
+- In this case, return `{ granted: false, permanentlyDenied: true }` so JS can handle it
+- If rationale is `true` (or first time asking), proceed with the normal system dialog
 
-**`handleTouchMove`** (around line 151): When `isHorizontalSwipe.current` is confirmed and it's a delete swipe direction, call `e.stopPropagation()` to prevent the parent tab swipe handler from receiving the event.
+### 2. Native: Update `checkCallPermission` to include denial state
 
-**`handleTouchStart`** (around line 133): No change needed -- propagation should be allowed initially so the parent can track the start position.
+Return an additional `permanentlyDenied` field so the JS layer knows whether to show the system prompt or redirect to app settings.
 
-### Technical Detail
+### 3. JS: Handle permanently denied state in `shortcutManager.ts`
 
-Add `e.stopPropagation()` inside `handleTouchMove` right after confirming it's a horizontal delete swipe (where `e.preventDefault()` is already called). This is the minimal, targeted fix:
+When `permanentlyDenied: true` is returned:
+- Show a toast explaining the user needs to grant permission in Settings
+- Open the app's Settings page using Capacitor's `App` plugin (or an intent)
+- Continue creating the shortcut regardless (ContactProxyActivity will fall back to dialer)
 
-```text
-if (isHorizontalSwipe.current && isDeleteSwipe(deltaX)) {
-  e.preventDefault();
-  e.stopPropagation();  // <-- add this line
-  ...
-}
-```
+### 4. JS: Add app settings opener
 
-Also add `e.stopPropagation()` in the early detection block when `isHorizontalSwipe.current` is first set to `true`, to catch the initial move event as well.
+Add a new method `openAppSettings` to ShortcutPlugin that opens the Android app info/permissions screen, so the user can manually enable CALL_PHONE.
 
 ## Files Changed
 
 | File | Change |
 |------|--------|
-| `src/components/BookmarkItem.tsx` (handleTouchMove, ~line 151) | Add `e.stopPropagation()` when horizontal delete swipe is detected |
+| `native/.../plugins/ShortcutPlugin.java` (~line 3411) | Update `requestCallPermission` to detect permanently denied state using `shouldShowRequestPermissionRationale`; update `checkCallPermission` to return `permanentlyDenied` field; add `openAppSettings` method |
+| `src/plugins/ShortcutPlugin.ts` | Update `checkCallPermission` and `requestCallPermission` return types to include `permanentlyDenied`; add `openAppSettings` method signature |
+| `src/plugins/shortcutPluginWeb.ts` | Add web stubs for updated signatures and `openAppSettings` |
+| `src/lib/shortcutManager.ts` (~line 189) | Handle `permanentlyDenied` response: show informational toast and open app settings; continue shortcut creation regardless |
 
-## Why This Works
+## Technical Detail
 
-- Touch events bubble from child (BookmarkItem) to parent (tab container)
-- By stopping propagation on the BookmarkItem when a delete swipe is detected, the parent's `onTouchMove` never fires
-- Vertical scrolling and non-delete horizontal swipes still propagate normally, preserving tab navigation in unaffected areas
-- This matches the existing pattern used for horizontal scroll containers (filter chips) noted in the project memory
+```text
+Current flow:
+  checkCallPermission() -> not granted
+  requestCallPermission() -> Samsung silently ignores -> hangs forever
+
+Fixed flow:
+  checkCallPermission() -> { granted: false, permanentlyDenied: true/false }
+  If permanentlyDenied:
+    -> Toast "Please enable Call permission in Settings"
+    -> openAppSettings() (opens Android app info screen)
+    -> Continue creating shortcut (dialer fallback)
+  If not permanentlyDenied:
+    -> requestCallPermission() -> system dialog appears
+    -> Continue creating shortcut
+```
+
+The key Android API used is `shouldShowRequestPermissionRationale(activity, permission)`:
+- Returns `true` if user denied once but didn't check "Don't ask again" (system will show dialog)
+- Returns `false` if user never asked OR permanently denied (need to distinguish via current grant state)
 
