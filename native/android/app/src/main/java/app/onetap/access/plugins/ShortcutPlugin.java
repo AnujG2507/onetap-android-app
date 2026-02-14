@@ -54,6 +54,7 @@ import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
+import com.getcapacitor.PermissionState;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.getcapacitor.annotation.ActivityCallback;
 import com.getcapacitor.annotation.Permission;
@@ -117,6 +118,10 @@ import app.onetap.access.WhatsAppProxyActivity;
         @Permission(
             alias = "notifications",
             strings = { "android.permission.POST_NOTIFICATIONS" }
+        ),
+        @Permission(
+            alias = "callPhone",
+            strings = { Manifest.permission.CALL_PHONE }
         )
     }
 )
@@ -3399,58 +3404,26 @@ public class ShortcutPlugin extends Plugin {
     @PluginMethod
     public void checkCallPermission(PluginCall call) {
         JSObject result = new JSObject();
-        
-        Activity activity = getActivity();
-        if (activity != null) {
-            int permission = ContextCompat.checkSelfPermission(
-                activity, 
-                Manifest.permission.CALL_PHONE
-            );
-            result.put("granted", permission == PackageManager.PERMISSION_GRANTED);
-        } else {
-            result.put("granted", false);
-        }
-        
+        result.put("granted", getPermissionState("callPhone") == PermissionState.GRANTED);
         call.resolve(result);
     }
 
     @PluginMethod
     public void requestCallPermission(PluginCall call) {
-        Activity activity = getActivity();
-        if (activity != null) {
-            int permission = ContextCompat.checkSelfPermission(
-                activity, 
-                Manifest.permission.CALL_PHONE
-            );
-            
-            if (permission == PackageManager.PERMISSION_GRANTED) {
-                JSObject result = new JSObject();
-                result.put("granted", true);
-                call.resolve(result);
-            } else {
-                // Store call for permission callback
-                pendingPermissionCall = call;
-                
-                // Request permission
-                ActivityCompat.requestPermissions(
-                    activity,
-                    new String[]{ Manifest.permission.CALL_PHONE },
-                    1002  // Request code for CALL_PHONE
-                );
-                
-                // Note: The actual result will come via onRequestPermissionsResult
-                // For simplicity, we resolve immediately with the current state
-                // The UI should re-check permission status after the dialog is dismissed
-                JSObject result = new JSObject();
-                result.put("granted", false);
-                result.put("requested", true);
-                call.resolve(result);
-            }
-        } else {
+        if (getPermissionState("callPhone") == PermissionState.GRANTED) {
             JSObject result = new JSObject();
-            result.put("granted", false);
+            result.put("granted", true);
             call.resolve(result);
+        } else {
+            requestPermissionForAlias("callPhone", call, "callPermissionCallback");
         }
+    }
+
+    @PermissionCallback
+    private void callPermissionCallback(PluginCall call) {
+        JSObject result = new JSObject();
+        result.put("granted", getPermissionState("callPhone") == PermissionState.GRANTED);
+        call.resolve(result);
     }
 
     @PluginMethod
