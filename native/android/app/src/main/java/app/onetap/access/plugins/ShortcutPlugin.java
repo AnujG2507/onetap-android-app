@@ -419,11 +419,21 @@ public class ShortcutPlugin extends Plugin {
                 final ShortcutInfo finalShortcutInfo = shortcutInfo;
                 getActivity().runOnUiThread(() -> {
                     try {
-                        // Request pinning directly - no dynamic shortcut registration
-                        // Dynamic shortcuts are reserved for "Manage My Access Points" static shortcut only
-                        // User-created shortcuts are pinned shortcuts only
+                        // Request pinning
                         boolean requested = shortcutManager.requestPinShortcut(finalShortcutInfo, null);
                         android.util.Log.d("ShortcutPlugin", "requestPinShortcut returned: " + requested);
+
+                        // Also register as dynamic shortcut so OEM launchers (OnePlus, Xiaomi, OPPO, Vivo)
+                        // can track pinned IDs via getShortcuts(FLAG_MATCH_PINNED)
+                        if (requested) {
+                            try {
+                                shortcutManager.addDynamicShortcuts(Collections.singletonList(finalShortcutInfo));
+                                android.util.Log.d("ShortcutPlugin", "Registered shadow dynamic shortcut: " + finalId);
+                            } catch (Exception dynEx) {
+                                // Non-fatal: shortcut is still pinned, just won't be tracked by some OEM launchers
+                                android.util.Log.w("ShortcutPlugin", "Failed to register dynamic shortcut (non-fatal): " + dynEx.getMessage());
+                            }
+                        }
 
                         JSObject result = new JSObject();
                         result.put("success", requested);
@@ -4114,7 +4124,23 @@ public class ShortcutPlugin extends Plugin {
                 }
             }
 
+            // Log device info for OEM-specific debugging
+            String launcherPackage = "unknown";
+            try {
+                Intent launcherIntent = new Intent(Intent.ACTION_MAIN);
+                launcherIntent.addCategory(Intent.CATEGORY_HOME);
+                android.content.pm.ResolveInfo resolveInfo = context.getPackageManager()
+                    .resolveActivity(launcherIntent, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY);
+                if (resolveInfo != null && resolveInfo.activityInfo != null) {
+                    launcherPackage = resolveInfo.activityInfo.packageName;
+                }
+            } catch (Exception e) {
+                android.util.Log.w("ShortcutPlugin", "Could not determine launcher package: " + e.getMessage());
+            }
+            
             android.util.Log.d("ShortcutPlugin", "getPinnedShortcutIds: API=" + Build.VERSION.SDK_INT + 
+                ", manufacturer=" + Build.MANUFACTURER +
+                ", launcher=" + launcherPackage +
                 ", queryReturned=" + pinnedShortcuts.size() + 
                 ", actuallyPinned=" + actuallyPinned);
 
@@ -4334,6 +4360,14 @@ public class ShortcutPlugin extends Plugin {
             shortcutsToUpdate.add(updatedInfo);
             
             boolean updated = manager.updateShortcuts(shortcutsToUpdate);
+            
+            // Also update dynamic shortcut registration for OEM launcher tracking
+            try {
+                manager.addDynamicShortcuts(shortcutsToUpdate);
+                android.util.Log.d("ShortcutPlugin", "Updated shadow dynamic shortcut: " + shortcutId);
+            } catch (Exception dynEx) {
+                android.util.Log.w("ShortcutPlugin", "Failed to update dynamic shortcut (non-fatal): " + dynEx.getMessage());
+            }
             
             android.util.Log.d("ShortcutPlugin", "Updated pinned shortcut: " + shortcutId + 
                 ", success: " + updated + ", hadIntent: " + (intent != null));
