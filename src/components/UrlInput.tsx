@@ -279,7 +279,7 @@ export function UrlInput({ onSubmit, onBack, initialUrl }: UrlInputProps) {
         </div>
       </div>
       
-      <div className="p-4 landscape:p-3 safe-bottom">
+      <div className="p-4 landscape:p-3 safe-bottom-action">
         <Button
           onClick={handleSubmit}
           disabled={!url.trim()}
