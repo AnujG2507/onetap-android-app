@@ -1,93 +1,88 @@
 
 
-# Fix Shortcut Sync on Non-Samsung OEMs
+# Fix CALL_PHONE Permission Request Across All OEMs
 
 ## Problem
 
-On Samsung (One UI), `ShortcutManager.getShortcuts(FLAG_MATCH_PINNED)` reliably returns all pinned shortcut IDs. On OnePlus (OxygenOS), Xiaomi (MIUI/HyperOS), OPPO (ColorOS), and Vivo (FuntouchOS/OriginOS), the same API returns an incomplete or empty list for shortcuts created via `requestPinShortcut()` alone -- because these OEM launchers only track shortcuts that are also registered as dynamic shortcuts.
+The current `requestCallPermission` in `ShortcutPlugin.java` has two bugs:
 
-The current JS sync logic (lines 70-85 of `useShortcuts.ts`) interprets a partial list as "delete everything not in the list," causing valid shortcuts to vanish from the app.
+1. **`CALL_PHONE` is not registered** in the `@CapacitorPlugin` permissions annotation, so Capacitor's built-in permission callback system cannot manage it
+2. **The method resolves immediately** with `granted: false` after calling `ActivityCompat.requestPermissions`, instead of waiting for the user to respond to the system dialog
 
-## Root Cause
+On Samsung, this happens to work because the shortcut creation proceeds anyway and `ContactProxyActivity` handles the fallback. But on OnePlus, Xiaomi, OPPO, and Vivo, the permission dialog may appear briefly or not at all, and the JS layer never learns the user granted permission.
 
-1. **No dynamic shortcut registration**: `createPinnedShortcut` in `ShortcutPlugin.java` (line 425) calls `requestPinShortcut()` without also calling `addDynamicShortcuts()`. OEM launchers need the dynamic registration to track pinned IDs.
-2. **Aggressive JS deletion**: When the OS returns a non-empty but incomplete list, the sync removes shortcuts that are actually still on the home screen.
+## Solution
 
-## Solution: Two-Part Fix
+### Part 1 -- Register CALL_PHONE in Capacitor permissions (ShortcutPlugin.java)
 
-### Part 1 -- Shadow Dynamic Registration (Native Java)
-
-**File: `ShortcutPlugin.java`**
-
-After `requestPinShortcut()` succeeds (around line 425), also register the shortcut as a dynamic shortcut:
+Add a new permission alias `"callPhone"` to the `@CapacitorPlugin` annotation:
 
 ```text
-manager.addDynamicShortcuts(Collections.singletonList(shortcutInfo));
+@Permission(
+    alias = "callPhone",
+    strings = { Manifest.permission.CALL_PHONE }
+)
 ```
 
-This gives OEM launchers the tracking data they need. Android enforces a max of ~15 dynamic shortcuts, which is well within typical usage.
+### Part 2 -- Use Capacitor's callback system for requestCallPermission (ShortcutPlugin.java)
 
-Also mirror this in `updatePinnedShortcut` -- after calling `updateShortcuts()`, also call `addDynamicShortcuts()` with the updated `ShortcutInfo` to keep the dynamic entry in sync.
-
-And in `disablePinnedShortcut` -- the existing `removeDynamicShortcuts()` call (line 4195) already handles cleanup, so no changes needed there.
-
-### Part 2 -- Defensive JS Sync Logic
-
-**File: `src/hooks/useShortcuts.ts`**
-
-Replace the current sync strategy (lines 66-89) with a more defensive approach:
-
-- **Never delete if OS returns fewer IDs than local storage has** -- treat this as an unreliable response (same as the current empty-list guard, but extended to partial lists).
-- **Only delete when OS returns IDs AND local count matches or exceeds OS count** -- meaning the OS is confidently reporting the full set.
-- Add a **manufacturer-aware log** by reading `navigator.userAgent` or passing device info from native, to help diagnose future OEM-specific issues.
-
-New logic:
+Replace the current `requestCallPermission` method that uses raw `ActivityCompat.requestPermissions` and resolves immediately. Instead, use Capacitor's `requestPermissionForAlias` with a `@PermissionCallback`, following the same pattern already used by `storagePermissionCallback`:
 
 ```text
-if (ids.length === 0) {
-  // Keep all -- API unreliable
-  return;
+@PluginMethod
+public void requestCallPermission(PluginCall call) {
+    if (getPermissionState("callPhone") == PermissionState.GRANTED) {
+        JSObject result = new JSObject();
+        result.put("granted", true);
+        call.resolve(result);
+    } else {
+        requestPermissionForAlias("callPhone", call, "callPermissionCallback");
+    }
 }
 
-if (ids.length < currentShortcuts.length) {
-  // OS returned fewer than we have locally -- likely incomplete
-  // Only mark shortcuts as "confirmed pinned" but don't delete others
-  console.log('[useShortcuts] Partial OS response, skipping deletion');
-  return;
-}
-
-// OS returned same or more IDs than local -- safe to sync
-const pinnedSet = new Set(ids);
-const synced = currentShortcuts.filter(s => pinnedSet.has(s.id));
-if (synced.length !== currentShortcuts.length) {
-  saveShortcuts(synced);
+@PermissionCallback
+private void callPermissionCallback(PluginCall call) {
+    JSObject result = new JSObject();
+    result.put("granted", getPermissionState("callPhone") == PermissionState.GRANTED);
+    call.resolve(result);
 }
 ```
 
-### Part 3 -- Device Info Logging (Native Java)
+This ensures the JS `await ShortcutPlugin.requestCallPermission()` only resolves **after** the user has responded to the system permission dialog.
 
-**File: `ShortcutPlugin.java`** (in `getPinnedShortcutIds`)
+### Part 3 -- Update checkCallPermission to use Capacitor state (ShortcutPlugin.java)
 
-Add manufacturer and launcher package to the log output for diagnostics:
+Simplify `checkCallPermission` to use the same Capacitor permission state:
 
 ```text
-Log.d("ShortcutPlugin", "Device: " + Build.MANUFACTURER + ", Launcher: " + getLauncherPackage());
+@PluginMethod
+public void checkCallPermission(PluginCall call) {
+    JSObject result = new JSObject();
+    result.put("granted", getPermissionState("callPhone") == PermissionState.GRANTED);
+    call.resolve(result);
+}
 ```
 
-This helps identify which OEMs are returning incomplete data in future bug reports.
+### No JS changes needed
 
-## Summary of File Changes
+The existing code in `shortcutManager.ts` (lines 191-207) already:
+- Checks permission before creating a contact shortcut
+- Requests permission if not granted
+- Continues regardless of result (fallback to dialer)
+
+The only issue was the native side resolving immediately. With the Capacitor callback fix, the `await` will now properly wait for the user's response.
+
+## Files Changed
 
 | File | Change |
 |------|--------|
-| `ShortcutPlugin.java` (createPinnedShortcut) | Add `addDynamicShortcuts()` after `requestPinShortcut()` |
-| `ShortcutPlugin.java` (updatePinnedShortcut) | Add `addDynamicShortcuts()` after `updateShortcuts()` |
-| `ShortcutPlugin.java` (getPinnedShortcutIds) | Add manufacturer + launcher logging |
-| `src/hooks/useShortcuts.ts` (syncWithHomeScreen) | Make deletion defensive -- skip if OS returns fewer IDs than local |
+| `ShortcutPlugin.java` (annotation, line 99-121) | Add `callPhone` permission alias |
+| `ShortcutPlugin.java` (requestCallPermission, line 3417-3453) | Use `requestPermissionForAlias` + callback |
+| `ShortcutPlugin.java` (checkCallPermission, line 3399-3415) | Use `getPermissionState` |
 
-## Risk Assessment
+## Why This Fixes All OEMs
 
-- **Dynamic shortcut limit**: Android caps at ~15 dynamic shortcuts. If a user creates more than 15, the oldest dynamic entries may be evicted by the OS, but the pinned shortcut on the home screen remains functional. The sync logic will handle this gracefully because the defensive guard prevents deletion when OS returns fewer IDs.
-- **Samsung regression**: Samsung already tracks pinned shortcuts correctly, so adding dynamic registration is additive and harmless.
-- **No behavioral change for users**: Shortcuts still pin the same way; this only improves the accuracy of the sync-back query.
+- Capacitor's `requestPermissionForAlias` uses the standard Android permission flow and hooks into the activity result lifecycle correctly
+- The `@PermissionCallback` ensures the JS promise only resolves after the system dialog is dismissed
+- This is the same proven pattern used for storage and notification permissions in the same file, which already work across all OEMs
 
