@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { X, UserCircle2, Check, AlertCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -49,19 +49,22 @@ export function PhoneNumberInput({
   const [countryCode, setCountryCode] = useState<CountryCode | null>(initialCountry);
   const [nationalNumber, setNationalNumber] = useState('');
   const [isFocused, setIsFocused] = useState(false);
+  const isInternalChange = useRef(false);
 
   // Parse incoming value to split country/national on mount and when value changes externally
   useEffect(() => {
+    if (isInternalChange.current) {
+      isInternalChange.current = false;
+      return;
+    }
     if (value) {
       const parsed = parsePhone(value, countryCode);
       if (parsed) {
         setCountryCode(parsed.countryCode);
-        // Format the national number for display
         const formatted = formatAsYouType(parsed.nationalNumber, parsed.countryCode);
         setNationalNumber(formatted || parsed.nationalNumber);
       } else {
-        // If can't parse, just use the value as-is (might be partial)
-        const cleaned = value.replace(/^\+\d+\s*/, ''); // Remove country code if present
+        const cleaned = value.replace(/^\+\d+\s*/, '');
         setNationalNumber(cleaned);
       }
     } else {
@@ -104,8 +107,10 @@ export function PhoneNumberInput({
       if (countryCode) {
         const e164 = toE164(input, countryCode);
         const validation = validatePhoneNumber(input, countryCode);
+        isInternalChange.current = true;
         onChange(e164 || input, validation === 'valid');
       } else {
+        isInternalChange.current = true;
         onChange(input, false);
       }
     },
@@ -121,6 +126,7 @@ export function PhoneNumberInput({
       if (nationalNumber) {
         const e164 = toE164(nationalNumber, newCountry);
         const validation = validatePhoneNumber(nationalNumber, newCountry);
+        isInternalChange.current = true;
         onChange(e164 || nationalNumber, validation === 'valid');
       }
     },
@@ -131,6 +137,7 @@ export function PhoneNumberInput({
   const handleClear = useCallback(() => {
     setNationalNumber('');
     setCountryCode(null);
+    isInternalChange.current = true;
     onChange('', false);
   }, [onChange]);
 
@@ -148,6 +155,7 @@ export function PhoneNumberInput({
           setCountryCode(parsed.countryCode);
           const formatted = formatAsYouType(parsed.nationalNumber, parsed.countryCode);
           setNationalNumber(formatted || parsed.nationalNumber);
+          isInternalChange.current = true;
           onChange(parsed.e164, true);
           return;
         }
