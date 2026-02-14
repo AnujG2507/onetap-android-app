@@ -1,33 +1,28 @@
 
 
-# Fix Minute Granularity and Calendar Navigation
+# Fix Week Picker Left/Right Buttons
 
-## Issue 1: Minutes Only Show 5-Minute Intervals
+## Problem
 
-**Root cause**: In `time-wheel-picker.tsx` line 200, the minute array is generated as:
-```text
-Array.from({ length: 12 }, (_, i) => i * 5)  // [0, 5, 10, 15, ... 55]
-```
+The week picker navigation buttons in `ScheduledTimingPicker.tsx` are `motion.button` elements without explicit `type="button"`. Inside a Dialog, the default button type is `submit`, which can cause the Dialog to close or the click to be swallowed on certain Android OEMs (OnePlus, Xiaomi, etc.). This is the exact same root cause as the calendar navigation fix already applied.
 
-This only gives 12 options in 5-minute steps. Users cannot select individual minutes like 1, 2, 3, etc.
+## Solution
 
-**Fix**: Change to all 60 minutes (0-59):
-```text
-Array.from({ length: 60 }, (_, i) => i)  // [0, 1, 2, 3, ... 59]
-```
+Add `type="button"` to all interactive `motion.button` elements in the `WeekCalendar` component:
 
-## Issue 2: Calendar Left/Right Buttons Not Working
+| Location | Element | Line |
+|----------|---------|------|
+| Previous week arrow | `motion.button` with `ChevronLeft` | 243 |
+| Next week arrow | `motion.button` with `ChevronRight` | 274 |
+| Week dot indicators | `motion.button` in the dots loop | 395 |
+| "Pick specific date" button | `motion.button` with `CalendarDays` | 414 |
+| Day cells | `motion.button` for each date | 313 |
 
-**Root cause**: In `calendar.tsx`, the custom navigation buttons (prev/next month) are `motion.button` elements without `type="button"`. Inside a Dialog, the default button type can cause unintended behavior on some Android OEMs. Additionally, the custom caption wrapper lacks `pointer-events-auto`, which the Dialog overlay can interfere with.
-
-**Fix** (in `calendar.tsx`):
-- Add `type="button"` to both prev/next `motion.button` elements (lines 179 and 276) and all other interactive buttons in the caption (month dropdown trigger, year dropdown trigger, today button)
-- Add `pointer-events-auto` and `relative z-10` to the custom caption container (line 299) to ensure it stays above the animated calendar grid and remains interactive inside Dialog overlays
-
-## Files Changed
+## File Changed
 
 | File | Change |
 |------|--------|
-| `src/components/ui/time-wheel-picker.tsx` (line 200) | Change minutes from 5-min intervals to all 60 values |
-| `src/components/ui/calendar.tsx` (lines 179, 196, 230, 262, 276, 299) | Add `type="button"` to all caption buttons; add `pointer-events-auto relative z-10` to caption wrapper |
+| `src/components/ScheduledTimingPicker.tsx` (lines 243, 274, 313, 395, 414) | Add `type="button"` to all `motion.button` elements in WeekCalendar |
+
+This is a minimal, targeted fix following the same pattern already proven with the calendar component.
 
