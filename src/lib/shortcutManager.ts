@@ -193,11 +193,38 @@ export async function createHomeScreenShortcut(
     try {
       const permissionStatus = await ShortcutPlugin.checkCallPermission();
       if (!permissionStatus.granted) {
-        console.log('[ShortcutManager] Requesting CALL_PHONE permission...');
-        const result = await ShortcutPlugin.requestCallPermission();
-        console.log('[ShortcutManager] Call permission request result:', result);
-        // Note: We continue regardless of the result - the ContactProxyActivity 
-        // will gracefully fall back to the dialer if permission is denied
+        // Check if permanently denied (Samsung "Don't ask again" or similar)
+        if (permissionStatus.permanentlyDenied) {
+          console.log('[ShortcutManager] CALL_PHONE permanently denied, opening app settings...');
+          try {
+            // Show native toast so user knows what to do
+            await ShortcutPlugin.showNativeToast({
+              message: 'Please enable Call permission in Settings to enable one-tap calling',
+              duration: 'long',
+            });
+            await ShortcutPlugin.openAppSettings();
+          } catch (settingsError) {
+            console.warn('[ShortcutManager] Error opening app settings:', settingsError);
+          }
+          // Continue creating shortcut - ContactProxyActivity will fall back to dialer
+        } else {
+          console.log('[ShortcutManager] Requesting CALL_PHONE permission...');
+          const result = await ShortcutPlugin.requestCallPermission();
+          console.log('[ShortcutManager] Call permission request result:', result);
+          // If the request itself revealed permanent denial (race condition safeguard)
+          if (result.permanentlyDenied) {
+            console.log('[ShortcutManager] Permission permanently denied after request attempt');
+            try {
+              await ShortcutPlugin.showNativeToast({
+                message: 'Please enable Call permission in Settings to enable one-tap calling',
+                duration: 'long',
+              });
+              await ShortcutPlugin.openAppSettings();
+            } catch (settingsError) {
+              console.warn('[ShortcutManager] Error opening app settings:', settingsError);
+            }
+          }
+        }
       } else {
         console.log('[ShortcutManager] CALL_PHONE permission already granted');
       }

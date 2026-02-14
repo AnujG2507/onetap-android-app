@@ -3404,7 +3404,29 @@ public class ShortcutPlugin extends Plugin {
     @PluginMethod
     public void checkCallPermission(PluginCall call) {
         JSObject result = new JSObject();
-        result.put("granted", getPermissionState("callPhone") == PermissionState.GRANTED);
+        boolean granted = getPermissionState("callPhone") == PermissionState.GRANTED;
+        result.put("granted", granted);
+        if (!granted) {
+            // If not granted, check if permanently denied (user selected "Don't ask again")
+            // shouldShowRequestPermissionRationale returns false when:
+            //   1. Permission has never been requested (first time) - but granted is also false
+            //   2. User selected "Don't ask again" - permanently denied
+            // We distinguish by checking if we've ever asked before via a flag
+            android.app.Activity activity = getActivity();
+            if (activity != null) {
+                boolean shouldShowRationale = androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale(
+                    activity, android.Manifest.permission.CALL_PHONE);
+                // If rationale is false AND permission is not granted, it's either first-time or permanently denied
+                // We use SharedPreferences to track if we've asked before
+                android.content.SharedPreferences prefs = activity.getSharedPreferences("call_permission_prefs", android.content.Context.MODE_PRIVATE);
+                boolean hasAskedBefore = prefs.getBoolean("has_asked_call_phone", false);
+                result.put("permanentlyDenied", !shouldShowRationale && hasAskedBefore);
+            } else {
+                result.put("permanentlyDenied", false);
+            }
+        } else {
+            result.put("permanentlyDenied", false);
+        }
         call.resolve(result);
     }
 
@@ -3413,17 +3435,64 @@ public class ShortcutPlugin extends Plugin {
         if (getPermissionState("callPhone") == PermissionState.GRANTED) {
             JSObject result = new JSObject();
             result.put("granted", true);
+            result.put("permanentlyDenied", false);
             call.resolve(result);
-        } else {
-            requestPermissionForAlias("callPhone", call, "callPermissionCallback");
+            return;
         }
+
+        // Check if permanently denied before trying to request
+        android.app.Activity activity = getActivity();
+        if (activity != null) {
+            boolean shouldShowRationale = androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale(
+                activity, android.Manifest.permission.CALL_PHONE);
+            android.content.SharedPreferences prefs = activity.getSharedPreferences("call_permission_prefs", android.content.Context.MODE_PRIVATE);
+            boolean hasAskedBefore = prefs.getBoolean("has_asked_call_phone", false);
+
+            if (!shouldShowRationale && hasAskedBefore) {
+                // Permanently denied - system won't show the dialog
+                android.util.Log.d("ShortcutPlugin", "CALL_PHONE permanently denied, returning immediately");
+                JSObject result = new JSObject();
+                result.put("granted", false);
+                result.put("permanentlyDenied", true);
+                call.resolve(result);
+                return;
+            }
+
+            // Mark that we've asked before (do this before requesting)
+            prefs.edit().putBoolean("has_asked_call_phone", true).apply();
+        }
+
+        requestPermissionForAlias("callPhone", call, "callPermissionCallback");
     }
 
     @PermissionCallback
     private void callPermissionCallback(PluginCall call) {
         JSObject result = new JSObject();
-        result.put("granted", getPermissionState("callPhone") == PermissionState.GRANTED);
+        boolean granted = getPermissionState("callPhone") == PermissionState.GRANTED;
+        result.put("granted", granted);
+        result.put("permanentlyDenied", false); // If callback fires, it wasn't permanently denied
         call.resolve(result);
+    }
+
+    @PluginMethod
+    public void openAppSettings(PluginCall call) {
+        try {
+            android.content.Intent intent = new android.content.Intent(
+                android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+            intent.setData(android.net.Uri.parse("package:" + getContext().getPackageName()));
+            intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+            getActivity().startActivity(intent);
+
+            JSObject result = new JSObject();
+            result.put("success", true);
+            call.resolve(result);
+        } catch (Exception e) {
+            android.util.Log.e("ShortcutPlugin", "Error opening app settings: " + e.getMessage());
+            JSObject result = new JSObject();
+            result.put("success", false);
+            result.put("error", e.getMessage());
+            call.resolve(result);
+        }
     }
 
     @PluginMethod

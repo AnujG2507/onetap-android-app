@@ -327,17 +327,19 @@ export class ShortcutPluginWeb implements ShortcutPluginInterface {
     return { granted: false };
   }
 
-  async checkCallPermission(): Promise<{ granted: boolean }> {
+  async checkCallPermission(): Promise<{ granted: boolean; permanentlyDenied?: boolean }> {
     console.log('[ShortcutPluginWeb] checkCallPermission called (web fallback)');
-    // Web can't directly place calls, so permission concept doesn't apply
-    // Return true to allow the flow to proceed (will use tel: link)
-    return { granted: true };
+    return { granted: true, permanentlyDenied: false };
   }
 
-  async requestCallPermission(): Promise<{ granted: boolean; requested?: boolean }> {
+  async requestCallPermission(): Promise<{ granted: boolean; requested?: boolean; permanentlyDenied?: boolean }> {
     console.log('[ShortcutPluginWeb] requestCallPermission called (web fallback)');
-    // Web can't request call permissions
-    return { granted: true };
+    return { granted: true, permanentlyDenied: false };
+  }
+
+  async openAppSettings(): Promise<{ success: boolean; error?: string }> {
+    console.log('[ShortcutPluginWeb] openAppSettings called (web fallback)');
+    return { success: true };
   }
 
   async openAlarmSettings(): Promise<{ success: boolean }> {
