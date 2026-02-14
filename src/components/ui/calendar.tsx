@@ -177,6 +177,7 @@ function Calendar({
       <div className="flex items-center justify-between w-full px-1 mb-3">
         {/* Prev month button */}
         <motion.button
+          type="button"
           whileTap={{ scale: 0.9 }}
           onClick={() => navigateMonth(-1)}
           className={cn(
@@ -194,6 +195,7 @@ function Calendar({
           <DropdownMenu open={showMonthPicker} onOpenChange={setShowMonthPicker}>
             <DropdownMenuTrigger asChild>
               <motion.button
+                type="button"
                 whileTap={{ scale: 0.97 }}
                 className={cn(
                   "flex items-center gap-1 px-3 py-1.5 rounded-xl transition-all",
@@ -228,6 +230,7 @@ function Calendar({
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <motion.button
+                  type="button"
                   whileTap={{ scale: 0.97 }}
                   className={cn(
                     "flex items-center gap-1 px-3 py-1.5 rounded-xl transition-all",
@@ -260,6 +263,7 @@ function Calendar({
 
           {/* Today button */}
           <motion.button
+            type="button"
             whileTap={{ scale: 0.9 }}
             onClick={jumpToToday}
             className={cn(
@@ -274,6 +278,7 @@ function Calendar({
         
         {/* Next month button */}
         <motion.button
+          type="button"
           whileTap={{ scale: 0.9 }}
           onClick={() => navigateMonth(1)}
           className={cn(
@@ -296,7 +301,7 @@ function Calendar({
       onTouchEnd={handleTouchEnd}
     >
       {/* Custom header with month/year pickers */}
-      <div className="px-3 pt-3">
+      <div className="px-3 pt-3 pointer-events-auto relative z-10">
         <CustomCaption />
       </div>
       
