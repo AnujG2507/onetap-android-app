@@ -162,6 +162,7 @@ export function BookmarkItem({
           // Cancel long press when swiping
           handleLongPressEnd();
           setIsSwiping(true);
+          e.stopPropagation(); // Prevent tab swipe from firing
         }
       }
     }
@@ -169,6 +170,7 @@ export function BookmarkItem({
     // Only handle horizontal swipes for delete action (RTL-aware)
     if (isHorizontalSwipe.current && isDeleteSwipe(deltaX)) {
       e.preventDefault();
+      e.stopPropagation(); // Prevent tab swipe from firing
       // Calculate swipe distance with resistance (RTL-aware)
       const swipeDistance = getSwipeTransform(deltaX, SWIPE_DELETE_THRESHOLD);
       setSwipeX(swipeDistance);
