@@ -60,12 +60,9 @@ export function useShortcuts() {
       
       console.log(`[useShortcuts] Sync check: ${ids.length} pinned IDs from OS, ${currentShortcuts.length} shortcuts in storage`);
       
-      // Android 12+ limitation: getPinnedShortcuts() may return empty or incomplete
-      // for shortcuts created via requestPinShortcut() alone.
-      // 
-      // Strategy:
-      // - If OS returns some IDs: filter out shortcuts not in the list (they were unpinned)
-      // - If OS returns empty but we have shortcuts: don't delete anything (API unreliable)
+      // OEM launcher compatibility (OnePlus, Xiaomi, OPPO, Vivo):
+      // These launchers may return incomplete pinned shortcut lists even with
+      // shadow dynamic registration. Use defensive sync to prevent data loss.
       
       if (ids.length === 0) {
         // Can't determine what's actually pinned - keep all shortcuts
@@ -74,9 +71,16 @@ export function useShortcuts() {
         return;
       }
       
-      const pinnedSet = new Set(ids);
+      if (ids.length < currentShortcuts.length) {
+        // OS returned fewer IDs than we have locally - likely incomplete response
+        // from non-Samsung OEM launcher. Skip deletion to prevent data loss.
+        console.log(`[useShortcuts] Partial OS response (${ids.length} IDs vs ${currentShortcuts.length} local), skipping deletion`);
+        setShortcuts(currentShortcuts);
+        return;
+      }
       
-      // Keep only shortcuts that are still pinned on home screen
+      // OS returned same or more IDs than local - safe to sync
+      const pinnedSet = new Set(ids);
       const synced = currentShortcuts.filter(s => pinnedSet.has(s.id));
       
       if (synced.length !== currentShortcuts.length) {
@@ -84,7 +88,6 @@ export function useShortcuts() {
         console.log(`[useShortcuts] Synced with home screen, removed ${removedCount} orphaned shortcuts`);
         saveShortcuts(synced);
       } else {
-        // Even if no orphans removed, update state from localStorage to pick up any new shortcuts
         setShortcuts(currentShortcuts);
       }
     } catch (error) {
