@@ -197,7 +197,7 @@ export function TimeWheelPicker({
   compact = false,
 }: TimeWheelPickerProps) {
   const hours = Array.from({ length: 12 }, (_, i) => i + 1);
-  const minutes = Array.from({ length: 12 }, (_, i) => i * 5);
+  const minutes = Array.from({ length: 60 }, (_, i) => i);
   const periods: ('AM' | 'PM')[] = ['AM', 'PM'];
 
   return (
