@@ -143,7 +143,7 @@ function WeekCalendar({ selectedDate, onDateSelect, onOpenFullCalendar }: WeekCa
       }
       setDirection(1);
     }
-  }, [selectedDate, baseDate, weekOffset]);
+  }, [selectedDate, baseDate]); // eslint-disable-line react-hooks/exhaustive-deps -- weekOffset intentionally excluded to prevent snap-back when navigating
   
   // Swipe gesture handling
   const [touchStart, setTouchStart] = useState<number | null>(null);
@@ -233,8 +233,8 @@ function WeekCalendar({ selectedDate, onDateSelect, onOpenFullCalendar }: WeekCa
       onTouchEnd={handleTouchEnd}
     >
       {/* Glassmorphism background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-primary/10 backdrop-blur-xl" />
-      <div className="absolute inset-0 bg-gradient-to-t from-muted/30 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-primary/10 backdrop-blur-xl pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-t from-muted/30 to-transparent pointer-events-none" />
       
       {/* Content */}
       <div className="relative p-5 landscape:p-3 space-y-5 landscape:space-y-3">
