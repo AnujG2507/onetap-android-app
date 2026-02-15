@@ -194,17 +194,16 @@ function Calendar({
           {/* Month dropdown */}
           <DropdownMenu open={showMonthPicker} onOpenChange={setShowMonthPicker}>
             <DropdownMenuTrigger asChild>
-              <motion.button
+              <button
                 type="button"
-                whileTap={{ scale: 0.97 }}
                 className={cn(
                   "flex items-center gap-1 px-3 py-1.5 rounded-xl transition-all",
-                  "hover:bg-muted/60 font-bold text-sm",
+                  "hover:bg-muted/60 font-bold text-sm active:scale-95",
                 )}
               >
                 {monthLabel}
                 <ChevronDown className="h-3 w-3 text-muted-foreground" />
-              </motion.button>
+              </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent 
               align="center" 
@@ -229,17 +228,16 @@ function Calendar({
           {showYearPicker && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <motion.button
-                  type="button"
-                  whileTap={{ scale: 0.97 }}
-                  className={cn(
-                    "flex items-center gap-1 px-3 py-1.5 rounded-xl transition-all",
-                    "hover:bg-muted/60 font-bold text-sm",
-                  )}
-                >
-                  {currentYear}
-                  <ChevronDown className="h-3 w-3 text-muted-foreground" />
-                </motion.button>
+              <button
+                type="button"
+                className={cn(
+                  "flex items-center gap-1 px-3 py-1.5 rounded-xl transition-all",
+                  "hover:bg-muted/60 font-bold text-sm active:scale-95",
+                )}
+              >
+                {currentYear}
+                <ChevronDown className="h-3 w-3 text-muted-foreground" />
+              </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent 
                 align="center" 
