@@ -28,6 +28,7 @@ import { usePendingShortcutEdit } from '@/hooks/usePendingShortcutEdit';
 import { useShortcuts } from '@/hooks/useShortcuts';
 import { OAuthRecoveryBanner } from '@/components/auth/OAuthRecoveryBanner';
 import { useSharedContent } from '@/hooks/useSharedContent';
+import { useAppUpdate } from '@/hooks/useAppUpdate';
 import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
 import { useToast } from '@/hooks/use-toast';
 import { useSheetRegistry } from '@/contexts/SheetRegistryContext';
@@ -49,6 +50,7 @@ import {
 
 const Index = () => {
   const { t } = useTranslation();
+  useAppUpdate();
   const [activeTab, setActiveTab] = useState<TabType>('access');
   const [accessStep, setAccessStep] = useState<AccessStep>('source');
   const [contentSourceType, setContentSourceType] = useState<ContentSourceType>(null);
