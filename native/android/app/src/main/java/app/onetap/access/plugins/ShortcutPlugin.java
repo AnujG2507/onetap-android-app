@@ -4180,11 +4180,24 @@ public class ShortcutPlugin extends Plugin {
                 android.util.Log.w("ShortcutPlugin", "Could not determine launcher package: " + e.getMessage());
             }
             
+            // Clean up orphaned dynamic shortcuts (dynamic but no longer pinned)
+            List<String> orphanDynamicIds = new ArrayList<>();
+            for (ShortcutInfo dynInfo : dynamicShortcuts) {
+                if (!dynInfo.isPinned()) {
+                    orphanDynamicIds.add(dynInfo.getId());
+                }
+            }
+            if (!orphanDynamicIds.isEmpty()) {
+                manager.removeDynamicShortcuts(orphanDynamicIds);
+                android.util.Log.d("ShortcutPlugin", "Cleaned up " + orphanDynamicIds.size() + " orphaned dynamic shortcuts");
+            }
+
             android.util.Log.d("ShortcutPlugin", "getPinnedShortcutIds: API=" + Build.VERSION.SDK_INT + 
                 ", manufacturer=" + Build.MANUFACTURER +
                 ", launcher=" + launcherPackage +
                 ", queryReturned=" + pinnedShortcuts.size() + 
-                ", actuallyPinned=" + actuallyPinned);
+                ", actuallyPinned=" + actuallyPinned +
+                ", orphansCleaned=" + orphanDynamicIds.size());
 
             JSObject result = new JSObject();
             result.put("ids", ids);

@@ -53,45 +53,32 @@ export function useShortcuts() {
     
     try {
       const { ids } = await ShortcutPlugin.getPinnedShortcutIds();
-      
-      // Read fresh data from localStorage instead of stale closure state
       const stored = localStorage.getItem(STORAGE_KEY);
       const currentShortcuts: ShortcutData[] = stored ? JSON.parse(stored) : [];
       
-      console.log(`[useShortcuts] Sync check: ${ids.length} pinned IDs from OS, ${currentShortcuts.length} shortcuts in storage`);
+      console.log(`[useShortcuts] Sync: ${ids.length} pinned on OS, ${currentShortcuts.length} in storage`);
       
-      // OEM launcher compatibility (OnePlus, Xiaomi, OPPO, Vivo):
-      // These launchers may return incomplete pinned shortcut lists even with
-      // shadow dynamic registration. Use defensive sync to prevent data loss.
-      
-      if (ids.length === 0) {
-        // Can't determine what's actually pinned - keep all shortcuts
-        console.log('[useShortcuts] No pinned IDs from OS, keeping all shortcuts (API may be unreliable)');
+      // If OS returns 0 and we have shortcuts, treat as unreliable
+      // (API may have failed entirely)
+      if (ids.length === 0 && currentShortcuts.length > 0) {
+        console.log('[useShortcuts] OS returned 0 IDs with local data present, skipping (API may be unreliable)');
         setShortcuts(currentShortcuts);
         return;
       }
       
-      if (ids.length < currentShortcuts.length) {
-        // OS returned fewer IDs than we have locally - likely incomplete response
-        // from non-Samsung OEM launcher. Skip deletion to prevent data loss.
-        console.log(`[useShortcuts] Partial OS response (${ids.length} IDs vs ${currentShortcuts.length} local), skipping deletion`);
-        setShortcuts(currentShortcuts);
-        return;
-      }
-      
-      // OS returned same or more IDs than local - safe to sync
+      // Trust the OS response — shadow dynamic registration makes it reliable
       const pinnedSet = new Set(ids);
       const synced = currentShortcuts.filter(s => pinnedSet.has(s.id));
       
       if (synced.length !== currentShortcuts.length) {
         const removedCount = currentShortcuts.length - synced.length;
-        console.log(`[useShortcuts] Synced with home screen, removed ${removedCount} orphaned shortcuts`);
+        console.log(`[useShortcuts] Removed ${removedCount} orphaned shortcuts`);
         saveShortcuts(synced);
       } else {
         setShortcuts(currentShortcuts);
       }
     } catch (error) {
-      console.warn('[useShortcuts] Failed to sync with home screen:', error);
+      console.warn('[useShortcuts] Sync failed:', error);
     }
   }, [saveShortcuts]);
 
@@ -188,15 +175,16 @@ export function useShortcuts() {
 
     const listener = App.addListener('appStateChange', ({ isActive }) => {
       if (isActive && initialSyncDone.current) {
-        console.log('[useShortcuts] App resumed, syncing native usage events');
+        console.log('[useShortcuts] App resumed, syncing usage + home screen');
         syncNativeUsageEvents();
+        syncWithHomeScreen();
       }
     });
 
     return () => {
       listener.then(l => l.remove());
     };
-  }, [syncNativeUsageEvents]);
+  }, [syncNativeUsageEvents, syncWithHomeScreen]);
 
   const createShortcut = useCallback((
     source: ContentSource,
