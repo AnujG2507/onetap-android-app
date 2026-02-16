@@ -432,8 +432,8 @@ public class ShortcutPlugin extends Plugin {
                         // can track pinned IDs via getShortcuts(FLAG_MATCH_PINNED)
                         if (requested) {
                             try {
-                                shortcutManager.addDynamicShortcuts(Collections.singletonList(finalShortcutInfo));
-                                android.util.Log.d("ShortcutPlugin", "Registered shadow dynamic shortcut: " + finalId);
+                                shortcutManager.pushDynamicShortcuts(Collections.singletonList(finalShortcutInfo));
+                                android.util.Log.d("ShortcutPlugin", "Pushed shadow dynamic shortcut: " + finalId);
                             } catch (Exception dynEx) {
                                 // Non-fatal: shortcut is still pinned, just won't be tracked by some OEM launchers
                                 android.util.Log.w("ShortcutPlugin", "Failed to register dynamic shortcut (non-fatal): " + dynEx.getMessage());
@@ -4100,8 +4100,9 @@ public class ShortcutPlugin extends Plugin {
     public void getPinnedShortcutIds(PluginCall call) {
         android.util.Log.d("ShortcutPlugin", "getPinnedShortcutIds called, API=" + Build.VERSION.SDK_INT);
 
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-            // ShortcutManager not available before Android 8.0
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            // App requires Android 12+ (API 31), this shouldn't happen
+            android.util.Log.w("ShortcutPlugin", "getPinnedShortcutIds: API " + Build.VERSION.SDK_INT + " < 31, returning empty");
             JSObject result = new JSObject();
             result.put("ids", new JSArray());
             call.resolve(result);
@@ -4127,19 +4128,9 @@ public class ShortcutPlugin extends Plugin {
                 return;
             }
 
-            // Get pinned shortcuts using the most appropriate API for the Android version
-            List<ShortcutInfo> pinnedShortcuts;
-            
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                // API 30+ (Android 11+): Use newer getShortcuts with FLAG_MATCH_PINNED
-                // This is more accurate on Android 12+ for detecting unpinned shortcuts
-                pinnedShortcuts = manager.getShortcuts(ShortcutManager.FLAG_MATCH_PINNED);
-                android.util.Log.d("ShortcutPlugin", "Using getShortcuts(FLAG_MATCH_PINNED) for API " + Build.VERSION.SDK_INT);
-            } else {
-                // Legacy API for older Android versions (8.0-10)
-                pinnedShortcuts = manager.getPinnedShortcuts();
-                android.util.Log.d("ShortcutPlugin", "Using legacy getPinnedShortcuts() for API " + Build.VERSION.SDK_INT);
-            }
+            // Android 12+: Always use getShortcuts(FLAG_MATCH_PINNED) for accurate pin state
+            List<ShortcutInfo> pinnedShortcuts = manager.getShortcuts(ShortcutManager.FLAG_MATCH_PINNED);
+            android.util.Log.d("ShortcutPlugin", "Using getShortcuts(FLAG_MATCH_PINNED) for API " + Build.VERSION.SDK_INT);
             
             // Also get dynamic shortcuts for cross-reference logging
             List<ShortcutInfo> dynamicShortcuts = manager.getDynamicShortcuts();
@@ -4418,8 +4409,8 @@ public class ShortcutPlugin extends Plugin {
             
             // Also update dynamic shortcut registration for OEM launcher tracking
             try {
-                manager.addDynamicShortcuts(shortcutsToUpdate);
-                android.util.Log.d("ShortcutPlugin", "Updated shadow dynamic shortcut: " + shortcutId);
+                manager.pushDynamicShortcuts(shortcutsToUpdate);
+                android.util.Log.d("ShortcutPlugin", "Pushed updated shadow dynamic shortcut: " + shortcutId);
             } catch (Exception dynEx) {
                 android.util.Log.w("ShortcutPlugin", "Failed to update dynamic shortcut (non-fatal): " + dynEx.getMessage());
             }
