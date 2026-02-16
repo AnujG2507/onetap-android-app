@@ -1,42 +1,50 @@
 
 
-## Update Code to Point to External Supabase Project
+## Workaround: Override Supabase Client to Use External Project
 
-Now that steps 1-3 are complete, here are the code changes needed to connect this app to your external Supabase project (`xfnugumyjhnctmqgiyqm`).
+Since the auto-generated `client.ts` and `.env` files cannot be edited directly, the workaround is to create a **wrapper client** that hardcodes your external project credentials and then update all imports across the app to use it instead.
 
-### Changes
+### Approach
 
-**1. `src/hooks/useAuth.ts` (line 12)**
-Update the auth storage key:
+1. Create a new file `src/lib/supabaseClient.ts` that creates a Supabase client pointing to your external project (`xfnugumyjhnctmqgiyqm`)
+2. Update all 7 files that import from `@/integrations/supabase/client` to import from `@/lib/supabaseClient` instead
+
+### Files to Create
+
+**`src/lib/supabaseClient.ts`** -- New file that creates the client with your external credentials hardcoded:
+- URL: `https://xfnugumyjhnctmqgiyqm.supabase.co`
+- Anon Key: your provided key
+- Same auth config (localStorage, persistSession, autoRefreshToken)
+- Re-exports the `Database` type from the auto-generated types file (the schema is identical)
+
+### Files to Update (import path change only)
+
+All 7 files change their import from:
 ```text
-Before: sb-qyokhlaexuywzuyasqxo-auth-token
-After:  sb-xfnugumyjhnctmqgiyqm-auth-token
+import { supabase } from '@/integrations/supabase/client';
+```
+to:
+```text
+import { supabase } from '@/lib/supabaseClient';
 ```
 
-**2. `src/pages/AuthCallback.tsx` (line 12)**
-Same storage key update:
-```text
-Before: sb-qyokhlaexuywzuyasqxo-auth-token
-After:  sb-xfnugumyjhnctmqgiyqm-auth-token
-```
+The affected files:
+1. `src/hooks/useAuth.ts`
+2. `src/pages/AuthCallback.tsx`
+3. `src/lib/oauthCompletion.ts`
+4. `src/hooks/useUrlMetadata.ts`
+5. `src/lib/cloudSync.ts`
+6. `src/hooks/useOAuthRecovery.ts`
+7. `src/components/ProfilePage.tsx`
 
-**3. `.env`**
-Update environment variables:
-```text
-VITE_SUPABASE_PROJECT_ID="xfnugumyjhnctmqgiyqm"
-VITE_SUPABASE_PUBLISHABLE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhmbnVndW15amhuY3RtcWdpeXFtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzNzMyMDIsImV4cCI6MjA4NTk0OTIwMn0.X5RDFg-whb-vAqf9gcUN6YNwGed9NaBS6tCT9ne4mKI"
-VITE_SUPABASE_URL="https://xfnugumyjhnctmqgiyqm.supabase.co"
-```
+### Why This Works
 
-**4. `supabase/config.toml`**
-```text
-Before: project_id = "qyokhlaexuywzuyasqxo"
-After:  project_id = "xfnugumyjhnctmqgiyqm"
-```
+- The auto-generated `client.ts` still exists but is no longer imported by any app code
+- Your external credentials are used for all auth, sync, and API calls
+- The `Database` type is reused since both projects have the same schema
+- No auto-managed files are modified
 
-Note: The Supabase client file (`src/integrations/supabase/client.ts`) reads from environment variables so it will automatically pick up the new values without any code change.
+### Security Note
 
-### After Approval
-
-Once these changes are applied, the app will authenticate and sync data against your external Supabase project. You should test the Google sign-in flow end to end to confirm everything is wired correctly.
+The anon key is a publishable key (safe to include in client code). It is not a secret -- it only grants access that RLS policies allow.
 
