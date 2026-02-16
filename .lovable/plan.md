@@ -1,131 +1,57 @@
 
 
-## Fix: Profile Page Crash After OAuth Sign-In
+## Fix: Profile Page Crash — Rules of Hooks Violation
 
-### Problem
-After successful OAuth sign-in (green dot visible on profile tab), opening the Profile tab triggers the ErrorBoundary ("refresh app" page). The exact crash point is unknown because there are no console logs available.
+### Root Cause
 
-### Root Cause Analysis
-The signed-in Profile view renders several components/hooks that are NOT rendered in the signed-out view:
-- `SyncStatusIndicator` (uses `useSyncStatus` hook)
-- User Info Card with `ImageWithFallback`
-- Sync Status Card with cloud counts
-- Settings Card with auto-sync toggle
-- Account Actions (Delete Account dialog)
+The `useMemo` on **line 363** of `ProfilePage.tsx` is placed **after** two conditional early returns:
 
-The most likely crash points:
+```text
+Line 267: if (loading) return <spinner/>;    // early return
+Line 276: if (!user)  return <sign-in view/>; // early return
+   ...
+Line 363: const validAvatarUrl = useMemo(...) // HOOK AFTER CONDITIONAL RETURN
+```
 
-1. **`refreshCounts()` has no error boundary** — The `useEffect` on line 97 calls `refreshCounts()` which runs `Promise.all([getCloudBookmarkCount(), getCloudScheduledActionsCount()])`. While the individual functions have try/catch, the `Promise.all` + state setters could fail if the component unmounts mid-flight or if the session is in a transitional state.
+React requires that hooks are called in the **exact same order** on every render. When `user` transitions from `null` to a real User object (after OAuth completes):
 
-2. **`useSyncStatus` hook** — Used by `SyncStatusIndicator`, it calls `useAuth()` internally, creating a second auth subscription. During the initial session establishment with implicit flow, there could be a race condition where the user object is partially available.
+- Previous render: `user` was null, so the component returned at line 276. The `useMemo` on line 363 was never called.
+- Current render: `user` exists, so the component passes line 276 and reaches line 363. React sees an extra hook it did not see before.
 
-3. **Missing translation keys** — If any `t()` interpolation key (like `profile.syncCompleteDesc` with `{ uploaded, downloaded }`) receives undefined values, it could potentially crash depending on the i18next configuration.
+This crashes React immediately with a "Rendered more hooks than during the previous render" error, which gets caught by ErrorBoundary and shows the "Refresh App" page.
 
-### Solution: Two-Part Fix
+### Fix
 
-#### Part 1: Add Defensive Error Handling
+Move `validAvatarUrl` (and related variables that depend on `user`) above the conditional returns so they execute on every render, regardless of auth state.
+
+### Changes
 
 **File: `src/components/ProfilePage.tsx`**
-- Wrap `refreshCounts()` call in try/catch
-- Add `console.log` statements at key render decision points
-- Wrap the entire signed-in return JSX in a try/catch render guard
+
+1. Move the following block from lines 357-365 to just after the existing hooks (around line 60, after `useTutorial`):
 
 ```typescript
-// Line 72-83: Add try/catch to refreshCounts
-const refreshCounts = async () => {
-  try {
-    setLocalCount(getSavedLinks().length);
-    setLocalRemindersCount(getScheduledActions().length);
-    if (user) {
-      const [bookmarkCount, actionsCount] = await Promise.all([
-        getCloudBookmarkCount(),
-        getCloudScheduledActionsCount()
-      ]);
-      setCloudCount(bookmarkCount);
-      setCloudRemindersCount(actionsCount);
-    }
-  } catch (error) {
-    console.error('[ProfilePage] refreshCounts failed:', error);
-    // Don't crash - just leave counts at their default
-  }
-};
+// Derived user data - must be above conditional returns (Rules of Hooks)
+const userMeta = user?.user_metadata ?? {};
+const rawAvatarUrl = userMeta?.avatar_url || userMeta?.picture || null;
+const fullName = userMeta?.full_name || userMeta?.name || 'User';
+const email = user?.email || '';
+const validAvatarUrl = useMemo(() =>
+  rawAvatarUrl && isValidImageSource(rawAvatarUrl) ? rawAvatarUrl : null,
+[rawAvatarUrl]);
 ```
 
-```typescript
-// Line 97-100: Add error logging and guard against unmounted updates
-useEffect(() => {
-  let cancelled = false;
-  console.log('[ProfilePage] useEffect triggered, user:', !!user);
-  
-  const doRefresh = async () => {
-    try {
-      await refreshCounts();
-    } catch (e) {
-      console.error('[ProfilePage] Refresh failed:', e);
-    }
-    if (!cancelled) {
-      setSyncStatus(getSyncStatus());
-    }
-  };
-  doRefresh();
-  
-  return () => { cancelled = true; };
-}, [user]);
-```
+2. Remove the original block (lines 352-365) including the `console.log` diagnostic.
 
-**File: `src/components/ProfilePage.tsx`** — Add render-time logging
-```typescript
-// Before the signed-in return (around line 333):
-console.log('[ProfilePage] Rendering signed-in view', {
-  hasUser: !!user,
-  email: user?.email,
-  hasMetadata: !!user?.user_metadata,
-});
-```
+3. Remove the diagnostic `console.log` statements added in the previous fix (lines 103, 352-356) since they are no longer needed.
 
-#### Part 2: Guard `SyncStatusIndicator` Against Partial State
+### Why This Works
 
-**File: `src/components/SyncStatusIndicator.tsx`**
-- Wrap component in try/catch to prevent rendering errors from bubbling up
+By placing all hooks and derived values before any conditional returns, React always sees the same number of hooks in the same order, regardless of whether `user` is null or not. The `useMemo` will simply compute `null` when there is no user, which is harmless.
 
-```typescript
-export function SyncStatusIndicator({ className }: { className?: string }) {
-  try {
-    const { syncState, isEnabled } = useSyncStatus();
-    // ... existing render logic ...
-  } catch (error) {
-    console.error('[SyncStatusIndicator] Render error:', error);
-    return null; // Silently fail instead of crashing
-  }
-}
-```
-
-Since hooks can't be called inside try/catch (React rules of hooks), we'll instead create a wrapper:
-
-**File: `src/components/SyncStatusIndicator.tsx`**
-- Add an inner component that does the actual rendering, wrapped by an outer error-catching component
-- Or better: just add a local ErrorBoundary wrapper
-
-#### Part 3: Add Diagnostic Logging to `useSyncStatus`
-
-**File: `src/hooks/useSyncStatus.ts`**
-- Add a console.log when the hook initializes to track if it's the crash source
-
-```typescript
-// At the top of the hook:
-console.log('[useSyncStatus] Init, user:', !!user, 'online:', isOnline);
-```
-
-### Summary of Changes
+### Summary
 
 | File | Change |
 |---|---|
-| `src/components/ProfilePage.tsx` | Wrap `refreshCounts` in try/catch, add cancellation guard to useEffect, add render-time logging |
-| `src/components/SyncStatusIndicator.tsx` | Add error boundary protection so it returns null instead of crashing |
-| `src/hooks/useSyncStatus.ts` | Add diagnostic logging |
-
-### Expected Outcome
-- If the crash was in `refreshCounts` or `SyncStatusIndicator`, the defensive handling will prevent it
-- The added console logs will be visible in the next session, helping identify the exact crash point if it persists
-- The ErrorBoundary will no longer be triggered for the Profile page
+| `src/components/ProfilePage.tsx` | Move `useMemo` (and related derived values) above conditional early returns to fix Rules of Hooks violation |
 
