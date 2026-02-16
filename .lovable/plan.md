@@ -1,50 +1,35 @@
 
 
-## Workaround: Override Supabase Client to Use External Project
+## Remove Auto-Generated Supabase Files
 
-Since the auto-generated `client.ts` and `.env` files cannot be edited directly, the workaround is to create a **wrapper client** that hardcodes your external project credentials and then update all imports across the app to use it instead.
+Since you're managing Supabase manually via `src/lib/supabaseClient.ts`, we'll remove the auto-generated integration files and relocate what's still needed.
 
-### Approach
+### Changes
 
-1. Create a new file `src/lib/supabaseClient.ts` that creates a Supabase client pointing to your external project (`xfnugumyjhnctmqgiyqm`)
-2. Update all 7 files that import from `@/integrations/supabase/client` to import from `@/lib/supabaseClient` instead
+**1. Move the Database types to your custom location**
 
-### Files to Create
+Create `src/lib/supabaseTypes.ts` by copying the contents of `src/integrations/supabase/types.ts`. This preserves the schema types outside the auto-generated directory.
 
-**`src/lib/supabaseClient.ts`** -- New file that creates the client with your external credentials hardcoded:
-- URL: `https://xfnugumyjhnctmqgiyqm.supabase.co`
-- Anon Key: your provided key
-- Same auth config (localStorage, persistSession, autoRefreshToken)
-- Re-exports the `Database` type from the auto-generated types file (the schema is identical)
+**2. Update the import in `src/lib/supabaseClient.ts`**
 
-### Files to Update (import path change only)
-
-All 7 files change their import from:
-```text
-import { supabase } from '@/integrations/supabase/client';
+Change:
+```
+import type { Database } from '@/integrations/supabase/types';
 ```
 to:
-```text
-import { supabase } from '@/lib/supabaseClient';
+```
+import type { Database } from '@/lib/supabaseTypes';
 ```
 
-The affected files:
-1. `src/hooks/useAuth.ts`
-2. `src/pages/AuthCallback.tsx`
-3. `src/lib/oauthCompletion.ts`
-4. `src/hooks/useUrlMetadata.ts`
-5. `src/lib/cloudSync.ts`
-6. `src/hooks/useOAuthRecovery.ts`
-7. `src/components/ProfilePage.tsx`
+**3. Delete the auto-generated files**
 
-### Why This Works
+Remove:
+- `src/integrations/supabase/client.ts`
+- `src/integrations/supabase/types.ts`
+- `src/integrations/supabase/` (entire directory)
+- `src/integrations/` (if empty after removal)
 
-- The auto-generated `client.ts` still exists but is no longer imported by any app code
-- Your external credentials are used for all auth, sync, and API calls
-- The `Database` type is reused since both projects have the same schema
-- No auto-managed files are modified
+### Important Note
 
-### Security Note
-
-The anon key is a publishable key (safe to include in client code). It is not a secret -- it only grants access that RLS policies allow.
+The `.env` and `supabase/config.toml` files are system-managed and cannot be deleted by Lovable. They will continue to exist but won't affect your app since nothing imports from them. Your custom client in `src/lib/supabaseClient.ts` with hardcoded credentials is what the app actually uses.
 
