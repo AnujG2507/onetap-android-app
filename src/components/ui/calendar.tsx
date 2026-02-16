@@ -188,17 +188,19 @@ function Calendar({
         {/* Month & Year pickers */}
         <div className="flex items-center gap-1">
           {/* Month picker button */}
-          <button
-            type="button"
-            onClick={() => setShowMonthPicker(true)}
-            className={cn(
-              "flex items-center gap-1 px-3 py-1.5 rounded-xl transition-all pointer-events-auto",
-              "hover:bg-muted/60 font-bold text-sm active:scale-95",
-            )}
-          >
-            {monthLabel}
-            <ChevronDown className="h-3 w-3 text-muted-foreground" />
-          </button>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowMonthPicker(true)}
+              className={cn(
+                "flex items-center gap-1 px-3 py-1.5 rounded-xl transition-all pointer-events-auto",
+                "hover:bg-muted/60 font-bold text-sm active:scale-95",
+              )}
+            >
+              {monthLabel}
+              <ChevronDown className="h-3 w-3 text-muted-foreground" />
+            </button>
+          </div>
 
           {/* Year picker button */}
           {showYearPicker && (
@@ -348,7 +350,7 @@ function Calendar({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.15 }}
-              className="absolute top-14 left-1/2 -translate-x-1/2 z-50 w-auto min-w-[10rem] max-h-52 overflow-y-auto rounded-xl border bg-background shadow-lg pointer-events-auto"
+              className="absolute top-14 left-4 z-50 w-auto min-w-[10rem] max-h-52 overflow-y-auto rounded-xl border bg-background shadow-lg pointer-events-auto"
             >
               <div className="p-2 space-y-0.5">
                 {monthOptions.map((month) => (
