@@ -72,6 +72,20 @@ serve(async (req) => {
       );
     }
 
+    // Delete user's cloud scheduled actions
+    const { error: scheduledError } = await adminClient
+      .from('cloud_scheduled_actions')
+      .delete()
+      .eq('user_id', user.id);
+
+    if (scheduledError) {
+      console.error('Error deleting scheduled actions:', scheduledError);
+      return new Response(
+        JSON.stringify({ error: 'Failed to delete user scheduled actions data' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Delete the auth user
     const { error: deleteError } = await adminClient.auth.admin.deleteUser(user.id);
 
