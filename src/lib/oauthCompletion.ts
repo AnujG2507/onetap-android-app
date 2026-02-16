@@ -214,11 +214,23 @@ export async function completeOAuth(url: string): Promise<OAuthCompletionResult>
   storePendingOAuth(url);
   
   try {
-    // Check for error in URL first
-    const urlObj = new URL(url);
-    const params = new URLSearchParams(urlObj.search);
-    const hashParams = new URLSearchParams(urlObj.hash.substring(1));
+    // Parse URL - handle both custom scheme and https
+    let params: URLSearchParams;
+    let hashParams: URLSearchParams;
     
+    if (url.startsWith('onetap://')) {
+      // Custom scheme: params might be after ? and/or after #
+      const afterScheme = url.replace('onetap://auth-callback', '');
+      const [queryPart, hashPart] = afterScheme.split('#');
+      params = new URLSearchParams(queryPart.startsWith('?') ? queryPart.substring(1) : queryPart);
+      hashParams = new URLSearchParams(hashPart || '');
+    } else {
+      const urlObj = new URL(url);
+      params = urlObj.searchParams;
+      hashParams = new URLSearchParams(urlObj.hash.substring(1));
+    }
+    
+    // Check for error in URL first
     const errorParam = params.get('error') || hashParams.get('error');
     const errorDescription = params.get('error_description') || hashParams.get('error_description');
     
@@ -234,44 +246,56 @@ export async function completeOAuth(url: string): Promise<OAuthCompletionResult>
       };
     }
     
-    // If URL uses custom scheme, convert to HTTPS so Supabase can parse it
-    let processableUrl = url;
-    if (url.startsWith('onetap://')) {
-      const urlParams = url.split('?')[1] || '';
-      processableUrl = `https://placeholder/auth-callback?${urlParams}`;
-      console.log('[OAuth] Converted custom scheme URL for code exchange');
-    }
+    // Check for implicit flow tokens (access_token in hash or query)
+    const accessToken = hashParams.get('access_token') || params.get('access_token');
+    const refreshToken = hashParams.get('refresh_token') || params.get('refresh_token');
     
-    // Exchange code for session
-    console.log('[OAuth] Exchanging code for session...');
-    const { data, error } = await supabase.auth.exchangeCodeForSession(processableUrl);
-    
-    if (error) {
-      console.error('[OAuth] Code exchange failed:', error.message);
-      // Don't mark as processed on transient errors - allow retry
-      if (!isTransientError(error.message)) {
+    if (accessToken && refreshToken) {
+      // Implicit flow: set session directly
+      console.log('[OAuth] Implicit flow detected, setting session...');
+      const { data, error } = await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      });
+      
+      if (error) {
+        console.error('[OAuth] setSession failed:', error.message);
         markUrlProcessed(url);
+        clearPendingOAuth();
+        return { success: false, session: null, error: error.message, alreadyProcessed: false };
       }
+      
+      console.log('[OAuth] Session established via implicit flow:', data.session?.user?.email);
+      markUrlProcessed(url);
       clearPendingOAuth();
-      return {
-        success: false,
-        session: null,
-        error: error.message,
-        alreadyProcessed: false,
-      };
+      return { success: true, session: data.session, error: null, alreadyProcessed: false };
     }
     
-    // Success!
-    console.log('[OAuth] Session established:', data.session?.user?.email);
-    markUrlProcessed(url);
-    clearPendingOAuth();
+    // PKCE flow fallback: extract just the code and exchange
+    const code = params.get('code') || hashParams.get('code');
+    if (code) {
+      console.log('[OAuth] PKCE flow detected, exchanging code...');
+      const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+      
+      if (error) {
+        console.error('[OAuth] Code exchange failed:', error.message);
+        if (!isTransientError(error.message)) {
+          markUrlProcessed(url);
+        }
+        clearPendingOAuth();
+        return { success: false, session: null, error: error.message, alreadyProcessed: false };
+      }
+      
+      console.log('[OAuth] Session established via code exchange:', data.session?.user?.email);
+      markUrlProcessed(url);
+      clearPendingOAuth();
+      return { success: true, session: data.session, error: null, alreadyProcessed: false };
+    }
     
-    return {
-      success: true,
-      session: data.session,
-      error: null,
-      alreadyProcessed: false,
-    };
+    // No tokens or code found
+    console.error('[OAuth] No access_token or code found in URL');
+    clearPendingOAuth();
+    return { success: false, session: null, error: 'No authentication data found in callback URL', alreadyProcessed: false };
     
   } catch (err: any) {
     console.error('[OAuth] Unexpected error:', err);
@@ -336,7 +360,7 @@ export async function attemptOAuthRecovery(): Promise<OAuthCompletionResult | nu
 export function isOAuthCallback(url: string): boolean {
   try {
     return (url.includes('/auth-callback') || url.startsWith('onetap://auth-callback')) && 
-           (url.includes('code=') || url.includes('error='));
+           (url.includes('code=') || url.includes('error=') || url.includes('access_token='));
   } catch {
     return false;
   }

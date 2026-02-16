@@ -18,5 +18,6 @@ export const supabase = createClient<Database>(EXTERNAL_SUPABASE_URL, EXTERNAL_S
     storage: localStorage,
     persistSession: true,
     autoRefreshToken: true,
+    flowType: 'implicit',
   },
 });
