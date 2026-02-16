@@ -257,7 +257,7 @@ Edge functions must be deployed to the **external Supabase project** (`xfnugumyj
 npx supabase login
 npx supabase link --project-ref xfnugumyjhnctmqgiyqm
 npx supabase functions deploy fetch-url-metadata --project-ref xfnugumyjhnctmqgiyqm
-npx supabase functions deploy delete-account --project-ref xfnugumyjhnctmqgiyqm
+npx supabase functions deploy delete-account --project-ref xfnugumyjhnctmqgiyqm --no-verify-jwt
 ```
 
 > **Tip:** Using `npx` avoids permission errors from `npm install -g supabase`. If you previously ran `npx supabase init --force`, make sure `supabase/config.toml` has `project_id = "xfnugumyjhnctmqgiyqm"`.
@@ -278,14 +278,18 @@ npx supabase functions deploy delete-account --project-ref xfnugumyjhnctmqgiyqm
 **What it does:** Permanently deletes a user's cloud data and their authentication account.
 
 - **Method:** POST
-- **Auth:** Required (user must be signed in)
+- **Auth:** Required (user must be signed in; token passed via `Authorization: Bearer <token>` header)
+- **Architecture:** Uses a **two-client pattern**:
+  - **User client** (`SUPABASE_ANON_KEY` + forwarded JWT) — validates the caller's identity via `auth.getUser()`
+  - **Admin client** (`SUPABASE_SERVICE_ROLE_KEY`, no JWT) — performs data deletion (bypasses RLS) and `auth.admin.deleteUser()`
+- **Why two clients?** `auth.admin.deleteUser()` requires service role privileges. A single client with a forwarded user JWT overrides the service role context, causing a `403 not_admin` error.
 - **Flow:**
-  1. Validates the user's authentication token
-  2. Deletes all rows from `cloud_bookmarks` where `user_id` matches
-  3. Deletes all rows from `cloud_trash` where `user_id` matches
-  4. Deletes all rows from `cloud_scheduled_actions` where `user_id` matches
-  5. Deletes the authentication account via admin API
+  1. Validates the `Authorization` header (must start with `Bearer `)
+  2. Creates a user-scoped client and calls `auth.getUser()` to identify the caller
+  3. Uses the admin client to delete rows from `cloud_bookmarks`, `cloud_trash`, and `cloud_scheduled_actions`
+  4. Uses the admin client to delete the auth account via `auth.admin.deleteUser()`
 - **Output:** `{ "success": true }`
+- **Deployment:** Must be deployed with `--no-verify-jwt` to prevent the gateway from rejecting requests before they reach the function's own auth validation.
 
 ⚠️ **DANGER:**
 This function uses the `service_role` key, which bypasses RLS. The service role key is stored as a server-side secret and is NEVER exposed to the client. Do not add it to `.env` or any client-side code.
