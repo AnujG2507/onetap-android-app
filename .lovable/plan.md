@@ -1,40 +1,69 @@
 
 
-## Fix: delete-account Edge Function 401 Error
+## Fix: delete-account 401 on External Supabase Project
 
-### Problem
-The `delete-account` edge function returns 401 even with a valid JWT. The function currently creates two separate Supabase clients — one with the anon key for user validation, and one with the service role key for deletions. The anon-key client with forwarded auth can fail to validate users in edge function environments.
+### Root Cause
+
+The app uses a custom Supabase client pointing to the **external project** (`xfnugumyjhnctmqgiyqm`). When `supabase.functions.invoke('delete-account')` is called, it targets that external project's edge functions URL. The Lovable Cloud auto-deploy puts the function on the **wrong project** (`qyokhlaexuywzuyasqxo`).
+
+Even if manually deployed to the external project, the default `verify_jwt = true` gateway setting can reject requests before the function code runs -- especially with Supabase's newer signing-keys system.
 
 ### Changes
 
 #### 1. Update `supabase/functions/delete-account/index.ts`
 
-- **Use service role key for user validation client** (with forwarded Authorization header). This is the proven pattern from the Supabase documentation — the service role key ensures `getUser()` can always resolve the JWT, while the forwarded Authorization header scopes the auth check to the calling user.
-- **Expand CORS allowed headers** to include all headers the Supabase JS client sends (`x-supabase-client-platform`, `x-supabase-client-platform-version`, `x-supabase-client-runtime`, `x-supabase-client-runtime-version`).
-- **Consolidate to a single admin client** instead of two separate clients — create one client with the service role key and forwarded auth header, use it for both user validation and data deletion.
+- Strengthen the auth header check to validate `Bearer ` prefix
+- Add temporary debug logging to confirm the header arrives in logs
 
-```text
-Before (two clients):
-  userClient  = createClient(url, ANON_KEY, { headers: Authorization })
-  adminClient = createClient(url, SERVICE_ROLE_KEY)
-
-After (one client):
-  supabase = createClient(url, SERVICE_ROLE_KEY, { headers: Authorization })
-  // getUser() validates the JWT
-  // delete operations use service role to bypass RLS
 ```
+Line 16: Change
+  if (!authHeader)
+to
+  if (!authHeader || !authHeader.startsWith('Bearer '))
+
+Add after line 21:
+  console.log('[delete-account] Auth header present:', !!authHeader);
+```
+
+No other code changes needed -- the single-client pattern with service role key + forwarded auth is already correct from the last edit.
 
 #### 2. No frontend changes needed
 
-`src/components/ProfilePage.tsx` already correctly:
-- Gets the session via `supabase.auth.getSession()`
-- Passes `Authorization: Bearer ${session.access_token}` in the invoke call
-- Uses the custom client from `@/lib/supabaseClient` (pointing to external project)
-
-### After Implementation
-
-You must redeploy the updated function to your external project:
-```bash
-npx supabase functions deploy delete-account --project-ref xfnugumyjhnctmqgiyqm
+`ProfilePage.tsx` line 135-138 already correctly calls:
 ```
+supabase.functions.invoke('delete-account', {
+  headers: { Authorization: `Bearer ${session.access_token}` }
+})
+```
+
+This targets the external project URL via the custom client in `src/lib/supabaseClient.ts`.
+
+#### 3. Deployment to external project (manual step)
+
+After the code change, you must deploy with `verify_jwt` disabled:
+
+```bash
+# Deploy with JWT verification disabled at the gateway level
+npx supabase functions deploy delete-account \
+  --project-ref xfnugumyjhnctmqgiyqm \
+  --no-verify-jwt
+```
+
+The `--no-verify-jwt` flag prevents the Supabase gateway from rejecting requests before they reach the function. The function still validates auth internally via `supabase.auth.getUser()`.
+
+### What will NOT be changed
+
+- `supabase/config.toml` -- this only affects the Lovable Cloud project, which is irrelevant here
+- `src/lib/supabaseClient.ts` -- already correctly configured
+- `src/components/ProfilePage.tsx` -- already passes the token correctly
+
+### Summary
+
+| Item | Status |
+|------|--------|
+| Edge function code (single client pattern) | Already correct |
+| Bearer prefix validation | Will be added |
+| Debug logging | Will be added |
+| Frontend auth header passing | Already correct |
+| Deploy to external project with --no-verify-jwt | Manual step after code change |
 
