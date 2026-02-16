@@ -1,78 +1,99 @@
 
 
-## Update Documentation to Reflect Custom Supabase Client Migration
+## Fix: Android App Not Opening After OAuth Sign-In
 
-After migrating from the auto-generated Supabase integration files to a custom client (`src/lib/supabaseClient.ts` + `src/lib/supabaseTypes.ts`), several documentation files contain outdated or misleading references. Here are all the changes needed.
+### Root Cause
 
----
+After Google sign-in, the browser navigates to `https://onetapapp.in/auth-callback?code=...`. Android App Links should intercept this and open the app, but verification is failing. The browser loads a web page instead, showing "Redirecting to OneTap" (from whatever is hosted at onetapapp.in).
 
-### 1. README.md
+App Links verification requires:
+- `https://onetapapp.in/.well-known/assetlinks.json` must be served with correct content and `Content-Type: application/json`
+- DNS and hosting must be properly configured
+- Android caches verification results — even after fixing, it can take time to propagate
 
-**Changes:**
+### Solution: Dual Approach (Custom Scheme Fallback + Intent URL Redirect)
 
-- **Line 74**: Remove "No Lovable Cloud dependencies" from the "What This Repository Does NOT Contain" list (Lovable Cloud is connected, even if not relied upon)
-- **Lines 85-86**: Replace references to `src/integrations/supabase/client.ts` and `src/integrations/supabase/types.ts` in the "Do Not Touch" table with:
-  - `src/lib/supabaseClient.ts` -- Custom Supabase client with hardcoded external project credentials
-  - `src/lib/supabaseTypes.ts` -- Database type definitions (manually maintained)
-- **Line 87**: Update `.env` entry to note it is system-managed by Lovable Cloud and not used by the app (the custom client bypasses it)
-
----
-
-### 2. ARCHITECTURE.md
-
-**Changes:**
-
-- **Line 356**: Change `src/integrations/supabase/` description from "AUTO-GENERATED -- do not edit" to reference the new locations:
-  - Replace with `src/lib/supabaseClient.ts` and `src/lib/supabaseTypes.ts` as the Supabase connection files
-  - Remove the `integrations/supabase/` line from the project structure tree
+Since App Links are unreliable, we add a custom URL scheme as a guaranteed fallback, and modify the auth-callback web page to attempt opening the app via an Android Intent URL.
 
 ---
 
-### 3. SUPABASE.md
+### Step 1: Add Custom Scheme Intent Filter to AndroidManifest.xml
 
-**Changes:**
+Add a second intent filter for `onetap://auth-callback` alongside the existing App Link. Custom schemes don't require verification and always work.
 
-- **Section 3 (Supabase Project Setup)**: Update Step 2 to note that environment variables in `.env` are system-managed and not used by the app. The app connects via hardcoded credentials in `src/lib/supabaseClient.ts`. If changing Supabase projects, update that file directly.
-- **Section 7 (Edge Functions)**: Add note that edge functions are deployed to the external Supabase project (`xfnugumyjhnctmqgiyqm`), not the Lovable Cloud project.
-- **Section 10 (What NOT to Change)**: Replace references to `src/integrations/supabase/client.ts` and `types.ts` with `src/lib/supabaseClient.ts` and `src/lib/supabaseTypes.ts`. Update the descriptions accordingly (these are now manually maintained, not auto-generated).
-
----
-
-### 4. APP_SUMMARY.md
-
-**Changes:**
-
-- **Lines 52-55 (Backend section)**: Add `cloud_scheduled_actions` to the tables list (it's missing -- only `cloud_bookmarks` and `cloud_trash` are listed).
-- **Auth section**: Add a note that the Supabase client is configured in `src/lib/supabaseClient.ts` with hardcoded credentials pointing to the external project.
+```xml
+<!-- Custom scheme fallback for OAuth callback -->
+<intent-filter>
+    <action android:name="android.intent.action.VIEW" />
+    <category android:name="android.intent.category.DEFAULT" />
+    <category android:name="android.intent.category.BROWSABLE" />
+    <data android:scheme="onetap" android:host="auth-callback" />
+</intent-filter>
+```
 
 ---
 
-### 5. DEPLOYMENT.md
+### Step 2: Update `getOAuthRedirectUrl()` in `src/lib/oauthCompletion.ts`
 
-**Changes:**
+For native platforms, change the redirect URL to use the custom scheme instead of the HTTPS domain:
 
-- **Section 13 (Supabase Environment Setup)**: Update to clarify that the `.env` file is system-managed by Lovable Cloud and not used by the app. The actual Supabase connection is configured in `src/lib/supabaseClient.ts`. If deploying to a new Supabase project, update that file.
-- **Section 11 (Edge Functions Deployment)**: Update `supabase link --project-ref YOUR_PROJECT_ID` to note the current external project ID is `xfnugumyjhnctmqgiyqm`.
+```typescript
+// For native, use custom scheme that reliably triggers deep link
+return 'onetap://auth-callback';
+```
 
----
-
-### 6. ANDROID_SETUP.md
-
-**Changes:**
-
-- **Lines 126-128 (OAuth Setup, Step 1)**: Remove the reference to "Supabase dashboard" URL. Replace with a generic instruction to configure the redirect URL in the Supabase project's Authentication settings.
-- **Line 131-134 (Environment Variable)**: Add note that `VITE_PRODUCTION_DOMAIN` should be set in `.env`, but the Supabase connection itself is configured in `src/lib/supabaseClient.ts`, not via environment variables.
+This ensures Supabase redirects to `onetap://auth-callback?code=...` which Android will always intercept and open the app.
 
 ---
 
-### Summary of Outdated References
+### Step 3: Update `isOAuthCallback()` in `src/lib/oauthCompletion.ts`
 
-| Old Reference | New Reference |
+Update the check to also recognize the custom scheme:
+
+```typescript
+export function isOAuthCallback(url: string): boolean {
+  try {
+    return (url.includes('/auth-callback') || url.includes('onetap://auth-callback')) && 
+           (url.includes('code=') || url.includes('error='));
+  } catch {
+    return false;
+  }
+}
+```
+
+---
+
+### Step 4: Handle Code Exchange for Custom Scheme URLs
+
+The `completeOAuth` function calls `supabase.auth.exchangeCodeForSession(url)`. With a custom scheme URL like `onetap://auth-callback?code=xxx`, Supabase may not parse it correctly. We need to extract the code and pass just the code, or convert it to a proper URL format:
+
+```typescript
+// In completeOAuth, before calling exchangeCodeForSession:
+// If URL uses custom scheme, extract params and reconstruct as HTTPS URL
+let processableUrl = url;
+if (url.startsWith('onetap://')) {
+  const urlParams = url.split('?')[1] || '';
+  processableUrl = `https://placeholder/auth-callback?${urlParams}`;
+}
+```
+
+---
+
+### Step 5: Add `onetap://auth-callback` to Supabase Redirect URLs
+
+**External configuration required (in your Supabase dashboard):**
+
+Add `onetap://auth-callback` to the **Redirect URLs** allowlist in Authentication > URL Configuration. Without this, Supabase will reject the redirect.
+
+---
+
+### Summary of Changes
+
+| File | Change |
 |---|---|
-| `src/integrations/supabase/client.ts` | `src/lib/supabaseClient.ts` |
-| `src/integrations/supabase/types.ts` | `src/lib/supabaseTypes.ts` |
-| `src/integrations/supabase/` (directory) | Deleted -- files now in `src/lib/` |
-| `.env` for Supabase credentials | Credentials hardcoded in `src/lib/supabaseClient.ts` |
+| `native/android/.../AndroidManifest.xml` | Add custom scheme intent filter for `onetap://auth-callback` |
+| `src/lib/oauthCompletion.ts` | Change native redirect URL to `onetap://auth-callback`, update `isOAuthCallback()`, handle custom scheme in `completeOAuth()` |
 
-No changes needed for: PRODUCT_IDEOLOGY.md, RELEASE_PROCESS.md, PLAY_STORE_CHECKLIST.md, LANGUAGE_SUPPORT_REENABLE.md, UBUNTU_SETUP.md.
+### External Configuration Required
+- Add `onetap://auth-callback` to Supabase Authentication > Redirect URLs
 
