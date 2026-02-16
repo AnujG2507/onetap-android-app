@@ -43,16 +43,9 @@ export function getOAuthRedirectUrl(): string {
     return `${window.location.origin}/auth-callback`;
   }
   
-  // For native, use the production domain from env
-  const productionDomain = import.meta.env.VITE_PRODUCTION_DOMAIN;
-  
-  if (!productionDomain) {
-    console.warn('[OAuth] VITE_PRODUCTION_DOMAIN is not set. OAuth redirects will fail on native.');
-  }
-  
-  const domain = productionDomain || 'onetapapp.in';
-  
-  return `https://${domain}/auth-callback`;
+  // For native, use custom scheme that reliably triggers deep link
+  // (App Links verification is unreliable; custom schemes always work)
+  return 'onetap://auth-callback';
 }
 
 /**
@@ -241,9 +234,17 @@ export async function completeOAuth(url: string): Promise<OAuthCompletionResult>
       };
     }
     
+    // If URL uses custom scheme, convert to HTTPS so Supabase can parse it
+    let processableUrl = url;
+    if (url.startsWith('onetap://')) {
+      const urlParams = url.split('?')[1] || '';
+      processableUrl = `https://placeholder/auth-callback?${urlParams}`;
+      console.log('[OAuth] Converted custom scheme URL for code exchange');
+    }
+    
     // Exchange code for session
     console.log('[OAuth] Exchanging code for session...');
-    const { data, error } = await supabase.auth.exchangeCodeForSession(url);
+    const { data, error } = await supabase.auth.exchangeCodeForSession(processableUrl);
     
     if (error) {
       console.error('[OAuth] Code exchange failed:', error.message);
@@ -334,7 +335,7 @@ export async function attemptOAuthRecovery(): Promise<OAuthCompletionResult | nu
  */
 export function isOAuthCallback(url: string): boolean {
   try {
-    return url.includes('/auth-callback') && 
+    return (url.includes('/auth-callback') || url.startsWith('onetap://auth-callback')) && 
            (url.includes('code=') || url.includes('error='));
   } catch {
     return false;
