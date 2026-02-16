@@ -9,7 +9,7 @@ import {
   clearPendingOAuth,
 } from '@/lib/oauthCompletion';
 
-const AUTH_STORAGE_KEY = 'sb-qyokhlaexuywzuyasqxo-auth-token';
+const AUTH_STORAGE_KEY = 'sb-xfnugumyjhnctmqgiyqm-auth-token';
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
