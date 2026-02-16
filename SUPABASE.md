@@ -251,13 +251,16 @@ Edge functions are small pieces of server-side code that run on-demand. They are
 
 ### Deploying Edge Functions
 
-Edge functions must be deployed to the **external Supabase project** (`xfnugumyjhnctmqgiyqm`), not the Lovable Cloud project. Use the Supabase CLI:
+Edge functions must be deployed to the **external Supabase project** (`xfnugumyjhnctmqgiyqm`), not the Lovable Cloud project. Use `npx supabase` (no global install needed):
 
 ```bash
-supabase link --project-ref xfnugumyjhnctmqgiyqm
-supabase functions deploy fetch-url-metadata
-supabase functions deploy delete-account
+npx supabase login
+npx supabase link --project-ref xfnugumyjhnctmqgiyqm
+npx supabase functions deploy fetch-url-metadata --project-ref xfnugumyjhnctmqgiyqm
+npx supabase functions deploy delete-account --project-ref xfnugumyjhnctmqgiyqm
 ```
+
+> **Tip:** Using `npx` avoids permission errors from `npm install -g supabase`. If you previously ran `npx supabase init --force`, make sure `supabase/config.toml` has `project_id = "xfnugumyjhnctmqgiyqm"`.
 
 ### `fetch-url-metadata`
 
