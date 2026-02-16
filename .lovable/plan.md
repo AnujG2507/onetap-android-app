@@ -1,99 +1,113 @@
 
 
-## Fix: Android App Not Opening After OAuth Sign-In
+## Fix: Profile Stays Signed Out After OAuth Callback
 
-### Root Cause
+### Root Cause (Two Issues)
 
-After Google sign-in, the browser navigates to `https://onetapapp.in/auth-callback?code=...`. Android App Links should intercept this and open the app, but verification is failing. The browser loads a web page instead, showing "Redirecting to OneTap" (from whatever is hosted at onetapapp.in).
+1. **Wrong parameter to `exchangeCodeForSession`**: The code currently passes a full URL (`https://placeholder/auth-callback?code=xxx`) but the method expects just the authorization code string (e.g., `abc123`).
 
-App Links verification requires:
-- `https://onetapapp.in/.well-known/assetlinks.json` must be served with correct content and `Content-Type: application/json`
-- DNS and hosting must be properly configured
-- Android caches verification results — even after fixing, it can take time to propagate
+2. **PKCE code verifier mismatch**: The Supabase client uses PKCE flow by default. When `signInWithOAuth` is called, a code verifier is stored in localStorage. However, on Android, the OAuth browser is a separate process -- the code verifier lives in the WebView's localStorage but the external Chrome browser has no access to it. When the deep link returns the app, `exchangeCodeForSession` can't find the matching code verifier, causing the "both auth code and code verifier should be non-empty" error.
 
-### Solution: Dual Approach (Custom Scheme Fallback + Intent URL Redirect)
+### Solution
 
-Since App Links are unreliable, we add a custom URL scheme as a guaranteed fallback, and modify the auth-callback web page to attempt opening the app via an Android Intent URL.
+Switch the native OAuth flow to use **implicit flow** (not PKCE) and use `setSession` with the tokens returned in the URL fragment instead of exchanging a code.
 
 ---
 
-### Step 1: Add Custom Scheme Intent Filter to AndroidManifest.xml
+### Changes
 
-Add a second intent filter for `onetap://auth-callback` alongside the existing App Link. Custom schemes don't require verification and always work.
-
-```xml
-<!-- Custom scheme fallback for OAuth callback -->
-<intent-filter>
-    <action android:name="android.intent.action.VIEW" />
-    <category android:name="android.intent.category.DEFAULT" />
-    <category android:name="android.intent.category.BROWSABLE" />
-    <data android:scheme="onetap" android:host="auth-callback" />
-</intent-filter>
-```
-
----
-
-### Step 2: Update `getOAuthRedirectUrl()` in `src/lib/oauthCompletion.ts`
-
-For native platforms, change the redirect URL to use the custom scheme instead of the HTTPS domain:
+#### 1. `src/lib/supabaseClient.ts`
+- Add `flowType: 'implicit'` to the auth config. This makes Supabase return tokens directly in the URL fragment instead of an auth code, eliminating the PKCE code verifier problem entirely.
 
 ```typescript
-// For native, use custom scheme that reliably triggers deep link
-return 'onetap://auth-callback';
+export const supabase = createClient<Database>(EXTERNAL_SUPABASE_URL, EXTERNAL_SUPABASE_ANON_KEY, {
+  auth: {
+    storage: localStorage,
+    persistSession: true,
+    autoRefreshToken: true,
+    flowType: 'implicit',
+  },
+});
 ```
 
-This ensures Supabase redirects to `onetap://auth-callback?code=...` which Android will always intercept and open the app.
+#### 2. `src/hooks/useAuth.ts`
+- Remove `skipBrowserRedirect: true` from the native OAuth call (not needed with implicit flow since redirect happens automatically).
+- Actually, keep `skipBrowserRedirect: true` for native since we still need to open the URL in an external browser manually via Capacitor Browser plugin.
 
----
-
-### Step 3: Update `isOAuthCallback()` in `src/lib/oauthCompletion.ts`
-
-Update the check to also recognize the custom scheme:
+#### 3. `src/lib/oauthCompletion.ts`
+- Update `isOAuthCallback()` to also detect implicit flow tokens (`access_token=` in hash fragment).
+- Update `completeOAuth()`:
+  - For implicit flow: extract `access_token` and `refresh_token` from the URL hash fragment, then call `supabase.auth.setSession()`.
+  - For PKCE flow (web fallback): extract just the `code` parameter and pass it to `exchangeCodeForSession()`.
+  - Remove the broken `processableUrl` approach.
 
 ```typescript
-export function isOAuthCallback(url: string): boolean {
-  try {
-    return (url.includes('/auth-callback') || url.includes('onetap://auth-callback')) && 
-           (url.includes('code=') || url.includes('error='));
-  } catch {
-    return false;
+// Key logic change in completeOAuth:
+export async function completeOAuth(url: string): Promise<OAuthCompletionResult> {
+  // ... existing dedup checks ...
+
+  // Parse URL - handle both custom scheme and https
+  let params: URLSearchParams;
+  let hashParams: URLSearchParams;
+  
+  if (url.startsWith('onetap://')) {
+    // Custom scheme: params are after ?
+    const queryString = url.split('?')[1] || '';
+    const hashPart = queryString.split('#');
+    params = new URLSearchParams(hashPart[0]);
+    hashParams = new URLSearchParams(hashPart[1] || '');
+  } else {
+    const urlObj = new URL(url);
+    params = urlObj.searchParams;
+    hashParams = new URLSearchParams(urlObj.hash.substring(1));
+  }
+
+  // Check for implicit flow tokens (access_token in hash or query)
+  const accessToken = hashParams.get('access_token') || params.get('access_token');
+  const refreshToken = hashParams.get('refresh_token') || params.get('refresh_token');
+  
+  if (accessToken && refreshToken) {
+    // Implicit flow: set session directly
+    const { data, error } = await supabase.auth.setSession({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    });
+    // ... handle result ...
+  }
+
+  // PKCE flow fallback: extract code and exchange
+  const code = params.get('code') || hashParams.get('code');
+  if (code) {
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+    // ... handle result ...
   }
 }
 ```
 
----
+#### 4. `src/hooks/useDeepLink.ts`
+- No changes needed -- it already calls `completeOAuth()` which will be fixed.
 
-### Step 4: Handle Code Exchange for Custom Scheme URLs
-
-The `completeOAuth` function calls `supabase.auth.exchangeCodeForSession(url)`. With a custom scheme URL like `onetap://auth-callback?code=xxx`, Supabase may not parse it correctly. We need to extract the code and pass just the code, or convert it to a proper URL format:
-
-```typescript
-// In completeOAuth, before calling exchangeCodeForSession:
-// If URL uses custom scheme, extract params and reconstruct as HTTPS URL
-let processableUrl = url;
-if (url.startsWith('onetap://')) {
-  const urlParams = url.split('?')[1] || '';
-  processableUrl = `https://placeholder/auth-callback?${urlParams}`;
-}
-```
+#### 5. `src/pages/AuthCallback.tsx`
+- No changes needed -- it already calls `completeOAuth()` which will be fixed.
 
 ---
 
-### Step 5: Add `onetap://auth-callback` to Supabase Redirect URLs
+### Why Implicit Flow?
 
-**External configuration required (in your Supabase dashboard):**
+| Aspect | PKCE (current, broken) | Implicit (proposed fix) |
+|---|---|---|
+| Code verifier | Stored in WebView localStorage, inaccessible from external browser | Not needed |
+| Token delivery | Auth code in query param, needs exchange | Tokens directly in URL fragment |
+| Security | More secure for web apps | Acceptable for native apps with custom schemes |
+| Complexity | Requires matching code verifier across contexts | Simpler -- tokens are self-contained |
 
-Add `onetap://auth-callback` to the **Redirect URLs** allowlist in Authentication > URL Configuration. Without this, Supabase will reject the redirect.
+### External Configuration
+- **No changes needed** in your external Supabase project. The `onetap://auth-callback` redirect URL you already added will work with implicit flow too.
 
----
-
-### Summary of Changes
+### Summary of File Changes
 
 | File | Change |
 |---|---|
-| `native/android/.../AndroidManifest.xml` | Add custom scheme intent filter for `onetap://auth-callback` |
-| `src/lib/oauthCompletion.ts` | Change native redirect URL to `onetap://auth-callback`, update `isOAuthCallback()`, handle custom scheme in `completeOAuth()` |
-
-### External Configuration Required
-- Add `onetap://auth-callback` to Supabase Authentication > Redirect URLs
+| `src/lib/supabaseClient.ts` | Add `flowType: 'implicit'` |
+| `src/lib/oauthCompletion.ts` | Rewrite `completeOAuth` to handle implicit tokens via `setSession`, fix PKCE fallback to pass just the code, update `isOAuthCallback` to detect `access_token` |
 
