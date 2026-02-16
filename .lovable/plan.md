@@ -1,28 +1,42 @@
 
 
-## Update `assetlinks.json` with Both Signing Keys
+## Update Code to Point to External Supabase Project
 
-The `assetlinks.json` file needs to contain **both** SHA256 fingerprints so Android App Links work whether the app is sideloaded (upload key) or installed from the Play Store (Google's signing key).
+Now that steps 1-3 are complete, here are the code changes needed to connect this app to your external Supabase project (`xfnugumyjhnctmqgiyqm`).
 
-### What changes
+### Changes
 
-**File: `public/.well-known/assetlinks.json`**
-
-Replace the current single fingerprint with both:
-
+**1. `src/hooks/useAuth.ts` (line 12)**
+Update the auth storage key:
 ```text
-Upload key:     1F:52:68:CA:4B:92:4C:D4:1B:2B:A0:44:FD:18:A6:41:C1:4F:92:A8:19:E6:5A:BC:5D:55:B1:C0:EE:D2:FE:89
-Play Store key: 83:E2:D2:86:C6:80:44:BB:70:3D:81:B5:46:E6:6E:69:BE:CD:3C:4F:5F:51:BD:8A:40:51:F4:FC:2E:0B:CC:47
+Before: sb-qyokhlaexuywzuyasqxo-auth-token
+After:  sb-xfnugumyjhnctmqgiyqm-auth-token
 ```
 
-The old fingerprint (`33:0F:35:2A...`) will be removed since it doesn't match either key.
+**2. `src/pages/AuthCallback.tsx` (line 12)**
+Same storage key update:
+```text
+Before: sb-qyokhlaexuywzuyasqxo-auth-token
+After:  sb-xfnugumyjhnctmqgiyqm-auth-token
+```
 
-### Why both are needed
+**3. `.env`**
+Update environment variables:
+```text
+VITE_SUPABASE_PROJECT_ID="xfnugumyjhnctmqgiyqm"
+VITE_SUPABASE_PUBLISHABLE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhmbnVndW15amhuY3RtcWdpeXFtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzNzMyMDIsImV4cCI6MjA4NTk0OTIwMn0.X5RDFg-whb-vAqf9gcUN6YNwGed9NaBS6tCT9ne4mKI"
+VITE_SUPABASE_URL="https://xfnugumyjhnctmqgiyqm.supabase.co"
+```
 
-- **Upload key** -- used when you install the APK directly from your machine (sideloading / local testing)
-- **Play Store signing key** -- Google re-signs your app with this key before distributing it to users via the Play Store
+**4. `supabase/config.toml`**
+```text
+Before: project_id = "qyokhlaexuywzuyasqxo"
+After:  project_id = "xfnugumyjhnctmqgiyqm"
+```
 
-### Reminder
+Note: The Supabase client file (`src/integrations/supabase/client.ts`) reads from environment variables so it will automatically pick up the new values without any code change.
 
-The same `assetlinks.json` must also be deployed on the **Vercel-hosted domain** (`onetapapp.in`) for App Links to verify correctly on that domain.
+### After Approval
+
+Once these changes are applied, the app will authenticate and sync data against your external Supabase project. You should test the Google sign-in flow end to end to confirm everything is wired correctly.
 
