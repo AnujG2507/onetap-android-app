@@ -71,7 +71,7 @@ If you're setting up this project from scratch or moving to a new Supabase insta
 
 If you are switching to a new Supabase project, update `src/lib/supabaseClient.ts` directly with the new project URL and anon key. The current external project ID is `xfnugumyjhnctmqgiyqm`.
 
-Also ensure `VITE_PRODUCTION_DOMAIN=onetapapp.in` is set in `.env` (this variable IS used for OAuth redirect URL construction).
+The OAuth redirect URL for native Android uses the custom scheme `onetap://auth-callback` (hardcoded in `src/lib/oauthCompletion.ts`). No environment variable is needed for this.
 
 ### Step 3: Run database migrations
 
@@ -85,7 +85,8 @@ Apply the migrations in `supabase/migrations/` to your project. You can do this 
 2. Enable Google provider
 3. Add your Google OAuth client ID and secret (from Google Cloud Console)
 4. Under Authentication → URL Configuration → Redirect URLs, add:
-   - `https://onetapapp.in/auth-callback`
+   - `onetap://auth-callback` (required — used by native Android app)
+   - `https://onetapapp.in/auth-callback` (recommended — App Links fallback)
    - (Any other domains you use for testing)
 
 ### Step 5: Configure Edge Function secrets
@@ -231,9 +232,10 @@ Never disable RLS on a table that contains user data. Doing so would expose ever
 1. **Google Cloud Console:** Create an OAuth 2.0 client ID (Web application type)
 2. **Authorized redirect URIs:** Add `https://YOUR_SUPABASE_PROJECT_ID.supabase.co/auth/v1/callback`
 3. **Supabase dashboard:** Add your Google client ID and secret under Authentication → Providers → Google
-4. **Supabase redirect URLs:** Add `https://onetapapp.in/auth-callback` under Authentication → URL Configuration
-5. **`VITE_PRODUCTION_DOMAIN`:** Set to `onetapapp.in` in your `.env` file
-6. **`assetlinks.json`:** Host on `onetapapp.in/.well-known/assetlinks.json` with your app's SHA-256 signing fingerprint
+4. **Supabase redirect URLs:** Add both under Authentication → URL Configuration:
+   - `onetap://auth-callback` (required for native Android)
+   - `https://onetapapp.in/auth-callback` (recommended fallback)
+5. **`assetlinks.json`:** (Optional) Host on `onetapapp.in/.well-known/assetlinks.json` with your app's SHA-256 signing fingerprint for App Links fallback
 
 **For the full technical flow**, see [ARCHITECTURE.md](ARCHITECTURE.md) → Section 6.
 
