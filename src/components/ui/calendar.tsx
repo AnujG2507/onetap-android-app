@@ -43,7 +43,7 @@ function Calendar({
   const [internalMonth, setInternalMonth] = useState(getInitialMonth);
   const [direction, setDirection] = useState(0);
   const [showMonthPicker, setShowMonthPicker] = useState(false);
-  const [showYearDrawer, setShowYearDrawer] = useState(false);
+  const [showYearPanel, setShowYearPanel] = useState(false);
   
   // Sync internal month when defaultMonth or selected changes (for dialog reopening)
   // This ensures the calendar opens to the correct month AND year
@@ -210,7 +210,7 @@ function Calendar({
           {showYearPicker && (
             <button
               type="button"
-              onClick={() => setShowYearDrawer(true)}
+              onClick={() => setShowYearPanel(prev => !prev)}
               className={cn(
                 "flex items-center gap-1 px-3 py-1.5 rounded-xl transition-all pointer-events-auto",
                 "hover:bg-muted/60 font-bold text-sm active:scale-95",
@@ -254,7 +254,7 @@ function Calendar({
 
   return (
     <div 
-      className="relative overflow-hidden"
+      className="relative"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -372,36 +372,46 @@ function Calendar({
         </DrawerContent>
       </Drawer>
 
-      {/* Year picker drawer */}
-      <Drawer open={showYearDrawer} onOpenChange={setShowYearDrawer}>
-        <DrawerContent>
-          <DrawerHeader>
-            <DrawerTitle>Select Year</DrawerTitle>
-          </DrawerHeader>
-          <ScrollArea className="max-h-[50vh] px-4 pb-6">
-            <div className="space-y-1">
-              {yearOptions.map((year) => (
-                <button
-                  key={year}
-                  type="button"
-                  onClick={() => { jumpToYear(year); setShowYearDrawer(false); }}
-                  className={cn(
-                    "flex items-center justify-between w-full py-3 px-4 rounded-xl transition-colors",
-                    year === currentYear
-                      ? "bg-primary/10 text-primary font-semibold"
-                      : "hover:bg-muted/50"
-                  )}
-                >
-                  {year}
-                  {year === currentYear && (
-                    <Check className="h-4 w-4 text-primary" />
-                  )}
-                </button>
-              ))}
-            </div>
-          </ScrollArea>
-        </DrawerContent>
-      </Drawer>
+      {/* Inline year picker panel */}
+      <AnimatePresence>
+        {showYearPanel && (
+          <>
+            {/* Backdrop to close on outside tap */}
+            <div
+              className="fixed inset-0 z-40 pointer-events-auto"
+              onClick={(e) => { e.stopPropagation(); setShowYearPanel(false); }}
+            />
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.15 }}
+              className="absolute top-14 left-1/2 -translate-x-1/2 z-50 w-48 max-h-52 overflow-y-auto rounded-xl border bg-background shadow-lg pointer-events-auto"
+            >
+              <div className="p-2 space-y-0.5">
+                {yearOptions.map((year) => (
+                  <button
+                    key={year}
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); jumpToYear(year); setShowYearPanel(false); }}
+                    className={cn(
+                      "flex items-center justify-between w-full py-2.5 px-3 rounded-lg transition-colors text-sm",
+                      year === currentYear
+                        ? "bg-primary/10 text-primary font-semibold"
+                        : "hover:bg-muted/50"
+                    )}
+                  >
+                    {year}
+                    {year === currentYear && (
+                      <Check className="h-4 w-4 text-primary" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
