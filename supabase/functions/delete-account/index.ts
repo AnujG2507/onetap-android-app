@@ -3,17 +3,15 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Get the authorization header
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       return new Response(
@@ -22,18 +20,16 @@ serve(async (req) => {
       );
     }
 
-    // Create a Supabase client with the user's JWT
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-    // User client to verify the token
-    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+    // Single client: service role key (bypasses RLS for deletions)
+    // with forwarded Authorization header (scopes getUser() to the calling user)
+    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
       global: { headers: { Authorization: authHeader } }
     });
 
-    // Get the current user
-    const { data: { user }, error: userError } = await userClient.auth.getUser();
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) {
       return new Response(
         JSON.stringify({ error: 'Invalid or expired token' }),
@@ -41,11 +37,8 @@ serve(async (req) => {
       );
     }
 
-    // Admin client for privileged operations
-    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Delete user's cloud bookmarks
-    const { error: bookmarksError } = await adminClient
+    // Delete user's cloud data
+    const { error: bookmarksError } = await supabase
       .from('cloud_bookmarks')
       .delete()
       .eq('user_id', user.id);
@@ -58,8 +51,7 @@ serve(async (req) => {
       );
     }
 
-    // Delete user's cloud trash
-    const { error: trashError } = await adminClient
+    const { error: trashError } = await supabase
       .from('cloud_trash')
       .delete()
       .eq('user_id', user.id);
@@ -72,8 +64,7 @@ serve(async (req) => {
       );
     }
 
-    // Delete user's cloud scheduled actions
-    const { error: scheduledError } = await adminClient
+    const { error: scheduledError } = await supabase
       .from('cloud_scheduled_actions')
       .delete()
       .eq('user_id', user.id);
@@ -87,7 +78,7 @@ serve(async (req) => {
     }
 
     // Delete the auth user
-    const { error: deleteError } = await adminClient.auth.admin.deleteUser(user.id);
+    const { error: deleteError } = await supabase.auth.admin.deleteUser(user.id);
 
     if (deleteError) {
       console.error('Error deleting user:', deleteError);
