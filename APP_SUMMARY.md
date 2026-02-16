@@ -50,11 +50,11 @@ A local-first Android app that lets users create home screen shortcuts for quick
 - **i18next** for internationalization
 
 ### Backend (Supabase — External Project)
-- **Client**: Custom client in `src/lib/supabaseClient.ts` with hardcoded credentials (project `xfnugumyjhnctmqgiyqm`)
+- **Client**: Custom client in `src/lib/supabaseClient.ts` with hardcoded credentials (project `xfnugumyjhnctmqgiyqm`), configured with `flowType: 'implicit'`
 - **Types**: Manually maintained in `src/lib/supabaseTypes.ts`
 - **Tables**: `cloud_bookmarks`, `cloud_trash`, `cloud_scheduled_actions`
 - **Edge Functions**: `fetch-url-metadata`, `delete-account`
-- **Auth**: Google OAuth with native deep link handling
+- **Auth**: Google OAuth with implicit flow + custom URL scheme (`onetap://auth-callback`) deep link
 
 ### Native Android Layer
 - `ShortcutPlugin.java`: Home screen shortcut creation

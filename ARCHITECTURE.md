@@ -210,12 +210,24 @@ User taps "Sync Now"  ──or──  App opens (daily auto)
 
 ## 6. How OAuth Works (Step by Step)
 
-Google sign-in uses a **dual deep link strategy** to ensure the app reliably opens after OAuth:
+Google sign-in uses **implicit flow** with a **custom URL scheme** deep link for reliable native OAuth:
 
-1. **Primary:** Android App Links (`https://onetapapp.in/auth-callback`) — requires domain verification via `assetlinks.json`
-2. **Fallback:** Custom URL scheme (`onetap://auth-callback`) — always works, no verification needed
+- **Auth flow type:** Implicit (tokens returned directly in URL fragment — no PKCE code verifier needed)
+- **Native redirect:** `onetap://auth-callback` (custom scheme — always works, no domain verification)
+- **Web redirect:** `{current_origin}/auth-callback`
 
-On native Android, the app uses the custom scheme (`onetap://auth-callback`) as the OAuth redirect URL because App Links verification can be unreliable. Custom schemes are guaranteed to open the app.
+### Why Implicit Flow?
+
+On Android, the OAuth browser (Chrome) is a separate process from the app's WebView. With PKCE flow, the code verifier is stored in the WebView's localStorage but Chrome has no access to it. When the deep link returns the app, `exchangeCodeForSession` fails because it can't find the matching code verifier. Implicit flow eliminates this problem — tokens are delivered directly in the URL fragment.
+
+| Aspect | PKCE (broken on native) | Implicit (current) |
+|---|---|---|
+| Code verifier | Stored in WebView localStorage, inaccessible from Chrome | Not needed |
+| Token delivery | Auth code in query param, needs server-side exchange | Tokens directly in URL fragment |
+| Security | More secure for web apps | Acceptable for native apps with custom schemes |
+| Complexity | Requires matching code verifier across browser contexts | Simpler — tokens are self-contained |
+
+### The Flow
 
 ```
 Step 1: User taps "Sign in with Google"
@@ -229,8 +241,8 @@ Step 3: User signs in with Google
            │
            ▼
 Step 4: Google redirects to:
-        onetap://auth-callback?code=ABC123
-        (custom scheme, guaranteed to open the app)
+        onetap://auth-callback#access_token=xxx&refresh_token=yyy
+        (implicit flow: tokens in URL fragment, custom scheme opens app)
            │
            ▼
 Step 5: Android intercepts this URL via custom scheme intent filter
@@ -240,8 +252,8 @@ Step 5: Android intercepts this URL via custom scheme intent filter
 Step 6: useDeepLink.ts receives the URL
            │
            ▼
-Step 7: oauthCompletion.ts converts the custom scheme URL to HTTPS,
-        then exchanges the code for a session
+Step 7: oauthCompletion.ts extracts access_token and refresh_token
+        from the URL, then calls supabase.auth.setSession()
         (with idempotency — processes the same URL only once)
            │
            ▼
@@ -252,9 +264,10 @@ Step 8: User is signed in. Session stored by Supabase SDK.
 
 | File | Role |
 |------|------|
+| `src/lib/supabaseClient.ts` | Supabase client configured with `flowType: 'implicit'` |
 | `src/hooks/useAuth.ts` | Starts the OAuth flow, manages auth state |
 | `src/hooks/useDeepLink.ts` | Listens for deep links from Android |
-| `src/lib/oauthCompletion.ts` | Shared logic to complete OAuth (used by both native and web) |
+| `src/lib/oauthCompletion.ts` | Shared logic to complete OAuth — handles both implicit tokens (`setSession`) and PKCE code exchange as fallback |
 | `src/pages/AuthCallback.tsx` | Web-only fallback callback route |
 | `public/.well-known/assetlinks.json` | Proves domain ownership to Android (for App Links fallback) |
 | `native/android/.../AndroidManifest.xml` | Declares both App Link and custom scheme intent filters |
@@ -273,6 +286,7 @@ You must configure **both** URLs in your Supabase project under Authentication �
 | Problem | Cause | Fix |
 |---------|-------|-----|
 | App doesn't open after sign-in | `onetap://auth-callback` not in Supabase redirect allowlist | Add it in Supabase dashboard → Auth → URL Configuration |
+| App opens but stays signed out | Supabase client not using `flowType: 'implicit'` | Verify `src/lib/supabaseClient.ts` has `flowType: 'implicit'` in auth config |
 | "ES256 invalid signing" error | Callback URL not in Supabase's redirect allowlist | Add the URL in Supabase dashboard → Auth → URL Configuration |
 | Sign-in works once, then stops | Idempotency guard blocking repeat URL | Clear localStorage key `pending_oauth_url` |
 | Web sign-in fails | Preview/production URL not in redirect allowlist | Add the web URL to Supabase redirect URLs |
@@ -436,7 +450,7 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for the full guide.
 | **User clears app data** | All local data is lost. | If signed in + synced: re-sign-in and sync to restore cloud copies. If never synced: data is gone. |
 | **Phone restarts** | `BootReceiver` reschedules all alarms. Shortcuts survive. | Automatic — no action needed. |
 | **Bad release shipped** | Users get a broken version. | Tag a hotfix version (`v1.0.1`), test on internal track, promote to production. See [RELEASE_PROCESS.md](RELEASE_PROCESS.md). |
-| **OAuth stops working** | Users can't sign in. App still works for everything except sync. | Check `assetlinks.json` fingerprint and Supabase Auth redirect URL config. See Section 6 above. |
+| **OAuth stops working** | Users can't sign in. App still works for everything except sync. | Check `onetap://auth-callback` is in Supabase redirect URLs, verify `flowType: 'implicit'` in supabaseClient.ts. See Section 6 above. |
 | **Lost signing keystore** | Cannot publish updates to the same Play Store listing. | **Unrecoverable.** You must create a new app listing. Always back up your keystore. |
 | **Sync guard blocks sync** | Sync silently does nothing. | Check console logs for `SyncGuardViolation` (dev) or warning (prod). Likely a timing issue. |
 

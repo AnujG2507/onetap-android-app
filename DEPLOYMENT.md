@@ -340,17 +340,14 @@ The marketing website is hosted on Vercel at `onetapapp.in`. This is a separate 
 
 > **Note:** The `.env` file is system-managed by Lovable Cloud and is **not used by the app** for Supabase connection. The app connects via hardcoded credentials in `src/lib/supabaseClient.ts` (external project `xfnugumyjhnctmqgiyqm`).
 
-The only environment variable the app uses from `.env` is:
-```
-VITE_PRODUCTION_DOMAIN=onetapapp.in
-```
-
-If deploying to a new Supabase project, update `src/lib/supabaseClient.ts` with the new project URL and anon key.
+If deploying to a new Supabase project, update `src/lib/supabaseClient.ts` with the new project URL and anon key. Ensure the auth config includes `flowType: 'implicit'` (required for native Android OAuth — see [ARCHITECTURE.md](ARCHITECTURE.md) Section 6 for why).
 
 ### Supabase Dashboard Configuration
 
 1. **Authentication → Providers → Google:** Enable and configure with your OAuth credentials
-2. **Authentication → URL Configuration → Redirect URLs:** Add `https://onetapapp.in/auth-callback`
+2. **Authentication → URL Configuration → Redirect URLs:** Add both:
+   - `onetap://auth-callback` (required for native Android)
+   - `https://onetapapp.in/auth-callback` (recommended App Links fallback)
 3. **Edge Functions → Secrets:** Verify `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` exist
 
 See [SUPABASE.md](SUPABASE.md) for full backend setup.
