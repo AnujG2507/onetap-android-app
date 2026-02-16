@@ -49,8 +49,10 @@ A local-first Android app that lets users create home screen shortcuts for quick
 - **Capacitor** for native Android bridge
 - **i18next** for internationalization
 
-### Backend (Supabase)
-- **Tables**: `cloud_bookmarks`, `cloud_trash`
+### Backend (Supabase — External Project)
+- **Client**: Custom client in `src/lib/supabaseClient.ts` with hardcoded credentials (project `xfnugumyjhnctmqgiyqm`)
+- **Types**: Manually maintained in `src/lib/supabaseTypes.ts`
+- **Tables**: `cloud_bookmarks`, `cloud_trash`, `cloud_scheduled_actions`
 - **Edge Functions**: `fetch-url-metadata`, `delete-account`
 - **Auth**: Google OAuth with native deep link handling
 

@@ -65,16 +65,13 @@ If you're setting up this project from scratch or moving to a new Supabase insta
 2. Create a new project (choose a region close to your users)
 3. Note your project's **URL** and **anon key** from Settings → API
 
-### Step 2: Configure environment variables
+### Step 2: Configure the Supabase client
 
-Create or update `.env` in the project root:
+> **Note:** The `.env` file is system-managed by Lovable Cloud and is **not used by the app**. The app connects via hardcoded credentials in `src/lib/supabaseClient.ts`.
 
-```
-VITE_SUPABASE_URL=https://YOUR_PROJECT_ID.supabase.co
-VITE_SUPABASE_PUBLISHABLE_KEY=your_anon_key_here
-VITE_SUPABASE_PROJECT_ID=YOUR_PROJECT_ID
-VITE_PRODUCTION_DOMAIN=onetapapp.in
-```
+If you are switching to a new Supabase project, update `src/lib/supabaseClient.ts` directly with the new project URL and anon key. The current external project ID is `xfnugumyjhnctmqgiyqm`.
+
+Also ensure `VITE_PRODUCTION_DOMAIN=onetapapp.in` is set in `.env` (this variable IS used for OAuth redirect URL construction).
 
 ### Step 3: Run database migrations
 
@@ -248,9 +245,10 @@ Edge functions are small pieces of server-side code that run on-demand. They are
 
 ### Deploying Edge Functions
 
-Edge functions must be deployed to your Supabase project. Use the Supabase CLI:
+Edge functions must be deployed to the **external Supabase project** (`xfnugumyjhnctmqgiyqm`), not the Lovable Cloud project. Use the Supabase CLI:
 
 ```bash
+supabase link --project-ref xfnugumyjhnctmqgiyqm
 supabase functions deploy fetch-url-metadata
 supabase functions deploy delete-account
 ```
@@ -366,8 +364,8 @@ If a user requests data deletion (GDPR, CCPA, or just personal preference):
 
 | File / Setting | Why You Must Not Change It |
 |---|---|
-| `src/integrations/supabase/client.ts` | Auto-generated. Reflects your Supabase connection. |
-| `src/integrations/supabase/types.ts` | Auto-generated from your database schema. |
+| `src/lib/supabaseClient.ts` | Custom client with hardcoded credentials for the external Supabase project. Only change if switching projects. |
+| `src/lib/supabaseTypes.ts` | Manually maintained database type definitions. Must match your Supabase schema. |
 | RLS policies (removing them) | Removing RLS exposes all user data to all users. |
 | `service_role` key | This key bypasses all security. Never use it in client code. Never expose it in `.env` or frontend files. It is only used inside edge functions. |
 
