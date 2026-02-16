@@ -10,7 +10,7 @@ import { AuthLoadingState } from '@/components/auth/AuthLoadingState';
 import { AuthSuccessState } from '@/components/auth/AuthSuccessState';
 import { AuthErrorState } from '@/components/auth/AuthErrorState';
 
-const AUTH_STORAGE_KEY = 'sb-qyokhlaexuywzuyasqxo-auth-token';
+const AUTH_STORAGE_KEY = 'sb-xfnugumyjhnctmqgiyqm-auth-token';
 
 type AuthState = 'loading' | 'success' | 'error';
 
