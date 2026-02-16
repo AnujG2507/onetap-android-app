@@ -58,6 +58,15 @@ export function ProfilePage({}: ProfilePageProps = {}) {
   const [avatarError, setAvatarError] = useState(false);
   const tutorial = useTutorial('profile');
 
+  // Derived user data - must be above conditional returns (Rules of Hooks)
+  const userMeta = user?.user_metadata ?? {};
+  const rawAvatarUrl = userMeta?.avatar_url || userMeta?.picture || null;
+  const fullName = userMeta?.full_name || userMeta?.name || 'User';
+  const email = user?.email || '';
+  const validAvatarUrl = useMemo(() =>
+    rawAvatarUrl && isValidImageSource(rawAvatarUrl) ? rawAvatarUrl : null,
+  [rawAvatarUrl]);
+
   // Register dialog with back button handler
   const handleCloseDeleteDialog = useCallback(() => setShowDeleteDialog(false), []);
   const handleCloseTrash = useCallback(() => setIsTrashOpen(false), []);
@@ -100,8 +109,6 @@ export function ProfilePage({}: ProfilePageProps = {}) {
 
   useEffect(() => {
     let cancelled = false;
-    console.log('[ProfilePage] useEffect triggered, user:', !!user);
-    
     const doRefresh = async () => {
       try {
         await refreshCounts();
@@ -348,21 +355,7 @@ export function ProfilePage({}: ProfilePageProps = {}) {
     );
   }
 
-  // Signed in state - with defensive null checks
-  console.log('[ProfilePage] Rendering signed-in view', {
-    hasUser: !!user,
-    email: user?.email,
-    hasMetadata: !!user?.user_metadata,
-  });
-  const userMeta = user?.user_metadata ?? {};
-  const rawAvatarUrl = userMeta?.avatar_url || userMeta?.picture || null;
-  const fullName = userMeta?.full_name || userMeta?.name || 'User';
-  const email = user?.email || '';
-  
-  // Validate avatar URL before attempting to load
-  const validAvatarUrl = useMemo(() => 
-    rawAvatarUrl && isValidImageSource(rawAvatarUrl) ? rawAvatarUrl : null,
-  [rawAvatarUrl]);
+  // Signed in state
 
   return (
     <ScrollArea className="flex-1" viewportClassName="overflow-x-hidden">
