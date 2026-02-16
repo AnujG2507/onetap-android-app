@@ -1,60 +1,50 @@
 
 
-## Implement Play Store In-App Updates
+## Fix: Year Picker Drawer Not Opening on Android
 
-Use the `@capawesome/capacitor-app-update` plugin to detect and prompt users when a new version is available on the Play Store.
+### Root Cause
 
-### How It Works
+The Calendar component renders two Drawers (month and year) inside its own `div`. When the Calendar is placed inside a `Dialog` (as in ScheduledTimingPicker), the Drawers must fight the Dialog's overlay for pointer events and z-index. The month Drawer works but the year Drawer does not -- likely due to DOM ordering or a Vaul state conflict when two Drawers exist in the same nested-modal context on Android WebView.
 
-When the app launches on Android, it checks the Play Store for a newer version. If one is found, a dialog prompts the user to update. The user can choose an immediate (full-screen blocking) update flow powered by Google Play's native in-app update API.
+### Solution
+
+Lift the year picker out of the Drawer pattern entirely and use a simple inline overlay panel instead. This avoids the nested-modal problem completely. The month picker already works as a Drawer, so we leave it alone.
 
 ### Changes
 
-**1. Install the plugin**
+**File: `src/components/ui/calendar.tsx`**
 
-Add `@capawesome/capacitor-app-update` as a dependency.
+1. Remove the year Drawer component entirely (the `<Drawer open={showYearDrawer} ...>` block at the bottom).
 
-**2. Create `src/hooks/useAppUpdate.ts`**
+2. Replace the year picker button's `onClick` to toggle a local `showYearPicker` state that renders an inline dropdown list directly below the header -- positioned absolutely within the Calendar's own container.
 
-A new hook that:
-- Runs once on app startup (only on Android native platform)
-- Calls `AppUpdate.getAppUpdateInfo()` to check if an update is available
-- If `updateAvailability === 2` (update available), calls `AppUpdate.performImmediateUpdate()` to show the native Play Store update screen
-- Wraps everything in a try/catch so it silently fails on web or if the check errors
+3. Add an inline year selection panel:
+   - Rendered as an absolutely-positioned `div` with `z-50`, solid background, rounded corners, and shadow
+   - Contains the same list of year buttons currently in the Drawer
+   - Includes a backdrop overlay (`fixed inset-0`) to close on outside tap
+   - Uses `pointer-events-auto` and `e.stopPropagation()` on the backdrop to prevent touch conflicts
 
-```
-useEffect(() => {
-  if (Capacitor.getPlatform() !== 'android') return;
+4. Keep the month Drawer unchanged since it works correctly.
 
-  const checkForUpdate = async () => {
-    const info = await AppUpdate.getAppUpdateInfo();
-    if (info.updateAvailability === 2) {
-      // 2 = UPDATE_AVAILABLE
-      await AppUpdate.performImmediateUpdate();
-    }
-  };
-  checkForUpdate().catch(() => {});
-}, []);
-```
+### Technical Details
 
-**3. Wire into `src/pages/Index.tsx`**
+```text
+Before (broken):
+  Dialog (ScheduledTimingPicker)
+    --> Calendar div (overflow-hidden)
+        --> Year button --> opens Drawer (nested modal = conflict on Android)
 
-Import and call `useAppUpdate()` at the top of the `Index` component so it fires on every app launch.
-
-**4. Native sync required**
-
-After pulling these changes, you will need to run:
-```
-npm install
-npx cap sync android
+After (fixed):
+  Dialog (ScheduledTimingPicker)
+    --> Calendar div (overflow-hidden removed for picker)
+        --> Year button --> toggles inline dropdown (no nested modal)
 ```
 
-The plugin automatically registers itself with Capacitor -- no changes needed to `MainActivity.java` or `ShortcutPlugin`.
+The inline panel approach:
+- Renders inside the Calendar component's own DOM tree
+- Uses `position: absolute` relative to the Calendar container
+- Has a fixed backdrop to catch outside taps
+- No portal, no overlay stacking, no z-index fight with the parent Dialog
 
-### Technical Notes
-
-- **Immediate update** blocks the app until the user completes the update -- this is the simplest and most reliable flow.
-- The Play Store API only reports updates for production/internal testing tracks. You can test using [internal app sharing](https://developer.android.com/guide/playcore/in-app-updates/test).
-- No UI components are needed on our side -- the update screen is rendered by Google Play Services natively.
-- The check is a no-op on web since `Capacitor.getPlatform()` returns `'web'`.
+This matches the existing memory note: "For mobile compatibility, complex pickers use Drawer-based bottom sheets instead of Radix DropdownMenus" -- but since the Drawer itself fails when nested inside a Dialog on Android, the inline panel is the correct fallback.
 
