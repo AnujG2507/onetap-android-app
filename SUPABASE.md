@@ -283,7 +283,8 @@ npx supabase functions deploy delete-account --project-ref xfnugumyjhnctmqgiyqm
   1. Validates the user's authentication token
   2. Deletes all rows from `cloud_bookmarks` where `user_id` matches
   3. Deletes all rows from `cloud_trash` where `user_id` matches
-  4. Deletes the authentication account via admin API
+  4. Deletes all rows from `cloud_scheduled_actions` where `user_id` matches
+  5. Deletes the authentication account via admin API
 - **Output:** `{ "success": true }`
 
 ⚠️ **DANGER:**
