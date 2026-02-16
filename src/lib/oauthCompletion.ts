@@ -11,7 +11,7 @@
  * - Environment-safe: no hardcoded domains
  */
 
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/supabaseClient';
 import { Session } from '@supabase/supabase-js';
 
 // Storage keys
