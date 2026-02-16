@@ -1,14 +1,11 @@
+import { Component, ReactNode } from 'react';
 import { useSyncStatus } from '@/hooks/useSyncStatus';
 import { cn } from '@/lib/utils';
 
 /**
- * Subtle sync status indicator.
- * Shows a small colored dot that indicates sync state:
- * - Green (with brief pulse): synced
- * - Amber: pending changes or syncing
- * - Hidden: offline or disabled
+ * Inner component that uses the hook and renders the indicator.
  */
-export function SyncStatusIndicator({ className }: { className?: string }) {
+function SyncStatusIndicatorInner({ className }: { className?: string }) {
   const { syncState, isEnabled } = useSyncStatus();
 
   // Don't show indicator if sync is disabled or offline
@@ -37,5 +34,42 @@ export function SyncStatusIndicator({ className }: { className?: string }) {
         <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
       )}
     </span>
+  );
+}
+
+/**
+ * Error boundary wrapper so SyncStatusIndicator never crashes the parent.
+ */
+class SyncStatusErrorBoundary extends Component<
+  { children: ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(): { hasError: boolean } {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error) {
+    console.error('[SyncStatusIndicator] Render error caught:', error);
+  }
+
+  render() {
+    if (this.state.hasError) return null;
+    return this.props.children;
+  }
+}
+
+/**
+ * Subtle sync status indicator with built-in error boundary.
+ */
+export function SyncStatusIndicator({ className }: { className?: string }) {
+  return (
+    <SyncStatusErrorBoundary>
+      <SyncStatusIndicatorInner className={className} />
+    </SyncStatusErrorBoundary>
   );
 }
