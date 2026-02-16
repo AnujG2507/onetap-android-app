@@ -15,7 +15,7 @@ serve(async (req) => {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return new Response(
-        JSON.stringify({ error: 'Missing authorization header' }),
+        JSON.stringify({ error: 'Missing Authorization header' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -23,67 +23,44 @@ serve(async (req) => {
     console.log('[delete-account] Auth header present:', !!authHeader);
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-    // Single client: service role key (bypasses RLS for deletions)
-    // with forwarded Authorization header (scopes getUser() to the calling user)
-    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+    // Client A: user-scoped (anon key + forwarded JWT) — for identity validation only
+    const userClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
       global: { headers: { Authorization: authHeader } }
     });
 
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    // Client B: service role — for admin actions (delete user, bypass RLS)
+    const adminClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+
+    // Validate the calling user
+    const { data: { user }, error: userError } = await userClient.auth.getUser();
     if (userError || !user) {
+      console.error('[delete-account] User validation failed:', userError);
       return new Response(
-        JSON.stringify({ error: 'Invalid or expired token' }),
+        JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Delete user's cloud data
-    const { error: bookmarksError } = await supabase
-      .from('cloud_bookmarks')
-      .delete()
-      .eq('user_id', user.id);
+    console.log('[delete-account] Deleting data for user:', user.id);
 
-    if (bookmarksError) {
-      console.error('Error deleting bookmarks:', bookmarksError);
-      return new Response(
-        JSON.stringify({ error: 'Failed to delete user data' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    // Clean up user data using admin client (bypasses RLS)
+    const { error: bookmarksError } = await adminClient
+      .from('cloud_bookmarks').delete().eq('user_id', user.id);
+    if (bookmarksError) console.error('Error deleting bookmarks:', bookmarksError);
 
-    const { error: trashError } = await supabase
-      .from('cloud_trash')
-      .delete()
-      .eq('user_id', user.id);
+    const { error: trashError } = await adminClient
+      .from('cloud_trash').delete().eq('user_id', user.id);
+    if (trashError) console.error('Error deleting trash:', trashError);
 
-    if (trashError) {
-      console.error('Error deleting trash:', trashError);
-      return new Response(
-        JSON.stringify({ error: 'Failed to delete user trash data' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    const { error: scheduledError } = await adminClient
+      .from('cloud_scheduled_actions').delete().eq('user_id', user.id);
+    if (scheduledError) console.error('Error deleting scheduled actions:', scheduledError);
 
-    const { error: scheduledError } = await supabase
-      .from('cloud_scheduled_actions')
-      .delete()
-      .eq('user_id', user.id);
-
-    if (scheduledError) {
-      console.error('Error deleting scheduled actions:', scheduledError);
-      return new Response(
-        JSON.stringify({ error: 'Failed to delete user scheduled actions data' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Delete the auth user
-    const { error: deleteError } = await supabase.auth.admin.deleteUser(user.id);
-
+    // Delete the auth user using service role
+    const { error: deleteError } = await adminClient.auth.admin.deleteUser(user.id);
     if (deleteError) {
-      console.error('Error deleting user:', deleteError);
+      console.error('[delete-account] Delete failed:', deleteError);
       return new Response(
         JSON.stringify({ error: 'Failed to delete account' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
