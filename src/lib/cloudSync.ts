@@ -11,7 +11,7 @@
  * but route through guards.
  */
 
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/supabaseClient';
 import { getSavedLinks, SavedLink, getTrashLinks, TrashedLink } from './savedLinksManager';
 import { 
   getScheduledActions, 

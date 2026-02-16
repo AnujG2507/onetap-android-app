@@ -30,7 +30,7 @@ import { getScheduledActions } from '@/lib/scheduledActionsManager';
 import { syncBookmarks, uploadBookmarksToCloud, downloadBookmarksFromCloud, getCloudBookmarkCount, getCloudScheduledActionsCount } from '@/lib/cloudSync';
 import { getSyncStatus, recordSync, formatRelativeTime, clearSyncStatus } from '@/lib/syncStatusManager';
 import { getSettings, updateSettings } from '@/lib/settingsManager';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/hooks/use-toast';
 import { AppMenu } from './AppMenu';
 import { TrashSheet } from './TrashSheet';
