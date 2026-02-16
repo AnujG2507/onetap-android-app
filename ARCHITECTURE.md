@@ -352,8 +352,11 @@ onetap-app/
 │   ├── plugins/                  # Capacitor plugin TypeScript interfaces
 │   ├── types/                    # TypeScript type definitions
 │   ├── contexts/                 # React contexts
-│   ├── i18n/                     # Translations
-│   └── integrations/supabase/    # ⚠️ AUTO-GENERATED — do not edit
+│   └── i18n/                     # Translations
+│
+│   Key Supabase files (manually maintained):
+│   ├── lib/supabaseClient.ts     # Custom client with hardcoded external project credentials
+│   └── lib/supabaseTypes.ts      # Database type definitions
 │
 ├── native/android/               # Native Java source files (EDIT HERE)
 │   ├── app/src/main/java/        # Custom Java classes

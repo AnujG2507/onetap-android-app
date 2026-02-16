@@ -71,7 +71,6 @@ Android users frequently access the same URLs, contacts, and files. OneTap lets 
 - No staging environment (single backend for test and production)
 - No analytics or tracking code
 - No ad SDKs
-- No Lovable Cloud dependencies
 
 ---
 
@@ -82,9 +81,9 @@ These files are critical to production. Changing them incorrectly can break the 
 | File / Area | Why It's Dangerous |
 |---|---|
 | `android/` folder | **Generated** — gets overwritten by build scripts. Edit `native/android/` instead. |
-| `src/integrations/supabase/client.ts` | **Auto-generated** — managed by the Supabase integration. |
-| `src/integrations/supabase/types.ts` | **Auto-generated** — reflects your database schema automatically. |
-| `.env` | Contains your Supabase connection details. Handle with care. |
+| `src/lib/supabaseClient.ts` | Custom Supabase client with hardcoded external project credentials. Do not change unless switching Supabase projects. |
+| `src/lib/supabaseTypes.ts` | Database type definitions (manually maintained). Must match your Supabase schema. |
+| `.env` | System-managed by Lovable Cloud. Not used by the app — the custom client bypasses it. |
 | `supabase/config.toml` | Supabase configuration. |
 | `public/.well-known/assetlinks.json` | Controls OAuth deep links. Wrong fingerprint = sign-in breaks. |
 | Release keystore (`.jks` file) | **If you lose this, you cannot update the app on Play Store. Ever.** |

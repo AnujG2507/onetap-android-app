@@ -302,8 +302,8 @@ npm install -g supabase
 # Login to your Supabase account
 supabase login
 
-# Link to your project
-supabase link --project-ref YOUR_PROJECT_ID
+# Link to the external project
+supabase link --project-ref xfnugumyjhnctmqgiyqm
 
 # Deploy all functions
 supabase functions deploy fetch-url-metadata
@@ -338,14 +338,14 @@ The marketing website is hosted on Vercel at `onetapapp.in`. This is a separate 
 
 ## 13. Supabase Environment Setup
 
-### Required environment variables (`.env`)
+> **Note:** The `.env` file is system-managed by Lovable Cloud and is **not used by the app** for Supabase connection. The app connects via hardcoded credentials in `src/lib/supabaseClient.ts` (external project `xfnugumyjhnctmqgiyqm`).
 
+The only environment variable the app uses from `.env` is:
 ```
-VITE_SUPABASE_URL=https://YOUR_PROJECT_ID.supabase.co
-VITE_SUPABASE_PUBLISHABLE_KEY=your_anon_key
-VITE_SUPABASE_PROJECT_ID=YOUR_PROJECT_ID
 VITE_PRODUCTION_DOMAIN=onetapapp.in
 ```
+
+If deploying to a new Supabase project, update `src/lib/supabaseClient.ts` with the new project URL and anon key.
 
 ### Supabase Dashboard Configuration
 

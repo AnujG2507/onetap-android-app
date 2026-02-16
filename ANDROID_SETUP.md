@@ -121,11 +121,10 @@ scripts/android/
 
 The app uses **Android App Links** for OAuth callback. This requires HTTPS URLs on your production domain.
 
-### Step 1: Supabase Setup
+### Step 1: Supabase Auth Configuration
 
-1. Go to your [Supabase dashboard](https://supabase.com/dashboard)
-2. Navigate to **Authentication → URL Configuration**
-3. Add to "Redirect URLs": `https://onetapapp.in/auth-callback`
+1. In your Supabase project's **Authentication → URL Configuration** settings
+2. Add to "Redirect URLs": `https://onetapapp.in/auth-callback`
 
 ### Step 2: Environment Variable
 
@@ -133,6 +132,8 @@ Ensure your `.env` file contains:
 ```
 VITE_PRODUCTION_DOMAIN=onetapapp.in
 ```
+
+> **Note:** The Supabase connection itself is configured in `src/lib/supabaseClient.ts` with hardcoded credentials, not via environment variables. `VITE_PRODUCTION_DOMAIN` is used only for OAuth redirect URL construction.
 
 ### Step 3: Domain Verification (assetlinks.json)
 
