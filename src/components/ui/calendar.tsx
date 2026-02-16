@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useState, useCallback, useMemo, useEffect } from "react";
-import { ChevronLeft, ChevronRight, ChevronDown, Calendar as CalendarIcon } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronDown, Calendar as CalendarIcon, Check } from "lucide-react";
 import { DayPicker } from "react-day-picker";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -8,11 +8,12 @@ import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 import { triggerHaptic } from "@/lib/haptics";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker> & {
   enableSwipe?: boolean;
@@ -42,6 +43,7 @@ function Calendar({
   const [internalMonth, setInternalMonth] = useState(getInitialMonth);
   const [direction, setDirection] = useState(0);
   const [showMonthPicker, setShowMonthPicker] = useState(false);
+  const [showYearDrawer, setShowYearDrawer] = useState(false);
   
   // Sync internal month when defaultMonth or selected changes (for dialog reopening)
   // This ensures the calendar opens to the correct month AND year
@@ -191,74 +193,33 @@ function Calendar({
         
         {/* Month & Year pickers */}
         <div className="flex items-center gap-1">
-          {/* Month dropdown */}
-          <DropdownMenu open={showMonthPicker} onOpenChange={setShowMonthPicker}>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                className={cn(
-                  "flex items-center gap-1 px-3 py-1.5 rounded-xl transition-all",
-                  "hover:bg-muted/60 font-bold text-sm active:scale-95",
-                )}
-              >
-                {monthLabel}
-                <ChevronDown className="h-3 w-3 text-muted-foreground" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent 
-              align="center" 
-              className="max-h-64 overflow-y-auto bg-background border border-border shadow-xl rounded-xl z-50"
-            >
-              {monthOptions.map((month) => (
-                <DropdownMenuItem
-                  key={month.value}
-                  onClick={() => jumpToMonth(month.value)}
-                  className={cn(
-                    "cursor-pointer rounded-lg transition-colors",
-                    month.value === currentMonth.getMonth() && "bg-primary/10 text-primary font-semibold"
-                  )}
-                >
-                  {month.label}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {/* Month picker button */}
+          <button
+            type="button"
+            onClick={() => setShowMonthPicker(true)}
+            className={cn(
+              "flex items-center gap-1 px-3 py-1.5 rounded-xl transition-all pointer-events-auto",
+              "hover:bg-muted/60 font-bold text-sm active:scale-95",
+            )}
+          >
+            {monthLabel}
+            <ChevronDown className="h-3 w-3 text-muted-foreground" />
+          </button>
 
-          {/* Year dropdown */}
+          {/* Year picker button */}
           {showYearPicker && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                className={cn(
-                  "flex items-center gap-1 px-3 py-1.5 rounded-xl transition-all",
-                  "hover:bg-muted/60 font-bold text-sm active:scale-95",
-                )}
-              >
-                {currentYear}
-                <ChevronDown className="h-3 w-3 text-muted-foreground" />
-              </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent 
-                align="center" 
-                className="max-h-64 overflow-y-auto bg-background border border-border shadow-xl rounded-xl z-50"
-              >
-                {yearOptions.map((year) => (
-                  <DropdownMenuItem
-                    key={year}
-                    onClick={() => jumpToYear(year)}
-                    className={cn(
-                      "cursor-pointer rounded-lg transition-colors",
-                      year === currentYear && "bg-primary/10 text-primary font-semibold"
-                    )}
-                  >
-                    {year}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <button
+              type="button"
+              onClick={() => setShowYearDrawer(true)}
+              className={cn(
+                "flex items-center gap-1 px-3 py-1.5 rounded-xl transition-all pointer-events-auto",
+                "hover:bg-muted/60 font-bold text-sm active:scale-95",
+              )}
+            >
+              {currentYear}
+              <ChevronDown className="h-3 w-3 text-muted-foreground" />
+            </button>
           )}
-
           {/* Today button */}
           <motion.button
             type="button"
@@ -379,6 +340,68 @@ function Calendar({
           <div className="absolute inset-y-0 right-0 w-4 bg-gradient-to-l from-background/80 to-transparent pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity" />
         </>
       )}
+
+      {/* Month picker drawer */}
+      <Drawer open={showMonthPicker} onOpenChange={setShowMonthPicker}>
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>Select Month</DrawerTitle>
+          </DrawerHeader>
+          <ScrollArea className="max-h-[50vh] px-4 pb-6">
+            <div className="space-y-1">
+              {monthOptions.map((month) => (
+                <button
+                  key={month.value}
+                  type="button"
+                  onClick={() => jumpToMonth(month.value)}
+                  className={cn(
+                    "flex items-center justify-between w-full py-3 px-4 rounded-xl transition-colors",
+                    month.value === currentMonth.getMonth()
+                      ? "bg-primary/10 text-primary font-semibold"
+                      : "hover:bg-muted/50"
+                  )}
+                >
+                  {month.label}
+                  {month.value === currentMonth.getMonth() && (
+                    <Check className="h-4 w-4 text-primary" />
+                  )}
+                </button>
+              ))}
+            </div>
+          </ScrollArea>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Year picker drawer */}
+      <Drawer open={showYearDrawer} onOpenChange={setShowYearDrawer}>
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>Select Year</DrawerTitle>
+          </DrawerHeader>
+          <ScrollArea className="max-h-[50vh] px-4 pb-6">
+            <div className="space-y-1">
+              {yearOptions.map((year) => (
+                <button
+                  key={year}
+                  type="button"
+                  onClick={() => { jumpToYear(year); setShowYearDrawer(false); }}
+                  className={cn(
+                    "flex items-center justify-between w-full py-3 px-4 rounded-xl transition-colors",
+                    year === currentYear
+                      ? "bg-primary/10 text-primary font-semibold"
+                      : "hover:bg-muted/50"
+                  )}
+                >
+                  {year}
+                  {year === currentYear && (
+                    <Check className="h-4 w-4 text-primary" />
+                  )}
+                </button>
+              ))}
+            </div>
+          </ScrollArea>
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 }
