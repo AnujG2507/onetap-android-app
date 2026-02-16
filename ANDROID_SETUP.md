@@ -119,23 +119,28 @@ scripts/android/
 
 ## Configure OAuth (Required for Google Sign-In)
 
-The app uses **Android App Links** for OAuth callback. This requires HTTPS URLs on your production domain.
+The app uses a **dual deep link strategy** for OAuth callback:
+1. **Custom URL scheme** (`onetap://auth-callback`) — primary method, always works, no verification needed
+2. **Android App Links** (`https://onetapapp.in/auth-callback`) — fallback, requires domain verification
 
 ### Step 1: Supabase Auth Configuration
 
 1. In your Supabase project's **Authentication → URL Configuration** settings
-2. Add to "Redirect URLs": `https://onetapapp.in/auth-callback`
+2. Add **both** to "Redirect URLs":
+   - `onetap://auth-callback` (required — used by native app)
+   - `https://onetapapp.in/auth-callback` (recommended — App Links fallback)
 
-### Step 2: Environment Variable
+### Step 2: AndroidManifest.xml
 
-Ensure your `.env` file contains:
-```
-VITE_PRODUCTION_DOMAIN=onetapapp.in
-```
+The `native/android/app/src/main/AndroidManifest.xml` already declares both intent filters:
+- A custom scheme filter for `onetap://auth-callback` (primary, no verification needed)
+- An App Link filter for `https://onetapapp.in/auth-callback` (fallback with `autoVerify="true"`)
 
-> **Note:** The Supabase connection itself is configured in `src/lib/supabaseClient.ts` with hardcoded credentials, not via environment variables. `VITE_PRODUCTION_DOMAIN` is used only for OAuth redirect URL construction.
+If you use a different custom scheme or domain, update both intent filters.
 
-### Step 3: Domain Verification (assetlinks.json)
+### Step 3: Domain Verification (assetlinks.json) — Optional
+
+Domain verification is only needed for the App Links (HTTPS) fallback. The custom scheme works without it. If you want App Links to work as well:
 
 The file hosted at `https://onetapapp.in/.well-known/assetlinks.json` must contain your app's signing certificate fingerprint.
 
@@ -149,36 +154,36 @@ keytool -list -v -keystore your-release.keystore -alias your-alias | grep SHA256
 
 For production, use the SHA-256 fingerprint from Google Play Console → Setup → App signing → App signing key certificate.
 
-### Step 4: AndroidManifest.xml
-
-The `native/android/app/src/main/AndroidManifest.xml` already declares the App Link intent filter for `onetapapp.in`. If you use a different domain, update the `android:host` value.
-
-## OAuth Deep Link Flow (App Links)
+## OAuth Deep Link Flow
 
 1. User taps "Sign in with Google"
 2. App opens Google OAuth in Chrome Custom Tab
-3. After authentication, Google redirects to `https://onetapapp.in/auth-callback?code=...`
-4. Android intercepts this HTTPS URL (via verified App Link in AndroidManifest.xml)
-5. App exchanges the code for a session token
+3. After authentication, Google redirects to `onetap://auth-callback?code=...`
+4. Android intercepts this custom scheme URL (no domain verification needed)
+5. `oauthCompletion.ts` converts the URL to HTTPS format and exchanges the code for a session
 6. User is signed in
 
 **Files involved:**
-- `assetlinks.json` on your website - Domain verification for App Links
-- `native/android/app/src/main/AndroidManifest.xml` - App Links intent-filter with `autoVerify="true"`
-- `src/hooks/useDeepLink.ts` - Handles `appUrlOpen` events
-- `src/hooks/useAuth.ts` - Native OAuth flow with `skipBrowserRedirect`
+- `native/android/app/src/main/AndroidManifest.xml` — Custom scheme + App Link intent filters
+- `src/hooks/useDeepLink.ts` — Handles `appUrlOpen` events
+- `src/hooks/useAuth.ts` — Native OAuth flow with `skipBrowserRedirect`
+- `src/lib/oauthCompletion.ts` — Converts custom scheme URLs and exchanges codes
 
-## Testing App Links on Physical Devices
+## Testing Deep Links on Physical Devices
 
 ```bash
-# Check if Android verified the domain
-adb shell pm get-app-links app.onetap.access
+# Test the custom scheme deep link (primary)
+adb shell am start -W -a android.intent.action.VIEW \
+  -d "onetap://auth-callback?code=test"
 
-# Test the deep link manually
+# Test the App Link deep link (fallback)
 adb shell am start -W -a android.intent.action.VIEW \
   -d "https://onetapapp.in/auth-callback?code=test"
 
-# Force re-verification
+# Check App Links verification status
+adb shell pm get-app-links app.onetap.access
+
+# Force App Links re-verification
 adb shell pm verify-app-links --re-verify app.onetap.access
 ```
 

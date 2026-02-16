@@ -210,7 +210,12 @@ User taps "Sync Now"  ──or──  App opens (daily auto)
 
 ## 6. How OAuth Works (Step by Step)
 
-Google sign-in uses "Android App Links" — a system where Android intercepts specific HTTPS URLs and opens them in your app instead of the browser.
+Google sign-in uses a **dual deep link strategy** to ensure the app reliably opens after OAuth:
+
+1. **Primary:** Android App Links (`https://onetapapp.in/auth-callback`) — requires domain verification via `assetlinks.json`
+2. **Fallback:** Custom URL scheme (`onetap://auth-callback`) — always works, no verification needed
+
+On native Android, the app uses the custom scheme (`onetap://auth-callback`) as the OAuth redirect URL because App Links verification can be unreliable. Custom schemes are guaranteed to open the app.
 
 ```
 Step 1: User taps "Sign in with Google"
@@ -224,18 +229,19 @@ Step 3: User signs in with Google
            │
            ▼
 Step 4: Google redirects to:
-        https://onetapapp.in/auth-callback?code=ABC123
+        onetap://auth-callback?code=ABC123
+        (custom scheme, guaranteed to open the app)
            │
            ▼
-Step 5: Android intercepts this URL
-        (because AndroidManifest.xml declares it as an App Link
-         and assetlinks.json on onetapapp.in proves you own the domain)
+Step 5: Android intercepts this URL via custom scheme intent filter
+        (declared in AndroidManifest.xml — no domain verification needed)
            │
            ▼
 Step 6: useDeepLink.ts receives the URL
            │
            ▼
-Step 7: oauthCompletion.ts exchanges the code for a session
+Step 7: oauthCompletion.ts converts the custom scheme URL to HTTPS,
+        then exchanges the code for a session
         (with idempotency — processes the same URL only once)
            │
            ▼
@@ -250,22 +256,26 @@ Step 8: User is signed in. Session stored by Supabase SDK.
 | `src/hooks/useDeepLink.ts` | Listens for deep links from Android |
 | `src/lib/oauthCompletion.ts` | Shared logic to complete OAuth (used by both native and web) |
 | `src/pages/AuthCallback.tsx` | Web-only fallback callback route |
-| `public/.well-known/assetlinks.json` | Proves domain ownership to Android |
-| `native/android/.../AndroidManifest.xml` | Declares the app handles the callback URL |
+| `public/.well-known/assetlinks.json` | Proves domain ownership to Android (for App Links fallback) |
+| `native/android/.../AndroidManifest.xml` | Declares both App Link and custom scheme intent filters |
 
 **OAuth redirect URL configuration:**
 
-The redirect URL is controlled by the `VITE_PRODUCTION_DOMAIN` environment variable. For production, set this to `onetapapp.in`. The app constructs `https://{VITE_PRODUCTION_DOMAIN}/auth-callback` as the redirect target.
+- **Native (Android):** Uses `onetap://auth-callback` (custom scheme, set automatically in code)
+- **Web:** Uses `{current_origin}/auth-callback` (set automatically in code)
 
-You must also configure this URL in your Supabase project dashboard under Authentication → URL Configuration → Redirect URLs.
+You must configure **both** URLs in your Supabase project under Authentication → URL Configuration → Redirect URLs:
+- `onetap://auth-callback`
+- `https://onetapapp.in/auth-callback`
 
 **What can go wrong:**
 
 | Problem | Cause | Fix |
 |---------|-------|-----|
-| Sign-in opens browser instead of app | Wrong SHA-256 fingerprint in `assetlinks.json` | Update fingerprint to match your signing key |
+| App doesn't open after sign-in | `onetap://auth-callback` not in Supabase redirect allowlist | Add it in Supabase dashboard → Auth → URL Configuration |
 | "ES256 invalid signing" error | Callback URL not in Supabase's redirect allowlist | Add the URL in Supabase dashboard → Auth → URL Configuration |
 | Sign-in works once, then stops | Idempotency guard blocking repeat URL | Clear localStorage key `pending_oauth_url` |
+| Web sign-in fails | Preview/production URL not in redirect allowlist | Add the web URL to Supabase redirect URLs |
 
 ---
 
