@@ -1,50 +1,28 @@
 
 
-## Fix: Year Picker Drawer Not Opening on Android
+## Update `assetlinks.json` with Both Signing Keys
 
-### Root Cause
+The `assetlinks.json` file needs to contain **both** SHA256 fingerprints so Android App Links work whether the app is sideloaded (upload key) or installed from the Play Store (Google's signing key).
 
-The Calendar component renders two Drawers (month and year) inside its own `div`. When the Calendar is placed inside a `Dialog` (as in ScheduledTimingPicker), the Drawers must fight the Dialog's overlay for pointer events and z-index. The month Drawer works but the year Drawer does not -- likely due to DOM ordering or a Vaul state conflict when two Drawers exist in the same nested-modal context on Android WebView.
+### What changes
 
-### Solution
+**File: `public/.well-known/assetlinks.json`**
 
-Lift the year picker out of the Drawer pattern entirely and use a simple inline overlay panel instead. This avoids the nested-modal problem completely. The month picker already works as a Drawer, so we leave it alone.
-
-### Changes
-
-**File: `src/components/ui/calendar.tsx`**
-
-1. Remove the year Drawer component entirely (the `<Drawer open={showYearDrawer} ...>` block at the bottom).
-
-2. Replace the year picker button's `onClick` to toggle a local `showYearPicker` state that renders an inline dropdown list directly below the header -- positioned absolutely within the Calendar's own container.
-
-3. Add an inline year selection panel:
-   - Rendered as an absolutely-positioned `div` with `z-50`, solid background, rounded corners, and shadow
-   - Contains the same list of year buttons currently in the Drawer
-   - Includes a backdrop overlay (`fixed inset-0`) to close on outside tap
-   - Uses `pointer-events-auto` and `e.stopPropagation()` on the backdrop to prevent touch conflicts
-
-4. Keep the month Drawer unchanged since it works correctly.
-
-### Technical Details
+Replace the current single fingerprint with both:
 
 ```text
-Before (broken):
-  Dialog (ScheduledTimingPicker)
-    --> Calendar div (overflow-hidden)
-        --> Year button --> opens Drawer (nested modal = conflict on Android)
-
-After (fixed):
-  Dialog (ScheduledTimingPicker)
-    --> Calendar div (overflow-hidden removed for picker)
-        --> Year button --> toggles inline dropdown (no nested modal)
+Upload key:     1F:52:68:CA:4B:92:4C:D4:1B:2B:A0:44:FD:18:A6:41:C1:4F:92:A8:19:E6:5A:BC:5D:55:B1:C0:EE:D2:FE:89
+Play Store key: 83:E2:D2:86:C6:80:44:BB:70:3D:81:B5:46:E6:6E:69:BE:CD:3C:4F:5F:51:BD:8A:40:51:F4:FC:2E:0B:CC:47
 ```
 
-The inline panel approach:
-- Renders inside the Calendar component's own DOM tree
-- Uses `position: absolute` relative to the Calendar container
-- Has a fixed backdrop to catch outside taps
-- No portal, no overlay stacking, no z-index fight with the parent Dialog
+The old fingerprint (`33:0F:35:2A...`) will be removed since it doesn't match either key.
 
-This matches the existing memory note: "For mobile compatibility, complex pickers use Drawer-based bottom sheets instead of Radix DropdownMenus" -- but since the Drawer itself fails when nested inside a Dialog on Android, the inline panel is the correct fallback.
+### Why both are needed
+
+- **Upload key** -- used when you install the APK directly from your machine (sideloading / local testing)
+- **Play Store signing key** -- Google re-signs your app with this key before distributing it to users via the Play Store
+
+### Reminder
+
+The same `assetlinks.json` must also be deployed on the **Vercel-hosted domain** (`onetapapp.in`) for App Links to verify correctly on that domain.
 
