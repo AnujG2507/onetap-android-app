@@ -70,15 +70,19 @@ export function ProfilePage({}: ProfilePageProps = {}) {
 
   // Refresh counts
   const refreshCounts = async () => {
-    setLocalCount(getSavedLinks().length);
-    setLocalRemindersCount(getScheduledActions().length);
-    if (user) {
-      const [bookmarkCount, actionsCount] = await Promise.all([
-        getCloudBookmarkCount(),
-        getCloudScheduledActionsCount()
-      ]);
-      setCloudCount(bookmarkCount);
-      setCloudRemindersCount(actionsCount);
+    try {
+      setLocalCount(getSavedLinks().length);
+      setLocalRemindersCount(getScheduledActions().length);
+      if (user) {
+        const [bookmarkCount, actionsCount] = await Promise.all([
+          getCloudBookmarkCount(),
+          getCloudScheduledActionsCount()
+        ]);
+        setCloudCount(bookmarkCount);
+        setCloudRemindersCount(actionsCount);
+      }
+    } catch (error) {
+      console.error('[ProfilePage] refreshCounts failed:', error);
     }
   };
 
@@ -95,8 +99,22 @@ export function ProfilePage({}: ProfilePageProps = {}) {
   };
 
   useEffect(() => {
-    refreshCounts();
-    setSyncStatus(getSyncStatus());
+    let cancelled = false;
+    console.log('[ProfilePage] useEffect triggered, user:', !!user);
+    
+    const doRefresh = async () => {
+      try {
+        await refreshCounts();
+      } catch (e) {
+        console.error('[ProfilePage] Refresh failed:', e);
+      }
+      if (!cancelled) {
+        setSyncStatus(getSyncStatus());
+      }
+    };
+    doRefresh();
+    
+    return () => { cancelled = true; };
   }, [user]);
 
   const handleDeleteAccount = async () => {
@@ -331,6 +349,11 @@ export function ProfilePage({}: ProfilePageProps = {}) {
   }
 
   // Signed in state - with defensive null checks
+  console.log('[ProfilePage] Rendering signed-in view', {
+    hasUser: !!user,
+    email: user?.email,
+    hasMetadata: !!user?.user_metadata,
+  });
   const userMeta = user?.user_metadata ?? {};
   const rawAvatarUrl = userMeta?.avatar_url || userMeta?.picture || null;
   const fullName = userMeta?.full_name || userMeta?.name || 'User';

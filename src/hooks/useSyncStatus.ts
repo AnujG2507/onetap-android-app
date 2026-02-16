@@ -20,6 +20,7 @@ import { uploadBookmarksToCloud, uploadTrashToCloud } from '@/lib/cloudSync';
 export function useSyncStatus() {
   const { user, loading: authLoading } = useAuth();
   const { isOnline } = useNetworkStatus();
+  console.log('[useSyncStatus] Init, user:', !!user, 'authLoading:', authLoading, 'online:', isOnline);
   const [status, setStatus] = useState(getSyncStatus());
   const [isSyncing, setIsSyncing] = useState(false);
   const isRetrying = useRef(false);
