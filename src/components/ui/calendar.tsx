@@ -7,13 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 import { triggerHaptic } from "@/lib/haptics";
-import {
-  Drawer,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle,
-} from "@/components/ui/drawer";
-import { ScrollArea } from "@/components/ui/scroll-area";
+// Drawer/ScrollArea imports removed — month & year pickers now use inline panels
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker> & {
   enableSwipe?: boolean;
@@ -341,42 +335,50 @@ function Calendar({
         </>
       )}
 
-      {/* Month picker drawer */}
-      <Drawer open={showMonthPicker} onOpenChange={setShowMonthPicker}>
-        <DrawerContent>
-          <DrawerHeader>
-            <DrawerTitle>Select Month</DrawerTitle>
-          </DrawerHeader>
-          <ScrollArea className="max-h-[50vh] px-4 pb-6">
-            <div className="space-y-1">
-              {monthOptions.map((month) => (
-                <button
-                  key={month.value}
-                  type="button"
-                  onClick={() => jumpToMonth(month.value)}
-                  className={cn(
-                    "flex items-center justify-between w-full py-3 px-4 rounded-xl transition-colors",
-                    month.value === currentMonth.getMonth()
-                      ? "bg-primary/10 text-primary font-semibold"
-                      : "hover:bg-muted/50"
-                  )}
-                >
-                  {month.label}
-                  {month.value === currentMonth.getMonth() && (
-                    <Check className="h-4 w-4 text-primary" />
-                  )}
-                </button>
-              ))}
-            </div>
-          </ScrollArea>
-        </DrawerContent>
-      </Drawer>
+      {/* Inline month picker panel */}
+      <AnimatePresence>
+        {showMonthPicker && (
+          <>
+            <div
+              className="fixed inset-0 z-40 pointer-events-auto"
+              onClick={(e) => { e.stopPropagation(); setShowMonthPicker(false); }}
+            />
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.15 }}
+              className="absolute top-14 left-1/2 -translate-x-1/2 z-50 w-auto min-w-[10rem] max-h-52 overflow-y-auto rounded-xl border bg-background shadow-lg pointer-events-auto"
+            >
+              <div className="p-2 space-y-0.5">
+                {monthOptions.map((month) => (
+                  <button
+                    key={month.value}
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); jumpToMonth(month.value); }}
+                    className={cn(
+                      "flex items-center justify-between w-full py-2.5 px-3 rounded-lg transition-colors text-sm whitespace-nowrap",
+                      month.value === currentMonth.getMonth()
+                        ? "bg-primary/10 text-primary font-semibold"
+                        : "hover:bg-muted/50"
+                    )}
+                  >
+                    {month.label}
+                    {month.value === currentMonth.getMonth() && (
+                      <Check className="h-4 w-4 text-primary ml-3" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* Inline year picker panel */}
       <AnimatePresence>
         {showYearPanel && (
           <>
-            {/* Backdrop to close on outside tap */}
             <div
               className="fixed inset-0 z-40 pointer-events-auto"
               onClick={(e) => { e.stopPropagation(); setShowYearPanel(false); }}
@@ -386,7 +388,7 @@ function Calendar({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.15 }}
-              className="absolute top-14 left-1/2 -translate-x-1/2 z-50 w-48 max-h-52 overflow-y-auto rounded-xl border bg-background shadow-lg pointer-events-auto"
+              className="absolute top-14 left-1/2 -translate-x-1/2 z-50 w-auto min-w-[5rem] max-h-52 overflow-y-auto rounded-xl border bg-background shadow-lg pointer-events-auto"
             >
               <div className="p-2 space-y-0.5">
                 {yearOptions.map((year) => (
@@ -395,7 +397,7 @@ function Calendar({
                     type="button"
                     onClick={(e) => { e.stopPropagation(); jumpToYear(year); setShowYearPanel(false); }}
                     className={cn(
-                      "flex items-center justify-between w-full py-2.5 px-3 rounded-lg transition-colors text-sm",
+                      "flex items-center justify-between w-full py-2.5 px-3 rounded-lg transition-colors text-sm whitespace-nowrap",
                       year === currentYear
                         ? "bg-primary/10 text-primary font-semibold"
                         : "hover:bg-muted/50"
@@ -403,7 +405,7 @@ function Calendar({
                   >
                     {year}
                     {year === currentYear && (
-                      <Check className="h-4 w-4 text-primary" />
+                      <Check className="h-4 w-4 text-primary ml-3" />
                     )}
                   </button>
                 ))}
