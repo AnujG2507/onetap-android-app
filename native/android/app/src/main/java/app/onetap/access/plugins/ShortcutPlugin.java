@@ -432,7 +432,7 @@ public class ShortcutPlugin extends Plugin {
                         // can track pinned IDs via getShortcuts(FLAG_MATCH_PINNED)
                         if (requested) {
                             try {
-                                shortcutManager.pushDynamicShortcuts(Collections.singletonList(finalShortcutInfo));
+                                shortcutManager.addDynamicShortcuts(Collections.singletonList(finalShortcutInfo));
                                 android.util.Log.d("ShortcutPlugin", "Pushed shadow dynamic shortcut: " + finalId);
                             } catch (Exception dynEx) {
                                 // Non-fatal: shortcut is still pinned, just won't be tracked by some OEM launchers
@@ -4409,7 +4409,7 @@ public class ShortcutPlugin extends Plugin {
             
             // Also update dynamic shortcut registration for OEM launcher tracking
             try {
-                manager.pushDynamicShortcuts(shortcutsToUpdate);
+                manager.addDynamicShortcuts(shortcutsToUpdate);
                 android.util.Log.d("ShortcutPlugin", "Pushed updated shadow dynamic shortcut: " + shortcutId);
             } catch (Exception dynEx) {
                 android.util.Log.w("ShortcutPlugin", "Failed to update dynamic shortcut (non-fatal): " + dynEx.getMessage());

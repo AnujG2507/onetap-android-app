@@ -15,21 +15,18 @@ On Android 12+, `getShortcuts(FLAG_MATCH_PINNED)` returns pinned shortcuts **reg
 
 ### Solution
 
-#### 1. Replace `addDynamicShortcuts` with `pushDynamicShortcuts` (Android 12+ only)
+#### 1. Reverted `pushDynamicShortcuts` back to `addDynamicShortcuts` (DONE)
 
-**File: `ShortcutPlugin.java`** -- in the shortcut creation flow (~line 435) and update flow (~line 4421)
+**File: `ShortcutPlugin.java`** -- shortcut creation (~line 435) and update (~line 4412)
 
-`pushDynamicShortcuts()` (API 30+) automatically evicts the least-recently-used dynamic shortcut when the limit is reached. Since the app targets Android 12+ (API 31+), this is always available.
+`pushDynamicShortcuts()` does NOT exist on the framework `android.content.pm.ShortcutManager`. It only exists on `ShortcutManagerCompat` (AndroidX), which requires `ShortcutInfoCompat` objects — a different type from the framework `ShortcutInfo` used throughout the plugin. Converting the entire builder chain would be a massive refactor.
+
+The correct fix: use `addDynamicShortcuts()` (which exists on framework `ShortcutManager`) and handle the limit via the existing try/catch. When the ~15 dynamic limit is hit, the exception is caught silently and the pinned shortcut still works. On Android 12+, `getShortcuts(FLAG_MATCH_PINNED)` tracks pinned state independently of dynamic registration, so sync is unaffected.
 
 ```java
-// Before (line 435):
+// Correct (framework API):
 shortcutManager.addDynamicShortcuts(Collections.singletonList(finalShortcutInfo));
-
-// After:
-shortcutManager.pushDynamicShortcuts(Collections.singletonList(finalShortcutInfo));
 ```
-
-Same change at line 4421 for the update flow.
 
 #### 2. Remove the Android 8-10 code path in `getPinnedShortcutIds`
 
