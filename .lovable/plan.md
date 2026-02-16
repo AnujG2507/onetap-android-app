@@ -1,77 +1,40 @@
 
 
-## Fix: Dynamic Shortcut Limit and Sync Logic Hardening
+## Fix: delete-account Edge Function 401 Error
 
 ### Problem
+The `delete-account` edge function returns 401 even with a valid JWT. The function currently creates two separate Supabase clients — one with the anon key for user validation, and one with the service role key for deletions. The anon-key client with forwarded auth can fail to validate users in edge function environments.
 
-Android limits dynamic shortcuts per activity to `getMaxShortcutCountPerActivity()` (typically 15, minimum 4). The current code uses `addDynamicShortcuts()` which throws `IllegalArgumentException` when the limit is reached. The exception is caught silently, so the shortcut is still pinned but its shadow dynamic registration fails.
+### Changes
 
-### Why It Matters Less on Android 12+
+#### 1. Update `supabase/functions/delete-account/index.ts`
 
-On Android 12+, `getShortcuts(FLAG_MATCH_PINNED)` returns pinned shortcuts **regardless of dynamic registration**. So even if the dynamic shadow fails, sync still works. However:
-- Failed `addDynamicShortcuts` calls generate unnecessary exceptions in logs
-- The orphan cleanup logic depends on `getDynamicShortcuts()` to find unpinned shadows
-- It's messy and will confuse future debugging
+- **Use service role key for user validation client** (with forwarded Authorization header). This is the proven pattern from the Supabase documentation — the service role key ensures `getUser()` can always resolve the JWT, while the forwarded Authorization header scopes the auth check to the calling user.
+- **Expand CORS allowed headers** to include all headers the Supabase JS client sends (`x-supabase-client-platform`, `x-supabase-client-platform-version`, `x-supabase-client-runtime`, `x-supabase-client-runtime-version`).
+- **Consolidate to a single admin client** instead of two separate clients — create one client with the service role key and forwarded auth header, use it for both user validation and data deletion.
 
-### Solution
+```text
+Before (two clients):
+  userClient  = createClient(url, ANON_KEY, { headers: Authorization })
+  adminClient = createClient(url, SERVICE_ROLE_KEY)
 
-#### 1. Reverted `pushDynamicShortcuts` back to `addDynamicShortcuts` (DONE)
-
-**File: `ShortcutPlugin.java`** -- shortcut creation (~line 435) and update (~line 4412)
-
-`pushDynamicShortcuts()` does NOT exist on the framework `android.content.pm.ShortcutManager`. It only exists on `ShortcutManagerCompat` (AndroidX), which requires `ShortcutInfoCompat` objects — a different type from the framework `ShortcutInfo` used throughout the plugin. Converting the entire builder chain would be a massive refactor.
-
-The correct fix: use `addDynamicShortcuts()` (which exists on framework `ShortcutManager`) and handle the limit via the existing try/catch. When the ~15 dynamic limit is hit, the exception is caught silently and the pinned shortcut still works. On Android 12+, `getShortcuts(FLAG_MATCH_PINNED)` tracks pinned state independently of dynamic registration, so sync is unaffected.
-
-```java
-// Correct (framework API):
-shortcutManager.addDynamicShortcuts(Collections.singletonList(finalShortcutInfo));
+After (one client):
+  supabase = createClient(url, SERVICE_ROLE_KEY, { headers: Authorization })
+  // getUser() validates the JWT
+  // delete operations use service role to bypass RLS
 ```
 
-#### 2. Remove the Android 8-10 code path in `getPinnedShortcutIds`
+#### 2. No frontend changes needed
 
-**File: `ShortcutPlugin.java`** -- lines 4103-4142
+`src/components/ProfilePage.tsx` already correctly:
+- Gets the session via `supabase.auth.getSession()`
+- Passes `Authorization: Bearer ${session.access_token}` in the invoke call
+- Uses the custom client from `@/lib/supabaseClient` (pointing to external project)
 
-Since the app only supports Android 12+, the legacy `getPinnedShortcuts()` code path (API 26-29) and the API version check are unnecessary. Simplify to always use `getShortcuts(FLAG_MATCH_PINNED)`.
+### After Implementation
 
-```java
-// Before: two branches for API < 30 and API >= 30
-// After: always use getShortcuts(FLAG_MATCH_PINNED), with early return if API < 31
-
-if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-    // App requires Android 12+ (API 31), this shouldn't happen
-    JSObject result = new JSObject();
-    result.put("ids", new JSArray());
-    call.resolve(result);
-    return;
-}
-
-List<ShortcutInfo> pinnedShortcuts = manager.getShortcuts(ShortcutManager.FLAG_MATCH_PINNED);
+You must redeploy the updated function to your external project:
+```bash
+npx supabase functions deploy delete-account --project-ref xfnugumyjhnctmqgiyqm
 ```
-
-#### 3. Sync logic in `useShortcuts.ts` -- already correct
-
-The current JS sync logic (after the last fix) is sound for Android 12+:
-- Trusts the OS response from `getShortcuts(FLAG_MATCH_PINNED)` which accurately reflects pin state
-- Keeps the `ids.length === 0` safety net for API failures
-- Syncs on app resume via `appStateChange` listener
-- Orphan cleanup removes stale dynamic shortcuts
-
-No JS changes needed.
-
-### Summary of Changes
-
-| File | Change |
-|---|---|
-| `ShortcutPlugin.java` (shortcut creation, ~line 435) | Replace `addDynamicShortcuts` with `pushDynamicShortcuts` to avoid limit exceptions |
-| `ShortcutPlugin.java` (shortcut update, ~line 4421) | Same: `addDynamicShortcuts` to `pushDynamicShortcuts` |
-| `ShortcutPlugin.java` (`getPinnedShortcutIds`, ~line 4103-4142) | Remove legacy Android 8-10 code path, always use `getShortcuts(FLAG_MATCH_PINNED)` with API 31+ guard |
-
-### No Practical Shortcut Limit
-
-With `pushDynamicShortcuts`:
-- Users can create **unlimited pinned shortcuts** (pinning has no system limit)
-- The dynamic shadow registration auto-evicts the oldest when the ~15 limit is hit
-- Sync uses `FLAG_MATCH_PINNED` which tracks pinned status independently of dynamic registration
-- Orphan cleanup still works: removes dynamic shortcuts whose pinned counterpart was removed from home screen
 
