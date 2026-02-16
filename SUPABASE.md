@@ -215,14 +215,17 @@ Never disable RLS on a table that contains user data. Doing so would expose ever
 
 **The flow (simplified):**
 
+The app uses **implicit OAuth flow** (`flowType: 'implicit'` configured in `src/lib/supabaseClient.ts`). This is required because on Android, the external Chrome browser cannot access the PKCE code verifier stored in the WebView's localStorage.
+
 ```
 1. User taps "Sign in with Google"
 2. A browser window opens showing Google's sign-in page
 3. User selects their Google account
-4. Google redirects back to the app with a temporary code
-5. The app exchanges that code for a session token
-6. The session token is stored locally by the Supabase SDK
-7. Future API calls include this token automatically
+4. Google redirects to onetap://auth-callback#access_token=xxx&refresh_token=yyy
+5. Android intercepts the custom scheme URL and opens the app
+6. oauthCompletion.ts extracts tokens from URL and calls supabase.auth.setSession()
+7. The session is stored locally by the Supabase SDK
+8. Future API calls include this token automatically
 ```
 
 **Sign-in is optional.** No features are locked behind sign-in. It only unlocks cloud sync.
@@ -236,6 +239,7 @@ Never disable RLS on a table that contains user data. Doing so would expose ever
    - `onetap://auth-callback` (required for native Android)
    - `https://onetapapp.in/auth-callback` (recommended fallback)
 5. **`assetlinks.json`:** (Optional) Host on `onetapapp.in/.well-known/assetlinks.json` with your app's SHA-256 signing fingerprint for App Links fallback
+6. **Supabase client:** Ensure `flowType: 'implicit'` is set in `src/lib/supabaseClient.ts` auth config
 
 **For the full technical flow**, see [ARCHITECTURE.md](ARCHITECTURE.md) → Section 6.
 

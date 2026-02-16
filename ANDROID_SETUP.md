@@ -154,20 +154,23 @@ keytool -list -v -keystore your-release.keystore -alias your-alias | grep SHA256
 
 For production, use the SHA-256 fingerprint from Google Play Console → Setup → App signing → App signing key certificate.
 
-## OAuth Deep Link Flow
+## OAuth Deep Link Flow (Implicit Flow)
+
+The app uses **implicit OAuth flow** (`flowType: 'implicit'` in the Supabase client) because PKCE doesn't work on Android — the code verifier stored in the WebView's localStorage is inaccessible from the external Chrome browser.
 
 1. User taps "Sign in with Google"
 2. App opens Google OAuth in Chrome Custom Tab
-3. After authentication, Google redirects to `onetap://auth-callback?code=...`
+3. After authentication, Google redirects to `onetap://auth-callback#access_token=xxx&refresh_token=yyy`
 4. Android intercepts this custom scheme URL (no domain verification needed)
-5. `oauthCompletion.ts` converts the URL to HTTPS format and exchanges the code for a session
+5. `oauthCompletion.ts` extracts `access_token` and `refresh_token` from the URL fragment and calls `supabase.auth.setSession()`
 6. User is signed in
 
 **Files involved:**
+- `src/lib/supabaseClient.ts` — Supabase client with `flowType: 'implicit'`
 - `native/android/app/src/main/AndroidManifest.xml` — Custom scheme + App Link intent filters
 - `src/hooks/useDeepLink.ts` — Handles `appUrlOpen` events
 - `src/hooks/useAuth.ts` — Native OAuth flow with `skipBrowserRedirect`
-- `src/lib/oauthCompletion.ts` — Converts custom scheme URLs and exchanges codes
+- `src/lib/oauthCompletion.ts` — Extracts tokens from URL and sets session (implicit flow) or exchanges code (PKCE fallback)
 
 ## Testing Deep Links on Physical Devices
 
