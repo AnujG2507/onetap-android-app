@@ -2684,17 +2684,19 @@ public class NativePdfViewerActivity extends Activity {
                             imageView.setImageBitmap(bitmap);
                             
                             // Fix C: Update layout params at ALL zoom levels if dimensions changed (> 1px threshold)
-                            // Prevents layout thrashing during bitmap swaps while reading,
-                            // but allows corrections for stale heights at any zoom level
+                            // Use getScaledPageHeight() for the correct zoom-aware height, not the
+                            // render-time height which is always at 1.0x base scale
                             {
+                                int correctHeight = getScaledPageHeight(pageIndex);
+                                int correctWidth = getScaledPageWidth(pageIndex);
                                 FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) imageView.getLayoutParams();
-                                if (Math.abs(params.height - height) > 1) {
-                                    params.width = screenWidth;
-                                    params.height = height;
+                                if (Math.abs(params.height - correctHeight) > 1) {
+                                    params.width = correctWidth;
+                                    params.height = correctHeight;
                                     imageView.setLayoutParams(params);
                                     
                                     ViewGroup.LayoutParams wrapperParams = wrapper.getLayoutParams();
-                                    wrapperParams.height = height;
+                                    wrapperParams.height = correctHeight;
                                     wrapper.setLayoutParams(wrapperParams);
                                 }
                             }
