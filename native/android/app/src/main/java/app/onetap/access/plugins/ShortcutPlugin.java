@@ -392,6 +392,15 @@ public class ShortcutPlugin extends Plugin {
                     // Pass shortcut title for display
                     intent.putExtra(SlideshowProxyActivity.EXTRA_SHORTCUT_TITLE, finalLabel);
                     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                } else if (finalIntentType != null && finalIntentType.startsWith("image/")) {
+                    // Image file shortcuts - route through SlideshowProxyActivity for built-in viewer
+                    android.util.Log.d("ShortcutPlugin", "Using SlideshowProxyActivity for image file shortcut");
+                    intent = new Intent(context, SlideshowProxyActivity.class);
+                    intent.setAction("app.onetap.OPEN_SLIDESHOW");
+                    intent.setData(finalDataUri);
+                    intent.putExtra(SlideshowProxyActivity.EXTRA_SHORTCUT_ID, finalId);
+                    intent.putExtra(SlideshowProxyActivity.EXTRA_SHORTCUT_TITLE, finalLabel);
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 } else {
                     // Generic file shortcuts (audio, documents, etc.) - route through FileProxyActivity
                     // This ensures tap tracking works for all file types
@@ -4547,6 +4556,16 @@ public class ShortcutPlugin extends Plugin {
             intent.putExtra("shortcut_id", shortcutId);
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            
+        } else if ("file".equals(shortcutType) && contentUri != null && mimeType != null && mimeType.startsWith("image/")) {
+            // Image file - route through SlideshowProxyActivity for built-in viewer
+            android.util.Log.d("ShortcutPlugin", "Building image intent for update via SlideshowProxyActivity");
+            intent = new Intent(context, SlideshowProxyActivity.class);
+            intent.setAction("app.onetap.OPEN_SLIDESHOW");
+            intent.setData(Uri.parse(contentUri));
+            intent.putExtra(SlideshowProxyActivity.EXTRA_SHORTCUT_ID, shortcutId);
+            intent.putExtra(SlideshowProxyActivity.EXTRA_SHORTCUT_TITLE, label);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             
         } else if ("file".equals(shortcutType) && contentUri != null) {
             // Generic file (audio, documents, etc.) - route through FileProxyActivity
