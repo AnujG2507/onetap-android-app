@@ -153,9 +153,9 @@ export function ShortcutEditSheet({
         updates.syncState = undefined;
       }
       
-      // If images changed, regenerate grid icon
+      // If images changed, regenerate grid icon (always for reconnects, or when icon is thumbnail type)
       const imagesChanged = JSON.stringify(slideshowImages.map(i => i.uri)) !== JSON.stringify(shortcut.imageUris || []);
-      if (imagesChanged && icon.type === 'thumbnail') {
+      if (imagesChanged) {
         const thumbnails = slideshowImages.slice(0, 4).map(i => i.thumbnail).filter(Boolean) as string[];
         if (thumbnails.length > 0) {
           const newGridIcon = await generateGridIcon(thumbnails);
