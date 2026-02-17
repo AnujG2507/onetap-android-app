@@ -25,7 +25,8 @@
 
 | Feature | How |
 |---------|-----|
-| **Cloud sync** | Stores a backup copy of bookmarks, trash, and reminders |
+| **Cloud sync** | Stores a backup copy of bookmarks, trash, reminders, and shortcut intent metadata |
+| **Deletion reconciliation** | Tracks deleted entities to prevent "resurrection" across devices |
 | **Google sign-in** | Authenticates users via Google OAuth |
 | **URL metadata** | Fetches page titles and favicons for saved URLs (avoids browser CORS issues) |
 | **Account deletion** | Deletes all cloud data and the auth account |
@@ -100,7 +101,7 @@ In Supabase dashboard → Edge Functions → Secrets, ensure these exist:
 
 ## 4. Database Tables Explained
 
-The database has three tables. Each stores a copy of local data for cloud sync purposes.
+The database has five tables. Three store backup copies of local data for cloud sync, one stores shortcut intent metadata, and one tracks deletions for reconciliation.
 
 ### `cloud_bookmarks` — Synced Bookmarks
 
@@ -159,6 +160,66 @@ This table backs up scheduled reminders.
 | `original_created_at` | BIGINT | Local creation timestamp | Yes |
 | `created_at` | TIMESTAMP | Cloud row creation time | Auto |
 | `updated_at` | TIMESTAMP | Cloud row update time | Auto |
+
+### `cloud_shortcuts` — Synced Access Points (Intent Metadata Only)
+
+This table backs up the *intent metadata* of user-created shortcuts (access points). It stores enough information to describe what the shortcut does, but **never stores local file URIs, binary data, thumbnails, or contact photos**.
+
+| Column | Type | What It Stores | Required? |
+|--------|------|---------------|-----------|
+| `id` | UUID | Auto-generated cloud row ID | Auto |
+| `entity_id` | TEXT | The shortcut's local ID | Yes |
+| `user_id` | UUID | The user who owns this shortcut | Yes |
+| `type` | TEXT | Shortcut type: "link", "file", "contact", "message", "slideshow" | Yes |
+| `name` | TEXT | Display name | Yes |
+| `content_uri` | TEXT | URL for link shortcuts; NULL for file-dependent types | No |
+| `file_type` | TEXT | File type: "image", "video", "pdf", "audio", "document" | No |
+| `mime_type` | TEXT | MIME type of the file | No |
+| `phone_number` | TEXT | Phone number for contact/message shortcuts | No |
+| `contact_name` | TEXT | Display name from contacts | No |
+| `message_app` | TEXT | Always "whatsapp" for message shortcuts | No |
+| `quick_messages` | JSONB | Array of draft message templates | No |
+| `resume_enabled` | BOOLEAN | Whether PDF resume-where-left-off is enabled | No |
+| `auto_advance_interval` | INT | Slideshow auto-advance seconds (0 = off) | No |
+| `image_count` | INT | Number of images in slideshow | No |
+| `icon_type` | TEXT | Icon type: "emoji", "text", "platform", "favicon" | No |
+| `icon_value` | TEXT | Icon value (emoji character, text, platform key) | No |
+| `usage_count` | INT | How many times the shortcut has been used | Yes (default: 0) |
+| `original_created_at` | BIGINT | Local creation timestamp | Yes |
+| `created_at` | TIMESTAMP | Cloud row creation time | Auto |
+| `updated_at` | TIMESTAMP | Cloud row update time | Auto |
+
+**Privacy boundaries — what is NOT synced:**
+
+| Data | Why It's Excluded |
+|------|-------------------|
+| `contentUri` (for file types) | Local `content://` URIs are device-specific and meaningless on other devices |
+| `thumbnailData` | Base64 image data — binary blobs don't belong in a database |
+| `contactPhotoUri` | Local contact photo URI — device-specific |
+| `imageUris` / `imageThumbnails` | Slideshow image data — local file references and binary data |
+| `originalPath` / `fileData` | Raw file paths and binary content |
+
+**Dormant access points:** When file-dependent shortcuts (type = `file` or `slideshow`) are downloaded to a new device, they arrive without the underlying file. The app marks them as `syncState: 'dormant'` — they appear in the list with a file-type emoji icon and a "Re-attach file" prompt, but cannot be launched until the user provides the local file again. Link, contact, and message shortcuts restore fully because their intent data (URL, phone number) is self-contained.
+
+### `cloud_deleted_entities` — Deletion Reconciliation Ledger
+
+This table prevents "resurrection" of deleted items during cloud sync. When a user deletes a bookmark, shortcut, or reminder, the deletion is recorded here. During subsequent syncs, both the uploader and downloader consult this ledger to avoid re-creating items the user intentionally removed.
+
+| Column | Type | What It Stores | Required? |
+|--------|------|---------------|-----------|
+| `id` | UUID | Auto-generated row ID | Auto |
+| `user_id` | UUID | The user who deleted the item | Yes |
+| `entity_type` | TEXT | What was deleted: "bookmark", "trash", "shortcut", "scheduled_action" | Yes |
+| `entity_id` | TEXT | The local ID of the deleted item | Yes |
+| `deleted_at` | TIMESTAMP | When the deletion was recorded | Auto |
+
+**Unique constraint:** `(user_id, entity_type, entity_id)` — each deletion is recorded at most once.
+
+**How it works:**
+1. User deletes an item locally → `deletionTracker` records it in localStorage
+2. Next sync → pending deletions are uploaded to `cloud_deleted_entities` and the corresponding cloud row is deleted
+3. Download phase → fetches the full deletion ledger and skips any cloud items that appear in it
+4. Reconciliation → removes any local items that appear in the cloud deletion ledger (handles cross-device deletion)
 
 ---
 
@@ -286,7 +347,7 @@ npx supabase functions deploy delete-account --project-ref xfnugumyjhnctmqgiyqm 
 - **Flow:**
   1. Validates the `Authorization` header (must start with `Bearer `)
   2. Creates a user-scoped client and calls `auth.getUser()` to identify the caller
-  3. Uses the admin client to delete rows from `cloud_bookmarks`, `cloud_trash`, and `cloud_scheduled_actions`
+   3. Uses the admin client to delete rows from `cloud_bookmarks`, `cloud_trash`, `cloud_scheduled_actions`, `cloud_shortcuts`, and `cloud_deleted_entities`
   4. Uses the admin client to delete the auth account via `auth.admin.deleteUser()`
 - **Output:** `{ "success": true }`
 - **Deployment:** Must be deployed with `--no-verify-jwt` to prevent the gateway from rejecting requests before they reach the function's own auth validation.

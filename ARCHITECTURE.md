@@ -132,12 +132,13 @@ Capacitor is the bridge between web and native. It lets your React code call Jav
 **What is Supabase?** An open-source backend platform that provides a PostgreSQL database, authentication, and serverless functions. It can be self-hosted or used as a managed service at [supabase.com](https://supabase.com).
 
 **What the backend does:**
-- ✅ Stores synced bookmarks, trash, and reminders (optional)
+- ✅ Stores synced bookmarks, trash, reminders, and shortcut intent metadata (optional)
 - ✅ Handles Google OAuth sign-in
 - ✅ Fetches URL metadata (title, favicon) to bypass browser CORS restrictions
+- ✅ Tracks deletion reconciliation to prevent "resurrection" of deleted items
 
 **What the backend does NOT do:**
-- ❌ Does not store shortcuts (those are native Android shortcuts)
+- ❌ Does not store file content, thumbnails, or binary data (privacy boundary)
 - ❌ Does not run background jobs or cron tasks
 - ❌ Does not send push notifications
 - ❌ Does not track analytics
@@ -177,7 +178,14 @@ See [SUPABASE.md](SUPABASE.md) for the complete backend guide.
 │  cloud_bookmarks          → Copy of bookmarks      │
 │  cloud_trash              → Copy of deleted items   │
 │  cloud_scheduled_actions  → Copy of reminders       │
+│  cloud_shortcuts          → Shortcut intent metadata│
+│  cloud_deleted_entities   → Deletion reconciliation │
 └───────────────────────────────────────────────────┘
+
+**Privacy boundaries:** The cloud never stores local file URIs, thumbnails,
+contact photos, or any binary data. File-dependent shortcuts sync as "dormant"
+— they carry enough metadata to describe the intent, but require the user to
+re-attach the local file on a new device before they become actionable.
 ```
 
 **The golden rule:** Local data always wins. If there's a conflict between what's on the device and what's in the cloud, the device version is kept. Cloud sync only *adds* items that don't already exist locally — it never updates or deletes local data.
@@ -196,15 +204,35 @@ User taps "Sync Now"  ──or──  App opens (daily auto)
          │ Allowed
          ▼
   Upload: Send local items to cloud
+  (bookmarks, trash, shortcuts, scheduled actions)
   (upsert by entity_id — same item overwrites in cloud)
          │
          ▼
-  Download: Fetch cloud items
-  (skip any item whose entity_id already exists locally)
+  Upload deletions: Push pending deletions to cloud_deleted_entities
+  and delete corresponding cloud rows
+         │
+         ▼
+  Download: Fetch cloud deletion ledger, then cloud items
+  (skip any item whose entity_id exists locally OR in deletion ledger)
+         │
+         ▼
+  Reconcile: Remove local items that appear in cloud deletion ledger
+  (handles cross-device deletion)
          │
          ▼
   Record sync timestamp
 ```
+
+### Dormant Access Points
+
+File-dependent shortcuts (type = `file` or `slideshow`) cannot fully restore from the cloud because local file URIs and binary data are never synced (privacy boundary). When downloaded to a new device:
+
+1. The shortcut's intent metadata is restored (name, type, icon hint, usage count)
+2. The shortcut is marked `syncState: 'dormant'`
+3. It appears in the list with a file-type emoji icon (🖼️, 🎬, 📄, etc.)
+4. The user sees a "Re-attach file" prompt and must provide the local file to reactivate
+
+Link, contact, and message shortcuts restore fully because their data (URL, phone number) is self-contained and device-independent.
 
 ---
 
