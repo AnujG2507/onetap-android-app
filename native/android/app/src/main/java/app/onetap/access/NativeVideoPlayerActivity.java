@@ -1765,9 +1765,20 @@ public class NativeVideoPlayerActivity extends Activity {
             rightButtons.addView(pipButton);
         }
 
-        // "Open with" button
-        ImageButton openWithButton = createPremiumIconButton(
+        // Share button
+        ImageButton shareButton = createPremiumIconButton(
             android.R.drawable.ic_menu_share,
+            "Share video"
+        );
+        shareButton.setOnClickListener(v -> {
+            performHapticFeedback();
+            shareVideo();
+        });
+        rightButtons.addView(shareButton);
+
+        // "Open with" button - distinct external-link icon
+        ImageButton openWithButton = createPremiumIconButton(
+            R.drawable.ic_open_external,
             "Open with another app"
         );
         openWithButton.setOnClickListener(v -> {
@@ -2105,6 +2116,27 @@ public class NativeVideoPlayerActivity extends Activity {
 
     /**
      * Opens video in external player directly without dialog.
+     * Used when user taps the "Share" button.
+     */
+    private void shareVideo() {
+        if (videoUri == null) {
+            Toast.makeText(this, "No video to share", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        
+        try {
+            Intent shareIntent = new Intent(Intent.ACTION_SEND);
+            shareIntent.setType(videoMimeType != null ? videoMimeType : "video/*");
+            shareIntent.putExtra(Intent.EXTRA_STREAM, videoUri);
+            shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivity(Intent.createChooser(shareIntent, null));
+        } catch (Exception e) {
+            logError("Failed to share video: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Open video in external player directly.
      * Used when user taps the "Open with" button.
      */
     private void openInExternalPlayerDirect() {
