@@ -13,7 +13,7 @@ import { ImageWithFallback } from '@/components/ui/image-with-fallback';
 import { buildImageSources } from '@/lib/imageUtils';
 import { useShortcuts } from '@/hooks/useShortcuts';
 import { detectPlatform } from '@/lib/platformIcons';
-import { pickFile, type FileTypeFilter } from '@/lib/contentResolver';
+import { pickFile, pickMultipleImages, type FileTypeFilter } from '@/lib/contentResolver';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import { ShortcutActionSheet } from '@/components/ShortcutActionSheet';
 import { ShortcutEditSheet } from '@/components/ShortcutEditSheet';
@@ -522,7 +522,22 @@ export function MyShortcutsContent({ onCreateReminder, onRefresh, isSyncing: ext
   const handleReconnect = useCallback(async (shortcut: ShortcutData) => {
     setSelectedShortcut(null);
     
-    // Determine file picker filter from shortcut's fileType
+    // Slideshow: pick multiple images
+    if (shortcut.type === 'slideshow') {
+      const result = await pickMultipleImages();
+      if (!result || result.files.length < 2) return;
+      
+      await updateShortcut(shortcut.id, {
+        imageUris: result.files.map(f => f.uri),
+        imageThumbnails: result.files.map(f => f.thumbnail).filter(Boolean) as string[],
+        syncState: undefined,
+      });
+      
+      toast.success(t('shortcutAction.reconnected'));
+      return;
+    }
+    
+    // Single file: pick one file
     const filterMap: Record<string, FileTypeFilter> = {
       image: 'image',
       video: 'video',

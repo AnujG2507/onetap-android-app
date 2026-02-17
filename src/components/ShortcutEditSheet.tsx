@@ -15,7 +15,7 @@ import { Capacitor } from '@capacitor/core';
 import { generateGridIcon } from '@/lib/slideshowIconGenerator';
 import type { ShortcutData, ShortcutIcon } from '@/types/shortcut';
 import { isDormant } from '@/types/shortcut';
-import { pickFile, type FileTypeFilter } from '@/lib/contentResolver';
+import { pickFile, pickMultipleImages, type FileTypeFilter } from '@/lib/contentResolver';
 
 interface SlideshowImage {
   id: string;
@@ -148,6 +148,11 @@ export function ShortcutEditSheet({
       updates.imageThumbnails = slideshowImages.map(i => i.thumbnail).filter(Boolean) as string[];
       updates.autoAdvanceInterval = autoAdvance;
       
+      // Clear dormant state if images were reconnected
+      if (reconnectedFile) {
+        updates.syncState = undefined;
+      }
+      
       // If images changed, regenerate grid icon
       const imagesChanged = JSON.stringify(slideshowImages.map(i => i.uri)) !== JSON.stringify(shortcut.imageUris || []);
       if (imagesChanged && icon.type === 'thumbnail') {
@@ -242,15 +247,29 @@ export function ShortcutEditSheet({
   }, [shortcut?.fileType]);
 
   const handleReconnectFile = useCallback(async () => {
-    const result = await pickFile(getFileFilter());
-    if (!result) return;
-    setReconnectedFile({
-      contentUri: result.uri,
-      mimeType: result.mimeType,
-      fileSize: result.fileSize,
-      thumbnailData: result.thumbnailData,
-    });
-  }, [getFileFilter]);
+    if (isSlideshowShortcut) {
+      // Slideshow: pick multiple images
+      const result = await pickMultipleImages();
+      if (!result || result.files.length < 2) return;
+      const newImages: SlideshowImage[] = result.files.map((f, i) => ({
+        id: `reconnect-${i}`,
+        uri: f.uri,
+        thumbnail: f.thumbnail,
+      }));
+      setSlideshowImages(newImages);
+      // Mark reconnect so save clears dormant state
+      setReconnectedFile({ contentUri: '', mimeType: undefined, fileSize: undefined, thumbnailData: undefined });
+    } else {
+      const result = await pickFile(getFileFilter());
+      if (!result) return;
+      setReconnectedFile({
+        contentUri: result.uri,
+        mimeType: result.mimeType,
+        fileSize: result.fileSize,
+        thumbnailData: result.thumbnailData,
+      });
+    }
+  }, [getFileFilter, isSlideshowShortcut]);
 
   if (!shortcut) return null;
 
@@ -271,7 +290,7 @@ export function ShortcutEditSheet({
               <FolderOpen className="h-5 w-5 text-primary shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-foreground">
-                  {t('shortcuts.reconnectBanner', { fileType: shortcut.fileType || t('shortcutAction.typeFile') })}
+                  {t('shortcuts.reconnectBanner', { fileType: isSlideshowShortcut ? 'slideshow' : (shortcut.fileType || t('shortcutAction.typeFile')) })}
                 </p>
               </div>
               <Button size="sm" variant="outline" onClick={handleReconnectFile} className="shrink-0">
