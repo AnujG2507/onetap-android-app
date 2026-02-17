@@ -286,16 +286,29 @@ export function ShortcutEditSheet({
         <div className="px-4 pb-4 space-y-6 overflow-y-auto">
           {/* Dormant Reconnect Banner */}
           {shortcutIsDormant && !reconnectedFile && (
-            <div className="flex items-center gap-3 p-3 rounded-xl border border-primary/30 bg-primary/5">
-              <FolderOpen className="h-5 w-5 text-primary shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-foreground">
-                  {t('shortcuts.reconnectBanner', { fileType: isSlideshowShortcut ? 'slideshow' : (shortcut.fileType || t('shortcutAction.typeFile')) })}
-                </p>
+            <div className="flex flex-col gap-2 p-3 rounded-xl border border-primary/30 bg-primary/5">
+              <div className="flex items-center gap-3">
+                <FolderOpen className="h-5 w-5 text-primary shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-foreground">
+                    {t('shortcuts.reconnectBanner', { fileType: isSlideshowShortcut ? 'slideshow' : (shortcut.fileType || t('shortcutAction.typeFile')) })}
+                  </p>
+                </div>
+                <Button size="sm" variant="outline" onClick={handleReconnectFile} className="shrink-0">
+                  {t('shortcuts.reconnectChoose')}
+                </Button>
               </div>
-              <Button size="sm" variant="outline" onClick={handleReconnectFile} className="shrink-0">
-                {t('shortcuts.reconnectChoose')}
-              </Button>
+              {Capacitor.isNativePlatform() && onReAddToHomeScreen && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => onReAddToHomeScreen(shortcut)}
+                  className="w-full justify-center gap-2 text-muted-foreground"
+                >
+                  <Home className="h-4 w-4" />
+                  {t('shortcutAction.addToHomeScreen')}
+                </Button>
+              )}
             </div>
           )}
           
