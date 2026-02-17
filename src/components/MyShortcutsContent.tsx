@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
-import { Zap, ChevronRight, ChevronDown, RefreshCw, Search, X, Link2, FileIcon, MessageCircle, Phone, BarChart3, Clock, ArrowDownAZ, CloudOff } from 'lucide-react';
+import { Zap, ChevronRight, ChevronDown, RefreshCw, Search, X, Link2, FileIcon, MessageCircle, Phone, BarChart3, Clock, ArrowDownAZ, CloudOff, Home } from 'lucide-react';
 import { toast } from 'sonner';
 import { generateGridIcon } from '@/lib/slideshowIconGenerator';
 import { cn } from '@/lib/utils';
@@ -15,6 +15,8 @@ import { buildImageSources } from '@/lib/imageUtils';
 import { useShortcuts } from '@/hooks/useShortcuts';
 import { detectPlatform } from '@/lib/platformIcons';
 import { pickFile, pickMultipleImages, type FileTypeFilter } from '@/lib/contentResolver';
+import { createHomeScreenShortcut } from '@/lib/shortcutManager';
+import { Capacitor } from '@capacitor/core';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import { ShortcutActionSheet } from '@/components/ShortcutActionSheet';
 import { ShortcutEditSheet } from '@/components/ShortcutEditSheet';
@@ -357,7 +359,7 @@ function SortButton({
 
 export function MyShortcutsContent({ onCreateReminder, onRefresh, isSyncing: externalSyncing }: MyShortcutsContentProps) {
   const { t } = useTranslation();
-  const { shortcuts, deleteShortcut, updateShortcut, incrementUsage, syncWithHomeScreen, refreshFromStorage } = useShortcuts();
+  const { shortcuts, deleteShortcut, updateShortcut, getShortcut, incrementUsage, syncWithHomeScreen, refreshFromStorage } = useShortcuts();
   const [selectedShortcut, setSelectedShortcut] = useState<ShortcutData | null>(null);
   const [editingShortcut, setEditingShortcut] = useState<ShortcutData | null>(null);
   const [internalSyncing, setInternalSyncing] = useState(false);
@@ -523,6 +525,33 @@ export function MyShortcutsContent({ onCreateReminder, onRefresh, isSyncing: ext
   const handleReconnect = useCallback(async (shortcut: ShortcutData) => {
     setSelectedShortcut(null);
     
+    // Helper to offer re-adding to home screen after reconnection
+    const offerHomeScreenAdd = (reconnectedShortcut: ShortcutData) => {
+      if (!Capacitor.isNativePlatform()) {
+        toast.success(t('shortcutAction.reconnected'));
+        return;
+      }
+      
+      toast.success(t('shortcutAction.reconnected'), {
+        action: {
+          label: t('shortcutAction.addToHomeScreen', 'Add to Home Screen'),
+          onClick: async () => {
+            const latest = getShortcut(reconnectedShortcut.id);
+            if (latest) {
+              const success = await createHomeScreenShortcut(latest, {
+                fileData: latest.thumbnailData,
+                thumbnailData: latest.thumbnailData,
+              });
+              if (success) {
+                toast.success(t('shortcutAction.addedToHomeScreen', 'Added to home screen'));
+              }
+            }
+          },
+        },
+        duration: 5000,
+      });
+    };
+    
     // Slideshow: pick multiple images
     if (shortcut.type === 'slideshow') {
       const result = await pickMultipleImages();
@@ -544,7 +573,7 @@ export function MyShortcutsContent({ onCreateReminder, onRefresh, isSyncing: ext
         syncState: undefined,
       });
       
-      toast.success(t('shortcutAction.reconnected'));
+      offerHomeScreenAdd({ ...shortcut, icon: newIcon, syncState: undefined });
       return;
     }
     
@@ -569,8 +598,8 @@ export function MyShortcutsContent({ onCreateReminder, onRefresh, isSyncing: ext
       syncState: undefined,
     });
     
-    toast.success(t('shortcutAction.reconnected'));
-  }, [updateShortcut, t]);
+    offerHomeScreenAdd({ ...shortcut, contentUri: result.uri, thumbnailData: result.thumbnailData, syncState: undefined });
+  }, [updateShortcut, getShortcut, t]);
   
   const TYPE_FILTERS: Array<{ value: TypeFilter; labelKey: string; icon: React.ReactNode }> = [
     { value: 'all', labelKey: 'shortcuts.filterAll', icon: null },
