@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OneTap — Global Distribution Strategy</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  @page {
+    size: A4;
+    margin: 2cm 2.5cm;
+  }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    font-size: 11pt;
+    line-height: 1.7;
+    color: #1a1a1a;
+    background: #fff;
+    max-width: 210mm;
+    margin: 0 auto;
+    padding: 2cm 2.5cm;
+  }
+
+  .cover {
+    page-break-after: always;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 90vh;
+    text-align: center;
+  }
+
+  .cover h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 36pt;
+    font-weight: 700;
+    color: #0a0a0a;
+    margin-bottom: 0.3em;
+    letter-spacing: -0.02em;
+  }
+
+  .cover .subtitle {
+    font-size: 14pt;
+    color: #555;
+    font-weight: 400;
+    margin-bottom: 2em;
+  }
+
+  .cover .meta {
+    font-size: 10pt;
+    color: #888;
+    line-height: 1.8;
+  }
+
+  .cover .divider {
+    width: 60px;
+    height: 3px;
+    background: #0a0a0a;
+    margin: 1.5em auto;
+  }
+
+  h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 18pt;
+    font-weight: 700;
+    color: #0a0a0a;
+    margin-top: 2em;
+    margin-bottom: 0.6em;
+    padding-bottom: 0.3em;
+    border-bottom: 2px solid #e5e5e5;
+    page-break-after: avoid;
+  }
+
+  h3 {
+    font-size: 12pt;
+    font-weight: 600;
+    color: #1a1a1a;
+    margin-top: 1.5em;
+    margin-bottom: 0.4em;
+    page-break-after: avoid;
+  }
+
+  h4 {
+    font-size: 11pt;
+    font-weight: 600;
+    color: #333;
+    margin-top: 1.2em;
+    margin-bottom: 0.3em;
+  }
+
+  p {
+    margin-bottom: 0.8em;
+  }
+
+  blockquote {
+    border-left: 3px solid #0a0a0a;
+    padding: 0.5em 1em;
+    margin: 1em 0;
+    background: #fafafa;
+    font-style: italic;
+    color: #333;
+    page-break-inside: avoid;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1em 0;
+    font-size: 10pt;
+    page-break-inside: avoid;
+  }
+
+  th {
+    background: #f5f5f5;
+    font-weight: 600;
+    text-align: left;
+    padding: 8px 10px;
+    border: 1px solid #ddd;
+  }
+
+  td {
+    padding: 8px 10px;
+    border: 1px solid #ddd;
+    vertical-align: top;
+  }
+
+  ul, ol {
+    margin-bottom: 0.8em;
+    padding-left: 1.5em;
+  }
+
+  li {
+    margin-bottom: 0.3em;
+  }
+
+  .callout {
+    background: #f8f8f0;
+    border: 1px solid #e0dcc8;
+    border-radius: 6px;
+    padding: 1em 1.2em;
+    margin: 1em 0;
+    page-break-inside: avoid;
+  }
+
+  .callout-danger {
+    background: #fef2f2;
+    border-color: #e8c4c4;
+  }
+
+  .callout strong {
+    display: block;
+    margin-bottom: 0.3em;
+  }
+
+  .toc {
+    page-break-after: always;
+  }
+
+  .toc h2 {
+    border-bottom: none;
+    text-align: center;
+  }
+
+  .toc ol {
+    list-style: none;
+    padding: 0;
+    max-width: 400px;
+    margin: 1em auto;
+  }
+
+  .toc ol li {
+    padding: 0.5em 0;
+    border-bottom: 1px dotted #ccc;
+    font-size: 11pt;
+  }
+
+  .toc ol li span {
+    color: #888;
+    margin-right: 0.5em;
+  }
+
+  .section {
+    page-break-before: auto;
+  }
+
+  .checklist {
+    list-style: none;
+    padding-left: 0;
+  }
+
+  .checklist li {
+    padding: 0.3em 0;
+    padding-left: 1.5em;
+    position: relative;
+  }
+
+  .checklist li::before {
+    content: "☐";
+    position: absolute;
+    left: 0;
+    font-size: 12pt;
+  }
+
+  .page-break {
+    page-break-before: always;
+  }
+
+  .footer-note {
+    margin-top: 3em;
+    padding-top: 1em;
+    border-top: 1px solid #e5e5e5;
+    font-size: 9pt;
+    color: #999;
+    text-align: center;
+  }
+
+  .highlight {
+    background: #fffde7;
+    padding: 0 3px;
+    border-radius: 2px;
+  }
+
+  .flow-diagram {
+    text-align: center;
+    font-family: monospace;
+    font-size: 10pt;
+    color: #555;
+    margin: 1em 0;
+    line-height: 1.5;
+  }
+
+  @media print {
+    body { padding: 0; }
+    .no-print { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- COVER PAGE -->
+<div class="cover">
+  <h1>OneTap</h1>
+  <div class="subtitle">Global Distribution Strategy</div>
+  <div class="divider"></div>
+  <div class="meta">
+    Confidential &mdash; Internal Use Only<br>
+    February 2026<br><br>
+    Prepared for solo-founder execution<br>
+    No paid ads &middot; No tracking &middot; No growth hacks
+  </div>
+</div>
+
+<!-- TABLE OF CONTENTS -->
+<div class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><span>1.</span> Distribution Philosophy</li>
+    <li><span>2.</span> Core Distribution Channels</li>
+    <li><span>3.</span> Use-Case-Driven Spread</li>
+    <li><span>4.</span> Google Play Store as a Distribution Asset</li>
+    <li><span>5.</span> Global Reach Without Localization Overhead</li>
+    <li><span>6.</span> Long-Term Compounding Strategy</li>
+    <li><span>7.</span> What NOT to Do</li>
+    <li><span>8.</span> 90-Day Execution Plan</li>
+    <li><span>9.</span> Dedicated Website Strategy</li>
+    <li><span>10.</span> The Final Answer</li>
+  </ol>
+</div>
+
+<!-- SECTION 1 -->
+<div class="section">
+  <h2>1. Distribution Philosophy</h2>
+
+  <p>OneTap should spread the way a good tool spreads in a workshop &mdash; someone uses it, someone else notices, asks about it, and buys their own.</p>
+
+  <h3>Why Typical Growth Advice Fails Here</h3>
+  <ul>
+    <li><strong>Growth hacking</strong> assumes free products monetized by attention. OneTap sells a product.</li>
+    <li><strong>Viral loops</strong> assume users want to share for status. OneTap's users value privacy &mdash; they share quietly, deliberately.</li>
+    <li><strong>Content marketing</strong> assumes algorithm dependency. OneTap needs independence.</li>
+  </ul>
+
+  <h3>The Ideal Adopter</h3>
+  <p>Someone who has already tried free alternatives, been frustrated by ads or tracking, and is willing to pay to solve a real friction point permanently. They're typically 28&ndash;50, technically literate enough to value privacy, but not necessarily developers. They exist in every country.</p>
+
+  <h3>Restraint as Advantage</h3>
+  <blockquote>In a market of desperate, ad-stuffed, permission-hungry apps, <em>not doing those things</em> is the most powerful differentiator. Every app that spams notifications makes OneTap's calm approach more valuable. Time is on your side.</blockquote>
+</div>
+
+<!-- SECTION 2 -->
+<div class="section page-break">
+  <h2>2. Core Distribution Channels</h2>
+
+  <h3>Channel 1: Google Play Store (Organic Search)</h3>
+  <p><strong>Why:</strong> 70%+ of paid app discovery happens here. It's where purchase intent already exists.</p>
+  <p><strong>Execution:</strong></p>
+  <ul>
+    <li>Optimize title and description for <em>problem-based</em> queries ("quick shortcut home screen," "one tap call contact," "offline PDF reader")</li>
+    <li>Screenshots that show the <em>result</em>, not the process</li>
+    <li>Respond to every review within 48 hours &mdash; thoughtfully, not generically</li>
+    <li>Update every 4&ndash;6 weeks (Google rewards active apps in rankings)</li>
+  </ul>
+  <p><strong>Time commitment:</strong> 2&ndash;3 hours/month after initial setup.</p>
+
+  <h3>Channel 2: Reddit (Targeted Subreddits)</h3>
+  <p><strong>Why:</strong> Reddit rewards genuine, opinionated people. It punishes marketers. Your philosophy <em>is</em> your marketing.</p>
+  <p><strong>Key subreddits:</strong> r/androidapps, r/privacy, r/degoogle, r/productivity, r/minimalism, r/digitalminimalism, r/fossdroid</p>
+  <p><strong>Execution:</strong></p>
+  <ul>
+    <li>Be a genuine community member first. Answer questions. Help people.</li>
+    <li>When relevant, mention OneTap naturally &mdash; never as a pitch.</li>
+    <li>Post a single honest "I built this" post per subreddit, once. Let it live or die on merit.</li>
+    <li>When someone posts "looking for a shortcut app" or "why do all apps need accounts?" &mdash; that's your moment.</li>
+  </ul>
+  <p><strong>Time commitment:</strong> 30 minutes/week of genuine participation.</p>
+
+  <h3>Channel 3: Dedicated Website</h3>
+  <p>See Section 9 for full strategy. The Play Store can't tell your story. Your website can.</p>
+
+  <h3>Channel 4: Niche Tech Blogs and Forums</h3>
+  <p><strong>Why:</strong> One genuine review from a privacy-focused blog is worth more than 10,000 ad impressions.</p>
+  <p><strong>Targets:</strong> PrivacyGuides.org community, AlternativeTo.net, XDA Developers forums, personal Android enthusiast blogs.</p>
+  <p><strong>Execution:</strong> Email 2&ndash;3 bloggers per month. Short, honest, no press kit fluff: <em>"I built a paid Android app with no ads, no tracking, no accounts required. Here's a promo code if you want to try it."</em></p>
+  <p><strong>Time commitment:</strong> 1&ndash;2 hours/month.</p>
+
+  <h3>Channel 5: Hacker News (One Shot)</h3>
+  <p><strong>Why:</strong> A single well-received "Show HN" post can generate lasting traffic and backlinks.</p>
+  <p><strong>Execution:</strong> Post once as "Show HN: I built a paid Android app with no analytics, no ads, no accounts." Lead with philosophy, not features. Be present in comments for 24 hours. Never post again unless you have something genuinely new.</p>
+  <p><strong>Time commitment:</strong> One day, once.</p>
+</div>
+
+<!-- SECTION 3 -->
+<div class="section page-break">
+  <h2>3. Use-Case-Driven Spread</h2>
+
+  <p>People don't search for "shortcut app." They search for solutions to moments of friction.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Life Moment</th>
+        <th>What They Search</th>
+        <th>How OneTap Appears</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Calling elderly parents</td>
+        <td>"one tap call shortcut android"</td>
+        <td>Home screen shortcut to a contact</td>
+      </tr>
+      <tr>
+        <td>Medication reminders</td>
+        <td>"simple reminder app no account"</td>
+        <td>Scheduled reminder, offline, no signup</td>
+      </tr>
+      <tr>
+        <td>Travel documents</td>
+        <td>"quick access boarding pass PDF"</td>
+        <td>PDF shortcut on home screen</td>
+      </tr>
+      <tr>
+        <td>Bedtime reading</td>
+        <td>"open article one tap"</td>
+        <td>URL shortcut with no browser clutter</td>
+      </tr>
+      <tr>
+        <td>Emergency info</td>
+        <td>"quick access insurance card phone"</td>
+        <td>File/PDF shortcut, works offline</td>
+      </tr>
+      <tr>
+        <td>Work routines</td>
+        <td>"open zoom link one tap"</td>
+        <td>URL shortcut, instant launch</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Why Recognition Beats Persuasion</h3>
+  <p>When someone is frustrated &mdash; fumbling for a document at airport security &mdash; and then sees a description of <em>exactly that moment</em>, they don't need convincing. They need confirmation that someone built the solution.</p>
+
+  <div class="callout">
+    <strong>Strategy:</strong> Your Play Store description, website, and any community posts should describe these <em>moments</em>, not features. "Open your boarding pass in one tap, even without internet" beats "Supports PDF viewing with offline mode."
+  </div>
+</div>
+
+<!-- SECTION 4 -->
+<div class="section page-break">
+  <h2>4. Google Play Store as a Distribution Asset</h2>
+
+  <p>Your listing is your most important marketing asset. Treat it like a product.</p>
+
+  <h3>Screenshot Order (Recommended)</h3>
+  <ol>
+    <li><strong>Hero shot:</strong> A home screen with 3&ndash;4 beautiful OneTap shortcuts visible</li>
+    <li><strong>The moment:</strong> "Your boarding pass. One tap. Even offline."</li>
+    <li><strong>The contrast:</strong> "No ads. No accounts. No tracking. Ever."</li>
+    <li><strong>Depth:</strong> PDF reader, video player, reminders</li>
+    <li><strong>Trust:</strong> "Your data stays on your device"</li>
+  </ol>
+
+  <h3>Copy Principles</h3>
+  <ul>
+    <li>First sentence = who it's for and what it replaces</li>
+    <li>No jargon, no buzzwords</li>
+    <li>State what you <em>don't</em> do (no ads, no tracking) &mdash; this is rare and powerful</li>
+    <li>Short description (80 chars): problem &rarr; solution &rarr; trust signal</li>
+  </ul>
+
+  <h3>Reviews Strategy</h3>
+  <ul>
+    <li>After 5&ndash;7 days of use, show a single non-blocking prompt: <em>"If OneTap has been useful, a Play Store review helps others find it."</em> One time only. Dismissable. Never again.</li>
+    <li>10 detailed, authentic reviews outperform 100 generic "great app" reviews</li>
+    <li>Respond to every review. Negative reviews answered calmly build more trust than positive reviews.</li>
+  </ul>
+</div>
+
+<!-- SECTION 5 -->
+<div class="section page-break">
+  <h2>5. Global Reach Without Localization Overhead</h2>
+
+  <h3>English-First Markets That Pay for Apps</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Tier</th>
+        <th>Regions</th>
+        <th>Characteristics</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Tier 1</strong> (high willingness to pay)</td>
+        <td>US, UK, Canada, Australia, Germany, Netherlands, Scandinavia</td>
+        <td>Strong paid app culture, English proficiency</td>
+      </tr>
+      <tr>
+        <td><strong>Tier 2</strong> (growing)</td>
+        <td>India (urban), Southeast Asia (urban), Brazil (urban), UAE, Saudi Arabia</td>
+        <td>Growing willingness, price-sensitive</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Why Universal Use Cases Transcend Language</h3>
+  <ul>
+    <li>"Call mom" is universal</li>
+    <li>"Open my PDF" is universal</li>
+    <li>"Set a reminder" is universal</li>
+    <li>The app's UI is icon-heavy and minimal &mdash; the language barrier is low</li>
+  </ul>
+
+  <h3>Practical Approach</h3>
+  <ul>
+    <li>Set per-country pricing appropriately (review India, Brazil, Turkey pricing manually &mdash; lower price = higher volume in price-sensitive markets)</li>
+    <li>If organic demand emerges from a specific region, <em>then</em> consider localizing (i18n infrastructure is already in place)</li>
+  </ul>
+</div>
+
+<!-- SECTION 6 -->
+<div class="section page-break">
+  <h2>6. Long-Term Compounding Strategy</h2>
+
+  <h3>Evergreen Assets That Compound</h3>
+  <ol>
+    <li><strong>Play Store listing</strong> &mdash; improves with every review, every update</li>
+    <li><strong>Website</strong> &mdash; ranks over time for problem-based queries</li>
+    <li><strong>Reddit history</strong> &mdash; genuine comments remain discoverable for years</li>
+    <li><strong>AlternativeTo listing</strong> &mdash; gains votes passively</li>
+    <li><strong>Blog reviews</strong> &mdash; permanent backlinks</li>
+  </ol>
+
+  <h3>The Compounding Loop</h3>
+  <div class="flow-diagram">
+    Quality app &rarr; Genuine reviews &rarr; Better Play Store ranking<br>
+    &rarr; More right-fit users &rarr; More genuine reviews &rarr; &hellip;
+  </div>
+  <p>This loop is slow (months, not days) but unbreakable. No algorithm change can take it from you.</p>
+
+  <div class="callout">
+    <strong>Key insight:</strong> Don't chase spikes. A viral tweet gives you 10,000 visitors who don't convert. Ten authentic reviews give you 500 buyers who stay forever.
+  </div>
+</div>
+
+<!-- SECTION 7 -->
+<div class="section page-break">
+  <h2>7. What NOT to Do</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Tactic</th>
+        <th>Why It Damages Trust</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Product Hunt launch</td>
+        <td>Optimized for free SaaS, not paid mobile apps. Wrong audience.</td>
+      </tr>
+      <tr>
+        <td>Twitter/X "building in public" threads</td>
+        <td>Attracts founders, not users. Vanity metric trap.</td>
+      </tr>
+      <tr>
+        <td>Promo code giveaways</td>
+        <td>Attracts freebie seekers who won't review or recommend.</td>
+      </tr>
+      <tr>
+        <td>Facebook/Instagram pages</td>
+        <td>Requires constant posting, algorithm-dependent, zero ROI for paid apps.</td>
+      </tr>
+      <tr>
+        <td>YouTube tutorials</td>
+        <td>Massive time investment, wrong format for a utility app.</td>
+      </tr>
+      <tr>
+        <td>Cold DM outreach</td>
+        <td>Destroys trust immediately.</td>
+      </tr>
+      <tr>
+        <td>Fake reviews</td>
+        <td>Google detects them. Permanent damage.</td>
+      </tr>
+      <tr>
+        <td>Adding a free tier "to get users"</td>
+        <td>Undermines your entire positioning. You're premium. Own it.</td>
+      </tr>
+      <tr>
+        <td>Daily social media posting</td>
+        <td>Burnout in 3 weeks. Zero compounding value.</td>
+      </tr>
+      <tr>
+        <td>Partnerships with other apps</td>
+        <td>Coordination overhead for a solo founder. Not worth it yet.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout callout-danger">
+    <strong>The rule:</strong> If a tactic requires you to perform for an audience daily, it's unsustainable. If it requires you to pretend to be something you're not, it damages trust.
+  </div>
+</div>
+
+<!-- SECTION 8 -->
+<div class="section page-break">
+  <h2>8. 90-Day Execution Plan</h2>
+
+  <h3>Week 1&ndash;2: Foundation (6&ndash;8 hours total)</h3>
+  <ul class="checklist">
+    <li>Finalize Play Store listing (screenshots, copy, pricing)</li>
+    <li>Submit app to Play Store</li>
+    <li>Create AlternativeTo listing</li>
+    <li>Set up website (separate project)</li>
+  </ul>
+
+  <h3>Week 3&ndash;4: Seeding (4&ndash;5 hours total)</h3>
+  <ul class="checklist">
+    <li>Post to r/androidapps ("I built this" post)</li>
+    <li>Post to r/privacy (philosophy-focused)</li>
+    <li>Email 3 niche Android bloggers</li>
+    <li>List on AlternativeTo as alternative to popular shortcut apps</li>
+  </ul>
+
+  <h3>Week 5&ndash;8: Presence (2 hours/week)</h3>
+  <ul class="checklist">
+    <li>Respond to all Play Store reviews</li>
+    <li>Participate genuinely in Reddit (30 min/week)</li>
+    <li>Email 2 more bloggers</li>
+    <li>One "Show HN" post (if ready)</li>
+  </ul>
+
+  <h3>Week 9&ndash;12: Refinement (1&ndash;2 hours/week)</h3>
+  <ul class="checklist">
+    <li>Ship one meaningful update based on real user feedback</li>
+    <li>Update Play Store screenshots if needed</li>
+    <li>Review pricing by region</li>
+    <li>Write one website article on a specific use case</li>
+  </ul>
+
+  <h3>Ongoing (After 90 Days): 1&ndash;2 hours/week</h3>
+  <ul>
+    <li>Respond to reviews</li>
+    <li>Ship updates every 4&ndash;6 weeks</li>
+    <li>Occasional Reddit participation</li>
+    <li>That's it. The system runs itself.</li>
+  </ul>
+</div>
+
+<!-- SECTION 9 -->
+<div class="section page-break">
+  <h2>9. Dedicated Website Strategy</h2>
+
+  <div class="callout">
+    <strong>Important context:</strong> The website is built and maintained in a separate project. It is not a landing page for ads. Its primary roles are trust, understanding, and quiet conversion.
+  </div>
+
+  <h3>What the Website Should Contain</h3>
+
+  <h4>1. Hero Section</h4>
+  <p>One sentence. One screenshot. One Play Store button.</p>
+  <blockquote>"One tap to what matters. Nothing else."</blockquote>
+
+  <h4>2. Use Case Sections (3&ndash;4)</h4>
+  <p>Each a mini-story, not a feature list:</p>
+  <ul>
+    <li>"Your mom's number. One tap." (with visual)</li>
+    <li>"Your boarding pass. Offline. Instant." (with visual)</li>
+  </ul>
+
+  <h4>3. Philosophy Section</h4>
+  <p>Short. What you don't do. No ads. No tracking. No accounts required. Your data stays on your device. This section <em>is</em> your marketing. Most apps can't say this.</p>
+
+  <h4>4. Privacy Policy</h4>
+  <p>Already exists. Link prominently.</p>
+
+  <h4>5. Blog/Articles Section (Optional, Evergreen)</h4>
+  <ul>
+    <li>"Why I built a paid app with no analytics"</li>
+    <li>"5 things you can do with home screen shortcuts"</li>
+    <li>These rank for long-tail SEO over months/years</li>
+  </ul>
+
+  <h3>What Success Looks Like</h3>
+  <p>Not traffic. Not bounce rate. Success = someone lands on the website, immediately understands what OneTap is, trusts it, and clicks through to the Play Store. Even 10 visitors/day converting at 20% is meaningful for a paid app.</p>
+
+  <h3>What the Website Should NOT Be</h3>
+  <ul>
+    <li>A blog that needs weekly updates</li>
+    <li>A landing page optimized for email capture</li>
+    <li>A documentation site</li>
+    <li>An app changelog</li>
+  </ul>
+</div>
+
+<!-- SECTION 10 -->
+<div class="section page-break">
+  <h2>10. The Final Answer</h2>
+
+  <h3>If OneTap succeeds globally without shouting, what did it do differently?</h3>
+
+  <p><strong>It refused to compete for attention and competed for trust instead.</strong></p>
+
+  <p>Every other app optimizes for <em>more</em>: more users, more engagement, more data, more notifications. OneTap optimized for <em>less</em>: less friction, less intrusion, less anxiety, less dependency.</p>
+
+  <p>This isn't a marketing strategy. It's a <strong>filter</strong>. The people who find OneTap are the people who were already looking for exactly this &mdash; an app that respects them. They don't need to be convinced. They need to be <em>found</em>.</p>
+
+  <p>The distribution strategy is the product philosophy, applied outward:</p>
+  <ul>
+    <li><strong>Calm</strong> &mdash; no urgency, no FOMO, no countdown timers</li>
+    <li><strong>Honest</strong> &mdash; say what you do, say what you don't do, let people decide</li>
+    <li><strong>Patient</strong> &mdash; compound trust over months, not chase spikes over days</li>
+    <li><strong>Sovereign</strong> &mdash; not dependent on any platform's algorithm or any investor's timeline</li>
+  </ul>
+
+  <div class="callout" style="margin-top: 2em; text-align: center;">
+    <strong>The guiding principle for every future decision:</strong><br><br>
+    <em style="font-size: 12pt;">"Would a user who already trusts us feel proud recommending this to someone they care about?"</em><br><br>
+    If yes, do it. If no, don't.
+  </div>
+
+  <div class="footer-note">
+    <p>OneTap Global Distribution Strategy &middot; Confidential &middot; February 2026</p>
+    <p>This blueprint should be revisited at the 90-day mark and adjusted based on what actually happened &mdash; not what was hoped for.</p>
+  </div>
+</div>
+
+</body>
+</html>
