@@ -132,14 +132,12 @@ Capacitor is the bridge between web and native. It lets your React code call Jav
 **What is Supabase?** An open-source backend platform that provides a PostgreSQL database, authentication, and serverless functions. It can be self-hosted or used as a managed service at [supabase.com](https://supabase.com).
 
 **What the backend does:**
-- ✅ Stores synced bookmarks, trash, reminders, and **shortcut intent metadata** (optional)
+- ✅ Stores synced bookmarks, trash, and reminders (optional)
 - ✅ Handles Google OAuth sign-in
 - ✅ Fetches URL metadata (title, favicon) to bypass browser CORS restrictions
-- ✅ Tracks deleted entity IDs to prevent resurrection across devices
 
 **What the backend does NOT do:**
-- ❌ Does not store file contents, thumbnails, or binary data
-- ❌ Does not store device-local file paths
+- ❌ Does not store shortcuts (those are native Android shortcuts)
 - ❌ Does not run background jobs or cron tasks
 - ❌ Does not send push notifications
 - ❌ Does not track analytics
@@ -158,13 +156,11 @@ See [SUPABASE.md](SUPABASE.md) for the complete backend guide.
 │          (Source of Truth — ALWAYS)                │
 │                                                    │
 │  localStorage:                                     │
-│    saved_links           → Your bookmarks          │
-│    saved_links_trash     → Your deleted bookmarks  │
-│    quicklaunch_shortcuts → Your shortcuts           │
-│    scheduled_actions     → Your reminders           │
-│    onetap_settings       → Your preferences        │
-│    sync_status           → When you last synced    │
-│    pending_cloud_deletions → Deletions to upload   │
+│    saved_links        → Your bookmarks             │
+│    saved_links_trash  → Your deleted bookmarks     │
+│    scheduled_actions  → Your reminders             │
+│    onetap_settings    → Your preferences           │
+│    sync_status        → When you last synced       │
 │                                                    │
 │  Android System:                                   │
 │    ShortcutManager    → Your home screen shortcuts  │
@@ -180,28 +176,11 @@ See [SUPABASE.md](SUPABASE.md) for the complete backend guide.
 │                                                    │
 │  cloud_bookmarks          → Copy of bookmarks      │
 │  cloud_trash              → Copy of deleted items   │
-│  cloud_shortcuts          → Shortcut intent metadata│
 │  cloud_scheduled_actions  → Copy of reminders       │
-│  cloud_deleted_entities   → Deletion records        │
 └───────────────────────────────────────────────────┘
 ```
 
-**The golden rule:** Local data always wins. Cloud sync only *adds* items that don't already exist locally — it never updates or deletes local data (except for deletion reconciliation: items recorded in `cloud_deleted_entities` are removed locally to prevent resurrection).
-
-### Dormant Access Points
-
-File-dependent shortcuts (PDF, image, video, slideshow) cannot be fully restored from cloud because file contents are never uploaded. When downloaded to a new device, these appear as **dormant** — visible in the UI with muted styling and a "Tap to reconnect file" prompt. Once the user re-attaches a local file, the shortcut becomes active.
-
-**Sync classification:**
-| Type | Sync Behavior |
-|------|--------------|
-| URL shortcuts | Fully restorable (active) |
-| Contact/call shortcuts | Fully restorable (active) |
-| WhatsApp/message shortcuts | Fully restorable (active) |
-| File shortcuts | Intent synced, file dormant |
-| Slideshow shortcuts | Intent synced, images dormant |
-| Scheduled actions (URL/contact) | Fully restorable + alarm re-registered |
-| Scheduled actions (file-based) | Downloaded as disabled (dormant) |
+**The golden rule:** Local data always wins. If there's a conflict between what's on the device and what's in the cloud, the device version is kept. Cloud sync only *adds* items that don't already exist locally — it never updates or deletes local data.
 
 ### Sync Flow
 
@@ -216,20 +195,12 @@ User taps "Sync Now"  ──or──  App opens (daily auto)
     └────┬────┘
          │ Allowed
          ▼
-  Upload Phase:
-    1. Bookmarks → cloud_bookmarks (upsert by entity_id)
-    2. Trash → cloud_trash (upsert)
-    3. Shortcuts → cloud_shortcuts (intent metadata only)
-    4. Scheduled actions → cloud_scheduled_actions (upsert)
-    5. Pending deletions → cloud_deleted_entities + remove cloud rows
+  Upload: Send local items to cloud
+  (upsert by entity_id — same item overwrites in cloud)
          │
          ▼
-  Download Phase:
-    6. cloud_bookmarks → local (skip existing + deleted)
-    7. cloud_trash → local (skip existing + deleted)
-    8. cloud_shortcuts → local (active or dormant based on type)
-    9. cloud_scheduled_actions → local (re-register alarms for non-file)
-   10. cloud_deleted_entities → reconcile local (remove resurrected)
+  Download: Fetch cloud items
+  (skip any item whose entity_id already exists locally)
          │
          ▼
   Record sync timestamp

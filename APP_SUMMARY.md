@@ -37,9 +37,6 @@ A local-first Android app that lets users create home screen shortcuts for quick
 - Google OAuth authentication
 - Bidirectional sync: local ↔ cloud
 - **Local is source of truth**—cloud is additive-only
-- **Shortcuts sync intent metadata** — not files, thumbnails, or binary data
-- **Dormant access points** — file-dependent shortcuts appear on new devices but require local file re-attachment
-- **Deletion tracking** — permanently deleted items are recorded in cloud to prevent resurrection
 
 ---
 
@@ -55,7 +52,7 @@ A local-first Android app that lets users create home screen shortcuts for quick
 ### Backend (Supabase — External Project)
 - **Client**: Custom client in `src/lib/supabaseClient.ts` with hardcoded credentials (project `xfnugumyjhnctmqgiyqm`), configured with `flowType: 'implicit'`
 - **Types**: Manually maintained in `src/lib/supabaseTypes.ts`
-- **Tables**: `cloud_bookmarks`, `cloud_trash`, `cloud_scheduled_actions`, `cloud_shortcuts`, `cloud_deleted_entities`
+- **Tables**: `cloud_bookmarks`, `cloud_trash`, `cloud_scheduled_actions`
 - **Edge Functions**: `fetch-url-metadata`, `delete-account`
 - **Auth**: Google OAuth with implicit flow + custom URL scheme (`onetap://auth-callback`) deep link
 
@@ -71,13 +68,11 @@ A local-first Android app that lets users create home screen shortcuts for quick
 
 ### Local Storage Keys
 ```
-saved_links              → SavedLink[]        (bookmarks)
-saved_links_trash        → TrashedLink[]      (soft-deleted)
-quicklaunch_shortcuts    → ShortcutData[]     (shortcuts)
-scheduled_actions        → ScheduledAction[]  (reminders)
-onetap_settings          → AppSettings
-sync_status              → SyncStatus
-pending_cloud_deletions  → PendingDeletion[]  (deletions to upload)
+saved_links          → SavedLink[]      (bookmarks)
+saved_links_trash    → TrashedLink[]    (soft-deleted)
+scheduled_actions    → ScheduledAction[] (reminders)
+onetap_settings      → AppSettings
+sync_status          → SyncStatus
 ```
 
 ### SavedLink
@@ -113,11 +108,9 @@ cloud_bookmarks (
 
 ### Design Principles
 1. **Local sovereignty**: Device intent is never overridden
-2. **Additive-only**: Cloud never deletes local data (except deletion reconciliation)
+2. **Additive-only**: Cloud never deletes local data
 3. **Calm sync**: Intentional, not reactive—users never feel watched
 4. **Runtime enforcement**: Philosophy enforced by guards, not convention
-5. **Privacy-safe**: No files, thumbnails, or binary data ever uploaded
-6. **Dormant honesty**: File-dependent access points restored as dormant, not broken
 
 ### Sync Triggers (Exhaustive List)
 | Trigger | Condition | Frequency |
@@ -184,16 +177,14 @@ markSyncCompleted(trigger, success)
 
 ### Sync Logic
 - `src/lib/syncGuard.ts` - Runtime guards enforcing sync philosophy
-- `src/lib/cloudSync.ts` - Guarded sync entry points + upload/download (bookmarks, trash, shortcuts, scheduled actions, deletions)
+- `src/lib/cloudSync.ts` - Guarded sync entry points + upload/download
 - `src/lib/syncStatusManager.ts` - Timing state (lastSyncAt, pending)
-- `src/lib/deletionTracker.ts` - Pending deletion records in localStorage
 - `src/hooks/useAutoSync.ts` - Daily foreground sync orchestration
 
 ### Data Management
-- `src/lib/savedLinksManager.ts` - Bookmark CRUD + deletion tracking
-- `src/lib/scheduledActionsManager.ts` - Reminder CRUD + deletion tracking
+- `src/lib/savedLinksManager.ts` - Bookmark CRUD
+- `src/lib/scheduledActionsManager.ts` - Reminder CRUD
 - `src/lib/settingsManager.ts` - User preferences
-- `src/hooks/useShortcuts.ts` - Shortcut CRUD + deletion tracking
 
 ### Native Bridge
 - `src/plugins/ShortcutPlugin.ts` - Capacitor interface
