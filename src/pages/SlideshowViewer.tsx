@@ -69,6 +69,11 @@ export default function SlideshowViewer() {
       }
       
       // Usage is tracked by native SlideshowProxyActivity - no need to track here
+    } else if (shortcut && shortcut.type === 'file' && shortcut.fileType === 'image') {
+      // Single image file shortcut - treat as one-image slideshow
+      setImages([shortcut.contentUri]);
+      setThumbnails(shortcut.thumbnailData ? [shortcut.thumbnailData] : []);
+      setTitle(shortcut.name);
     }
     
     setIsLoading(false);
