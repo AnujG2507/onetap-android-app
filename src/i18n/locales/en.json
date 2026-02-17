@@ -827,6 +827,7 @@
     "typePDF": "PDF",
     "typeFile": "File",
     "dormantNotice": "File not on this device. Tap Edit to reconnect.",
+    "dormantNoticeSlideshow": "Reconnect photos to use this slideshow.",
     "reconnectFile": "Reconnect file",
     "reconnected": "File reconnected"
   },
