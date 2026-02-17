@@ -51,6 +51,30 @@ export type Database = {
         }
         Relationships: []
       }
+      cloud_deleted_entities: {
+        Row: {
+          id: string
+          user_id: string
+          entity_type: string
+          entity_id: string
+          deleted_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          entity_type: string
+          entity_id: string
+          deleted_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          entity_type?: string
+          entity_id?: string
+          deleted_at?: string
+        }
+        Relationships: []
+      }
       cloud_scheduled_actions: {
         Row: {
           created_at: string | null
@@ -96,6 +120,78 @@ export type Database = {
           trigger_time?: number
           updated_at?: string | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      cloud_shortcuts: {
+        Row: {
+          id: string
+          user_id: string
+          entity_id: string
+          type: string
+          name: string
+          content_uri: string | null
+          file_type: string | null
+          mime_type: string | null
+          phone_number: string | null
+          contact_name: string | null
+          message_app: string | null
+          quick_messages: Json | null
+          resume_enabled: boolean | null
+          auto_advance_interval: number | null
+          image_count: number | null
+          icon_type: string | null
+          icon_value: string | null
+          usage_count: number
+          original_created_at: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          entity_id: string
+          type: string
+          name: string
+          content_uri?: string | null
+          file_type?: string | null
+          mime_type?: string | null
+          phone_number?: string | null
+          contact_name?: string | null
+          message_app?: string | null
+          quick_messages?: Json | null
+          resume_enabled?: boolean | null
+          auto_advance_interval?: number | null
+          image_count?: number | null
+          icon_type?: string | null
+          icon_value?: string | null
+          usage_count?: number
+          original_created_at: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          entity_id?: string
+          type?: string
+          name?: string
+          content_uri?: string | null
+          file_type?: string | null
+          mime_type?: string | null
+          phone_number?: string | null
+          contact_name?: string | null
+          message_app?: string | null
+          quick_messages?: Json | null
+          resume_enabled?: boolean | null
+          auto_advance_interval?: number | null
+          image_count?: number | null
+          icon_type?: string | null
+          icon_value?: string | null
+          usage_count?: number
+          original_created_at?: number
+          created_at?: string
+          updated_at?: string
         }
         Relationships: []
       }

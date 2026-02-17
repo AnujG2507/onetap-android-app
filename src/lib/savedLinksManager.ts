@@ -1,4 +1,5 @@
 import { getSettings } from './settingsManager';
+import { recordDeletion } from './deletionTracker';
 
 const STORAGE_KEY = 'saved_links';
 const CUSTOM_FOLDERS_KEY = 'custom_folders';
@@ -534,6 +535,7 @@ export function isTrashItemRestorable(id: string): boolean {
  * Permanently delete a link from trash
  */
 export function permanentlyDelete(id: string): void {
+  recordDeletion('bookmark', id);
   removeFromTrash(id);
 }
 
@@ -541,6 +543,8 @@ export function permanentlyDelete(id: string): void {
  * Empty all items from trash
  */
 export function emptyTrash(): void {
+  const items = getTrashLinks();
+  items.forEach(item => recordDeletion('bookmark', item.id));
   localStorage.setItem(TRASH_STORAGE_KEY, JSON.stringify([]));
   notifyTrashChange();
 }

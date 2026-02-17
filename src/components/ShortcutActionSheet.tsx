@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Edit, Trash2, Bell, ExternalLink, Phone, MessageCircle, FileText, Link, Image, Video } from 'lucide-react';
+import { Edit, Trash2, Bell, ExternalLink, Phone, MessageCircle, FileText, Link, Image, Video, CloudOff } from 'lucide-react';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -19,6 +19,7 @@ import { useSheetRegistry } from '@/contexts/SheetRegistryContext';
 import { ImageWithFallback } from '@/components/ui/image-with-fallback';
 import { buildImageSources } from '@/lib/imageUtils';
 import type { ShortcutData } from '@/types/shortcut';
+import { isDormant } from '@/types/shortcut';
 
 interface ShortcutActionSheetProps {
   shortcut: ShortcutData | null;
@@ -158,8 +159,16 @@ export function ShortcutActionSheet({
           <div className="px-4 pb-4 landscape:pb-3 space-y-1">
             <Separator className="my-2 landscape:my-1" />
             
+            {/* Dormant notice */}
+            {isDormant(shortcut) && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50 text-muted-foreground text-sm mb-2">
+                <CloudOff className="h-4 w-4 shrink-0" />
+                <span>{t('shortcutAction.dormantNotice')}</span>
+              </div>
+            )}
+            
             {/* Open Action */}
-            {onOpen && (
+            {onOpen && !isDormant(shortcut) && (
               <Button
                 variant="ghost"
                 className="w-full justify-start h-12 landscape:h-10 text-base landscape:text-sm"
