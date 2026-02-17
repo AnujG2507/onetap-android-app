@@ -100,7 +100,7 @@ In Supabase dashboard → Edge Functions → Secrets, ensure these exist:
 
 ## 4. Database Tables Explained
 
-The database has three tables. Each stores a copy of local data for cloud sync purposes.
+The database has five tables. Three store copies of local data for cloud sync. Two support the sync redesign (shortcuts and deletion tracking).
 
 ### `cloud_bookmarks` — Synced Bookmarks
 
@@ -159,6 +159,58 @@ This table backs up scheduled reminders.
 | `original_created_at` | BIGINT | Local creation timestamp | Yes |
 | `created_at` | TIMESTAMP | Cloud row creation time | Auto |
 | `updated_at` | TIMESTAMP | Cloud row update time | Auto |
+
+### `cloud_shortcuts` — Synced Shortcut Intent Metadata
+
+This table stores the **intent metadata** for shortcuts (what the shortcut does), but never stores file contents, thumbnails, or device-local paths. File-dependent shortcuts downloaded from cloud appear in the "dormant" state until the user re-attaches a local file.
+
+| Column | Type | What It Stores | Required? |
+|--------|------|---------------|-----------|
+| `id` | UUID | Auto-generated cloud row ID | Auto |
+| `entity_id` | TEXT | The shortcut's local ID (matches local ↔ cloud) | Yes |
+| `user_id` | UUID | The user who owns this shortcut | Yes |
+| `type` | TEXT | Shortcut type: `link`, `file`, `contact`, `message`, `slideshow` | Yes |
+| `name` | TEXT | User-given display name | Yes |
+| `content_uri` | TEXT | URL for link shortcuts; NULL for file-based shortcuts (privacy) | No |
+| `file_type` | TEXT | `image`, `video`, `pdf`, `document` — for dormant display hints | No |
+| `mime_type` | TEXT | MIME type — helps file picker filter on reconnect | No |
+| `phone_number` | TEXT | Phone number for contact/message shortcuts | No |
+| `contact_name` | TEXT | Contact display name | No |
+| `message_app` | TEXT | Messaging app identifier (e.g. `whatsapp`) | No |
+| `quick_messages` | JSONB | Array of draft message strings | No |
+| `resume_enabled` | BOOLEAN | Video resume-from-last-position flag | No |
+| `auto_advance_interval` | INT | Slideshow auto-advance interval in ms | No |
+| `image_count` | INT | Number of images in slideshow (no URIs stored) | No |
+| `icon_type` | TEXT | Icon kind: `emoji`, `text`, `platform`, `favicon` | No |
+| `icon_value` | TEXT | Icon data: emoji char, text, platform key, or favicon URL | No |
+| `usage_count` | INT | How many times the shortcut has been used | Default 0 |
+| `original_created_at` | BIGINT | Local creation timestamp (ms) | Yes |
+| `created_at` | TIMESTAMP | Cloud row creation time | Auto |
+| `updated_at` | TIMESTAMP | Cloud row update time | Auto |
+
+**What is NOT stored (privacy boundary):**
+- `thumbnailData` — binary image data
+- `contactPhotoUri` — device-local contact photo
+- `imageUris` / `imageThumbnails` — device-local slideshow images
+- `originalPath` — device file path
+- `fileSize` — irrelevant for sync
+- `contentUri` for file/slideshow types — device-local `content://` URIs
+
+**Key concept: Dormant shortcuts.** When a file-dependent shortcut (type `file` or `slideshow`) is downloaded from cloud to a new device, it arrives as "dormant" — the user can see it and its metadata, but it's not actionable until they re-attach a local file. This is intentional: *"Your intent is synced. Your files stay private."*
+
+### `cloud_deleted_entities` — Deletion Tracking
+
+Tracks permanently deleted entity IDs so they are never resurrected on future downloads.
+
+| Column | Type | What It Stores | Required? |
+|--------|------|---------------|-----------|
+| `id` | UUID | Auto-generated cloud row ID | Auto |
+| `entity_id` | TEXT | The deleted entity's local ID | Yes |
+| `user_id` | UUID | The user who deleted it | Yes |
+| `entity_type` | TEXT | What was deleted: `bookmark`, `trash`, `shortcut`, `scheduled_action` | Yes |
+| `deleted_at` | TIMESTAMP | When the deletion was recorded | Auto |
+
+**How it works:** When you permanently delete a shortcut, bookmark, or scheduled action, the app records the deletion locally (in `pending_cloud_deletions` localStorage key). On the next sync upload, these are pushed to `cloud_deleted_entities` and the corresponding cloud rows are removed. On download, any entity in this table is skipped — preventing deleted items from being "resurrected."
 
 ---
 
@@ -286,7 +338,7 @@ npx supabase functions deploy delete-account --project-ref xfnugumyjhnctmqgiyqm 
 - **Flow:**
   1. Validates the `Authorization` header (must start with `Bearer `)
   2. Creates a user-scoped client and calls `auth.getUser()` to identify the caller
-  3. Uses the admin client to delete rows from `cloud_bookmarks`, `cloud_trash`, and `cloud_scheduled_actions`
+  3. Uses the admin client to delete rows from `cloud_bookmarks`, `cloud_trash`, `cloud_scheduled_actions`, `cloud_shortcuts`, and `cloud_deleted_entities`
   4. Uses the admin client to delete the auth account via `auth.admin.deleteUser()`
 - **Output:** `{ "success": true }`
 - **Deployment:** Must be deployed with `--no-verify-jwt` to prevent the gateway from rejecting requests before they reach the function's own auth validation.
@@ -367,6 +419,12 @@ If a user requests data deletion (GDPR, CCPA, or just personal preference):
    -- Delete their scheduled actions
    DELETE FROM cloud_scheduled_actions WHERE user_id = 'the-user-uuid';
 
+   -- Delete their shortcuts
+   DELETE FROM cloud_shortcuts WHERE user_id = 'the-user-uuid';
+
+   -- Delete their deletion records
+   DELETE FROM cloud_deleted_entities WHERE user_id = 'the-user-uuid';
+
    -- Delete the auth account via Supabase dashboard → Authentication → Users → delete
    ```
 
@@ -379,7 +437,7 @@ If a user requests data deletion (GDPR, CCPA, or just personal preference):
 | File / Setting | Why You Must Not Change It |
 |---|---|
 | `src/lib/supabaseClient.ts` | Custom client with hardcoded credentials for the external Supabase project. Only change if switching projects. |
-| `src/lib/supabaseTypes.ts` | Manually maintained database type definitions. Must match your Supabase schema. |
+| `src/lib/supabaseTypes.ts` | Manually maintained database type definitions. Must match your Supabase schema. Includes `cloud_shortcuts` and `cloud_deleted_entities`. |
 | RLS policies (removing them) | Removing RLS exposes all user data to all users. |
 | `service_role` key | This key bypasses all security. Never use it in client code. Never expose it in `.env` or frontend files. It is only used inside edge functions. |
 
