@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import { Zap, ChevronRight, ChevronDown, RefreshCw, Search, X, Link2, FileIcon, MessageCircle, Phone, BarChart3, Clock, ArrowDownAZ, CloudOff } from 'lucide-react';
 import { toast } from 'sonner';
+import { generateGridIcon } from '@/lib/slideshowIconGenerator';
 import { cn } from '@/lib/utils';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
@@ -527,9 +528,19 @@ export function MyShortcutsContent({ onCreateReminder, onRefresh, isSyncing: ext
       const result = await pickMultipleImages();
       if (!result || result.files.length < 2) return;
       
+      const thumbnails = result.files.map(f => f.thumbnail).filter(Boolean) as string[];
+      
+      // Regenerate grid icon from new photos
+      let newIcon = shortcut.icon;
+      if (thumbnails.length > 0) {
+        const gridIconData = await generateGridIcon(thumbnails.slice(0, 4));
+        newIcon = { type: 'thumbnail' as const, value: gridIconData };
+      }
+      
       await updateShortcut(shortcut.id, {
         imageUris: result.files.map(f => f.uri),
-        imageThumbnails: result.files.map(f => f.thumbnail).filter(Boolean) as string[],
+        imageThumbnails: thumbnails,
+        icon: newIcon,
         syncState: undefined,
       });
       
