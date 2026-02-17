@@ -1380,7 +1380,7 @@ public class NativePdfViewerActivity extends Activity {
         
         // Share button - to the left of "Open with"
         ImageButton shareButton = new ImageButton(this);
-        shareButton.setImageResource(android.R.drawable.ic_menu_share);
+        shareButton.setImageResource(R.drawable.ic_share);
         shareButton.setBackgroundResource(R.drawable.ripple_circle);
         shareButton.setColorFilter(0xFFFFFFFF);
         shareButton.setScaleType(ImageView.ScaleType.CENTER);
