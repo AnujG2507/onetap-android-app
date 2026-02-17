@@ -1,39 +1,79 @@
 
 
-# Add Tooltips to the Built-in Video Player
+# In-App Review Prompt -- Ethical, Non-Intrusive
 
-## Current State
-The WebView-based video player (`VideoPlayer.tsx`) has three icon-only buttons in the header -- Back, Open with, and Share -- with no text labels or tooltips. Users unfamiliar with the icons may not know what each button does.
+## How It Works
 
-## Approach
-Wrap each icon button with the existing `Tooltip` component from `@/components/ui/tooltip`. Radix tooltips support touch devices: a long-press reveals the label, and it auto-dismisses. This is non-intrusive and doesn't interfere with normal tap behavior.
+The review prompt appears as a small, dismissable banner at the bottom of the home screen (above the bottom navigation). It shows up once -- after the user has been using the app for 5-7 days and has created at least 3 shortcuts -- then never appears again, regardless of whether the user taps "Rate" or dismisses it.
 
-## Changes
+```text
++-----------------------------------------------+
+|  Enjoying OneTap?                         [X]  |
+|  A quick rating helps others discover it.      |
+|  [Rate on Play Store]                          |
++-----------------------------------------------+
+```
 
-### `src/pages/VideoPlayer.tsx`
+## Trigger Logic
 
-1. **Import tooltip components** -- Add `Tooltip, TooltipTrigger, TooltipContent, TooltipProvider` from `@/components/ui/tooltip`
+- On onboarding completion, store a timestamp (`onetap_first_use_date`) in localStorage
+- The prompt becomes eligible after 5 days have passed AND the user has 3+ shortcuts
+- A random jitter of 0-2 days is added (so it appears between day 5-7, not robotically on day 5)
+- Once shown and interacted with (tapped or dismissed), set `onetap_review_prompt_done = true` -- never show again
+- If the user has fewer than 3 shortcuts after 30 days, mark as done silently (they're not engaged enough)
 
-2. **Wrap the header controls area** in a `TooltipProvider` with a short `delayDuration` (e.g., 300ms)
+## Design Principles
 
-3. **Wrap each of the 3 icon buttons** in the playing/ready state header:
+- No modal, no dialog, no interruption -- just a gentle banner
+- No guilt language ("Please rate us!")
+- Single sentence explaining *why* it helps
+- Dismiss button is prominent and easy to tap
+- Tapping "Rate" opens the Play Store listing via Capacitor's Browser plugin
+- On web (non-native), the banner is hidden entirely
 
-| Button | Icon | Tooltip text (i18n key) |
-|--------|------|------------------------|
-| Back / Exit | `ArrowLeft` | `videoPlayer.tooltipBack` |
-| Open with | `ExternalLink` | `videoPlayer.tooltipOpenWith` |
-| Share | `Share2` | `videoPlayer.tooltipShare` |
+## Files to Create / Modify
 
-4. **Style the tooltip content** to match the dark video player theme: dark background, white text, no border (since the player is already on a black background)
+### 1. New: `src/hooks/useReviewPrompt.ts`
 
-5. **Add i18n keys** to `src/i18n/locales/en.json` under the `videoPlayer` namespace:
-   - `tooltipBack`: "Exit"
-   - `tooltipOpenWith`: "Open with another app"
-   - `tooltipShare`: "Share"
+A custom hook that manages the entire lifecycle:
 
-### What Does NOT Change
-- No changes to the native `NativeVideoPlayerActivity.java` (native player has its own tooltip-like behavior via Android content descriptions)
-- No changes to tooltip component itself
-- No changes to button behavior -- tooltips only add discoverability
-- Error state buttons already have text labels, so they don't need tooltips
+- Reads `onetap_first_use_date` and `onetap_review_prompt_done` from localStorage
+- On first call (if no date exists), records the current timestamp
+- Returns `{ shouldShow: boolean, dismiss: () => void, openReview: () => void }`
+- `dismiss()` sets the done flag and hides the banner
+- `openReview()` opens the Play Store URL via `@capacitor/browser`, then sets done flag
+- Only returns `shouldShow: true` on native Android, after 5+ days, with 3+ shortcuts, and not already done
+
+### 2. New: `src/components/ReviewPromptBanner.tsx`
+
+A small, self-contained banner component:
+
+- Renders a subtle card with rounded corners, matching the app's design language
+- Contains: one-line message, "Rate on Play Store" text button, and an X dismiss button
+- Uses framer-motion for a gentle slide-up entrance and fade-out exit
+- Accepts `onDismiss` and `onRate` callbacks
+
+### 3. Modified: `src/hooks/useOnboarding.ts`
+
+- In `completeOnboarding()`, also record `onetap_first_use_date` if not already set
+- This anchors the review timer to the moment the user finishes onboarding
+
+### 4. Modified: `src/pages/Index.tsx`
+
+- Import and call `useReviewPrompt()`
+- Render `<ReviewPromptBanner>` just above the `<BottomNav>` when `shouldShow` is true
+
+### 5. Modified: `src/i18n/locales/en.json`
+
+- Add keys under a `reviewPrompt` namespace:
+  - `title`: "Enjoying OneTap?"
+  - `message`: "A quick rating helps others discover it."
+  - `action`: "Rate on Play Store"
+
+## What Does NOT Change
+
+- No analytics, no tracking of whether users actually rated
+- No repeat prompts, no "remind me later"
+- No changes to settings or profile pages
+- No backend/database involvement -- purely localStorage
 
