@@ -69,7 +69,8 @@
     "clearFilters": "Clear filters",
     "syncTooltip": "Sync with home screen",
     "manualRemovalRequired": "Please manually remove the shortcut icon from your home screen",
-    "manageDesc": "Synced with your home screen"
+    "manageDesc": "Synced with your home screen",
+    "tapToReconnect": "Tap to reconnect file"
   },
   "contact": {
     "call": "Call",
@@ -822,7 +823,8 @@
     "typeImage": "Photo",
     "typeVideo": "Video",
     "typePDF": "PDF",
-    "typeFile": "File"
+    "typeFile": "File",
+    "dormantNotice": "File not on this device. Tap Edit to reconnect."
   },
   "phoneInput": {
     "selectCountry": "Select country",

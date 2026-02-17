@@ -290,6 +290,14 @@ export function useShortcuts() {
   }
 
   const deleteShortcut = useCallback(async (id: string) => {
+    // Record deletion for cloud sync
+    try {
+      const { recordDeletion } = await import('@/lib/deletionTracker');
+      recordDeletion('shortcut', id);
+    } catch (e) {
+      console.warn('[useShortcuts] Failed to record deletion:', e);
+    }
+
     // Remove from home screen first (if on native platform)
     if (Capacitor.isNativePlatform()) {
       try {

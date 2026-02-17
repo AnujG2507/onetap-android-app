@@ -7,6 +7,7 @@ import type {
   RecurrenceType,
   RecurrenceAnchor
 } from '@/types/scheduledAction';
+import { recordDeletion } from './deletionTracker';
 
 const STORAGE_KEY = 'scheduled_actions';
 const SELECTION_KEY = 'scheduled_actions_selection';
@@ -111,8 +112,8 @@ export function deleteScheduledAction(id: string): boolean {
   
   if (filtered.length === actions.length) return false;
 
+  recordDeletion('scheduled_action', id);
   saveScheduledActions(filtered);
-  // Also remove from selection
   removeFromSelection(id);
   return true;
 }

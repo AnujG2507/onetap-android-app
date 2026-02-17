@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
-import { Zap, ChevronRight, ChevronDown, RefreshCw, Search, X, Link2, FileIcon, MessageCircle, Phone, BarChart3, Clock, ArrowDownAZ } from 'lucide-react';
+import { Zap, ChevronRight, ChevronDown, RefreshCw, Search, X, Link2, FileIcon, MessageCircle, Phone, BarChart3, Clock, ArrowDownAZ, CloudOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
@@ -16,6 +16,7 @@ import { PlatformIcon } from '@/components/PlatformIcon';
 import { ShortcutActionSheet } from '@/components/ShortcutActionSheet';
 import { ShortcutEditSheet } from '@/components/ShortcutEditSheet';
 import type { ShortcutData } from '@/types/shortcut';
+import { isDormant } from '@/types/shortcut';
 import type { ScheduledActionDestination } from '@/types/scheduledAction';
 
 export interface MyShortcutsContentProps {
@@ -71,6 +72,7 @@ function getShortcutTarget(shortcut: ShortcutData): string | null {
 // Render shortcut icon with bulletproof image loading
 function ShortcutIcon({ shortcut }: { shortcut: ShortcutData }) {
   const { icon } = shortcut;
+  const dormant = isDormant(shortcut);
   
   // Build priority-ordered list of image sources for thumbnail icons
   const imageSources = useMemo(() => {
@@ -80,15 +82,18 @@ function ShortcutIcon({ shortcut }: { shortcut: ShortcutData }) {
   
   // Default fallback component
   const fallbackIcon = (
-    <div className="h-12 w-12 rounded-xl bg-muted flex items-center justify-center">
+    <div className={cn("h-12 w-12 rounded-xl bg-muted flex items-center justify-center", dormant && "opacity-40 grayscale")}>
       <Zap className="h-5 w-5 text-muted-foreground" />
     </div>
   );
   
   if (icon.type === 'emoji') {
     return (
-      <div className="h-12 w-12 rounded-xl bg-muted flex items-center justify-center text-2xl">
-        {icon.value}
+      <div className="relative">
+        <div className={cn("h-12 w-12 rounded-xl bg-muted flex items-center justify-center text-2xl", dormant && "opacity-40 grayscale")}>
+          {icon.value}
+        </div>
+        {dormant && <DormantBadge />}
       </div>
     );
   }
@@ -96,53 +101,77 @@ function ShortcutIcon({ shortcut }: { shortcut: ShortcutData }) {
   if (icon.type === 'platform') {
     const platform = detectPlatform(`https://${icon.value}.com`);
     if (platform) {
-      return <PlatformIcon platform={platform} size="lg" className="rounded-xl" />;
+      return (
+        <div className="relative">
+          <div className={cn(dormant && "opacity-40 grayscale")}>
+            <PlatformIcon platform={platform} size="lg" className="rounded-xl" />
+          </div>
+          {dormant && <DormantBadge />}
+        </div>
+      );
     }
-    // Fallback to muted icon if detection fails
     return fallbackIcon;
   }
   
   if (icon.type === 'favicon') {
     return (
-      <div className="h-12 w-12 rounded-xl bg-white dark:bg-gray-100 flex items-center justify-center overflow-hidden shadow-sm">
-        <img 
-          src={icon.value} 
-          alt="" 
-          className="h-[70%] w-[70%] object-contain"
-          onError={(e) => {
-            e.currentTarget.style.display = 'none';
-          }}
-        />
+      <div className="relative">
+        <div className={cn("h-12 w-12 rounded-xl bg-white dark:bg-gray-100 flex items-center justify-center overflow-hidden shadow-sm", dormant && "opacity-40 grayscale")}>
+          <img 
+            src={icon.value} 
+            alt="" 
+            className="h-[70%] w-[70%] object-contain"
+            onError={(e) => {
+              e.currentTarget.style.display = 'none';
+            }}
+          />
+        </div>
+        {dormant && <DormantBadge />}
       </div>
     );
   }
   
   if (icon.type === 'thumbnail' && imageSources.length > 0) {
     return (
-      <div className="h-12 w-12 rounded-xl overflow-hidden bg-muted">
-        <ImageWithFallback
-          sources={imageSources}
-          fallback={<Zap className="h-5 w-5 text-muted-foreground" />}
-          alt={shortcut.name}
-          className="h-full w-full object-cover"
-          containerClassName="h-full w-full flex items-center justify-center"
-        />
+      <div className="relative">
+        <div className={cn("h-12 w-12 rounded-xl overflow-hidden bg-muted", dormant && "opacity-40 grayscale")}>
+          <ImageWithFallback
+            sources={imageSources}
+            fallback={<Zap className="h-5 w-5 text-muted-foreground" />}
+            alt={shortcut.name}
+            className="h-full w-full object-cover"
+            containerClassName="h-full w-full flex items-center justify-center"
+          />
+        </div>
+        {dormant && <DormantBadge />}
       </div>
     );
   }
   
   if (icon.type === 'text') {
     return (
-      <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
-        <span className="text-sm font-semibold text-primary truncate px-1">
-          {icon.value.slice(0, 2).toUpperCase()}
-        </span>
+      <div className="relative">
+        <div className={cn("h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center", dormant && "opacity-40 grayscale")}>
+          <span className="text-sm font-semibold text-primary truncate px-1">
+            {icon.value.slice(0, 2).toUpperCase()}
+          </span>
+        </div>
+        {dormant && <DormantBadge />}
       </div>
     );
   }
   
   // Default fallback
   return fallbackIcon;
+}
+
+// Small badge overlay for dormant shortcuts
+function DormantBadge() {
+  return (
+    <div className="absolute -bottom-1 -end-1 h-5 w-5 rounded-full bg-muted-foreground/80 flex items-center justify-center">
+      <CloudOff className="h-3 w-3 text-background" />
+    </div>
+  );
 }
 
 // Check if target is "long" (more than ~20 chars)
@@ -163,6 +192,7 @@ function ShortcutListItem({
   const target = getShortcutTarget(shortcut);
   const usageCount = shortcut.usageCount || 0;
   const isTargetLong = target && target.length > TARGET_EXPAND_THRESHOLD;
+  const dormant = isDormant(shortcut);
 
   const handleExpandClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -182,9 +212,14 @@ function ShortcutListItem({
       {/* Text column - must be minmax(0,1fr) to enable truncation */}
       <div className="min-w-0 overflow-hidden flex flex-col">
         {/* Title */}
-        <span className="font-medium truncate">
+        <span className={cn("font-medium truncate", dormant && "text-muted-foreground")}>
           {shortcut.name}
         </span>
+        {dormant && (
+          <span className="text-xs text-muted-foreground/70 mt-0.5">
+            {t('shortcuts.tapToReconnect')}
+          </span>
+        )}
 
         {/* Meta row: Type | Target (truncates unless expanded) | Expand button | Badge */}
         <div className="mt-0.5 min-w-0 overflow-hidden flex items-center gap-1.5">

@@ -57,6 +57,14 @@ serve(async (req) => {
       .from('cloud_scheduled_actions').delete().eq('user_id', user.id);
     if (scheduledError) console.error('Error deleting scheduled actions:', scheduledError);
 
+    const { error: shortcutsError } = await adminClient
+      .from('cloud_shortcuts').delete().eq('user_id', user.id);
+    if (shortcutsError) console.error('Error deleting shortcuts:', shortcutsError);
+
+    const { error: deletedEntitiesError } = await adminClient
+      .from('cloud_deleted_entities').delete().eq('user_id', user.id);
+    if (deletedEntitiesError) console.error('Error deleting deletion records:', deletedEntitiesError);
+
     // Delete the auth user using service role
     const { error: deleteError } = await adminClient.auth.admin.deleteUser(user.id);
     if (deleteError) {

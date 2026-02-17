@@ -6,6 +6,8 @@ export type IconType = 'thumbnail' | 'emoji' | 'text' | 'platform' | 'favicon';
 
 export type MessageApp = 'whatsapp';
 
+export type ShortcutSyncState = 'active' | 'dormant';
+
 export interface ShortcutIcon {
   type: IconType;
   value: string; // base64 for thumbnail, emoji character, text, or platform icon key (e.g., 'youtube', 'netflix')
@@ -20,6 +22,8 @@ export interface ShortcutData {
   icon: ShortcutIcon;
   createdAt: number;
   usageCount: number;
+  // Sync state - undefined means active (backward compat)
+  syncState?: ShortcutSyncState;
   // File metadata for native handling
   fileSize?: number;
   mimeType?: string;
@@ -80,3 +84,25 @@ export const VIDEO_CACHE_THRESHOLD = 100 * 1024 * 1024;
 
 // Maximum images per slideshow
 export const MAX_SLIDESHOW_IMAGES = 20;
+
+// Helper: is this shortcut type dependent on a local file?
+export function isFileDependentType(type: ShortcutType): boolean {
+  return type === 'file' || type === 'slideshow';
+}
+
+// Helper: is this shortcut in dormant state?
+export function isDormant(shortcut: ShortcutData): boolean {
+  return shortcut.syncState === 'dormant';
+}
+
+// File-type emoji fallbacks for dormant icon display
+export function getFileTypeEmoji(fileType?: FileType): string {
+  switch (fileType) {
+    case 'image': return '🖼️';
+    case 'video': return '🎬';
+    case 'pdf': return '📄';
+    case 'audio': return '🎵';
+    case 'document': return '📎';
+    default: return '📁';
+  }
+}
