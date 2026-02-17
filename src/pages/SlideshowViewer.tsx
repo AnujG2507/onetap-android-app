@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Share2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useShortcuts } from '@/hooks/useShortcuts';
 import ShortcutPlugin from '@/plugins/ShortcutPlugin';
 import { Capacitor } from '@capacitor/core';
+import { Share } from '@capacitor/share';
 import { motion, AnimatePresence } from 'framer-motion';
 import PinchZoomImage from '@/components/PinchZoomImage';
 
@@ -218,6 +219,20 @@ export default function SlideshowViewer() {
     }
   }, [isPlaying]);
 
+  const handleShare = useCallback(async () => {
+    const currentImage = images[currentIndex];
+    if (!currentImage) return;
+    try {
+      await Share.share({
+        title: title,
+        url: currentImage,
+        dialogTitle: 'Share image...',
+      });
+    } catch (error) {
+      console.log('[SlideshowViewer] Share cancelled or failed:', error);
+    }
+  }, [images, currentIndex, title]);
+
   const handleOpenWith = useCallback(async () => {
     const currentImage = images[currentIndex];
     if (!currentImage) return;
@@ -358,6 +373,16 @@ export default function SlideshowViewer() {
                   <span className="text-white/80 text-sm bg-black/40 px-3 py-1 rounded-full">
                     {currentIndex + 1} / {images.length}
                   </span>
+                  
+                  {/* Share */}
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    onClick={handleShare}
+                    className="text-white hover:bg-white/20"
+                  >
+                    <Share2 className="h-5 w-5" />
+                  </Button>
                   
                   {/* Open with external app */}
                   <Button 

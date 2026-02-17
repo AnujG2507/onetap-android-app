@@ -1378,6 +1378,19 @@ public class NativePdfViewerActivity extends Activity {
         pageIndicator.setLayoutParams(indicatorParams);
         topBar.addView(pageIndicator);
         
+        // Share button - to the left of "Open with"
+        ImageButton shareButton = new ImageButton(this);
+        shareButton.setImageResource(android.R.drawable.ic_menu_share);
+        shareButton.setBackgroundResource(R.drawable.ripple_circle);
+        shareButton.setColorFilter(0xFFFFFFFF);
+        shareButton.setScaleType(ImageView.ScaleType.CENTER);
+        FrameLayout.LayoutParams shareParams = new FrameLayout.LayoutParams(buttonSize, buttonSize);
+        shareParams.gravity = Gravity.END | Gravity.CENTER_VERTICAL;
+        shareParams.setMarginEnd(buttonSize); // Offset by one button width for "Open with"
+        shareButton.setLayoutParams(shareParams);
+        shareButton.setOnClickListener(v -> shareFile());
+        topBar.addView(shareButton);
+        
         // "Open with" button - new external link icon with ripple
         openWithButton = new ImageButton(this);
         openWithButton.setImageResource(R.drawable.ic_open_external);
@@ -1467,6 +1480,32 @@ public class NativePdfViewerActivity extends Activity {
             
             return insets;
         });
+    }
+    
+    /**
+     * Share the PDF file via ACTION_SEND intent.
+     */
+    private void shareFile() {
+        if (pdfUri == null) {
+            Log.e(TAG, "No PDF URI to share");
+            return;
+        }
+        
+        try {
+            Intent shareIntent = new Intent(Intent.ACTION_SEND);
+            shareIntent.setType("application/pdf");
+            shareIntent.putExtra(Intent.EXTRA_STREAM, pdfUri);
+            shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            
+            String displayName = (pdfTitle != null && !pdfTitle.isEmpty()) ? pdfTitle : "Document";
+            shareIntent.setClipData(android.content.ClipData.newUri(
+                getContentResolver(), displayName, pdfUri));
+            
+            startActivity(Intent.createChooser(shareIntent, null));
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to share PDF: " + e.getMessage());
+            crashLogger.recordError("PdfViewer", "shareFile", e);
+        }
     }
     
     /**
