@@ -171,7 +171,7 @@ export function ShortcutActionSheet({
             {isDormant(shortcut) && (
               <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50 text-muted-foreground text-sm mb-2">
                 <CloudOff className="h-4 w-4 shrink-0" />
-                <span>{t('shortcutAction.dormantNotice')}</span>
+                <span>{t(shortcut.type === 'slideshow' ? 'shortcutAction.dormantNoticeSlideshow' : 'shortcutAction.dormantNotice')}</span>
               </div>
             )}
             
