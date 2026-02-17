@@ -829,7 +829,9 @@
     "dormantNotice": "File not on this device. Tap Edit to reconnect.",
     "dormantNoticeSlideshow": "Reconnect photos to use this slideshow.",
     "reconnectFile": "Reconnect file",
-    "reconnected": "File reconnected"
+    "reconnected": "File reconnected",
+    "addToHomeScreen": "Add to Home Screen",
+    "addedToHomeScreen": "Added to home screen"
   },
   "phoneInput": {
     "selectCountry": "Select country",
