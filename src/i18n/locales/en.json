@@ -911,7 +911,10 @@
     "formatNotSupported": "This video format is not supported by your device",
     "networkError": "Network error while loading video",
     "fileCorrupted": "Video file appears to be corrupted",
-    "unableToPlay": "Unable to play this video"
+    "unableToPlay": "Unable to play this video",
+    "tooltipBack": "Exit",
+    "tooltipOpenWith": "Open with another app",
+    "tooltipShare": "Share"
   },
   "cloudBackup": {
     "title": "Cloud Backup",

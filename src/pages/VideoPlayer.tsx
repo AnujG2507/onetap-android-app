@@ -7,6 +7,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Share } from '@capacitor/share';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import ShortcutPlugin from '@/plugins/ShortcutPlugin';
 
 /**
@@ -400,37 +401,60 @@ const VideoPlayer = () => {
           background: 'linear-gradient(to bottom, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.7) 30%, rgba(0,0,0,0.3) 70%, transparent 100%)' 
         }}
       >
-        <div className="flex items-center justify-between">
-          {/* Premium frosted glass back button */}
-          <Button 
-            onClick={handleBack} 
-            variant="ghost" 
-            size="icon" 
-            className="h-11 w-11 rounded-full bg-black/40 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20 hover:scale-105 active:scale-95 transition-all"
-          >
-            <ArrowLeft className="h-5 w-5 rtl:rotate-180" />
-          </Button>
-          <div className="flex items-center gap-2">
-            {/* External player button */}
-            <Button 
-              onClick={handleOpenExternal} 
-              variant="ghost" 
-              size="icon" 
-              className="h-11 w-11 rounded-full bg-black/40 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20 hover:scale-105 active:scale-95 transition-all"
-            >
-              <ExternalLink className="h-5 w-5" />
-            </Button>
-            {/* Share button */}
-            <Button 
-              onClick={handleShare} 
-              variant="ghost" 
-              size="icon" 
-              className="h-11 w-11 rounded-full bg-black/40 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20 hover:scale-105 active:scale-95 transition-all"
-            >
-              <Share2 className="h-5 w-5" />
-            </Button>
+        <TooltipProvider delayDuration={300}>
+          <div className="flex items-center justify-between">
+            {/* Premium frosted glass back button */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  onClick={handleBack} 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-11 w-11 rounded-full bg-black/40 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20 hover:scale-105 active:scale-95 transition-all"
+                >
+                  <ArrowLeft className="h-5 w-5 rtl:rotate-180" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent className="bg-black/80 text-white border-white/10 backdrop-blur-sm">
+                {t('videoPlayer.tooltipBack')}
+              </TooltipContent>
+            </Tooltip>
+            <div className="flex items-center gap-2">
+              {/* External player button */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    onClick={handleOpenExternal} 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-11 w-11 rounded-full bg-black/40 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20 hover:scale-105 active:scale-95 transition-all"
+                  >
+                    <ExternalLink className="h-5 w-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="bg-black/80 text-white border-white/10 backdrop-blur-sm">
+                  {t('videoPlayer.tooltipOpenWith')}
+                </TooltipContent>
+              </Tooltip>
+              {/* Share button */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    onClick={handleShare} 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-11 w-11 rounded-full bg-black/40 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20 hover:scale-105 active:scale-95 transition-all"
+                  >
+                    <Share2 className="h-5 w-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="bg-black/80 text-white border-white/10 backdrop-blur-sm">
+                  {t('videoPlayer.tooltipShare')}
+                </TooltipContent>
+              </Tooltip>
+            </div>
           </div>
-        </div>
+        </TooltipProvider>
       </header>
 
       <div className="flex-1 flex items-center justify-center relative">
