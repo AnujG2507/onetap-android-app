@@ -26,7 +26,9 @@ import { useOAuthRecovery } from '@/hooks/useOAuthRecovery';
 import { usePendingWhatsAppAction } from '@/hooks/usePendingWhatsAppAction';
 import { usePendingShortcutEdit } from '@/hooks/usePendingShortcutEdit';
 import { useShortcuts } from '@/hooks/useShortcuts';
+import { useReviewPrompt } from '@/hooks/useReviewPrompt';
 import { OAuthRecoveryBanner } from '@/components/auth/OAuthRecoveryBanner';
+import { ReviewPromptBanner } from '@/components/ReviewPromptBanner';
 import { useSharedContent } from '@/hooks/useSharedContent';
 import { useAppUpdate } from '@/hooks/useAppUpdate';
 import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
@@ -103,6 +105,7 @@ const Index = () => {
   // Handle pending shortcut edit from home screen long-press
   const { pendingEditId, clearPendingEdit } = usePendingShortcutEdit();
   const { shortcuts, updateShortcut, getShortcut, deleteShortcut } = useShortcuts();
+  const { shouldShow: showReviewPrompt, dismiss: dismissReview, openReview } = useReviewPrompt(shortcuts.length);
   const [editingShortcut, setEditingShortcut] = useState<ShortcutData | null>(null);
   
   // Handle shared content from Android Share Sheet (always active regardless of tab)
@@ -626,6 +629,15 @@ const Index = () => {
         >
           <ProfilePage />
         </div>
+      )}
+
+      {/* Review Prompt Banner */}
+      {showBottomNav && (
+        <ReviewPromptBanner
+          visible={showReviewPrompt}
+          onDismiss={dismissReview}
+          onRate={openReview}
+        />
       )}
 
       {/* Bottom Navigation */}

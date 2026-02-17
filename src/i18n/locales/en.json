@@ -958,5 +958,10 @@
     "notifications": "Notifications blocked",
     "alarms": "Alarms blocked",
     "fix": "Fix"
+  },
+  "reviewPrompt": {
+    "title": "Enjoying OneTap?",
+    "message": "A quick rating helps others discover it.",
+    "action": "Rate on Play Store"
   }
 }

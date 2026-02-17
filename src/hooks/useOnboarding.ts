@@ -32,6 +32,10 @@ export function useOnboarding() {
   const completeOnboarding = useCallback(() => {
     try {
       localStorage.setItem(ONBOARDING_KEY, 'true');
+      // Record first use date for review prompt (only once)
+      if (!localStorage.getItem('onetap_first_use_date')) {
+        localStorage.setItem('onetap_first_use_date', new Date().toISOString());
+      }
     } catch {
       // Ignore storage errors
     }
