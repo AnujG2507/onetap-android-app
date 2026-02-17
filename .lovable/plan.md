@@ -1,78 +1,103 @@
 
 
-# Fix Bottom Button Overlap with Android Navigation Bar
+# Add Share Button to All Built-in Viewers
 
-## Problem
-The "Add to Home Screen" button (and similar bottom-fixed buttons) gets partially hidden behind Android's 3-button navigation bar. The current `safe-bottom-action` CSS class relies on `env(safe-area-inset-bottom)`, which returns 0 on many Android WebViews due to a known Chromium bug. Using a fixed padding would break gesture-navigation devices where there are no buttons.
+## Current State
 
-## Root Cause
-Capacitor 7+ / Android 15+ enforces edge-to-edge layout, meaning the WebView draws behind system bars. The CSS `env(safe-area-inset-bottom)` is supposed to report the nav bar height but is unreliable across Android WebView versions and OEM implementations.
+All three built-in viewers have an "Open with" button (ACTION_VIEW intent) but none have a dedicated "Share" button (ACTION_SEND intent). The difference matters:
 
-## Solution: Native Inset Detection + CSS Variable Injection
+- **Open with** (ACTION_VIEW): Opens the file directly in another app (e.g., a PDF reader, gallery)
+- **Share** (ACTION_SEND): Shows messaging apps, cloud storage, email -- lets users send the file to someone
 
-Detect the actual navigation bar height natively in `MainActivity.java` using Android's `WindowInsets` API, then inject it into the WebView as a CSS custom property (`--android-nav-height`). This value is automatically correct for both navigation modes:
-- **3-button nav**: ~48dp (enough to clear the buttons)
-- **Gesture nav**: 0dp or very small (no wasted space)
+## Changes
 
-### Changes
+### 1. NativePdfViewerActivity.java -- Add share button to the top bar
 
-#### 1. `MainActivity.java` -- Detect nav bar height and inject CSS variable
+Add a share button next to the existing "Open with" button in the header.
 
-After the WebView loads, use `ViewCompat.setOnApplyWindowInsetsListener` on the WebView to read the navigation bar bottom inset. Convert to CSS pixels and inject a CSS variable via `evaluateJavascript`:
+- Create a new `ImageButton` with Android's built-in share icon (`android.R.drawable.ic_menu_share`)
+- Place it in the top bar, to the left of the existing "Open with" button
+- On click, fire an `ACTION_SEND` intent with the PDF URI and MIME type `application/pdf`, wrapped in `Intent.createChooser`
+- Grant URI read permission via `FLAG_GRANT_READ_URI_PERMISSION` and `ClipData`
 
 ```text
-ViewCompat.setOnApplyWindowInsetsListener(webView, (view, insets) -> {
-    int navBarHeight = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom;
-    float cssPx = navBarHeight / density;
-    webView.evaluateJavascript(
-        "document.documentElement.style.setProperty('--android-nav-height', '" + cssPx + "px')", null
-    );
-    return insets;
-});
+Top bar layout after change:
+  [Back]  [Page indicator]  ... spacer ...  [Share]  [Open with]
 ```
 
-This runs once on layout and again whenever the insets change (e.g., rotation, nav mode switch).
-
-#### 2. `src/index.css` -- Update `safe-bottom-action` to use the native variable
-
-Replace the unreliable `env()` with the natively-injected variable, keeping a sensible fallback:
-
-```css
-.safe-bottom-action {
-    padding-bottom: max(
-        var(--android-nav-height, 0px),
-        env(safe-area-inset-bottom, 0px),
-        16px
-    );
+New method `shareFile()`:
+```java
+private void shareFile() {
+    Intent shareIntent = new Intent(Intent.ACTION_SEND);
+    shareIntent.setType("application/pdf");
+    shareIntent.putExtra(Intent.EXTRA_STREAM, pdfUri);
+    shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+    shareIntent.setClipData(ClipData.newUri(getContentResolver(), pdfTitle, pdfUri));
+    startActivity(Intent.createChooser(shareIntent, null));
 }
 ```
 
-This picks the largest of: native nav height, CSS safe area (works on iOS/web), or 16px minimum floor.
+### 2. NativeVideoPlayerActivity.java -- Add share button to the top bar
 
-#### 3. `src/index.css` -- Update `safe-bottom` similarly
+Add a share button next to the existing "Open with" button.
 
-```css
-.safe-bottom {
-    padding-bottom: max(
-        var(--android-nav-height, 0px),
-        env(safe-area-inset-bottom, 0px)
-    );
+- Create a new `ImageButton` using the same `createPremiumIconButton` helper
+- Use a distinct icon -- since the existing "Open with" button already uses `ic_menu_share`, swap them: use a proper external-link icon (`R.drawable.ic_open_external`) for "Open with", and `android.R.drawable.ic_menu_share` for the new Share button
+- On click, fire `ACTION_SEND` with the video URI and its MIME type
+
+```text
+Top bar right buttons after change:
+  [PiP]  [Share]  [Open with]
+```
+
+New method `shareVideo()`:
+```java
+private void shareVideo() {
+    Intent shareIntent = new Intent(Intent.ACTION_SEND);
+    shareIntent.setType(videoMimeType != null ? videoMimeType : "video/*");
+    shareIntent.putExtra(Intent.EXTRA_STREAM, videoUri);
+    shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+    startActivity(Intent.createChooser(shareIntent, null));
 }
 ```
 
-### Why This Works for Both Nav Modes
+### 3. SlideshowViewer.tsx -- Add share button to the image/slideshow viewer
 
-- Android's `WindowInsets` API reports the **actual** navigation bar height
-- For 3-button navigation: returns ~48dp, ensuring the button is fully visible
-- For gesture navigation: returns 0dp (or a tiny gesture hint bar), so no extra space is wasted
-- For web preview / iOS: the CSS variable won't be set, so `env()` or the 16px floor takes over
+Add a Share button next to the existing "Open with" button in the controls header.
 
-### Files Modified
-1. `native/android/app/src/main/java/app/onetap/access/MainActivity.java` -- Add WindowInsets listener
-2. `src/index.css` -- Update `safe-bottom-action` and `safe-bottom` classes
+- Import `Share2` icon from lucide-react and `Share` from `@capacitor/share`
+- Add a new `handleShare` callback that uses Capacitor's Share API with the current image URI
+- Add a new button in the top bar between the counter and the "Open with" button
 
-### What Does NOT Change
-- No changes to any component files (ShortcutCustomizer, ContactShortcutCustomizer, etc.)
-- No changes to layout structure or existing safe-area logic on iOS
-- No new dependencies
+```tsx
+const handleShare = useCallback(async () => {
+    const currentImage = images[currentIndex];
+    if (!currentImage) return;
+    try {
+        await Share.share({
+            title: title,
+            url: currentImage,
+            dialogTitle: 'Share image...',
+        });
+    } catch (error) {
+        console.log('[SlideshowViewer] Share cancelled or failed:', error);
+    }
+}, [images, currentIndex, title]);
+```
+
+```text
+Top bar after change:
+  [Back]  [Title]  ... spacer ...  [1/5]  [Share]  [Open with]
+```
+
+## Files Modified
+1. `native/android/app/src/main/java/app/onetap/access/NativePdfViewerActivity.java` -- Add share button + `shareFile()` method
+2. `native/android/app/src/main/java/app/onetap/access/NativeVideoPlayerActivity.java` -- Add share button + `shareVideo()` method, fix icon for "Open with"
+3. `src/pages/SlideshowViewer.tsx` -- Add share button + `handleShare` callback
+
+## What Does NOT Change
+- No new activities, routes, or components
+- No changes to shortcut creation or data model
+- "Open with" buttons remain exactly as they are
+- WebView-based VideoPlayer.tsx already has both buttons, no changes needed there
 
