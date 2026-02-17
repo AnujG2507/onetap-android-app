@@ -70,7 +70,9 @@
     "syncTooltip": "Sync with home screen",
     "manualRemovalRequired": "Please manually remove the shortcut icon from your home screen",
     "manageDesc": "Synced with your home screen",
-    "tapToReconnect": "Tap to reconnect file"
+    "tapToReconnect": "Tap to reconnect file",
+    "reconnectBanner": "This {{fileType}} needs a local file to work.",
+    "reconnectChoose": "Choose file"
   },
   "contact": {
     "call": "Call",
@@ -824,7 +826,9 @@
     "typeVideo": "Video",
     "typePDF": "PDF",
     "typeFile": "File",
-    "dormantNotice": "File not on this device. Tap Edit to reconnect."
+    "dormantNotice": "File not on this device. Tap Edit to reconnect.",
+    "reconnectFile": "Reconnect file",
+    "reconnected": "File reconnected"
   },
   "phoneInput": {
     "selectCountry": "Select country",

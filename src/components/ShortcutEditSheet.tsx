@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { X, Home, Save, Play, Pause } from 'lucide-react';
+import { X, Home, Save, Play, Pause, FolderOpen } from 'lucide-react';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerFooter } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Capacitor } from '@capacitor/core';
 import { generateGridIcon } from '@/lib/slideshowIconGenerator';
 import type { ShortcutData, ShortcutIcon } from '@/types/shortcut';
+import { isDormant } from '@/types/shortcut';
+import { pickFile, type FileTypeFilter } from '@/lib/contentResolver';
 
 interface SlideshowImage {
   id: string;
@@ -54,6 +56,12 @@ export function ShortcutEditSheet({
   const [resumeEnabled, setResumeEnabled] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [hasIconOrNameChanged, setHasIconOrNameChanged] = useState(false);
+  const [reconnectedFile, setReconnectedFile] = useState<{
+    contentUri: string;
+    mimeType?: string;
+    fileSize?: number;
+    thumbnailData?: string;
+  } | null>(null);
   
   // Slideshow-specific state
   const [slideshowImages, setSlideshowImages] = useState<SlideshowImage[]>([]);
@@ -68,6 +76,7 @@ export function ShortcutEditSheet({
       setResumeEnabled(shortcut.resumeEnabled || false);
       setHasChanges(false);
       setHasIconOrNameChanged(false);
+      setReconnectedFile(null);
       
       // Initialize slideshow state
       if (shortcut.type === 'slideshow' && shortcut.imageUris) {
@@ -99,10 +108,11 @@ export function ShortcutEditSheet({
       JSON.stringify(slideshowImages.map(i => i.uri)) !== JSON.stringify(shortcut.imageUris || [])
     );
     const autoAdvanceChanged = shortcut.type === 'slideshow' && autoAdvance !== (shortcut.autoAdvanceInterval || 0);
+    const fileReconnected = reconnectedFile !== null;
     
-    setHasChanges(nameChanged || iconChanged || messagesChanged || resumeChanged || imagesChanged || autoAdvanceChanged);
+    setHasChanges(nameChanged || iconChanged || messagesChanged || resumeChanged || imagesChanged || autoAdvanceChanged || fileReconnected);
     setHasIconOrNameChanged(nameChanged || iconChanged || imagesChanged);
-  }, [name, icon, quickMessages, resumeEnabled, slideshowImages, autoAdvance, shortcut]);
+  }, [name, icon, quickMessages, resumeEnabled, slideshowImages, autoAdvance, shortcut, reconnectedFile]);
 
   // Register with sheet registry for back button handling
   useEffect(() => {
@@ -116,12 +126,21 @@ export function ShortcutEditSheet({
     if (!shortcut) return;
     
     // Build updates object
-    const updates: Partial<Pick<ShortcutData, 'name' | 'icon' | 'quickMessages' | 'resumeEnabled' | 'imageUris' | 'imageThumbnails' | 'autoAdvanceInterval'>> = {
+    const updates: Partial<Pick<ShortcutData, 'name' | 'icon' | 'quickMessages' | 'resumeEnabled' | 'imageUris' | 'imageThumbnails' | 'autoAdvanceInterval' | 'contentUri' | 'syncState' | 'mimeType' | 'fileSize' | 'thumbnailData'>> = {
       name,
       icon,
       quickMessages: quickMessages.length > 0 ? quickMessages : undefined,
       resumeEnabled: shortcut.fileType === 'pdf' ? resumeEnabled : undefined,
     };
+    
+    // If a file was reconnected, include those fields and clear dormant state
+    if (reconnectedFile) {
+      updates.contentUri = reconnectedFile.contentUri;
+      updates.mimeType = reconnectedFile.mimeType;
+      updates.fileSize = reconnectedFile.fileSize;
+      updates.thumbnailData = reconnectedFile.thumbnailData;
+      updates.syncState = undefined;
+    }
     
     // Add slideshow-specific updates
     if (shortcut.type === 'slideshow') {
@@ -173,7 +192,7 @@ export function ShortcutEditSheet({
     }
 
     onClose();
-  }, [shortcut, name, icon, quickMessages, resumeEnabled, slideshowImages, autoAdvance, onSave, onReAddToHomeScreen, onClose, toast, t]);
+  }, [shortcut, name, icon, quickMessages, resumeEnabled, slideshowImages, autoAdvance, onSave, onReAddToHomeScreen, onClose, toast, t, reconnectedFile]);
 
   const handleReAdd = useCallback(() => {
     if (!shortcut || !onReAddToHomeScreen) return;
@@ -208,6 +227,30 @@ export function ShortcutEditSheet({
   const isPdfShortcut = shortcut?.fileType === 'pdf';
   const isSlideshowShortcut = shortcut?.type === 'slideshow';
   const hasSufficientPhotos = !isSlideshowShortcut || slideshowImages.length >= 2;
+  const shortcutIsDormant = shortcut ? isDormant(shortcut) : false;
+
+  // Map fileType to picker filter
+  const getFileFilter = useCallback((): FileTypeFilter => {
+    if (!shortcut?.fileType) return 'all';
+    switch (shortcut.fileType) {
+      case 'image': return 'image';
+      case 'video': return 'video';
+      case 'pdf': return 'document';
+      case 'audio': return 'audio';
+      default: return 'all';
+    }
+  }, [shortcut?.fileType]);
+
+  const handleReconnectFile = useCallback(async () => {
+    const result = await pickFile(getFileFilter());
+    if (!result) return;
+    setReconnectedFile({
+      contentUri: result.uri,
+      mimeType: result.mimeType,
+      fileSize: result.fileSize,
+      thumbnailData: result.thumbnailData,
+    });
+  }, [getFileFilter]);
 
   if (!shortcut) return null;
 
@@ -222,6 +265,28 @@ export function ShortcutEditSheet({
         </DrawerHeader>
 
         <div className="px-4 pb-4 space-y-6 overflow-y-auto">
+          {/* Dormant Reconnect Banner */}
+          {shortcutIsDormant && !reconnectedFile && (
+            <div className="flex items-center gap-3 p-3 rounded-xl border border-primary/30 bg-primary/5">
+              <FolderOpen className="h-5 w-5 text-primary shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-foreground">
+                  {t('shortcuts.reconnectBanner', { fileType: shortcut.fileType || t('shortcutAction.typeFile') })}
+                </p>
+              </div>
+              <Button size="sm" variant="outline" onClick={handleReconnectFile} className="shrink-0">
+                {t('shortcuts.reconnectChoose')}
+              </Button>
+            </div>
+          )}
+          
+          {/* Reconnected confirmation */}
+          {reconnectedFile && (
+            <div className="flex items-center gap-2 p-3 rounded-xl border border-primary/30 bg-primary/5">
+              <span className="text-primary text-sm font-medium">✓ {t('shortcutAction.reconnected')}</span>
+            </div>
+          )}
+
           {/* Name Field */}
           <div className="space-y-2">
             <Label htmlFor="shortcut-name">{t('shortcutEdit.name')}</Label>

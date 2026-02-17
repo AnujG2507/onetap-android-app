@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Edit, Trash2, Bell, ExternalLink, Phone, MessageCircle, FileText, Link, Image, Video, CloudOff } from 'lucide-react';
+import { Edit, Trash2, Bell, ExternalLink, Phone, MessageCircle, FileText, Link, Image, Video, CloudOff, FolderOpen } from 'lucide-react';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -29,6 +29,7 @@ interface ShortcutActionSheetProps {
   onDelete: (id: string) => void;
   onCreateReminder?: (shortcut: ShortcutData) => void;
   onOpen?: (shortcut: ShortcutData) => void;
+  onReconnect?: (shortcut: ShortcutData) => void;
 }
 
 export function ShortcutActionSheet({
@@ -39,6 +40,7 @@ export function ShortcutActionSheet({
   onDelete,
   onCreateReminder,
   onOpen,
+  onReconnect,
 }: ShortcutActionSheetProps) {
   const { t } = useTranslation();
   const { registerSheet, unregisterSheet } = useSheetRegistry();
@@ -88,6 +90,12 @@ export function ShortcutActionSheet({
     onClose();
     setTimeout(() => onOpen(shortcut), 150);
   }, [shortcut, onClose, onOpen]);
+
+  const handleReconnect = useCallback(() => {
+    if (!shortcut || !onReconnect) return;
+    onClose();
+    setTimeout(() => onReconnect(shortcut), 150);
+  }, [shortcut, onClose, onReconnect]);
 
   const getShortcutIcon = () => {
     if (!shortcut) return <FileText className="h-5 w-5" />;
@@ -165,6 +173,18 @@ export function ShortcutActionSheet({
                 <CloudOff className="h-4 w-4 shrink-0" />
                 <span>{t('shortcutAction.dormantNotice')}</span>
               </div>
+            )}
+            
+            {/* Reconnect Action (dormant shortcuts) */}
+            {isDormant(shortcut) && onReconnect && (
+              <Button
+                variant="ghost"
+                className="w-full justify-start h-12 landscape:h-10 text-base landscape:text-sm text-primary"
+                onClick={handleReconnect}
+              >
+                <FolderOpen className="h-5 w-5 landscape:h-4 landscape:w-4 mr-3 landscape:mr-2" />
+                {t('shortcutAction.reconnectFile')}
+              </Button>
             )}
             
             {/* Open Action */}
