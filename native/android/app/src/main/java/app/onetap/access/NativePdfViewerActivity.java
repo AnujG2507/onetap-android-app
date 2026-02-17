@@ -2180,6 +2180,7 @@ public class NativePdfViewerActivity extends Activity {
         Log.d(TAG, "Graceful cache eviction complete, remaining entries: " + bitmapCache.size());
     }
     
+    /**
      * Get cached page height with zoom-aware layout.
      * 
      * When zoomed out (< 1.0x), scale layout heights proportionally so more pages
