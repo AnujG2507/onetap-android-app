@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import { Zap, ChevronRight, ChevronDown, RefreshCw, Search, X, Link2, FileIcon, MessageCircle, Phone, BarChart3, Clock, ArrowDownAZ, CloudOff } from 'lucide-react';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
@@ -12,6 +13,7 @@ import { ImageWithFallback } from '@/components/ui/image-with-fallback';
 import { buildImageSources } from '@/lib/imageUtils';
 import { useShortcuts } from '@/hooks/useShortcuts';
 import { detectPlatform } from '@/lib/platformIcons';
+import { pickFile, type FileTypeFilter } from '@/lib/contentResolver';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import { ShortcutActionSheet } from '@/components/ShortcutActionSheet';
 import { ShortcutEditSheet } from '@/components/ShortcutEditSheet';
@@ -517,6 +519,33 @@ export function MyShortcutsContent({ onCreateReminder, onRefresh, isSyncing: ext
     return await updateShortcut(id, updates);
   }, [updateShortcut]);
   
+  const handleReconnect = useCallback(async (shortcut: ShortcutData) => {
+    setSelectedShortcut(null);
+    
+    // Determine file picker filter from shortcut's fileType
+    const filterMap: Record<string, FileTypeFilter> = {
+      image: 'image',
+      video: 'video',
+      pdf: 'document',
+      audio: 'audio',
+      document: 'document',
+    };
+    const filter: FileTypeFilter = filterMap[shortcut.fileType || ''] || 'all';
+    
+    const result = await pickFile(filter);
+    if (!result) return;
+    
+    await updateShortcut(shortcut.id, {
+      contentUri: result.uri,
+      mimeType: result.mimeType,
+      fileSize: result.fileSize,
+      thumbnailData: result.thumbnailData,
+      syncState: undefined,
+    });
+    
+    toast.success(t('shortcutAction.reconnected'));
+  }, [updateShortcut, t]);
+  
   const TYPE_FILTERS: Array<{ value: TypeFilter; labelKey: string; icon: React.ReactNode }> = [
     { value: 'all', labelKey: 'shortcuts.filterAll', icon: null },
     { value: 'link', labelKey: 'shortcuts.filterLinks', icon: <Link2 className="h-3.5 w-3.5" /> },
@@ -653,6 +682,7 @@ export function MyShortcutsContent({ onCreateReminder, onRefresh, isSyncing: ext
         onEdit={handleEdit}
         onDelete={handleDelete}
         onCreateReminder={handleCreateReminderFromShortcut}
+        onReconnect={handleReconnect}
       />
       
       {/* Edit Sheet */}
