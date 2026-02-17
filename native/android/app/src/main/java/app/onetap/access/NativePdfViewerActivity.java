@@ -378,8 +378,10 @@ public class NativePdfViewerActivity extends Activity {
                     @Override
                     public void onScaleEnd(ScaleGestureDetector detector) {
                         isInternalScaling = false;
-                        isGestureActive = false;  // SMOOTH ZOOM: Disable canvas-only scaling
-                        committedZoom = zoomLevel;  // SMOOTH ZOOM: Record committed zoom level
+                        // Fix A: Keep isGestureActive = true and don't update committedZoom yet.
+                        // The canvas delta transform stays active through the 180ms settling delay
+                        // so there's no size jump between old layout params and new zoom level.
+                        // committedZoom and isGestureActive are updated in commitGestureEnd().
                         // NOTE: inScaleMode stays true until ACTION_UP to prevent scroll fling
                         
                         // Allow parent to intercept again
@@ -671,6 +673,17 @@ public class NativePdfViewerActivity extends Activity {
             // Clamp pan when zoom changes
             clampPan();
             
+            invalidate();
+        }
+        
+        /**
+         * Fix A/C: Finalize gesture state after the settling delay.
+         * Called from commitZoomAndRerender() so that committedZoom and
+         * isGestureActive only change once layouts are actually updated.
+         */
+        public void commitGestureEnd() {
+            isGestureActive = false;
+            committedZoom = zoomLevel;
             invalidate();
         }
         
@@ -1227,10 +1240,12 @@ public class NativePdfViewerActivity extends Activity {
             recyclerView.post(() -> restoreResumePosition());
         }
         
-        // Apply resume zoom
+        // Apply resume zoom and commit layout so pages match the restored zoom
         if (resumeEnabled && resumeZoom != 1.0f) {
             currentZoom = resumeZoom;
             recyclerView.setZoom(resumeZoom, screenWidth / 2f, screenHeight / 2f);
+            // Fix D: Commit layout after resume so page heights match restored zoom
+            recyclerView.post(() -> commitZoomAndRerender());
         }
         
         // Schedule auto-hide
@@ -1635,15 +1650,20 @@ public class NativePdfViewerActivity extends Activity {
         renderGeneration.incrementAndGet();
         pendingRenders.clear();
         
-        // Fix 2: When zoom is below 1.0x, use targeted updates instead of full rebind
-        // notifyDataSetChanged() causes a layout storm; targeted updates only re-layout visible pages
+        // Fix A: Finalize gesture state now that layouts will be updated
+        recyclerView.commitGestureEnd();
+        
+        // Fix B: When zoom is below 1.0x, expand notification range to include
+        // pre-rendered pages so they have correct heights when scrolled into view
         if (adapter != null && currentZoom < 1.0f) {
             LinearLayoutManager lm = (LinearLayoutManager) recyclerView.getLayoutManager();
             if (lm != null) {
                 int first = lm.findFirstVisibleItemPosition();
                 int last = lm.findLastVisibleItemPosition();
                 if (first >= 0 && last >= first) {
-                    adapter.notifyItemRangeChanged(first, last - first + 1);
+                    int notifyFirst = Math.max(0, first - PRERENDER_PAGES);
+                    int notifyLast = Math.min(adapter.getItemCount() - 1, last + PRERENDER_PAGES);
+                    adapter.notifyItemRangeChanged(notifyFirst, notifyLast - notifyFirst + 1);
                 }
             }
         }
@@ -2663,9 +2683,10 @@ public class NativePdfViewerActivity extends Activity {
                         if (shouldUpdate && bitmap != null && !bitmap.isRecycled()) {
                             imageView.setImageBitmap(bitmap);
                             
-                            // Fix 3: Only update layout params if dimensions actually changed (> 1px threshold)
-                            // Prevents layout thrashing during bitmap swaps while reading
-                            if (currentZoom >= 1.0f) {
+                            // Fix C: Update layout params at ALL zoom levels if dimensions changed (> 1px threshold)
+                            // Prevents layout thrashing during bitmap swaps while reading,
+                            // but allows corrections for stale heights at any zoom level
+                            {
                                 FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) imageView.getLayoutParams();
                                 if (Math.abs(params.height - height) > 1) {
                                     params.width = screenWidth;
