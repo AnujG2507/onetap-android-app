@@ -4,6 +4,10 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.net.Uri;
 import android.util.Log;
+import android.view.View;
+import android.webkit.WebView;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import com.getcapacitor.BridgeActivity;
 import app.onetap.access.plugins.ShortcutPlugin;
 
@@ -36,6 +40,9 @@ public class MainActivity extends BridgeActivity {
         
         // Check for slideshow deep link
         handleSlideshowDeepLink(getIntent());
+        
+        // Inject Android navigation bar height as CSS variable into the WebView
+        setupNavBarInsetInjection();
     }
     
     @Override
@@ -119,6 +126,31 @@ public class MainActivity extends BridgeActivity {
      */
     public void clearPendingSlideshowId() {
         pendingSlideshowId = null;
+    }
+    
+    /**
+     * Set up a WindowInsets listener on the WebView to detect the actual
+     * navigation bar height and inject it as a CSS custom property.
+     * Works for both 3-button nav (~48dp) and gesture nav (~0dp).
+     */
+    private void setupNavBarInsetInjection() {
+        // Wait for the bridge/WebView to be ready
+        getBridge().getWebView().post(() -> {
+            WebView webView = getBridge().getWebView();
+            float density = getResources().getDisplayMetrics().density;
+            
+            ViewCompat.setOnApplyWindowInsetsListener(webView, (view, insets) -> {
+                int navBarHeight = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom;
+                float cssPx = navBarHeight / density;
+                String js = "document.documentElement.style.setProperty('--android-nav-height', '" + cssPx + "px')";
+                webView.evaluateJavascript(js, null);
+                Log.d(TAG, "Injected --android-nav-height: " + cssPx + "px (raw: " + navBarHeight + "px, density: " + density + ")");
+                return ViewCompat.onApplyWindowInsets(view, insets);
+            });
+            
+            // Trigger initial inset application
+            webView.requestApplyInsets();
+        });
     }
     
     private void logIntent(Intent intent) {
