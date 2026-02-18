@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
-import { Zap, ChevronRight, ChevronDown, RefreshCw, Search, X, Link2, FileIcon, MessageCircle, Phone, BarChart3, Clock, ArrowDownAZ, CloudOff, Home } from 'lucide-react';
+import { Zap, ChevronRight, ChevronDown, RefreshCw, Search, X, Link2, FileIcon, MessageCircle, Phone, BarChart3, Clock, ArrowDownAZ, CloudOff, Home, Globe } from 'lucide-react';
 import { toast } from 'sonner';
 import { generateGridIcon } from '@/lib/slideshowIconGenerator';
 import { cn } from '@/lib/utils';
@@ -122,13 +122,13 @@ function ShortcutIcon({ shortcut }: { shortcut: ShortcutData }) {
     return (
       <div className="relative">
         <div className={cn("h-12 w-12 rounded-xl bg-white dark:bg-gray-100 flex items-center justify-center overflow-hidden shadow-sm", dormant && "opacity-40 grayscale")}>
-          <img 
-            src={icon.value} 
-            alt="" 
+          <ImageWithFallback
+            sources={[icon.value]}
+            fallback={<Globe className="h-6 w-6 text-muted-foreground" />}
+            alt=""
             className="h-[70%] w-[70%] object-contain"
-            onError={(e) => {
-              e.currentTarget.style.display = 'none';
-            }}
+            containerClassName="flex items-center justify-center"
+            showSkeleton={false}
           />
         </div>
         {dormant && <DormantBadge />}
