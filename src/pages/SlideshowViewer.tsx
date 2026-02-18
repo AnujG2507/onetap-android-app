@@ -37,6 +37,15 @@ export default function SlideshowViewer() {
 
   // Load shortcut data - try hook first, fallback to direct localStorage read
   useEffect(() => {
+    // Reset all image state for a clean load on every navigation
+    setConvertedUrls(new Map());
+    setImageLoadStates(new Map());
+    setImages([]);
+    setThumbnails([]);
+    setCurrentIndex(0);
+    setIsPlaying(false);
+    setIsLoading(true);
+
     if (!shortcutId) {
       setIsLoading(false);
       return;
