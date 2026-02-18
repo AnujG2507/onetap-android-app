@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { ArrowLeft, ExternalLink, Share2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useShortcuts } from '@/hooks/useShortcuts';
+import { useBackButton } from '@/hooks/useBackButton';
 import ShortcutPlugin from '@/plugins/ShortcutPlugin';
 import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
@@ -34,6 +35,12 @@ export default function SlideshowViewer() {
   
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const autoAdvanceRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Android back button: close the viewer instead of exiting the app
+  useBackButton({
+    isHomeScreen: false,
+    onBack: () => navigate(-1),
+  });
 
   // Load shortcut data - try hook first, fallback to direct localStorage read
   useEffect(() => {
