@@ -101,7 +101,7 @@ Capacitor is the bridge between web and native. It lets your React code call Jav
 
 | Java Class | What It Does |
 |------------|-------------|
-| `MainActivity.java` | App entry point. Registers Capacitor plugins. |
+| `MainActivity.java` | App entry point. Registers Capacitor plugins. Disables edge-to-edge rendering and injects `--android-safe-bottom` CSS variable for nav bar clearance. |
 | `ShortcutPlugin.java` | Creates home screen shortcuts using Android's `ShortcutManager` API |
 | `NotificationHelper.java` | Displays scheduled notifications |
 | `ScheduledActionReceiver.java` | Receives alarm broadcasts and triggers notifications |
