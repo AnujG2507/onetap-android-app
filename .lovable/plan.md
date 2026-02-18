@@ -1,114 +1,71 @@
 
 
-# V2 PDF Viewer: Critical Fixes and Experience Improvements
+# Fix: Visible Pages Going Blank on Touch/Scroll
 
-## Summary
+## Root Cause
 
-One confirmed bug causing the panning failure, two performance bottlenecks causing scroll lag, and three UX enhancements to elevate the experience.
+The `LruCache` evicts bitmaps based on least-recently-used order, with **no awareness of which pages are currently visible**. When a new page render completes and gets inserted into the cache, LruCache may evict a bitmap for a page that is still on screen. That page immediately appears blank until it gets re-rendered.
 
----
+This is exacerbated by `renderAfterSettle`, which runs on every `ACTION_UP` (line 1462-1463). It calls `renderGeneration.incrementAndGet()` + `pendingRenders.clear()`, which **invalidates all in-flight renders**. So:
 
-## Bug Fix 1: Panning Only Works in One Direction (ROOT CAUSE)
+1. User touches the screen (even a light tap that triggers `ACTION_UP`)
+2. `renderAfterSettle` fires after 100ms
+3. All pending renders are cancelled via generation increment
+4. New renders are requested for visible pages
+5. While those renders execute, old cache entries for visible pages may have already been evicted by earlier cache insertions
+6. Result: visible pages go blank for the duration of the re-render
 
-**File:** `NativePdfViewerV2Activity.java` (line 1035-1039)
+## Fix (Two Changes)
 
-The fling X-axis bounds are wrong. Currently:
+### Change 1: Add LruCache eviction protection for visible pages
 
-```text
-scroller.fling(
-    (int) -panX, ...
-    ...,
-    0, getMaxPanX(),   // X bounds: 0 to maxPan
-    ...);
-```
+Override `entryRemoved` on the `LruCache` to prevent eviction of pages currently in the visible range. When the cache tries to evict a visible page's bitmap, re-insert it to keep it alive.
 
-Then in `computeScroll`: `panX = -scroller.getCurrX()`
+Specifically:
+- Track the current visible page range in a field (`visibleFirst`, `visibleLast`) updated during `onDraw`
+- In `LruCache.entryRemoved()`, if the evicted page is within the visible range and eviction was automatic (not explicit removal), re-add the bitmap to the cache after a short delay to prevent it from being lost
 
-This means panX can only range from `-maxPan` to `0` during fling. The user can only fling-pan in one horizontal direction. Dragging works both ways (onScroll does `panX -= dx` and clamp allows `-maxPan` to `+maxPan`), but the moment the user lifts their finger and fling takes over, the scroller clamps X to `[0, maxPan]`, snapping the view back.
+A simpler and safer approach: increase cache protection by **not incrementing renderGeneration on simple touch releases**. The generation increment should only happen during zoom changes, not on every finger lift.
 
-**Fix:** Change fling X bounds from `[0, getMaxPanX()]` to `[-getMaxPanX(), getMaxPanX()]`:
+### Change 2: Stop invalidating renders on every touch release
 
-```java
-scroller.fling(
-    (int) -panX, (int) scrollY,
-    zoomLevel > 1.0f ? (int) -vx : 0, (int) -vy,
-    -getMaxPanX(), getMaxPanX(),
-    0, maxScrollY);
-```
+The `renderAfterSettle` callback increments `renderGeneration`, which cancels ALL in-flight renders. This is appropriate after a zoom change (where resolution needs updating) but destructive during normal scrolling.
 
----
+**Fix:** Split into two callbacks:
+- `renderAfterZoom`: Increments generation + clears pending + re-requests (used after zoom/double-tap)
+- `renderAfterScroll`: Only calls `requestVisiblePageRenders()` WITHOUT incrementing generation (used after scroll/touch/fling)
 
-## Bug Fix 2: Parent Steals Touch During Scale Gesture
+This way, normal scrolling never cancels in-flight renders. Only zoom-level changes trigger a full re-render cycle.
 
-**File:** `NativePdfViewerV2Activity.java` (line 981)
+### Change 3: Protect visible pages from cache eviction
 
-`onScaleEnd` calls `getParent().requestDisallowInterceptTouchEvent(false)` immediately. If the user transitions from pinch to pan without lifting their finger, the parent (LinearLayout) can intercept the touch and kill the pan gesture.
-
-**Fix:** Remove the `requestDisallowInterceptTouchEvent(false)` from `onScaleEnd`. Instead, release in `onTouchEvent` on `ACTION_UP`/`ACTION_CANCEL` only.
-
----
-
-## Performance Fix 1: Cache Lookup Allocates in onDraw
-
-**File:** `NativePdfViewerV2Activity.java` (line 496-522)
-
-`findBestBitmap` calls `bitmapCache.snapshot()` which creates a full `LinkedHashMap` copy on **every call**, and it's called **per visible page per frame**. For a 5-page visible range at 60fps, that's 300 map copies per second.
-
-**Fix:** 
-- For the exact-match path (most common case), keep as-is -- it's just a `get()`.
-- For the fallback path, maintain a lightweight secondary index: a `ConcurrentHashMap<Integer, String>` mapping `pageIndex` to its last-rendered cache key. When an exact match misses, look up this secondary index first before doing the full snapshot scan.
-- Move the snapshot scan to a separate method called only when the secondary index also misses (rare).
-
----
-
-## Performance Fix 2: Object Allocation in onDraw Hot Path
-
-**File:** `NativePdfViewerV2Activity.java` (line 1182)
-
-Every frame allocates `new RectF(...)` per visible page. At 60fps with 5 visible pages, that's 300 object allocations per second that pressure the GC.
-
-**Fix:** Pre-allocate a single reusable `RectF drawRect` field in PdfDocumentView and reuse it via `drawRect.set(...)` in onDraw.
-
----
-
-## Performance Fix 3: Trigger Renders During Fling
-
-**File:** `NativePdfViewerV2Activity.java` (line 1292-1306)
-
-Currently, `computeScroll` only triggers renders after the fling ends. During a fast fling through a long document, the user sees white pages because no render requests are made until the fling decelerates to a stop.
-
-**Fix:** Add a throttled render request during fling. Track the last render-request time, and if more than 200ms has passed during `computeScroll`, fire `requestVisiblePageRenders()` for the current position. This pre-fetches pages the user is about to see.
-
----
-
-## UX Enhancement 1: Floating Page Indicator During Scroll
-
-Since the page indicator was removed from the header, the user has no way to know which page they're on except during fast-scroll drag.
-
-**Fix:** Add a floating page indicator pill (similar to Google Drive's) that appears during scroll/fling and auto-hides after 1.5s. Render it in `onDraw` at bottom-center of the view, showing "Page X of Y". Use the same fade logic as the fast-scroll thumb.
-
----
+Add an `entryRemoved` override to the `LruCache` that checks whether the evicted page is currently visible. If it is, schedule an immediate re-render for that page rather than letting it stay blank.
 
 ## Technical Details
 
 ### File Modified
 - `native/android/app/src/main/java/app/onetap/access/NativePdfViewerV2Activity.java`
 
-### Changes Summary
+### Specific Changes
 
-| Change | Lines Affected | Impact |
-|--------|---------------|--------|
-| Fix fling X bounds | ~1035-1039 | Fixes panning in zoomed state |
-| Fix parent touch intercept | ~981 + ~1358 | Prevents pan gesture theft |
-| Cache lookup optimization | ~496-522 + new field | Eliminates 300+ map copies/sec |
-| Reusable RectF | ~1182 + new field | Eliminates GC pressure in draw |
-| Fling render throttle | ~1292-1306 | Reduces white pages during fling |
-| Floating page indicator | New draw code in onDraw | Page awareness without header |
+1. **LruCache `entryRemoved` override** (lines 159-164): Add callback that detects when a visible page's bitmap is evicted and immediately schedules a re-render for it.
+
+2. **Add `visibleFirst`/`visibleLast` tracking fields** to PdfDocumentView, updated in `onDraw` (line 1205).
+
+3. **Split `renderAfterSettle`** (line 894-898) into:
+   - `renderAfterZoom`: keeps current behavior (increment generation + clear + re-request) -- used only after `onScaleEnd` and `animateZoomTo`
+   - `renderAfterScroll`: just calls `requestVisiblePageRenders()` without generation increment -- used in `ACTION_UP`, `computeScroll`, and `fsScrollToY`
+
+4. **Update all callsites**:
+   - `onScaleEnd` (line 1036-1037): use `renderAfterZoom`
+   - `animateZoomTo` end (line 1501-1503): use `renderAfterZoom`
+   - `ACTION_UP` handler (line 1462-1463): use `renderAfterScroll`
+   - `computeScroll` fling end (line 1404-1405): use `renderAfterScroll`
+   - `fsScrollToY` (line 1376-1377): use `renderAfterScroll`
 
 ### Testing Checklist
-- Open a multi-page PDF, pinch to zoom in, pan left AND right -- both directions should work smoothly
-- Zoom in, fling horizontally -- should continue panning in fling direction, not snap back
-- Fast scroll through a 50+ page PDF -- pages should render during fling, not only after stopping
-- Scroll normally -- floating page indicator appears at bottom and auto-hides
-- Verify no visible regressions in zoom, double-tap, or fast-scroll drag
-
+- Open a multi-page PDF where 2-3 pages are visible at once
+- Tap on the lower page -- the upper page should NOT go blank
+- Scroll slowly through pages -- no visible page should ever flash blank
+- Pinch to zoom in and out -- pages should re-render at correct resolution without blanking
+- Fast-scroll drag through a long PDF -- pages should render progressively, never stuck blank
