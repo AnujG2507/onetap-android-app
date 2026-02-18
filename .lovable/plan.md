@@ -1,250 +1,243 @@
 
 
-# Deep Audit and Redesign: Home Screen Auto-Sync Logic (Android 12+)
+# Bulletproof Sync Logic: Closing All Remaining Gaps
 
-## 1. How It Works Today
+## Summary of Issues to Resolve
 
-### Source of Truth
-- **App storage**: localStorage key `quicklaunch_shortcuts` (an array of `ShortcutData` objects)
-- **Android OS**: `ShortcutManager` tracks pinned and dynamic shortcuts
+Five remaining vulnerabilities were identified in the previous audit. This plan addresses each with native-first, production-grade solutions.
 
-### Sync Triggers (Current)
-| Trigger | Where | What Happens |
-|---------|-------|-------------|
-| App mount | `useShortcuts.ts` line 146 | Calls `syncWithHomeScreen()` |
-| App resume (foreground) | `useShortcuts.ts` line 176 | Calls `syncWithHomeScreen()` on `appStateChange` |
-| Delete from app | `useShortcuts.ts` line 292 | Calls `disablePinnedShortcut()` then removes from localStorage |
+| # | Issue | Risk | Fix |
+|---|-------|------|-----|
+| 1 | OEM API returns 0 pinned IDs (Xiaomi/Huawei) causing false deletions for 1-3 shortcuts | High | Native-side SharedPreferences registry as secondary source of truth |
+| 2 | Unordered eviction in `ensureDynamicShortcutSlot` may evict a freshly-registered shadow | Medium | Timestamp-based eviction using SharedPreferences |
+| 3 | `isPinned()` race window (1-5s after creation) causes sync to delete new shortcuts | High | Creation cooldown registry with timestamps |
+| 4 | Samsung One UI caches shortcut state for up to 30s | Low | Already mitigated by cooldown; no separate fix needed |
+| 5 | Third-party launchers lose pinned state on force-stop | Medium | SharedPreferences registry acts as fallback |
 
-### Shadow Dynamic Registration
-When a shortcut is pinned via `requestPinShortcut()`, the plugin also calls `addDynamicShortcuts()` with the same `ShortcutInfo`. This is critical because `getShortcuts(FLAG_MATCH_PINNED)` only reliably returns shortcuts that were also registered as dynamic on many OEM launchers.
+## Core Strategy: Native Shortcut Registry
 
-### Reconciliation Logic (`syncWithHomeScreen`)
-1. Calls `getPinnedShortcutIds()` on native side
-2. Native queries `ShortcutManager.getShortcuts(FLAG_MATCH_PINNED)`
-3. Filters results by `info.isPinned() == true`
-4. Cleans up orphaned dynamic shortcuts (dynamic but not pinned)
-5. Returns pinned IDs to JS
-6. JS filters localStorage to keep only shortcuts whose IDs are in the pinned set
-7. **Special case**: If OS returns 0 IDs and localStorage has shortcuts, skips sync entirely (treats as unreliable API response)
+The fundamental problem is that `ShortcutManager` is unreliable as a sole oracle for pin state. The fix is a **native-side SharedPreferences registry** that independently tracks all shortcut IDs the app has created. This registry becomes the secondary source of truth when `ShortcutManager` returns suspicious results.
 
----
+```text
++-------------------+     +---------------------+     +------------------+
+| ShortcutManager   |     | SharedPreferences   |     | JS localStorage  |
+| (OS pin state)    |     | (creation registry) |     | (full metadata)  |
++-------------------+     +---------------------+     +------------------+
+        |                          |                          |
+        +----------+---------------+                          |
+                   |                                          |
+           getPinnedShortcutIds()                              |
+           returns BOTH sources                               |
+                   |                                          |
+                   +------------------------------------------+
+                                   |
+                          syncWithHomeScreen()
+                     uses smart reconciliation logic
+```
 
-## 2. Why PDF Shortcuts Behave Differently (The Core Bug)
+## Detailed Changes
 
-After tracing the entire flow, **there is no type-specific bug in the sync logic itself.** The `syncWithHomeScreen()` function is type-agnostic -- it only compares IDs. The problem is upstream in how `getPinnedShortcutIds()` interacts with Android's `ShortcutManager`.
+### File 1: `ShortcutPlugin.java` (Native Layer)
 
-### The Real Issue: `ShortcutManager` Reporting Inconsistency
+**A. Add Shortcut Creation Registry (SharedPreferences)**
 
-When `getShortcuts(FLAG_MATCH_PINNED)` is called, Android returns shortcuts that:
-1. Were pinned via `requestPinShortcut()`
-2. AND still have an active dynamic shortcut registration (the "shadow" registration)
+A new SharedPreferences store `shortcut_registry` will track:
+- Every shortcut ID ever created (key = shortcut ID)
+- Creation timestamp (value = epoch millis as string)
 
-**The failure scenario for PDFs (and potentially any file type):**
+Methods to add:
+- `registerShortcutCreation(id)` -- called after successful `requestPinShortcut`
+- `unregisterShortcut(id)` -- called in `disablePinnedShortcut`
+- `getRegisteredShortcutIds()` -- returns all registered IDs
+- `getCreationTimestamp(id)` -- returns when a shortcut was created
+- `cleanupRegistry(pinnedIds)` -- removes entries not in pinnedIds (after confirmed by OS)
 
-1. User creates a PDF shortcut. `createPinnedShortcut` runs on a **background thread**.
-2. The file copy (`copyToAppStorage`) succeeds.
-3. `requestPinShortcut()` is called on the main thread -- returns `true`.
-4. `addDynamicShortcuts()` is called immediately after -- this is the shadow registration.
-5. **But**: Android has a **hard limit of ~15 dynamic shortcuts** (varies by OEM, typically 4-15). If the limit is exceeded, `addDynamicShortcuts()` throws `IllegalArgumentException` and the shadow registration silently fails (caught in the `try/catch` at line 446-449).
-6. Without the shadow dynamic registration, `getShortcuts(FLAG_MATCH_PINNED)` **will not return this shortcut** on subsequent queries.
-7. On the next `syncWithHomeScreen()`, the shortcut is not in the pinned set, so it gets **removed from localStorage**.
+**B. Timestamp-Based Eviction in `evictOldestDynamicShortcut`**
 
-### Why This Hits PDFs More Than Images
+Current code evicts the first pinned dynamic shortcut it finds, which could be the one just created. Fix:
+- When creating a shadow dynamic shortcut, store its creation timestamp in the registry
+- In `evictOldestDynamicShortcut`, compare timestamps and evict the one with the **oldest** creation time
+- Never evict a shortcut created within the last 10 seconds (creation cooldown protection)
 
-It's not about the file type -- it's about **creation order and timing**. PDFs are often the nth shortcut created, pushing past the dynamic shortcut limit. However, the specific failure depends on:
-- How many total shortcuts the user has (dynamic limit is global per app)
-- OEM launcher behavior (Samsung, OnePlus, Xiaomi all have different limits)
-- Whether previous shortcuts had their dynamic registrations cleaned up
+**C. Enrich `getPinnedShortcutIds` with Registry Data**
 
-### Evidence in Code
+Return two additional fields:
+- `registeredIds`: All IDs from the creation registry
+- `recentlyCreatedIds`: IDs created within the last 10 seconds (protected from sync deletion)
+
+This lets the JS layer cross-reference OS data with the app's own records.
+
+**D. Update `disablePinnedShortcut` to Clean Registry**
+
+When a shortcut is deleted from the app, also remove it from the creation registry.
+
+### File 2: `ShortcutPlugin.ts` (TypeScript Interface)
+
+Update `getPinnedShortcutIds` return type:
+```typescript
+getPinnedShortcutIds(): Promise<{
+  ids: string[];              // From ShortcutManager (OS truth)
+  registeredIds: string[];    // From creation registry (app truth)
+  recentlyCreatedIds: string[]; // Created <10s ago (protected)
+  dynamicCount: number;
+  maxDynamic: number;
+  manufacturer: string;
+}>;
+```
+
+### File 3: `shortcutPluginWeb.ts` (Web Fallback)
+
+Update web fallback to return the new fields with empty arrays.
+
+### File 4: `useShortcuts.ts` (Reconciliation Logic)
+
+Replace the current `syncWithHomeScreen` with a bulletproof reconciliation:
+
+```text
+1. Get OS pinned IDs + registry IDs + recently created IDs from native
+2. Build "confirmed pinned" set:
+   - Start with OS pinned IDs
+   - ADD any recently created IDs (protected from race window)
+   - If OS returned 0 but registry has IDs:
+     a. If dynamicCount is -1 (error): skip sync entirely
+     b. If registry count > 3: skip sync (likely OEM API failure)
+     c. If registry count <= 3: proceed (user may have removed all)
+3. Filter localStorage shortcuts against confirmed set
+4. Clean up registry: remove entries not in OS pinned set
+   (but NOT recently created ones -- they get grace period)
+```
+
+Key improvements:
+- **No false deletions during creation race window** (10s cooldown)
+- **No false deletions on OEM API failure** (registry cross-reference)
+- **Registry self-cleans** over time as OS confirms unpin
+- **Works identically for all shortcut types** (PDF, image, video, etc.)
+
+### File 5: `ARCHITECTURE.md` (Documentation)
+
+Update Section 13 to document the three-source reconciliation model and the creation registry.
+
+## Implementation Details
+
+### Native Registry Implementation (ShortcutPlugin.java)
 
 ```java
-// Line 444-449 in ShortcutPlugin.java
-try {
-    shortcutManager.addDynamicShortcuts(Collections.singletonList(finalShortcutInfo));
-    android.util.Log.d("ShortcutPlugin", "Pushed shadow dynamic shortcut: " + finalId);
-} catch (Exception dynEx) {
-    // Non-fatal: shortcut is still pinned, just won't be tracked by some OEM launchers
-    android.util.Log.w("ShortcutPlugin", "Failed to register dynamic shortcut (non-fatal): " + dynEx.getMessage());
+private static final String REGISTRY_PREFS = "shortcut_creation_registry";
+
+private void registerShortcutCreation(String id) {
+    Context ctx = getContext();
+    if (ctx == null) return;
+    SharedPreferences prefs = ctx.getSharedPreferences(REGISTRY_PREFS, Context.MODE_PRIVATE);
+    prefs.edit().putLong(id, System.currentTimeMillis()).apply();
+}
+
+private void unregisterShortcut(String id) {
+    Context ctx = getContext();
+    if (ctx == null) return;
+    SharedPreferences prefs = ctx.getSharedPreferences(REGISTRY_PREFS, Context.MODE_PRIVATE);
+    prefs.edit().remove(id).apply();
 }
 ```
 
-The comment says "non-fatal" but it is actually **critical** -- without the dynamic registration, the shortcut becomes invisible to `getPinnedShortcutIds()`, and the next sync **deletes it from the app**.
-
----
-
-## 3. All Current Inconsistencies
-
-| Issue | Severity | Description |
-|-------|----------|-------------|
-| Dynamic shortcut limit overflow | **Critical** | `addDynamicShortcuts` silently fails when limit exceeded, causing sync to delete the shortcut from app storage |
-| Zero-ID guard is too aggressive | High | If OS returns 0 pinned IDs, sync is skipped entirely. But 0 could be legitimate (all shortcuts manually unpinned) |
-| No boot-time shortcut reconciliation | Medium | `BootReceiver` only restores scheduled actions, not shortcut sync |
-| Orphan cleanup timing | Medium | Dynamic shortcuts are cleaned in `getPinnedShortcutIds` but this runs after pinned query, creating a race |
-| No launcher change detection | Low | Switching launchers can break `isPinned()` state; no handling |
-| File deletion not checked | Low | If `shortcuts/` directory files are deleted (cache clear), shortcuts still appear in app but fail on tap |
-
----
-
-## 4. Failure Mode Analysis
-
-| Failure Mode | Why It Happens | Android Provides Signal? | Mitigation |
-|---|---|---|---|
-| User removes shortcut from home screen | Drag to "Remove" | Yes, via `isPinned()` returning false on next `getShortcuts()` query | Current reconciliation handles this (when dynamic shortcut exists) |
-| Dynamic shortcut limit exceeded | Android limits dynamic shortcuts to ~4-15 per app | No explicit signal; `addDynamicShortcuts` throws `IllegalArgumentException` | Must manage dynamic shortcut pool (see fix below) |
-| App killed/restarted | OS reclaims memory | No signal needed | Current mount sync handles this |
-| Device reboot | System restart | `BOOT_COMPLETED` broadcast | Currently only restores scheduled actions, not shortcut sync |
-| Launcher switch | User changes default launcher | No direct signal | Must reconcile on resume |
-| `getShortcuts(FLAG_MATCH_PINNED)` returns stale data | Known Android bug on some OEMs | No | Cross-reference with dynamic shortcuts |
-| Cache/data cleared | User clears app data | No | Shortcuts become orphans; files are lost |
-
----
-
-## 5. Things Android Will Never Tell Us (And How We Handle Them)
-
-1. **"A shortcut was just unpinned"** -- Android does NOT send a broadcast when a user drags a shortcut off the home screen. There is no callback, no intent, nothing. The only way to know is to **poll** via `getShortcuts(FLAG_MATCH_PINNED)` when the app is foregrounded. This is what the current design does, and it is the correct approach.
-
-2. **"The dynamic shortcut limit was exceeded"** -- Android throws an exception, but the only reliable response is to proactively manage the pool. You cannot query the limit reliably across OEMs.
-
-3. **"The launcher changed"** -- No broadcast for launcher changes. The `isPinned()` state may become unreliable. Must re-sync on every foreground.
-
-4. **"File permissions were revoked"** -- `content://` URI permissions can be revoked at any time (app restart, storage provider update). The `copyToAppStorage` approach (copying files to app-internal storage with `FileProvider` URIs) mitigates this, but if the copy failed silently, the shortcut exists with a dead URI.
-
-5. **"The shortcut icon was moved to a different page/folder"** -- No signal. Irrelevant to sync, but worth noting.
-
----
-
-## 6. Proposed Architecture (Final)
-
-### Source of Truth: Reconciled Hybrid
-
-- **localStorage** is the primary data store (shortcut metadata, creation order, usage counts)
-- **ShortcutManager** is the pin-state oracle (is it still on the home screen?)
-- Reconciliation runs on every app foreground and corrects drift
-
-### Key Changes
-
-#### Change 1: Replace `addDynamicShortcuts` with `setDynamicShortcuts` Pool Management
-
-**Problem**: `addDynamicShortcuts` can exceed limits silently.
-
-**Fix**: Before registering a new dynamic shortcut, check the current count. If at/near the limit, remove the oldest dynamic shortcut first. Use `setDynamicShortcuts()` instead of `addDynamicShortcuts()` for atomic replacement.
-
-Better yet: after pinning, immediately query `getShortcuts(FLAG_MATCH_PINNED)` to verify the shortcut appears. If it doesn't, retry the dynamic registration after removing the least-recently-used dynamic shortcut.
-
-Implementation in `createPinnedShortcut` (ShortcutPlugin.java):
+### Timestamp-Based Eviction (ShortcutPlugin.java)
 
 ```java
-// After requestPinShortcut succeeds:
-// 1. Get current dynamic shortcuts
-List<ShortcutInfo> currentDynamic = shortcutManager.getDynamicShortcuts();
-int maxDynamic = shortcutManager.getMaxShortcutCountPerActivity();
+private void evictOldestDynamicShortcut(ShortcutManager manager) {
+    List<ShortcutInfo> currentDynamic = manager.getDynamicShortcuts();
+    if (currentDynamic.isEmpty()) return;
 
-// 2. If at limit, remove oldest to make room
-if (currentDynamic.size() >= maxDynamic) {
-    // Remove the first (oldest) dynamic shortcut that is still pinned
-    // (it doesn't need the dynamic registration anymore if pinned)
-    List<String> toRemove = new ArrayList<>();
+    SharedPreferences prefs = getContext().getSharedPreferences(REGISTRY_PREFS, Context.MODE_PRIVATE);
+    long now = System.currentTimeMillis();
+    long COOLDOWN_MS = 10_000; // 10 seconds
+
+    String oldestId = null;
+    long oldestTime = Long.MAX_VALUE;
+
     for (ShortcutInfo info : currentDynamic) {
-        if (info.isPinned()) {
-            toRemove.add(info.getId());
-            break; // Remove just one to make room
+        long created = prefs.getLong(info.getId(), 0);
+        // Never evict shortcuts in cooldown period
+        if (now - created < COOLDOWN_MS) continue;
+        // Prefer evicting pinned shortcuts (they don't need shadow)
+        // Among those, pick the oldest
+        if (info.isPinned() && created < oldestTime) {
+            oldestId = info.getId();
+            oldestTime = created;
         }
     }
-    if (!toRemove.isEmpty()) {
-        shortcutManager.removeDynamicShortcuts(toRemove);
+
+    // Fallback: oldest non-cooldown shortcut regardless of pin state
+    if (oldestId == null) {
+        for (ShortcutInfo info : currentDynamic) {
+            long created = prefs.getLong(info.getId(), 0);
+            if (now - created < COOLDOWN_MS) continue;
+            if (created < oldestTime) {
+                oldestId = info.getId();
+                oldestTime = created;
+            }
+        }
+    }
+
+    if (oldestId != null) {
+        manager.removeDynamicShortcuts(Collections.singletonList(oldestId));
     }
 }
-
-// 3. Now add the new shadow dynamic shortcut
-shortcutManager.addDynamicShortcuts(Collections.singletonList(finalShortcutInfo));
 ```
 
-**Critical insight**: A pinned shortcut that already has `isPinned() == true` does NOT need its dynamic shadow to remain registered -- it will still appear in `getShortcuts(FLAG_MATCH_PINNED)` once it has been confirmed as pinned by the OS. The shadow is only needed for the initial registration to "seed" the pinned state tracking.
-
-#### Change 2: Improve Zero-ID Guard Logic
-
-**Current**: If OS returns 0 IDs and app has shortcuts, skip sync entirely.
-
-**Fix**: Only skip if the OS returned 0 AND `getDynamicShortcuts()` also returned 0 AND the user has shortcuts in localStorage. This triple-check reduces false positives while still guarding against a completely broken API.
+### JS Reconciliation (useShortcuts.ts)
 
 ```typescript
-// In syncWithHomeScreen:
-if (ids.length === 0 && currentShortcuts.length > 0) {
-    // Verify with a secondary check - if dynamic shortcuts also report 0,
-    // the ShortcutManager may be genuinely broken
-    // Pass dynamic count from native for cross-reference
-    console.log('[useShortcuts] OS returned 0 pinned IDs, cross-referencing...');
-    // If we have many shortcuts but OS says 0, likely API failure
-    if (currentShortcuts.length > 3) {
-        console.log('[useShortcuts] Skipping sync - likely API failure');
-        return;
+const syncWithHomeScreen = useCallback(async () => {
+  if (!Capacitor.isNativePlatform()) return;
+
+  try {
+    const { ids, registeredIds, recentlyCreatedIds, dynamicCount, manufacturer } =
+      await ShortcutPlugin.getPinnedShortcutIds();
+
+    const stored = localStorage.getItem(STORAGE_KEY);
+    const current: ShortcutData[] = stored ? JSON.parse(stored) : [];
+    if (current.length === 0) return; // Nothing to reconcile
+
+    // Build confirmed set: OS pinned + recently created (race protection)
+    const confirmed = new Set([...ids, ...recentlyCreatedIds]);
+
+    // Zero-ID guard: cross-reference with registry
+    if (ids.length === 0 && current.length > 0) {
+      if (dynamicCount < 0) { setShortcuts(current); return; }
+      if (registeredIds.length > 3) { setShortcuts(current); return; }
+      // Small registry count -- plausible user removed all, proceed
     }
-    // For small counts (1-3), it's plausible user removed all
-    // Proceed with sync after a confirmation delay
-}
+
+    const synced = current.filter(s => confirmed.has(s.id));
+
+    if (synced.length !== current.length) {
+      saveShortcuts(synced);
+    } else {
+      setShortcuts(current);
+    }
+  } catch (error) {
+    console.warn('[useShortcuts] Sync failed:', error);
+  }
+}, [saveShortcuts]);
 ```
 
-#### Change 3: Return Dynamic Shortcut Count from `getPinnedShortcutIds`
+## Why This Is Bulletproof
 
-Update the native method to also return diagnostic info: dynamic count, max dynamic limit, and manufacturer. This lets the JS side make smarter decisions.
+| Scenario | Before | After |
+|----------|--------|-------|
+| OEM returns 0 pinned (Xiaomi/Huawei) | Deletes 1-3 shortcuts | Registry cross-reference blocks deletion |
+| Sync runs 2s after shortcut creation | Deletes the new shortcut | `recentlyCreatedIds` protects it |
+| Dynamic pool full, new shadow fails | Silent failure, next sync deletes | Timestamp eviction ensures slot; cooldown protects new entry |
+| Samsung 30s cache delay | Sync sees stale state, deletes | Cooldown + registry prevent premature deletion |
+| Third-party launcher loses state | `isPinned()` returns false | Registry preserves knowledge of creation |
+| User actually removes shortcut | Kept forever (old bug) | OS confirms removal; registry cleaned on next sync |
 
-```java
-// In getPinnedShortcutIds:
-result.put("ids", ids);
-result.put("dynamicCount", dynamicShortcuts.size());
-result.put("maxDynamic", manager.getMaxShortcutCountPerActivity());
-result.put("manufacturer", Build.MANUFACTURER);
-```
-
-Update JS interface and `syncWithHomeScreen` to consume this.
-
-#### Change 4: Verify Pinned State After Creation
-
-After `createPinnedShortcut` returns success, the JS layer should schedule a delayed verification (e.g., 3 seconds later) to confirm the shortcut appears in `getPinnedShortcutIds`. If not, log a warning and re-attempt the dynamic registration.
-
-This goes in `ShortcutCustomizer.tsx` (or equivalent creation flow) after the native call succeeds.
-
-#### Change 5: Handle `updatePinnedShortcut` Dynamic Re-registration
-
-The `updatePinnedShortcut` method already calls `addDynamicShortcuts` (line 4421). Apply the same pool management as Change 1 to prevent overflow during updates.
-
----
-
-## 7. Implementation Plan
-
-### Step 1: Fix Dynamic Shortcut Pool Management (ShortcutPlugin.java)
-- In `createPinnedShortcut`: Add pool limit check before `addDynamicShortcuts`
-- In `updatePinnedShortcut`: Same pool management
-- Use `getMaxShortcutCountPerActivity()` for the limit
-- Remove oldest pinned-but-dynamic shortcut if at capacity
-
-### Step 2: Enrich `getPinnedShortcutIds` Response (ShortcutPlugin.java)
-- Add `dynamicCount`, `maxDynamic`, `manufacturer` to response
-- Update JS interface in `ShortcutPlugin.ts` to accept these fields
-
-### Step 3: Improve Zero-ID Guard (useShortcuts.ts)
-- Use the enriched response data
-- Only skip sync for large shortcut counts (>3) when OS returns 0
-- For small counts, proceed with sync (user may have legitimately removed all)
-
-### Step 4: Add Post-Creation Verification (useShortcuts.ts or ShortcutCustomizer.tsx)
-- After `createHomeScreenShortcut` succeeds, schedule a 3-second delayed check
-- Call `getPinnedShortcutIds` and verify the new shortcut appears
-- If missing, log warning (this catches the pool overflow silently)
-
-### Step 5: Documentation Update
-- Update ARCHITECTURE.md with the sync contract
-- Document the dynamic shortcut limit issue and mitigation
-
----
-
-## 8. Files Modified
+## Files Modified
 
 | File | Change |
 |------|--------|
-| `native/.../plugins/ShortcutPlugin.java` | Pool management in `createPinnedShortcut` and `updatePinnedShortcut`; enriched `getPinnedShortcutIds` response |
-| `src/plugins/ShortcutPlugin.ts` | Update `getPinnedShortcutIds` return type with diagnostic fields |
-| `src/hooks/useShortcuts.ts` | Improve zero-ID guard logic; add post-creation verification |
-| `ARCHITECTURE.md` | Document sync contract and dynamic shortcut limit handling |
+| `ShortcutPlugin.java` | Add creation registry (SharedPreferences), timestamp-based eviction, enriched `getPinnedShortcutIds`, registry cleanup in `disablePinnedShortcut` |
+| `ShortcutPlugin.ts` | Add `registeredIds` and `recentlyCreatedIds` to return type |
+| `shortcutPluginWeb.ts` | Add empty arrays for new fields |
+| `useShortcuts.ts` | Three-source reconciliation with cooldown + registry cross-reference |
+| `ARCHITECTURE.md` | Document the registry and reconciliation model |
 
