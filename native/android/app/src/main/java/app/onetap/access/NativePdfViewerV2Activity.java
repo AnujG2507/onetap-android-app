@@ -100,9 +100,12 @@ public class NativePdfViewerV2Activity extends Activity {
 
     // Bitmap cache: key = "pageIndex_zoomBucket"
     private LruCache<String, Bitmap> bitmapCache;
+    private long cacheMaxBytes; // cache capacity in bytes for render budget calc
     private final Set<String> pendingRenders = ConcurrentHashMap.newKeySet();
     // Secondary index: pageIndex -> last-rendered cache key (avoids snapshot() in onDraw)
     private final ConcurrentHashMap<Integer, String> pageKeyIndex = new ConcurrentHashMap<>();
+    // Eviction re-render throttle: pageIndex -> last re-render trigger time
+    private final ConcurrentHashMap<Integer, Long> evictReRenderTimes = new ConcurrentHashMap<>();
     private ExecutorService renderExecutor;
     private final AtomicInteger renderGeneration = new AtomicInteger(0);
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -154,9 +157,11 @@ public class NativePdfViewerV2Activity extends Activity {
         screenHeight = metrics.heightPixels;
         density = metrics.density;
 
-        // Bitmap cache: 1/8 of max memory
+        // Bitmap cache: 1/5 of max memory (larger budget for zoomed bitmaps)
         int maxMemory = (int) (Runtime.getRuntime().maxMemory() / 1024);
-        bitmapCache = new LruCache<String, Bitmap>(maxMemory / 8) {
+        int cacheSize = maxMemory / 5;
+        cacheMaxBytes = (long) cacheSize * 1024; // store in bytes for render budget
+        bitmapCache = new LruCache<String, Bitmap>(cacheSize) {
             @Override
             protected int sizeOf(String key, Bitmap bitmap) {
                 return bitmap.getByteCount() / 1024;
@@ -173,6 +178,13 @@ public class NativePdfViewerV2Activity extends Activity {
                         if (documentView != null && pageIdx >= documentView.visibleFirst
                                 && pageIdx <= documentView.visibleLast
                                 && documentView.visibleFirst >= 0) {
+                            // Throttle: skip if already re-rendered within 500ms (prevents infinite loop)
+                            long now = System.currentTimeMillis();
+                            Long lastTime = evictReRenderTimes.get(pageIdx);
+                            if (lastTime != null && (now - lastTime) < 500) {
+                                return; // bitmap can't fit in cache at this resolution, don't loop
+                            }
+                            evictReRenderTimes.put(pageIdx, now);
                             // Visible page evicted — schedule immediate re-render
                             mainHandler.post(() -> {
                                 if (documentView != null) {
@@ -427,6 +439,12 @@ public class NativePdfViewerV2Activity extends Activity {
             float baseScale = (float) screenWidth / pageWidth;
             float scale = baseScale * targetZoom;
 
+            // Cap render resolution so bitmap fits in cache budget
+            float maxScale = getMaxRenderScale(pageWidth, pageHeight);
+            if (scale > maxScale) {
+                scale = maxScale;
+            }
+
             int bmpW = Math.max(1, (int) (pageWidth * scale));
             int bmpH = Math.max(1, (int) (pageHeight * scale));
 
@@ -499,7 +517,21 @@ public class NativePdfViewerV2Activity extends Activity {
         return new int[]{Math.max(1, w), Math.max(1, h)};
     }
 
-    private void gracefulCacheEviction(int keepNearPage) {
+    /**
+     * Calculate the maximum render scale so a single page bitmap never exceeds
+     * cacheMaxBytes / 6 (guaranteeing at least 6 pages fit in cache at any zoom).
+     * Returns Float.MAX_VALUE if no capping is needed.
+     */
+    private float getMaxRenderScale(int pageWidth, int pageHeight) {
+        if (cacheMaxBytes <= 0 || pageWidth <= 0 || pageHeight <= 0) return Float.MAX_VALUE;
+        long budgetPerPage = cacheMaxBytes / 6;
+        // bitmap bytes = (pageWidth * scale) * (pageHeight * scale) * 4
+        // scale^2 = budgetPerPage / (pageWidth * pageHeight * 4)
+        double maxScaleSq = (double) budgetPerPage / ((double) pageWidth * pageHeight * 4);
+        if (maxScaleSq >= Float.MAX_VALUE) return Float.MAX_VALUE;
+        return (float) Math.sqrt(maxScaleSq);
+    }
+
         if (bitmapCache == null) return;
         java.util.Map<String, Bitmap> snapshot = bitmapCache.snapshot();
         for (String key : snapshot.keySet()) {
