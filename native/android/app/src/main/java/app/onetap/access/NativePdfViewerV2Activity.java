@@ -161,6 +161,28 @@ public class NativePdfViewerV2Activity extends Activity {
             protected int sizeOf(String key, Bitmap bitmap) {
                 return bitmap.getByteCount() / 1024;
             }
+
+            @Override
+            protected void entryRemoved(boolean evicted, String key, Bitmap oldValue, Bitmap newValue) {
+                if (!evicted) return; // Explicit removal — don't interfere
+                // Check if evicted page is currently visible
+                try {
+                    int idx = key.indexOf('_');
+                    if (idx > 0) {
+                        int pageIdx = Integer.parseInt(key.substring(0, idx));
+                        if (documentView != null && pageIdx >= documentView.visibleFirst
+                                && pageIdx <= documentView.visibleLast
+                                && documentView.visibleFirst >= 0) {
+                            // Visible page evicted — schedule immediate re-render
+                            mainHandler.post(() -> {
+                                if (documentView != null) {
+                                    scheduleRender(pageIdx, documentView.getZoomLevel());
+                                }
+                            });
+                        }
+                    }
+                } catch (NumberFormatException ignored) {}
+            }
         };
 
         // Extract intent
@@ -890,10 +912,18 @@ public class NativePdfViewerV2Activity extends Activity {
         private float lastTouchX, lastTouchY;
         private boolean isPanning = false;
 
-        // Render scheduling
-        private final Runnable renderAfterSettle = () -> {
+        // Visibility tracking (used by LruCache eviction protection)
+        volatile int visibleFirst = -1;
+        volatile int visibleLast = -1;
+
+        // Render scheduling — split into zoom (invalidates generation) vs scroll (preserves renders)
+        private final Runnable renderAfterZoom = () -> {
             renderGeneration.incrementAndGet();
             pendingRenders.clear();
+            requestVisiblePageRenders();
+        };
+
+        private final Runnable renderAfterScroll = () -> {
             requestVisiblePageRenders();
         };
 
@@ -1032,9 +1062,9 @@ public class NativePdfViewerV2Activity extends Activity {
                         isScaling = false;
                         // Do NOT release parent touch intercept here — let ACTION_UP/CANCEL handle it
                         // This prevents parent from stealing touch when user transitions from pinch to pan
-                        // Schedule high-res re-render after settle
-                        mainHandler.removeCallbacks(renderAfterSettle);
-                        mainHandler.postDelayed(renderAfterSettle, 150);
+                        // Schedule high-res re-render after zoom settle
+                        mainHandler.removeCallbacks(renderAfterZoom);
+                        mainHandler.postDelayed(renderAfterZoom, 150);
                     }
                 });
 
@@ -1240,6 +1270,19 @@ public class NativePdfViewerV2Activity extends Activity {
             }
 
             // Update page indicator
+            // Update visible range for LruCache eviction protection
+            visibleFirst = firstVisible;
+            // Determine lastVisible by scanning back
+            int lastVis = firstVisible;
+            for (int vi = firstVisible + 1; vi < docPageCount; vi++) {
+                float fitS = (float) screenWidth / Math.max(1, pgWidths[vi]);
+                float pH = pgHeights[vi] * fitS;
+                float pT = pageTopOffsets[vi];
+                if (pT > docViewBottom) break;
+                lastVis = vi;
+            }
+            visibleLast = lastVis;
+
             if (firstVisible >= 0) {
                 final int fv = firstVisible;
                 mainHandler.post(() -> updatePageIndicator(fv, docPageCount));
@@ -1372,9 +1415,9 @@ public class NativePdfViewerV2Activity extends Activity {
 
             invalidate();
 
-            // Trigger renders for new position
-            mainHandler.removeCallbacks(renderAfterSettle);
-            mainHandler.postDelayed(renderAfterSettle, 150);
+            // Trigger renders for new position (no generation increment during fast-scroll drag)
+            mainHandler.removeCallbacks(renderAfterScroll);
+            mainHandler.postDelayed(renderAfterScroll, 150);
         }
 
         // =================================================================
@@ -1400,9 +1443,9 @@ public class NativePdfViewerV2Activity extends Activity {
 
                 postInvalidateOnAnimation();
             } else if (!scroller.isFinished()) {
-                // Fling ended — render at final position
-                mainHandler.removeCallbacks(renderAfterSettle);
-                mainHandler.postDelayed(renderAfterSettle, 50);
+                // Fling ended — render at final position (no generation increment)
+                mainHandler.removeCallbacks(renderAfterScroll);
+                mainHandler.postDelayed(renderAfterScroll, 50);
             }
         }
 
@@ -1459,8 +1502,9 @@ public class NativePdfViewerV2Activity extends Activity {
             if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
                 // Release parent touch intercept here (safe — gesture is fully ended)
                 getParent().requestDisallowInterceptTouchEvent(false);
-                mainHandler.removeCallbacks(renderAfterSettle);
-                mainHandler.postDelayed(renderAfterSettle, 100);
+                // Only request renders without invalidating generation — don't cancel in-flight renders
+                mainHandler.removeCallbacks(renderAfterScroll);
+                mainHandler.postDelayed(renderAfterScroll, 100);
             }
 
             return true;
@@ -1498,9 +1542,8 @@ public class NativePdfViewerV2Activity extends Activity {
             doubleTapAnimator.addListener(new android.animation.AnimatorListenerAdapter() {
                 @Override
                 public void onAnimationEnd(android.animation.Animator a) {
-                    renderGeneration.incrementAndGet();
-                    pendingRenders.clear();
-                    requestVisiblePageRenders();
+                    // Zoom animation ended — full re-render at new resolution
+                    renderAfterZoom.run();
                 }
             });
             doubleTapAnimator.start();
