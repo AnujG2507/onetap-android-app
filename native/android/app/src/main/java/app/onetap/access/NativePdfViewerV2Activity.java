@@ -1151,7 +1151,7 @@ public class NativePdfViewerV2Activity extends Activity {
                         scroller.fling(
                             (int) -panX, (int) scrollY,
                             zoomLevel > 1.0f ? (int) -vx : 0, (int) -vy,
-                            zoomLevel > 1.0f ? -getMaxPanX() : 0, zoomLevel > 1.0f ? getMaxPanX() : 0,
+                            0, zoomLevel > 1.0f ? getMaxPanX() : 0,
                             0, maxScrollY);
                         postInvalidateOnAnimation();
                         return true;
@@ -1596,16 +1596,16 @@ public class NativePdfViewerV2Activity extends Activity {
             if (zoomLevel <= 1.0f) {
                 panX = 0;
             } else {
-                float maxPan = (screenWidth * zoomLevel - getWidth()) / 2f;
-                if (maxPan < 0) maxPan = 0;
-                panX = Math.max(-maxPan, Math.min(maxPan, panX));
+                float overflow = screenWidth * zoomLevel - getWidth();
+                if (overflow < 0) overflow = 0;
+                panX = Math.max(-overflow, Math.min(0, panX));
             }
         }
 
         private int getMaxPanX() {
             if (zoomLevel <= 1.0f) return 0;
-            float maxPan = (screenWidth * zoomLevel - getWidth()) / 2f;
-            return Math.max(0, (int) maxPan);
+            float overflow = screenWidth * zoomLevel - getWidth();
+            return Math.max(0, (int) overflow);
         }
     }
 }
