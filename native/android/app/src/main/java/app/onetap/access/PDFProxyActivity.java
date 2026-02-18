@@ -91,7 +91,7 @@ public class PDFProxyActivity extends Activity {
             }
             
             // Launch native PDF viewer directly (bypasses WebView for Drive-level smoothness)
-            Intent viewerIntent = new Intent(this, NativePdfViewerActivity.class);
+            Intent viewerIntent = new Intent(this, NativePdfViewerV2Activity.class);
             viewerIntent.setDataAndType(pdfUri, mimeType != null ? mimeType : "application/pdf");
             viewerIntent.putExtra("shortcut_id", shortcutId);
             viewerIntent.putExtra("shortcut_title", shortcutTitle);
