@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { X, Bookmark, Smartphone, Share2, ChevronLeft, Play, Zap, Pencil, Check, WifiOff, Bell } from 'lucide-react';
+import { X, Bookmark, Smartphone, Share2, ChevronLeft, Play, Zap, Pencil, Check, WifiOff, Bell, Globe } from 'lucide-react';
+import { ImageWithFallback } from '@/components/ui/image-with-fallback';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -223,35 +224,37 @@ export function SharedUrlActionSheet({
                 {thumbnailLoading ? (
                   <Skeleton className="absolute inset-0" />
                 ) : thumbnailUrl ? (
-                  <>
-                    <img
-                      src={thumbnailUrl}
-                      alt="Video thumbnail"
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                      }}
-                    />
-                    {/* Play button overlay */}
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className={cn(
-                        "w-12 h-12 landscape:w-10 landscape:h-10 rounded-full flex items-center justify-center",
-                        "bg-black/60 backdrop-blur-sm"
-                      )}>
-                        <Play className="h-6 w-6 landscape:h-5 landscape:w-5 text-white fill-white ms-0.5" />
+                  <ImageWithFallback
+                    sources={[thumbnailUrl]}
+                    fallback={
+                      <div className="absolute inset-0 flex items-center justify-center bg-muted">
+                        <Play className="h-10 w-10 text-muted-foreground" />
                       </div>
-                    </div>
-                    {/* Platform badge */}
-                    <div className={cn(
-                      "absolute top-2 start-2 px-2 py-0.5 rounded text-xs landscape:text-[10px] font-medium",
-                      videoPlatform === 'youtube' 
-                        ? "bg-red-600 text-white" 
-                        : "bg-[#1ab7ea] text-white"
-                    )}>
-                      {videoPlatform === 'youtube' ? 'YouTube' : 'Vimeo'}
-                    </div>
-                  </>
+                    }
+                    alt="Video thumbnail"
+                    className="w-full h-full object-cover"
+                    containerClassName="w-full h-full"
+                    showSkeleton={false}
+                  />
                 ) : null}
+                {/* Play button overlay - always visible */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className={cn(
+                    "w-12 h-12 landscape:w-10 landscape:h-10 rounded-full flex items-center justify-center",
+                    "bg-black/60 backdrop-blur-sm"
+                  )}>
+                    <Play className="h-6 w-6 landscape:h-5 landscape:w-5 text-white fill-white ms-0.5" />
+                  </div>
+                </div>
+                {/* Platform badge */}
+                <div className={cn(
+                  "absolute top-2 start-2 px-2 py-0.5 rounded text-xs landscape:text-[10px] font-medium",
+                  videoPlatform === 'youtube' 
+                    ? "bg-red-600 text-white" 
+                    : "bg-[#1ab7ea] text-white"
+                )}>
+                  {videoPlatform === 'youtube' ? 'YouTube' : 'Vimeo'}
+                </div>
               </div>
             </div>
           )}
@@ -265,16 +268,16 @@ export function SharedUrlActionSheet({
                 {isLoading ? (
                   <Skeleton className="w-6 h-6 landscape:w-5 landscape:h-5 rounded" />
                 ) : metadata?.favicon ? (
-                  <img 
-                    src={metadata.favicon} 
-                    alt="" 
+                  <ImageWithFallback
+                    sources={[metadata.favicon]}
+                    fallback={<Globe className="h-5 w-5 landscape:h-4 landscape:w-4 text-muted-foreground" />}
+                    alt=""
                     className="w-6 h-6 landscape:w-5 landscape:h-5 object-contain"
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none';
-                    }}
+                    containerClassName="flex items-center justify-center"
+                    showSkeleton={false}
                   />
                 ) : (
-                  <Share2 className="h-5 w-5 landscape:h-4 landscape:w-4 text-muted-foreground" />
+                  <Globe className="h-5 w-5 landscape:h-4 landscape:w-4 text-muted-foreground" />
                 )}
               </div>
             )}

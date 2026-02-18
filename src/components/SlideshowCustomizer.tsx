@@ -77,8 +77,8 @@ function SortableImage({ id, index, thumbnail, onRemove }: SortableImageProps) {
             className="w-full h-full object-cover"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-muted">
-            <Image className="h-6 w-6 text-muted-foreground" />
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted to-muted-foreground/10">
+            <span className="text-lg font-bold text-muted-foreground/60">{index + 1}</span>
           </div>
         )}
       </div>

@@ -684,7 +684,7 @@ const Index = () => {
           onCreateShortcut={handleCreateSharedFileShortcut}
           onCreateReminder={handleCreateSharedFileReminder}
           onDismiss={handleDismissSharedFile}
-          hideReminder={!!pendingSharedMultiFiles}
+          hideReminder={false}
           displayName={pendingSharedMultiFiles ? `${pendingSharedMultiFiles.files.length} images` : undefined}
           displaySubtitle={pendingSharedMultiFiles ? 'Slideshow' : undefined}
         />

@@ -1,10 +1,13 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { X, Smartphone, Bell, Share2, Image, Video, Music, FileText, File } from 'lucide-react';
+import { X, Smartphone, Bell, Share2, Layers } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useSheetBackHandler } from '@/hooks/useSheetBackHandler';
 import { triggerHaptic } from '@/lib/haptics';
+import { ImageWithFallback } from '@/components/ui/image-with-fallback';
+import { buildImageSources } from '@/lib/imageUtils';
+import { formatContentInfo } from '@/lib/contentResolver';
 import type { ContentSource } from '@/types/shortcut';
 
 interface SharedFileActionSheetProps {
@@ -18,25 +21,6 @@ interface SharedFileActionSheetProps {
   displayName?: string;
   /** Override display subtitle */
   displaySubtitle?: string;
-}
-
-function getFileIcon(mimeType?: string) {
-  if (!mimeType) return File;
-  if (mimeType.startsWith('image/')) return Image;
-  if (mimeType.startsWith('video/')) return Video;
-  if (mimeType.startsWith('audio/')) return Music;
-  if (mimeType === 'application/pdf') return FileText;
-  return File;
-}
-
-function getFileTypeLabel(mimeType?: string): string {
-  if (!mimeType) return 'File';
-  if (mimeType.startsWith('image/')) return 'Image';
-  if (mimeType.startsWith('video/')) return 'Video';
-  if (mimeType.startsWith('audio/')) return 'Audio';
-  if (mimeType === 'application/pdf') return 'PDF';
-  if (mimeType.startsWith('application/')) return 'Document';
-  return 'File';
 }
 
 export function SharedFileActionSheet({
@@ -95,9 +79,18 @@ export function SharedFileActionSheet({
     setTimeout(onCreateReminder, 200);
   };
 
-  const FileIcon = getFileIcon(file.mimeType);
-  const fileName = displayName || file.name || getFileTypeLabel(file.mimeType);
-  const fileSubtitle = displaySubtitle || (file.mimeType ? getFileTypeLabel(file.mimeType) : 'File');
+  const isImage = file.mimeType?.startsWith('image/');
+  const isMultiImage = !!displayName && displayName.match(/^\d+ images?$/i);
+  const info = formatContentInfo(file);
+
+  // Build image sources for thumbnail preview
+  const imageSources = useMemo(() => {
+    if (!isImage || isMultiImage) return [];
+    return buildImageSources(file.thumbnailData, file.uri);
+  }, [isImage, isMultiImage, file.thumbnailData, file.uri]);
+
+  const fileName = displayName || file.name || info.label;
+  const fileSubtitle = displaySubtitle || info.sublabel;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center p-4 pb-8 bg-black/50 animate-in fade-in duration-200">
@@ -134,8 +127,28 @@ export function SharedFileActionSheet({
         {/* File Preview Card */}
         <div className="px-4 landscape:px-3 py-4 landscape:py-3 border-b border-border">
           <div className="flex items-center gap-3 landscape:gap-2">
-            <div className="flex-shrink-0 w-10 h-10 landscape:w-8 landscape:h-8 rounded-lg bg-muted flex items-center justify-center">
-              <FileIcon className="h-5 w-5 landscape:h-4 landscape:w-4 text-muted-foreground" />
+            <div className={cn(
+              "flex-shrink-0 w-12 h-12 landscape:w-10 landscape:h-10 rounded-lg overflow-hidden flex items-center justify-center",
+              !isImage && "bg-primary/10"
+            )}>
+              {isMultiImage ? (
+                /* Multi-image: stacked layers icon */
+                <div className="w-full h-full bg-primary/10 flex items-center justify-center">
+                  <Layers className="h-6 w-6 landscape:h-5 landscape:w-5 text-primary" />
+                </div>
+              ) : isImage && imageSources.length > 0 ? (
+                /* Single image: actual thumbnail */
+                <ImageWithFallback
+                  sources={imageSources}
+                  fallback={<span className="text-2xl landscape:text-xl">{info.emoji}</span>}
+                  alt=""
+                  className="h-full w-full object-cover"
+                  containerClassName="h-full w-full flex items-center justify-center"
+                />
+              ) : (
+                /* Non-image file: emoji fallback */
+                <span className="text-2xl landscape:text-xl">{info.emoji}</span>
+              )}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm landscape:text-xs font-medium text-foreground break-words">
