@@ -26,6 +26,7 @@ import { useOAuthRecovery } from '@/hooks/useOAuthRecovery';
 import { usePendingWhatsAppAction } from '@/hooks/usePendingWhatsAppAction';
 import { usePendingShortcutEdit } from '@/hooks/usePendingShortcutEdit';
 import { useShortcuts } from '@/hooks/useShortcuts';
+import { createHomeScreenShortcut } from '@/lib/shortcutManager';
 import { useReviewPrompt } from '@/hooks/useReviewPrompt';
 import { OAuthRecoveryBanner } from '@/components/auth/OAuthRecoveryBanner';
 import { ReviewPromptBanner } from '@/components/ReviewPromptBanner';
@@ -170,6 +171,17 @@ const Index = () => {
   const handleSaveShortcutEdit = useCallback(async (id: string, updates: Parameters<typeof updateShortcut>[1]) => {
     return await updateShortcut(id, updates);
   }, [updateShortcut]);
+
+  // Handler for re-adding shortcut to home screen
+  const handleReAddToHomeScreen = useCallback(async (shortcut: ShortcutData) => {
+    const success = await createHomeScreenShortcut(shortcut, {
+      fileData: shortcut.thumbnailData,
+      thumbnailData: shortcut.thumbnailData,
+    });
+    if (success) {
+      toast({ title: t('shortcutAction.addedToHomeScreen', 'Added to home screen') });
+    }
+  }, [toast, t]);
 
   // Handler for deleting shortcut from action sheet
   const handleDeleteShortcut = useCallback((id: string) => {
@@ -699,6 +711,7 @@ const Index = () => {
         isOpen={!!editingShortcut}
         onClose={() => setEditingShortcut(null)}
         onSave={handleSaveShortcutEdit}
+        onReAddToHomeScreen={handleReAddToHomeScreen}
       />
 
     </div>

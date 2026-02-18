@@ -27,7 +27,7 @@ interface ShortcutEditSheetProps {
   shortcut: ShortcutData | null;
   isOpen: boolean;
   onClose: () => void;
-  onSave: (id: string, updates: Partial<Pick<ShortcutData, 'name' | 'icon' | 'quickMessages' | 'resumeEnabled' | 'imageUris' | 'imageThumbnails' | 'autoAdvanceInterval'>>) => Promise<{ success: boolean; nativeUpdateFailed?: boolean }>;
+  onSave: (id: string, updates: Partial<Pick<ShortcutData, 'name' | 'icon' | 'quickMessages' | 'resumeEnabled' | 'imageUris' | 'imageThumbnails' | 'autoAdvanceInterval' | 'contentUri' | 'syncState' | 'mimeType' | 'fileSize' | 'thumbnailData'>>) => Promise<{ success: boolean; nativeUpdateFailed?: boolean }>;
   onReAddToHomeScreen?: (shortcut: ShortcutData) => void;
 }
 
@@ -199,21 +199,34 @@ export function ShortcutEditSheet({
     onClose();
   }, [shortcut, name, icon, quickMessages, resumeEnabled, slideshowImages, autoAdvance, onSave, onReAddToHomeScreen, onClose, toast, t, reconnectedFile]);
 
-  const handleReAdd = useCallback(() => {
+  const handleReAdd = useCallback(async () => {
     if (!shortcut || !onReAddToHomeScreen) return;
     
-    // First save the changes
-    const updates: Partial<Pick<ShortcutData, 'name' | 'icon' | 'quickMessages' | 'resumeEnabled' | 'imageUris' | 'imageThumbnails' | 'autoAdvanceInterval'>> = {
+    // Build updates including reconnection fields
+    const updates: Partial<Pick<ShortcutData, 'name' | 'icon' | 'quickMessages' | 'resumeEnabled' | 'imageUris' | 'imageThumbnails' | 'autoAdvanceInterval' | 'contentUri' | 'syncState' | 'mimeType' | 'fileSize' | 'thumbnailData'>> = {
       name,
       icon,
       quickMessages: quickMessages.length > 0 ? quickMessages : undefined,
       resumeEnabled: shortcut.fileType === 'pdf' ? resumeEnabled : undefined,
     };
     
+    // Include reconnection fields if file was reconnected
+    if (reconnectedFile) {
+      updates.contentUri = reconnectedFile.contentUri;
+      updates.mimeType = reconnectedFile.mimeType;
+      updates.fileSize = reconnectedFile.fileSize;
+      updates.thumbnailData = reconnectedFile.thumbnailData;
+      updates.syncState = undefined; // Clear dormant state - JSON.stringify strips undefined
+    }
+    
     if (shortcut.type === 'slideshow') {
       updates.imageUris = slideshowImages.map(i => i.uri);
       updates.imageThumbnails = slideshowImages.map(i => i.thumbnail).filter(Boolean) as string[];
       updates.autoAdvanceInterval = autoAdvance;
+      
+      if (reconnectedFile) {
+        updates.syncState = undefined;
+      }
     }
     
     const updatedShortcut: ShortcutData = {
@@ -221,12 +234,13 @@ export function ShortcutEditSheet({
       ...updates,
     };
     
-    onSave(shortcut.id, updates);
+    // Await save before re-adding to ensure native state is updated
+    await onSave(shortcut.id, updates);
     
-    // Then trigger re-add to home screen
+    // Then trigger re-add to home screen with fresh data
     onReAddToHomeScreen(updatedShortcut);
     onClose();
-  }, [shortcut, name, icon, quickMessages, resumeEnabled, slideshowImages, autoAdvance, onSave, onReAddToHomeScreen, onClose]);
+  }, [shortcut, name, icon, quickMessages, resumeEnabled, slideshowImages, autoAdvance, onSave, onReAddToHomeScreen, onClose, reconnectedFile]);
 
   const isWhatsAppShortcut = shortcut?.type === 'message' && shortcut?.messageApp === 'whatsapp';
   const isPdfShortcut = shortcut?.fileType === 'pdf';
