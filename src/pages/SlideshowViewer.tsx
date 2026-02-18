@@ -94,7 +94,7 @@ export default function SlideshowViewer() {
     }
     
     setIsLoading(false);
-  }, [shortcutId, getShortcut]);
+  }, [shortcutId, getShortcut, searchParams]);
 
   // Convert content:// URIs to WebView-accessible URLs for full-quality display
   useEffect(() => {
