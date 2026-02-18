@@ -853,15 +853,29 @@ public class NativePdfViewerV2Activity extends Activity {
         private final Paint pageBgPaint = new Paint();
         private final Paint shadowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
-        // Fast scroll
-        private final Paint fastScrollPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        // Fast scroll (draggable)
+        private final Paint fastScrollThumbPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint fastScrollTrackPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint fsPopupBgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint fsPopupTextPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         private float fastScrollAlpha = 0f;
+        private boolean fsDragging = false;
+        private boolean fsVisible = false;
+        private String fsPageText = "";
+        private final RectF fsThumbRect = new RectF();
+        private int fsThumbW, fsThumbMinH, fsTouchW;
+        private ValueAnimator fsFadeAnimator;
         private final Handler fsHideHandler = new Handler(Looper.getMainLooper());
         private final Runnable fsHideRunnable = () -> {
-            ValueAnimator fadeOut = ValueAnimator.ofFloat(fastScrollAlpha, 0f);
-            fadeOut.setDuration(300);
-            fadeOut.addUpdateListener(a -> { fastScrollAlpha = (float) a.getAnimatedValue(); invalidate(); });
-            fadeOut.start();
+            if (fsDragging) return;
+            if (fsFadeAnimator != null && fsFadeAnimator.isRunning()) fsFadeAnimator.cancel();
+            fsFadeAnimator = ValueAnimator.ofFloat(fastScrollAlpha, 0f);
+            fsFadeAnimator.setDuration(300);
+            fsFadeAnimator.addUpdateListener(a -> { fastScrollAlpha = (float) a.getAnimatedValue(); invalidate(); });
+            fsFadeAnimator.addListener(new android.animation.AnimatorListenerAdapter() {
+                @Override public void onAnimationEnd(android.animation.Animator a) { fsVisible = false; }
+            });
+            fsFadeAnimator.start();
         };
 
         public PdfDocumentView(Context context) {
@@ -875,8 +889,19 @@ public class NativePdfViewerV2Activity extends Activity {
             shadowPaint.setColor(0x40000000);
             shadowPaint.setStyle(Paint.Style.FILL);
 
-            fastScrollPaint.setColor(0xCCFFFFFF);
-            fastScrollPaint.setStyle(Paint.Style.FILL);
+            // Fast scroll paints
+            fsThumbW = (int) (6 * density);
+            fsThumbMinH = (int) (48 * density);
+            fsTouchW = (int) (44 * density); // generous touch target
+            fastScrollThumbPaint.setColor(0xCCFFFFFF);
+            fastScrollThumbPaint.setStyle(Paint.Style.FILL);
+            fastScrollTrackPaint.setColor(0x33FFFFFF);
+            fastScrollTrackPaint.setStyle(Paint.Style.FILL);
+            fsPopupBgPaint.setColor(0xDD333333);
+            fsPopupBgPaint.setStyle(Paint.Style.FILL);
+            fsPopupTextPaint.setColor(0xFFFFFFFF);
+            fsPopupTextPaint.setTextSize(14 * density);
+            fsPopupTextPaint.setTextAlign(Paint.Align.RIGHT);
 
             scroller = new OverScroller(context);
 
@@ -1144,26 +1169,91 @@ public class NativePdfViewerV2Activity extends Activity {
         }
 
         private void drawFastScroll(Canvas canvas, int viewW, int viewH) {
-            if (fastScrollAlpha <= 0 || totalDocHeight <= 0 || docPageCount <= 3) return;
-
+            if (totalDocHeight <= 0 || docPageCount <= 3) {
+                fsThumbRect.setEmpty();
+                return;
+            }
+            // Always compute thumb rect (needed for touch detection even when hidden)
             float maxScroll = Math.max(1, totalDocHeight * zoomLevel - viewH);
             float fraction = scrollY / maxScroll;
             fraction = Math.max(0, Math.min(1, fraction));
 
-            int thumbW = (int) (6 * density);
-            int thumbH = Math.max((int) (48 * density), (int) (viewH * viewH / (totalDocHeight * zoomLevel)));
-            int thumbX = viewW - thumbW - (int) (4 * density);
-            int thumbY = (int) (fraction * (viewH - thumbH));
+            float visibleFrac = (float) viewH / Math.max(1, totalDocHeight * zoomLevel);
+            int thumbH = Math.max(fsThumbMinH, (int) (viewH * visibleFrac));
+            float scrollableH = viewH - thumbH;
+            float thumbTop = fraction * scrollableH;
+            int thumbX = viewW - fsThumbW - (int) (4 * density);
+            fsThumbRect.set(thumbX, thumbTop, thumbX + fsThumbW, thumbTop + thumbH);
 
-            fastScrollPaint.setAlpha((int) (0xCC * fastScrollAlpha));
-            canvas.drawRoundRect(thumbX, thumbY, thumbX + thumbW, thumbY + thumbH,
-                thumbW / 2f, thumbW / 2f, fastScrollPaint);
+            if (fastScrollAlpha <= 0) return;
+
+            // Draw track
+            fastScrollTrackPaint.setAlpha((int) (0x33 * fastScrollAlpha));
+            float trackLeft = viewW - fsThumbW - (int) (4 * density);
+            canvas.drawRoundRect(trackLeft, (int)(8 * density), viewW - (int)(4 * density),
+                viewH - (int)(8 * density), fsThumbW / 2f, fsThumbW / 2f, fastScrollTrackPaint);
+
+            // Draw thumb
+            fastScrollThumbPaint.setAlpha((int) (0xCC * fastScrollAlpha));
+            canvas.drawRoundRect(fsThumbRect, fsThumbW / 2f, fsThumbW / 2f, fastScrollThumbPaint);
+
+            // Draw popup when dragging
+            if (fsDragging && fsPageText.length() > 0) {
+                fsPopupBgPaint.setAlpha((int) (0xDD * fastScrollAlpha));
+                fsPopupTextPaint.setAlpha((int) (0xFF * fastScrollAlpha));
+
+                float textWidth = fsPopupTextPaint.measureText(fsPageText);
+                float popupPad = 12 * density;
+                float popupH = 36 * density;
+                float popupRight = fsThumbRect.left - 12 * density;
+                float popupLeft = popupRight - textWidth - popupPad * 2;
+                float popupTop2 = fsThumbRect.centerY() - popupH / 2;
+                float popupBottom = popupTop2 + popupH;
+
+                // Clamp
+                if (popupTop2 < 8 * density) { popupTop2 = 8 * density; popupBottom = popupTop2 + popupH; }
+                if (popupBottom > viewH - 8 * density) { popupBottom = viewH - 8 * density; popupTop2 = popupBottom - popupH; }
+
+                RectF popupRect = new RectF(popupLeft, popupTop2, popupRight, popupBottom);
+                canvas.drawRoundRect(popupRect, 4 * density, 4 * density, fsPopupBgPaint);
+                float textY = popupRect.centerY() + fsPopupTextPaint.getTextSize() / 3;
+                canvas.drawText(fsPageText, popupRight - popupPad, textY, fsPopupTextPaint);
+            }
         }
 
         private void showFastScroll() {
+            fsVisible = true;
+            if (fsFadeAnimator != null && fsFadeAnimator.isRunning()) fsFadeAnimator.cancel();
             fastScrollAlpha = 1f;
             fsHideHandler.removeCallbacks(fsHideRunnable);
             fsHideHandler.postDelayed(fsHideRunnable, 1500);
+        }
+
+        private void fsScrollToY(float touchY) {
+            int viewH = getHeight();
+            if (viewH <= 0 || totalDocHeight <= 0) return;
+
+            float visibleFrac = (float) viewH / Math.max(1, totalDocHeight * zoomLevel);
+            int thumbH = Math.max(fsThumbMinH, (int) (viewH * visibleFrac));
+            float scrollableH = viewH - thumbH;
+            float frac = (touchY - thumbH / 2f) / Math.max(1, scrollableH);
+            frac = Math.max(0, Math.min(1, frac));
+
+            float maxScroll = Math.max(0, totalDocHeight * zoomLevel - viewH);
+            scrollY = frac * maxScroll;
+            clampScrollAndPan();
+
+            // Update page text from visible range
+            int[] vis = getVisiblePageRange();
+            if (vis != null) {
+                fsPageText = (vis[0] + 1) + " / " + docPageCount;
+            }
+
+            invalidate();
+
+            // Trigger renders for new position
+            mainHandler.removeCallbacks(renderAfterSettle);
+            mainHandler.postDelayed(renderAfterSettle, 150);
         }
 
         // =================================================================
@@ -1193,15 +1283,51 @@ public class NativePdfViewerV2Activity extends Activity {
 
         @Override
         public boolean onTouchEvent(MotionEvent event) {
+            int action = event.getActionMasked();
+            float x = event.getX();
+            float y = event.getY();
+
+            // Fast scroll drag handling (intercept before gesture detectors)
+            if (action == MotionEvent.ACTION_DOWN) {
+                // Check if touch is on the right edge near thumb
+                boolean onRightEdge = x > getWidth() - fsTouchW;
+                boolean nearThumb = !fsThumbRect.isEmpty() &&
+                    y >= fsThumbRect.top - 16 * density && y <= fsThumbRect.bottom + 16 * density;
+                if (onRightEdge && (nearThumb || (fsVisible && onRightEdge))) {
+                    fsDragging = true;
+                    scroller.forceFinished(true);
+                    getParent().requestDisallowInterceptTouchEvent(true);
+                    fastScrollAlpha = 1f;
+                    fsVisible = true;
+                    fsHideHandler.removeCallbacks(fsHideRunnable);
+                    fsScrollToY(y);
+                    return true;
+                }
+            }
+
+            if (fsDragging) {
+                if (action == MotionEvent.ACTION_MOVE) {
+                    fsScrollToY(y);
+                    return true;
+                }
+                if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
+                    fsDragging = false;
+                    getParent().requestDisallowInterceptTouchEvent(false);
+                    fsHideHandler.removeCallbacks(fsHideRunnable);
+                    fsHideHandler.postDelayed(fsHideRunnable, 1500);
+                    invalidate();
+                    return true;
+                }
+                return true;
+            }
+
+            // Normal gesture handling
             scaleDetector.onTouchEvent(event);
             gestureDetector.onTouchEvent(event);
 
-            // If scale is in progress, consume all events
             if (scaleDetector.isInProgress()) return true;
 
-            int action = event.getActionMasked();
             if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
-                // After any touch ends, schedule render
                 mainHandler.removeCallbacks(renderAfterSettle);
                 mainHandler.postDelayed(renderAfterSettle, 100);
             }
