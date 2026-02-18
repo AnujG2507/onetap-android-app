@@ -278,6 +278,8 @@ export interface ShortcutPluginInterface {
   // Also returns diagnostic info for sync decision-making
   getPinnedShortcutIds(): Promise<{ 
     ids: string[];
+    registeredIds: string[];      // From creation registry (app truth)
+    recentlyCreatedIds: string[]; // Created <10s ago (protected from sync deletion)
     dynamicCount: number;   // Current dynamic shortcut count (after orphan cleanup)
     maxDynamic: number;     // Max dynamic shortcuts allowed by OS
     manufacturer: string;   // Device manufacturer for OEM-specific debugging

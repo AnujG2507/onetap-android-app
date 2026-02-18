@@ -460,11 +460,10 @@ export class ShortcutPluginWeb implements ShortcutPluginInterface {
 
   // ========== Home Screen Sync (Web Fallback) ==========
 
-  async getPinnedShortcutIds(): Promise<{ ids: string[]; dynamicCount: number; maxDynamic: number; manufacturer: string }> {
+  async getPinnedShortcutIds(): Promise<{ ids: string[]; registeredIds: string[]; recentlyCreatedIds: string[]; dynamicCount: number; maxDynamic: number; manufacturer: string }> {
     console.log('[ShortcutPluginWeb] getPinnedShortcutIds called (web fallback)');
-    // On web, return empty array - all shortcuts are "pinned" conceptually
-    // The sync logic will skip filtering when this returns empty
-    return { ids: [], dynamicCount: 0, maxDynamic: 0, manufacturer: 'web' };
+    // On web, return empty arrays - all shortcuts are "pinned" conceptually
+    return { ids: [], registeredIds: [], recentlyCreatedIds: [], dynamicCount: 0, maxDynamic: 0, manufacturer: 'web' };
   }
 
   async disablePinnedShortcut(options: { id: string }): Promise<{ success: boolean; error?: string }> {
