@@ -594,18 +594,28 @@ public class NativePdfViewerV2Activity extends Activity {
 
         topBar = new FrameLayout(this);
         topBar.setBackgroundColor(0xFF1C1C1E);
+        topBar.setElevation(dpToPx(4));
         int topBarH = dpToPx(56);
         topBar.setLayoutParams(new FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, topBarH));
         topBar.setPadding(dpToPx(8), 0, dpToPx(8), 0);
 
+        // Bottom border line
+        View borderLine = new View(this);
+        borderLine.setBackgroundColor(0x33FFFFFF);
+        FrameLayout.LayoutParams borderP = new FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, dpToPx(1));
+        borderP.gravity = Gravity.BOTTOM;
+        borderLine.setLayoutParams(borderP);
+        topBar.addView(borderLine);
+
         // Close button
-        int btnSize = dpToPx(44);
+        int btnSize = dpToPx(48);
         closeButton = new ImageButton(this);
         closeButton.setImageResource(R.drawable.ic_close_pdf);
-        closeButton.setBackgroundResource(android.R.color.transparent);
-        closeButton.setScaleType(android.widget.ImageView.ScaleType.CENTER_INSIDE);
-        closeButton.setPadding(dpToPx(10), dpToPx(10), dpToPx(10), dpToPx(10));
+        closeButton.setBackgroundResource(R.drawable.ripple_circle);
+        closeButton.setColorFilter(0xFFFFFFFF);
+        closeButton.setScaleType(android.widget.ImageView.ScaleType.CENTER);
         FrameLayout.LayoutParams closeP = new FrameLayout.LayoutParams(btnSize, btnSize);
         closeP.gravity = Gravity.START | Gravity.CENTER_VERTICAL;
         closeButton.setLayoutParams(closeP);
@@ -614,9 +624,9 @@ public class NativePdfViewerV2Activity extends Activity {
 
         // Page indicator (center)
         pageIndicator = new TextView(this);
-        pageIndicator.setTextColor(0xFFFFFFFF);
-        pageIndicator.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-        pageIndicator.setTypeface(Typeface.DEFAULT, Typeface.NORMAL);
+        pageIndicator.setTextColor(0xDEFFFFFF);
+        pageIndicator.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        pageIndicator.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         FrameLayout.LayoutParams piP = new FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         piP.gravity = Gravity.CENTER;
@@ -645,12 +655,25 @@ public class NativePdfViewerV2Activity extends Activity {
             pageIndicator.setLayoutParams(piP);
         }
 
+        // Share button
+        ImageButton shareButton = new ImageButton(this);
+        shareButton.setImageResource(R.drawable.ic_share);
+        shareButton.setBackgroundResource(R.drawable.ripple_circle);
+        shareButton.setColorFilter(0xFFFFFFFF);
+        shareButton.setScaleType(android.widget.ImageView.ScaleType.CENTER);
+        FrameLayout.LayoutParams shareP = new FrameLayout.LayoutParams(btnSize, btnSize);
+        shareP.gravity = Gravity.END | Gravity.CENTER_VERTICAL;
+        shareP.setMarginEnd(btnSize);
+        shareButton.setLayoutParams(shareP);
+        shareButton.setOnClickListener(v -> shareFile());
+        topBar.addView(shareButton);
+
         // Open with button
         openWithButton = new ImageButton(this);
         openWithButton.setImageResource(R.drawable.ic_open_external);
-        openWithButton.setBackgroundResource(android.R.color.transparent);
-        openWithButton.setScaleType(android.widget.ImageView.ScaleType.CENTER_INSIDE);
-        openWithButton.setPadding(dpToPx(10), dpToPx(10), dpToPx(10), dpToPx(10));
+        openWithButton.setBackgroundResource(R.drawable.ripple_circle);
+        openWithButton.setColorFilter(0xFFFFFFFF);
+        openWithButton.setScaleType(android.widget.ImageView.ScaleType.CENTER);
         FrameLayout.LayoutParams owP = new FrameLayout.LayoutParams(btnSize, btnSize);
         owP.gravity = Gravity.END | Gravity.CENTER_VERTICAL;
         openWithButton.setLayoutParams(owP);
@@ -785,6 +808,21 @@ public class NativePdfViewerV2Activity extends Activity {
         if (topBar != null) topBar.setVisibility(View.GONE);
         if (errorView != null) errorView.setVisibility(View.VISIBLE);
         hideHandler.removeCallbacks(hideRunnable);
+    }
+
+    private void shareFile() {
+        if (pdfUri == null) return;
+        try {
+            Intent shareIntent = new Intent(Intent.ACTION_SEND);
+            shareIntent.setType("application/pdf");
+            shareIntent.putExtra(Intent.EXTRA_STREAM, pdfUri);
+            shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            String name = (pdfTitle != null && !pdfTitle.isEmpty()) ? pdfTitle : "Document";
+            shareIntent.setClipData(android.content.ClipData.newUri(getContentResolver(), name, pdfUri));
+            startActivity(Intent.createChooser(shareIntent, null));
+        } catch (Exception e) {
+            crashLogger.recordError("PdfViewerV2", "shareFile", e);
+        }
     }
 
     private void openWithExternalApp() {
