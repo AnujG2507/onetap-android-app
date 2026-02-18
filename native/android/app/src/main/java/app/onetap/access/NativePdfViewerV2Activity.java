@@ -532,6 +532,7 @@ public class NativePdfViewerV2Activity extends Activity {
         return (float) Math.sqrt(maxScaleSq);
     }
 
+    private void gracefulCacheEviction(int keepNearPage) {
         if (bitmapCache == null) return;
         java.util.Map<String, Bitmap> snapshot = bitmapCache.snapshot();
         for (String key : snapshot.keySet()) {
