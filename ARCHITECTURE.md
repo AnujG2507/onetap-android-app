@@ -484,4 +484,54 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for the full guide.
 
 ---
 
+## 13. Home Screen ↔ App Sync Contract (Android 12+)
+
+### Overview
+
+The app maintains a bidirectional sync between Android home screen shortcuts (via `ShortcutManager`) and the in-app "My Access Points" list (localStorage). This sync is **type-agnostic** — it works identically for all shortcut types (file, link, contact, message, slideshow).
+
+### Source of Truth: Reconciled Hybrid
+
+- **localStorage** is the primary data store (shortcut metadata, usage counts, creation order)
+- **ShortcutManager** is the pin-state oracle (is it still on the home screen?)
+- Reconciliation runs on every app foreground and corrects drift
+
+### Shadow Dynamic Registration
+
+Every pinned shortcut is also registered as a **dynamic shortcut** ("shadow registration"). This is required because `getShortcuts(FLAG_MATCH_PINNED)` on many OEM launchers (OnePlus, Xiaomi, OPPO, Vivo) only returns shortcuts that also have an active dynamic registration.
+
+### Dynamic Shortcut Pool Management
+
+Android imposes a **hard limit** on dynamic shortcuts per app (typically 4–15, varies by OEM). When this limit is exceeded, `addDynamicShortcuts()` throws `IllegalArgumentException` and the shadow registration fails silently. Without the shadow, the shortcut becomes invisible to `getPinnedShortcutIds()`, and the next sync cycle **deletes it from the app**.
+
+**Mitigation** (implemented in `ShortcutPlugin.java`):
+- Before every `addDynamicShortcuts()` call, the pool is checked via `ensureDynamicShortcutSlot()`
+- If at capacity, the oldest dynamic shortcut that is already confirmed as pinned is evicted (it no longer needs the shadow)
+- If eviction fails, a retry with aggressive eviction is attempted
+- The eviction logic is shared between `createPinnedShortcut` and `updatePinnedShortcut`
+
+### Sync Triggers
+
+| Trigger | Location | Behavior |
+|---------|----------|----------|
+| App mount | `useShortcuts.ts` | Calls `syncWithHomeScreen()` once |
+| App resume | `useShortcuts.ts` | Calls `syncWithHomeScreen()` on `appStateChange(isActive)` |
+| Delete from app | `useShortcuts.ts` | Calls `disablePinnedShortcut()` then removes from localStorage |
+
+### Zero-ID Guard
+
+If the OS returns 0 pinned IDs but localStorage has shortcuts, the sync uses heuristics:
+- If `dynamicCount < 0` (error state): skip sync
+- If localStorage has >3 shortcuts: skip sync (likely API failure)
+- If localStorage has ≤3 shortcuts: proceed (user may have legitimately unpinned all)
+
+### Things Android Will Never Tell Us
+
+1. **Shortcut was unpinned** — No broadcast. Must poll via `getShortcuts(FLAG_MATCH_PINNED)` on foreground.
+2. **Dynamic shortcut limit exceeded** — Exception thrown but no proactive signal. Must manage pool preemptively.
+3. **Launcher changed** — No broadcast. `isPinned()` may become unreliable. Re-sync on every foreground.
+4. **File permissions revoked** — No signal. Mitigated by copying files to app-internal storage.
+
+---
+
 *Last updated: February 2026*

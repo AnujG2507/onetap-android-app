@@ -440,12 +440,21 @@ public class ShortcutPlugin extends Plugin {
                         // Also register as dynamic shortcut so OEM launchers (OnePlus, Xiaomi, OPPO, Vivo)
                         // can track pinned IDs via getShortcuts(FLAG_MATCH_PINNED)
                         if (requested) {
+                            ensureDynamicShortcutSlot(shortcutManager);
                             try {
                                 shortcutManager.addDynamicShortcuts(Collections.singletonList(finalShortcutInfo));
                                 android.util.Log.d("ShortcutPlugin", "Pushed shadow dynamic shortcut: " + finalId);
                             } catch (Exception dynEx) {
-                                // Non-fatal: shortcut is still pinned, just won't be tracked by some OEM launchers
-                                android.util.Log.w("ShortcutPlugin", "Failed to register dynamic shortcut (non-fatal): " + dynEx.getMessage());
+                                android.util.Log.w("ShortcutPlugin", "Failed to register dynamic shortcut: " + dynEx.getMessage());
+                                // Critical: without the shadow registration, sync will delete this shortcut.
+                                // Attempt aggressive eviction and retry once.
+                                try {
+                                    evictOldestDynamicShortcut(shortcutManager);
+                                    shortcutManager.addDynamicShortcuts(Collections.singletonList(finalShortcutInfo));
+                                    android.util.Log.d("ShortcutPlugin", "Shadow dynamic shortcut registered after eviction: " + finalId);
+                                } catch (Exception retryEx) {
+                                    android.util.Log.e("ShortcutPlugin", "Shadow registration failed even after eviction: " + retryEx.getMessage());
+                                }
                             }
                         }
 
@@ -4201,11 +4210,17 @@ public class ShortcutPlugin extends Plugin {
 
             JSObject result = new JSObject();
             result.put("ids", ids);
+            result.put("dynamicCount", dynamicShortcuts.size() - orphanDynamicIds.size());
+            result.put("maxDynamic", manager.getMaxShortcutCountPerActivity());
+            result.put("manufacturer", Build.MANUFACTURER);
             call.resolve(result);
         } catch (Exception e) {
             android.util.Log.e("ShortcutPlugin", "Error getting pinned shortcuts: " + e.getMessage(), e);
             JSObject result = new JSObject();
             result.put("ids", new JSArray());
+            result.put("dynamicCount", -1);
+            result.put("maxDynamic", -1);
+            result.put("manufacturer", Build.MANUFACTURER);
             call.resolve(result);
         }
     }
@@ -4417,11 +4432,19 @@ public class ShortcutPlugin extends Plugin {
             boolean updated = manager.updateShortcuts(shortcutsToUpdate);
             
             // Also update dynamic shortcut registration for OEM launcher tracking
+            ensureDynamicShortcutSlot(manager);
             try {
                 manager.addDynamicShortcuts(shortcutsToUpdate);
                 android.util.Log.d("ShortcutPlugin", "Pushed updated shadow dynamic shortcut: " + shortcutId);
             } catch (Exception dynEx) {
-                android.util.Log.w("ShortcutPlugin", "Failed to update dynamic shortcut (non-fatal): " + dynEx.getMessage());
+                android.util.Log.w("ShortcutPlugin", "Failed to update dynamic shortcut: " + dynEx.getMessage());
+                try {
+                    evictOldestDynamicShortcut(manager);
+                    manager.addDynamicShortcuts(shortcutsToUpdate);
+                    android.util.Log.d("ShortcutPlugin", "Shadow dynamic shortcut updated after eviction: " + shortcutId);
+                } catch (Exception retryEx) {
+                    android.util.Log.e("ShortcutPlugin", "Shadow update failed even after eviction: " + retryEx.getMessage());
+                }
             }
             
             android.util.Log.d("ShortcutPlugin", "Updated pinned shortcut: " + shortcutId + 
@@ -4748,5 +4771,67 @@ public class ShortcutPlugin extends Plugin {
         JSObject result = new JSObject();
         result.put("success", true);
         call.resolve(result);
+    }
+    }
+
+    // ========== Dynamic Shortcut Pool Management ==========
+
+    /**
+     * Ensure there is at least one slot available in the dynamic shortcut pool.
+     * If the pool is at capacity, evict the oldest dynamic shortcut that is
+     * already confirmed as pinned (it no longer needs the shadow registration
+     * because Android already tracks it as pinned).
+     *
+     * This prevents the critical bug where addDynamicShortcuts() throws
+     * IllegalArgumentException due to exceeding the per-app limit, which would
+     * cause the shadow registration to fail and the shortcut to be deleted
+     * on the next sync cycle.
+     */
+    private void ensureDynamicShortcutSlot(ShortcutManager manager) {
+        try {
+            List<ShortcutInfo> currentDynamic = manager.getDynamicShortcuts();
+            int maxDynamic = manager.getMaxShortcutCountPerActivity();
+
+            android.util.Log.d("ShortcutPlugin", "Dynamic pool: " + currentDynamic.size() + 
+                "/" + maxDynamic + " slots used");
+
+            if (currentDynamic.size() >= maxDynamic) {
+                // Pool is full — evict the oldest pinned-but-dynamic shortcut
+                // (it doesn't need the shadow anymore since it's already pinned)
+                evictOldestDynamicShortcut(manager);
+            }
+        } catch (Exception e) {
+            android.util.Log.w("ShortcutPlugin", "ensureDynamicShortcutSlot error: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Remove the oldest dynamic shortcut that is already pinned.
+     * If no pinned dynamic shortcuts exist, remove the oldest dynamic shortcut regardless.
+     */
+    private void evictOldestDynamicShortcut(ShortcutManager manager) {
+        try {
+            List<ShortcutInfo> currentDynamic = manager.getDynamicShortcuts();
+            if (currentDynamic.isEmpty()) return;
+
+            // Prefer evicting shortcuts that are already pinned (they don't need the shadow)
+            String toEvict = null;
+            for (ShortcutInfo info : currentDynamic) {
+                if (info.isPinned()) {
+                    toEvict = info.getId();
+                    break; // Take the first one (oldest in list order)
+                }
+            }
+
+            // If no pinned shortcuts to evict, evict the first dynamic shortcut
+            if (toEvict == null) {
+                toEvict = currentDynamic.get(0).getId();
+            }
+
+            manager.removeDynamicShortcuts(Collections.singletonList(toEvict));
+            android.util.Log.d("ShortcutPlugin", "Evicted dynamic shortcut to make room: " + toEvict);
+        } catch (Exception e) {
+            android.util.Log.w("ShortcutPlugin", "evictOldestDynamicShortcut error: " + e.getMessage());
+        }
     }
 }
