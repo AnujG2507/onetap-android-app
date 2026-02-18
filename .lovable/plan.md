@@ -1,86 +1,97 @@
 
 
-# Fix: All Pages Blank When Zoomed In Above 1x
+# Fix: Cannot Pan to Right Edge of PDF When Zoomed
 
 ## Root Cause
 
-At zoom > 1x, `renderPage` creates bitmaps at full zoomed resolution (`screenWidth * zoom`). For example on a 1080p screen at 2.5x zoom, a single page bitmap is approximately 2700 x 3800 pixels = **41MB ARGB**. The bitmap cache is `maxMemory / 8`, which on a typical 256MB heap is only **32MB total**.
+The pan clamping in `clampScrollAndPan` uses a symmetric range centered at zero:
 
-Result: a single page bitmap exceeds the entire cache capacity. When `bitmapCache.put(key, bitmap)` is called, `LruCache` inserts it, then immediately calls `trimToSize()` which evicts it (and everything else) because the single entry exceeds `maxSize`. The bitmap is gone before `postInvalidate()` even runs.
+```text
+maxPan = (pageW - viewW) / 2
+panX clamped to [-maxPan, +maxPan]
+```
 
-The `entryRemoved` eviction protection then fires and schedules a re-render for the evicted visible page, which renders again, puts it in cache, gets immediately evicted again -- creating an infinite render-evict loop that never produces a visible frame.
+But in `onDraw`, `screenLeft = panX` directly (line 1279). This means:
+- At `panX = +maxPan`: the page shifts right, its left edge becomes visible (gap on left) -- this is what the user sees
+- At `panX = -maxPan`: the page shifts left, but only by half the overflow -- the right edge is at `(pageW + viewW) / 2`, which is STILL beyond the view width. The right boundary is unreachable.
 
-The "split second" of content seen during scrolling is when `findBestBitmap` briefly finds a stale lower-zoom bitmap through the `pageKeyIndex` fallback before that too gets evicted by incoming zoomed renders.
+The correct range for `panX` (which IS `screenLeft`) should be `[-(pageW - viewW), 0]`:
+- `panX = 0`: page starts at x=0, left edge visible
+- `panX = -(pageW - viewW)`: page right edge aligns with view right edge, right boundary visible
 
-## Fix: Cap Render Resolution to Fit Cache Budget
+Both boundaries become reachable, and the total pan distance is the same.
 
-Instead of rendering bitmaps at the full zoomed pixel resolution, cap the render resolution so that each page bitmap fits within a fraction of the cache. The Canvas will upscale the bitmap when drawing, which is what every major PDF viewer does (Google Drive, Adobe Reader all render at a capped resolution and let the GPU scale).
+## Fix
 
-### Change 1: Add render resolution cap based on cache budget
+### Change 1: Fix `clampScrollAndPan` (line 1596-1602)
 
-**File:** `NativePdfViewerV2Activity.java`
+Replace the symmetric clamping:
 
-Add a method `getMaxRenderScale()` that calculates the maximum render scale so that a single page bitmap never exceeds `cacheMaxSize / 6` (guaranteeing at least 6 pages fit in cache at any zoom level).
+```java
+// BEFORE (wrong - symmetric around 0)
+float maxPan = (screenWidth * zoomLevel - getWidth()) / 2f;
+if (maxPan < 0) maxPan = 0;
+panX = Math.max(-maxPan, Math.min(maxPan, panX));
 
-In `renderPage`, after computing `bmpW` and `bmpH`, apply this cap BEFORE `getSafeBitmapDimensions`. This ensures:
-- At zoom 1.0x: typical page is ~1080x1400 = ~6MB -- fits fine, no capping
-- At zoom 2.5x: would be ~2700x3500 = ~38MB -- capped down to ~1600x2100 = ~13MB (fits 2-3 per cache)
-- Canvas upscaling handles the visual zoom -- slightly less crisp at extreme zoom but never blank
+// AFTER (correct - full range from left-edge-visible to right-edge-visible)
+float overflow = screenWidth * zoomLevel - getWidth();
+if (overflow < 0) overflow = 0;
+panX = Math.max(-overflow, Math.min(0, panX));
+```
 
-### Change 2: Guard entryRemoved to prevent re-render loops
+### Change 2: Fix `getMaxPanX` (line 1605-1609)
 
-**File:** `NativePdfViewerV2Activity.java`
+This is used for fling bounds. Update to match the new asymmetric range:
 
-The current `entryRemoved` override schedules a re-render when a visible page is evicted. But if the bitmap is too large for the cache, this creates an infinite loop. Add a guard:
-- Track whether a re-render was already triggered for a given page within the last 500ms
-- If the same page gets evicted again within that window, skip the re-render (the bitmap simply cannot fit in cache at this resolution)
+```java
+// BEFORE
+float maxPan = (screenWidth * zoomLevel - getWidth()) / 2f;
+return Math.max(0, (int) maxPan);
 
-### Change 3: Increase cache size for zoomed state
+// AFTER - return the full overflow
+float overflow = screenWidth * zoomLevel - getWidth();
+return Math.max(0, (int) overflow);
+```
 
-**File:** `NativePdfViewerV2Activity.java`
+### Change 3: Fix fling bounds (line 1152-1155)
 
-Change cache from `maxMemory / 8` to `maxMemory / 5`. This gives more headroom for zoomed bitmaps while still being safe on memory. On a 256MB heap, this increases cache from 32MB to 51MB.
+The fling uses `-panX` as current X position. With the new range `panX in [-overflow, 0]`, `-panX` ranges from `[0, overflow]`. So the fling X bounds should be `[0, getMaxPanX()]`:
+
+```java
+// BEFORE
+-getMaxPanX(), getMaxPanX(),
+
+// AFTER
+0, getMaxPanX(),
+```
+
+### Change 4: Adjust initial pan position for zoom gestures
+
+When zooming in via pinch (line 1083) or double-tap, the initial `panX` calculation may need to be offset so the centered position is `-(overflow)/2` instead of `0`. Review the pinch and double-tap zoom code to ensure the initial pan is within the new valid range (the existing `clampScrollAndPan()` call after setting panX will handle this automatically).
 
 ## Technical Details
 
 ### File Modified
 - `native/android/app/src/main/java/app/onetap/access/NativePdfViewerV2Activity.java`
 
-### Specific Changes
+### Lines Changed
+| Location | Change |
+|----------|--------|
+| Lines 1596-1602 (`clampScrollAndPan`) | Symmetric range to `[-overflow, 0]` |
+| Lines 1605-1609 (`getMaxPanX`) | Return full overflow instead of half |
+| Lines 1152-1155 (fling bounds) | Change from `[-max, max]` to `[0, max]` |
 
-1. **New field** `cacheMaxBytes` -- store the cache capacity in bytes for budget calculation
-
-2. **New method** `getMaxRenderScale(int pageWidth, int pageHeight)` -- returns the maximum pixel scale factor such that `pageW * pageH * 4 <= cacheMaxBytes / 6`. Returns `Float.MAX_VALUE` if no capping needed.
-
-3. **Modify `renderPage`** (lines 427-436): After computing `bmpW`/`bmpH` from `baseScale * targetZoom`, apply:
-   ```
-   float maxScale = getMaxRenderScale(pageWidth, pageHeight);
-   if (scale > maxScale) { scale = maxScale; bmpW/bmpH recalculated }
-   ```
-   Then pass through existing `getSafeBitmapDimensions`.
-
-4. **Modify cache init** (line 159): Change `/8` to `/5` for larger cache budget.
-
-5. **Add re-render throttle map** `ConcurrentHashMap<Integer, Long> evictReRenderTimes` to `entryRemoved`:
-   - Before scheduling re-render, check if this page was re-rendered within the last 500ms
-   - If yes, skip (prevents infinite loop)
-   - If no, update timestamp and schedule
-
-### What This Does NOT Change
-- Drawing logic in `onDraw` -- Canvas already scales bitmaps to screen size via `drawBitmap(bmp, null, drawRect, paint)`, so capped-resolution bitmaps are upscaled automatically
-- Zoom level tracking, gesture handling, panning -- all unchanged
-- Cache key structure -- still uses zoom bucket, so different zoom levels have different keys
-
-### Visual Impact
-- At zoom 1.0x-1.5x: no difference (bitmaps already fit in cache)
-- At zoom 1.5x-3.0x: very slightly less crisp text (rendered at ~1.5x resolution, displayed at 2-3x) but pages are always visible
-- At zoom 3.0x-5.0x: noticeable softness but fully functional (same behavior as Google Drive)
-- All zoom levels: pages NEVER go blank
+### Why This Works
+- `panX = 0` means page left edge at screen left edge (left boundary visible)
+- `panX = -overflow` means page right edge at screen right edge (right boundary visible)
+- `panX = -overflow/2` means page centered (current default position during zoom)
+- `clampScrollAndPan()` is called after every pan/zoom/fling update, so all code paths are automatically corrected
+- Canvas drawing uses `screenLeft = panX` directly, so no drawing changes needed
 
 ### Testing Checklist
-- Open a PDF and double-tap to zoom to 2.5x -- all visible pages should remain visible (not blank)
-- Pinch zoom to 4x or 5x -- pages should be slightly soft but never blank
-- Scroll while zoomed in -- pages should remain rendered, never flash blank
-- Zoom back to 1.0x -- pages should re-render at full crispness
-- Open a 50+ page PDF at zoom 1.0x -- verify no regression in normal scroll performance
-
+- Zoom in to 2.5x, pan left -- left boundary of page should be visible
+- Pan right -- right boundary of page should be visible (the fix)
+- Both boundaries should feel symmetric in behavior
+- Fling horizontally while zoomed -- should work in both directions and stop at boundaries
+- Double-tap zoom -- page should center correctly on tap point
+- Pinch zoom -- focal point should remain stable
