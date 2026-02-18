@@ -1,84 +1,92 @@
 
 
-# Permanent Fix for Bottom CTA Overlap on Android
+# Fix: Single Image Shortcut Not Loading on Subsequent Taps
 
-## Summary
+## Root Cause
 
-A two-part fix: (1) disable edge-to-edge at the native layer so the WebView never renders behind the nav bar, and (2) replace the CSS inset logic with a clean contract using a renamed variable `--android-safe-bottom` with a 24px minimum fallback.
+There are two bugs working together:
 
-## Changes
+### Bug 1: Event listener is on the wrong component
 
-### File 1: `native/android/app/src/main/java/app/onetap/access/MainActivity.java`
+The `onetap:open-slideshow` event listener lives exclusively in `Index.tsx` (line 140-149). When the user taps a shortcut while already viewing a slideshow, they are on the `/slideshow/:id` route -- `Index.tsx` is unmounted, so the event is never received. The deep link fires into the void.
 
-**Add import:**
-```java
-import androidx.core.view.WindowCompat;
-```
+### Bug 2: Same-route navigation is a no-op
 
-**In `onCreate`, before `super.onCreate()`:**
-```java
-// Disable edge-to-edge: system resizes the WebView to exclude nav bar.
-// This is the single most important line -- it prevents content from
-// rendering behind the navigation bar on ALL Android devices.
-WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
-```
+Even if the event were received, calling `navigate('/slideshow/same-id')` with the same shortcut ID does not remount the component. React Router sees identical params and skips re-rendering.
 
-**Replace `setupNavBarInsetInjection`** to:
-1. Read BOTH `navigationBars()` and `systemGestures()` bottom insets
-2. Take the `max` of both (covers gesture pill + 3-button nav)
-3. Apply a 24px CSS minimum floor
-4. Inject as `--android-safe-bottom` (renamed for clarity)
-5. Inject a 24px default IMMEDIATELY (synchronously) before the inset listener fires, so the first paint already has safe spacing
+## Fix
 
-### File 2: `src/index.css`
+### Change 1: Move the slideshow deep link listener to `App.tsx` (always mounted)
 
-**Replace `.safe-bottom`:**
-```css
-.safe-bottom {
-  padding-bottom: calc(var(--android-safe-bottom, 24px));
-}
-```
+Instead of handling the `onetap:open-slideshow` event only in `Index.tsx`, handle it at the App level where the router lives. This ensures the listener is always active regardless of which route the user is on.
 
-**Replace `.safe-bottom-action`:**
-```css
-.safe-bottom-action {
-  padding-bottom: calc(var(--android-safe-bottom, 24px) + 16px);
-}
-```
+- Remove the slideshow event listener from `Index.tsx`
+- Create a small `SlideshowDeepLinkHandler` component inside `App.tsx` that:
+  - Listens for `onetap:open-slideshow` events
+  - Uses `useNavigate` to route to the slideshow
+  - Appends a cache-busting timestamp query param (`?t=...`) to force React Router to treat it as a new navigation, which remounts the `SlideshowViewer` component
 
-No `env()`, no `max()` chains, no conditional logic. The native layer is the single source of truth; 24px is the absolute minimum touch-safe fallback for web-only contexts.
+### Change 2: Force remount on repeated navigation to same slideshow
 
-## Why This Works
+In `SlideshowViewer.tsx`, use `searchParams` (already imported but unused for this purpose) so that a change in `?t=` query param triggers a fresh load cycle. Since `AnimatePresence` and state are all keyed on component mount, a forced remount via the timestamp param is sufficient.
 
-| Problem | Solution |
-|---------|----------|
-| WebView renders behind nav bar | `setDecorFitsSystemWindows(window, true)` resizes WebView to exclude it |
-| `env(safe-area-inset-bottom)` returns 0 on Android | Removed entirely; not used |
-| Gesture nav reports near-zero inset | `systemGestures()` bottom inset is also read and max'd |
-| CSS variable injected too late (race) | Default 24px injected synchronously before WebView loads; real value overrides |
-| OEM variance | `WindowInsetsCompat` abstracts all OEM differences |
+Alternatively (and more cleanly), use `useLocation().key` as a React `key` on the viewer wrapper to force remount whenever navigation occurs, even to the same path.
 
-## Components Affected (No Changes Needed)
+### Change 3: Reset state properly when shortcutId changes
 
-These components already use `.safe-bottom` or `.safe-bottom-action` and will automatically benefit:
-- `BottomNav.tsx` -- uses `safe-bottom`
-- `ShortcutCustomizer.tsx` -- uses `safe-bottom-action`
-- `UrlInput.tsx` -- uses `safe-bottom-action`
-- `SlideshowCustomizer.tsx` -- uses `safe-bottom-action`
-- `ContactShortcutCustomizer.tsx` -- uses `safe-bottom-action`
+As a safety net, ensure `SlideshowViewer` resets all image state (`convertedUrls`, `imageLoadStates`, `images`, `thumbnails`) when `shortcutId` changes. Currently the `images` useEffect (line 84) does reset `imageLoadStates`, but `convertedUrls` is only set additively -- it is never cleared. On a re-navigation, stale converted URLs from the previous session could persist.
 
 ## Files Modified
 
 | File | Change |
 |------|--------|
-| `MainActivity.java` | Add `WindowCompat.setDecorFitsSystemWindows`, rewrite inset injection |
-| `src/index.css` | Simplify `.safe-bottom` and `.safe-bottom-action` to use `--android-safe-bottom` with 24px fallback |
+| `src/App.tsx` | Add `SlideshowDeepLinkHandler` component inside `BrowserRouter` that listens for `onetap:open-slideshow` and navigates with a timestamp param |
+| `src/pages/Index.tsx` | Remove the `onetap:open-slideshow` event listener (lines 139-149) |
+| `src/pages/SlideshowViewer.tsx` | Clear `convertedUrls` and `imageLoadStates` when `shortcutId` changes; optionally key the component on `location.key` for forced remount |
 
-## Testing Checklist
+## Technical Detail
 
-- Pixel emulator, gesture navigation: CTA fully visible, no overlap
-- Pixel emulator, 3-button navigation: CTA above nav buttons
-- Samsung One UI gestures: no overlap
-- First render: no layout jump (24px default prevents flash)
-- Web preview (no Android): 24px fallback provides minimum spacing
+### `App.tsx` -- new handler component
+
+```typescript
+function SlideshowDeepLinkHandler() {
+  const navigate = useNavigate();
+  useEffect(() => {
+    const handler = (event: CustomEvent<{ slideshowId: string }>) => {
+      const { slideshowId } = event.detail;
+      // Timestamp forces React Router to treat as new navigation
+      navigate(`/slideshow/${slideshowId}?t=${Date.now()}`, { replace: true });
+    };
+    window.addEventListener('onetap:open-slideshow', handler as EventListener);
+    return () => window.removeEventListener('onetap:open-slideshow', handler as EventListener);
+  }, [navigate]);
+  return null;
+}
+```
+
+This component renders nothing but is always mounted inside `BrowserRouter`, so it can always receive events and navigate.
+
+### `SlideshowViewer.tsx` -- state reset
+
+Add `convertedUrls` and `imageLoadStates` clearing at the top of the shortcut-loading `useEffect`:
+
+```typescript
+useEffect(() => {
+  // Reset all image state for clean load
+  setConvertedUrls(new Map());
+  setImageLoadStates(new Map());
+  setImages([]);
+  setThumbnails([]);
+  setCurrentIndex(0);
+  setIsLoading(true);
+  // ... rest of existing logic
+}, [shortcutId, getShortcut]);
+```
+
+## Why This Works
+
+- The listener is now always active (App-level, always mounted)
+- The `?t=` param ensures React Router treats every tap as a fresh navigation
+- State is fully reset on each load, preventing stale converted URLs or load states
+- No changes needed to native Android code or deep link format
 
