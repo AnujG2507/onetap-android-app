@@ -4190,6 +4190,11 @@ public class ShortcutPlugin extends Plugin {
             android.util.Log.w("ShortcutPlugin", "getPinnedShortcutIds: API " + Build.VERSION.SDK_INT + " < 31, returning empty");
             JSObject result = new JSObject();
             result.put("ids", new JSArray());
+            result.put("registeredIds", new JSArray());
+            result.put("recentlyCreatedIds", new JSArray());
+            result.put("dynamicCount", -1);
+            result.put("maxDynamic", -1);
+            result.put("manufacturer", Build.MANUFACTURER);
             call.resolve(result);
             return;
         }
@@ -4200,6 +4205,11 @@ public class ShortcutPlugin extends Plugin {
                 android.util.Log.w("ShortcutPlugin", "getPinnedShortcutIds: context is null");
                 JSObject result = new JSObject();
                 result.put("ids", new JSArray());
+                result.put("registeredIds", new JSArray());
+                result.put("recentlyCreatedIds", new JSArray());
+                result.put("dynamicCount", -1);
+                result.put("maxDynamic", -1);
+                result.put("manufacturer", Build.MANUFACTURER);
                 call.resolve(result);
                 return;
             }
@@ -4209,6 +4219,11 @@ public class ShortcutPlugin extends Plugin {
                 android.util.Log.w("ShortcutPlugin", "getPinnedShortcutIds: ShortcutManager is null");
                 JSObject result = new JSObject();
                 result.put("ids", new JSArray());
+                result.put("registeredIds", new JSArray());
+                result.put("recentlyCreatedIds", new JSArray());
+                result.put("dynamicCount", -1);
+                result.put("maxDynamic", -1);
+                result.put("manufacturer", Build.MANUFACTURER);
                 call.resolve(result);
                 return;
             }
@@ -4257,9 +4272,18 @@ public class ShortcutPlugin extends Plugin {
             }
             
             // Clean up orphaned dynamic shortcuts (dynamic but no longer pinned)
+            // BUT protect recently-created shortcuts still in cooldown window
+            SharedPreferences registryPrefs = context.getSharedPreferences(REGISTRY_PREFS, Context.MODE_PRIVATE);
+            long nowMs = System.currentTimeMillis();
             List<String> orphanDynamicIds = new ArrayList<>();
             for (ShortcutInfo dynInfo : dynamicShortcuts) {
                 if (!dynInfo.isPinned()) {
+                    // Check if this shortcut is in the creation cooldown window
+                    long createdAt = registryPrefs.getLong(dynInfo.getId(), 0);
+                    if (createdAt > 0 && (nowMs - createdAt) < CREATION_COOLDOWN_MS) {
+                        android.util.Log.d("ShortcutPlugin", "Skipping orphan cleanup for recently-created shortcut: " + dynInfo.getId());
+                        continue;
+                    }
                     orphanDynamicIds.add(dynInfo.getId());
                 }
             }
@@ -4525,12 +4549,16 @@ public class ShortcutPlugin extends Plugin {
             ensureDynamicShortcutSlot(manager);
             try {
                 manager.addDynamicShortcuts(shortcutsToUpdate);
+                // Refresh registry timestamp to protect from eviction
+                registerShortcutCreation(shortcutId);
                 android.util.Log.d("ShortcutPlugin", "Pushed updated shadow dynamic shortcut: " + shortcutId);
             } catch (Exception dynEx) {
                 android.util.Log.w("ShortcutPlugin", "Failed to update dynamic shortcut: " + dynEx.getMessage());
                 try {
                     evictOldestDynamicShortcut(manager);
                     manager.addDynamicShortcuts(shortcutsToUpdate);
+                    // Refresh registry timestamp to protect from eviction
+                    registerShortcutCreation(shortcutId);
                     android.util.Log.d("ShortcutPlugin", "Shadow dynamic shortcut updated after eviction: " + shortcutId);
                 } catch (Exception retryEx) {
                     android.util.Log.e("ShortcutPlugin", "Shadow update failed even after eviction: " + retryEx.getMessage());
@@ -4862,6 +4890,73 @@ public class ShortcutPlugin extends Plugin {
         result.put("success", true);
         call.resolve(result);
     }
+
+    /**
+     * Clean up the creation registry by removing entries that are:
+     * 1. NOT in the OS pinned set (confirmed unpinned)
+     * 2. Older than the cooldown period (not recently created)
+     * Called from JS after successful reconciliation with ids.length > 0.
+     */
+    @PluginMethod
+    public void cleanupRegistry(PluginCall call) {
+        try {
+            JSArray confirmedIdsArray = call.getArray("confirmedIds");
+            if (confirmedIdsArray == null) {
+                JSObject result = new JSObject();
+                result.put("success", false);
+                result.put("error", "confirmedIds is required");
+                call.resolve(result);
+                return;
+            }
+
+            Context ctx = getContext();
+            if (ctx == null) {
+                JSObject result = new JSObject();
+                result.put("success", true);
+                result.put("pruned", 0);
+                call.resolve(result);
+                return;
+            }
+
+            // Build confirmed set
+            Set<String> confirmedSet = new HashSet<>();
+            for (int i = 0; i < confirmedIdsArray.length(); i++) {
+                confirmedSet.add(confirmedIdsArray.getString(i));
+            }
+
+            SharedPreferences prefs = ctx.getSharedPreferences(REGISTRY_PREFS, Context.MODE_PRIVATE);
+            Map<String, ?> allEntries = prefs.getAll();
+            long now = System.currentTimeMillis();
+            int pruned = 0;
+
+            SharedPreferences.Editor editor = prefs.edit();
+            for (Map.Entry<String, ?> entry : allEntries.entrySet()) {
+                String id = entry.getKey();
+                // Skip if confirmed pinned by OS
+                if (confirmedSet.contains(id)) continue;
+                // Skip if in cooldown window
+                long createdAt = entry.getValue() instanceof Long ? (Long) entry.getValue() : 0;
+                if (createdAt > 0 && (now - createdAt) < CREATION_COOLDOWN_MS) continue;
+                // Prune: not pinned and not recently created
+                editor.remove(id);
+                pruned++;
+            }
+            editor.apply();
+
+            android.util.Log.d("ShortcutPlugin", "cleanupRegistry: pruned " + pruned + " stale entries, " +
+                (allEntries.size() - pruned) + " remaining");
+
+            JSObject result = new JSObject();
+            result.put("success", true);
+            result.put("pruned", pruned);
+            call.resolve(result);
+        } catch (Exception e) {
+            android.util.Log.e("ShortcutPlugin", "cleanupRegistry error: " + e.getMessage());
+            JSObject result = new JSObject();
+            result.put("success", false);
+            result.put("error", e.getMessage());
+            call.resolve(result);
+        }
     }
 
     // ========== Dynamic Shortcut Pool Management ==========

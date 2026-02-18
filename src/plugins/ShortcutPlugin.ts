@@ -366,6 +366,10 @@ export interface ShortcutPluginInterface {
 
   // Clear persisted crash logs.
   clearCrashLogs(): Promise<{ success: boolean }>;
+
+  // Clean up stale entries from the creation registry.
+  // Called after successful sync when OS returned >0 pinned IDs.
+  cleanupRegistry(options: { confirmedIds: string[] }): Promise<{ success: boolean; pruned?: number; error?: string }>;
 }
 
 // This plugin bridges to native Android code

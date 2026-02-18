@@ -91,6 +91,18 @@ export function useShortcuts() {
       } else {
         setShortcuts(currentShortcuts);
       }
+
+      // Registry self-cleaning: prune stale entries when OS returned >0 pinned IDs
+      if (ids.length > 0) {
+        try {
+          const cleanupResult = await ShortcutPlugin.cleanupRegistry({ confirmedIds: ids });
+          if (cleanupResult.pruned && cleanupResult.pruned > 0) {
+            console.log(`[useShortcuts] Registry cleanup: pruned ${cleanupResult.pruned} stale entries`);
+          }
+        } catch (cleanupError) {
+          console.warn('[useShortcuts] Registry cleanup failed:', cleanupError);
+        }
+      }
     } catch (error) {
       console.warn('[useShortcuts] Sync failed:', error);
     }
