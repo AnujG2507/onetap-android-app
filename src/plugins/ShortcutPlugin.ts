@@ -275,8 +275,13 @@ export interface ShortcutPluginInterface {
   // ========== Home Screen Sync ==========
 
   // Get IDs of shortcuts currently pinned on the home screen
-  // Used to sync app storage with actual home screen state
-  getPinnedShortcutIds(): Promise<{ ids: string[] }>;
+  // Also returns diagnostic info for sync decision-making
+  getPinnedShortcutIds(): Promise<{ 
+    ids: string[];
+    dynamicCount: number;   // Current dynamic shortcut count (after orphan cleanup)
+    maxDynamic: number;     // Max dynamic shortcuts allowed by OS
+    manufacturer: string;   // Device manufacturer for OEM-specific debugging
+  }>;
 
   // Disable and remove a pinned shortcut from the home screen
   // Called when deleting a shortcut from the app
