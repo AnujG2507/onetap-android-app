@@ -568,4 +568,9 @@ export class ShortcutPluginWeb implements ShortcutPluginInterface {
     console.log('[ShortcutPluginWeb] clearCrashLogs called (web fallback)');
     return { success: true };
   }
+
+  async cleanupRegistry(_options: { confirmedIds: string[] }): Promise<{ success: boolean; pruned?: number; error?: string }> {
+    console.log('[ShortcutPluginWeb] cleanupRegistry called (web fallback)');
+    return { success: true, pruned: 0 };
+  }
 }
