@@ -7,6 +7,7 @@ import android.util.Log;
 import android.view.View;
 import android.webkit.WebView;
 import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import com.getcapacitor.BridgeActivity;
 import app.onetap.access.plugins.ShortcutPlugin;
@@ -25,6 +26,11 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         // Register the ShortcutPlugin BEFORE calling super.onCreate()
         registerPlugin(ShortcutPlugin.class);
+        
+        // Disable edge-to-edge: system resizes the WebView to exclude nav bar.
+        // Prevents content from rendering behind the navigation bar on ALL devices.
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
+        
         super.onCreate(savedInstanceState);
         
         // Initialize crash logger early with application context
@@ -129,26 +135,30 @@ public class MainActivity extends BridgeActivity {
     }
     
     /**
-     * Set up a WindowInsets listener on the WebView to detect the actual
-     * navigation bar height and inject it as a CSS custom property.
-     * Works for both 3-button nav (~48dp) and gesture nav (~0dp).
+     * Inject --android-safe-bottom CSS variable into the WebView.
+     * Reads both navigationBars and systemGestures insets, takes the max,
+     * and applies a 24px CSS minimum floor for touch safety.
      */
     private void setupNavBarInsetInjection() {
-        // Wait for the bridge/WebView to be ready
         getBridge().getWebView().post(() -> {
             WebView webView = getBridge().getWebView();
             float density = getResources().getDisplayMetrics().density;
             
+            // Inject 24px default synchronously before inset listener fires
+            webView.evaluateJavascript(
+                "document.documentElement.style.setProperty('--android-safe-bottom', '24px')", null);
+            
             ViewCompat.setOnApplyWindowInsetsListener(webView, (view, insets) -> {
-                int navBarHeight = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom;
-                float cssPx = navBarHeight / density;
-                String js = "document.documentElement.style.setProperty('--android-nav-height', '" + cssPx + "px')";
+                int navBottom = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom;
+                int gestureBottom = insets.getInsets(WindowInsetsCompat.Type.systemGestures()).bottom;
+                int safeBottom = Math.max(navBottom, gestureBottom);
+                float cssPx = Math.max(24f, safeBottom / density);
+                String js = "document.documentElement.style.setProperty('--android-safe-bottom', '" + cssPx + "px')";
                 webView.evaluateJavascript(js, null);
-                Log.d(TAG, "Injected --android-nav-height: " + cssPx + "px (raw: " + navBarHeight + "px, density: " + density + ")");
+                Log.d(TAG, "Injected --android-safe-bottom: " + cssPx + "px (nav: " + navBottom + ", gesture: " + gestureBottom + ", density: " + density + ")");
                 return ViewCompat.onApplyWindowInsets(view, insets);
             });
             
-            // Trigger initial inset application
             webView.requestApplyInsets();
         });
     }

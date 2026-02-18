@@ -100,12 +100,9 @@ All colors MUST be HSL.
     touch-action: manipulation;
   }
 
-  /* Safe area for Android navigation */
+  /* Safe area for Android navigation — single source of truth */
   .safe-bottom {
-    padding-bottom: max(
-      var(--android-nav-height, 0px),
-      env(safe-area-inset-bottom, 0px)
-    );
+    padding-bottom: var(--android-safe-bottom, 24px);
   }
 
   /* Safe area for Android status bar */
@@ -113,13 +110,9 @@ All colors MUST be HSL.
     padding-top: env(safe-area-inset-top, 0px);
   }
 
-  /* Safe area for action buttons outside bottom nav — 16px minimum floor */
+  /* Safe area for action buttons — extra 16px above nav clearance */
   .safe-bottom-action {
-    padding-bottom: max(
-      var(--android-nav-height, 0px),
-      env(safe-area-inset-bottom, 0px),
-      16px
-    );
+    padding-bottom: calc(var(--android-safe-bottom, 24px) + 16px);
   }
 
   /* Header-safe utilities: combines safe area + visual padding */
