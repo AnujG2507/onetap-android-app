@@ -622,16 +622,9 @@ public class NativePdfViewerV2Activity extends Activity {
         closeButton.setOnClickListener(v -> exitViewer());
         topBar.addView(closeButton);
 
-        // Page indicator (center)
+        // Page indicator (hidden from header, used only for internal tracking)
         pageIndicator = new TextView(this);
-        pageIndicator.setTextColor(0xDEFFFFFF);
-        pageIndicator.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
-        pageIndicator.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        FrameLayout.LayoutParams piP = new FrameLayout.LayoutParams(
-            ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        piP.gravity = Gravity.CENTER;
-        pageIndicator.setLayoutParams(piP);
-        topBar.addView(pageIndicator);
+        pageIndicator.setVisibility(View.GONE);
 
         // Title (left of center, after close button)
         if (pdfTitle != null && !pdfTitle.isEmpty()) {
@@ -642,17 +635,14 @@ public class NativePdfViewerV2Activity extends Activity {
             titleView.setTypeface(Typeface.DEFAULT, Typeface.NORMAL);
             titleView.setSingleLine(true);
             titleView.setEllipsize(android.text.TextUtils.TruncateAt.END);
-            titleView.setMaxWidth(screenWidth - dpToPx(160));
+            // Reserve space for close btn (48) + gap (4) + share btn (48) + open-with btn (48) + padding (24)
+            titleView.setMaxWidth(screenWidth - dpToPx(180));
             FrameLayout.LayoutParams tp = new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
             tp.gravity = Gravity.START | Gravity.CENTER_VERTICAL;
             tp.leftMargin = btnSize + dpToPx(4);
             titleView.setLayoutParams(tp);
             topBar.addView(titleView);
-            // Move page indicator to end
-            piP.gravity = Gravity.END | Gravity.CENTER_VERTICAL;
-            piP.rightMargin = btnSize + dpToPx(8);
-            pageIndicator.setLayoutParams(piP);
         }
 
         // Share button
