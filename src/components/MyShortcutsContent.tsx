@@ -521,6 +521,17 @@ export function MyShortcutsContent({ onCreateReminder, onRefresh, isSyncing: ext
   const handleSaveEdit = useCallback(async (id: string, updates: Parameters<typeof updateShortcut>[1]) => {
     return await updateShortcut(id, updates);
   }, [updateShortcut]);
+
+  // Handler for re-adding shortcut to home screen
+  const handleReAddToHomeScreen = useCallback(async (shortcut: ShortcutData) => {
+    const success = await createHomeScreenShortcut(shortcut, {
+      fileData: shortcut.thumbnailData,
+      thumbnailData: shortcut.thumbnailData,
+    });
+    if (success) {
+      toast.success(t('shortcutAction.addedToHomeScreen', 'Added to home screen'));
+    }
+  }, [t]);
   
   const handleReconnect = useCallback(async (shortcut: ShortcutData) => {
     setSelectedShortcut(null);
@@ -746,6 +757,7 @@ export function MyShortcutsContent({ onCreateReminder, onRefresh, isSyncing: ext
         isOpen={!!editingShortcut}
         onClose={() => setEditingShortcut(null)}
         onSave={handleSaveEdit}
+        onReAddToHomeScreen={handleReAddToHomeScreen}
       />
     </>
   );
