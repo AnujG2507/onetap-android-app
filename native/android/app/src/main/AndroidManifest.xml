@@ -194,6 +194,13 @@
             android:exported="false"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden" />
 
+        <!-- Native PDF viewer V2 (parallel implementation — single custom View architecture) -->
+        <activity
+            android:name=".NativePdfViewerV2Activity"
+            android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden" />
+
         <!-- Desktop WebView Activity - custom WebView with User-Agent control -->
         <activity
             android:name=".DesktopWebViewActivity"
