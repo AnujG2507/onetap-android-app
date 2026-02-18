@@ -490,25 +490,58 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for the full guide.
 
 The app maintains a bidirectional sync between Android home screen shortcuts (via `ShortcutManager`) and the in-app "My Access Points" list (localStorage). This sync is **type-agnostic** — it works identically for all shortcut types (file, link, contact, message, slideshow).
 
-### Source of Truth: Reconciled Hybrid
+### Three-Source Reconciliation Model
 
-- **localStorage** is the primary data store (shortcut metadata, usage counts, creation order)
-- **ShortcutManager** is the pin-state oracle (is it still on the home screen?)
-- Reconciliation runs on every app foreground and corrects drift
+The sync uses three independent data sources to make bulletproof decisions:
+
+```
++-------------------+     +---------------------+     +------------------+
+| ShortcutManager   |     | SharedPreferences   |     | JS localStorage  |
+| (OS pin state)    |     | (creation registry) |     | (full metadata)  |
++-------------------+     +---------------------+     +------------------+
+        |                          |                          |
+        +----------+---------------+                          |
+                   |                                          |
+           getPinnedShortcutIds()                              |
+           returns ALL three sources                          |
+                   |                                          |
+                   +------------------------------------------+
+                                   |
+                          syncWithHomeScreen()
+                     uses smart reconciliation logic
+```
+
+- **ShortcutManager** — OS-level pin state (`getShortcuts(FLAG_MATCH_PINNED)`)
+- **Creation Registry** (`SharedPreferences: shortcut_creation_registry`) — Every shortcut ID ever created by the app, with creation timestamp
+- **localStorage** — Full shortcut metadata (name, icon, usage counts, etc.)
+
+### Native Shortcut Creation Registry
+
+A `SharedPreferences` store (`shortcut_creation_registry`) independently tracks every shortcut the app creates:
+- **Key**: shortcut ID
+- **Value**: creation timestamp (epoch millis)
+
+This registry serves as a secondary source of truth when `ShortcutManager` returns suspicious results (0 pinned IDs on Xiaomi/Huawei, race conditions during creation, third-party launcher state loss).
+
+**Lifecycle:**
+- `registerShortcutCreation(id)` — called immediately after `requestPinShortcut()` succeeds
+- `unregisterShortcut(id)` — called when a shortcut is explicitly deleted from the app
+- Registry self-cleans over time as the OS confirms shortcuts are no longer pinned
 
 ### Shadow Dynamic Registration
 
 Every pinned shortcut is also registered as a **dynamic shortcut** ("shadow registration"). This is required because `getShortcuts(FLAG_MATCH_PINNED)` on many OEM launchers (OnePlus, Xiaomi, OPPO, Vivo) only returns shortcuts that also have an active dynamic registration.
 
-### Dynamic Shortcut Pool Management
+### Dynamic Shortcut Pool Management (Timestamp-Based Eviction)
 
-Android imposes a **hard limit** on dynamic shortcuts per app (typically 4–15, varies by OEM). When this limit is exceeded, `addDynamicShortcuts()` throws `IllegalArgumentException` and the shadow registration fails silently. Without the shadow, the shortcut becomes invisible to `getPinnedShortcutIds()`, and the next sync cycle **deletes it from the app**.
+Android imposes a **hard limit** on dynamic shortcuts per app (typically 4–15, varies by OEM). The pool is managed with timestamp-based eviction:
 
-**Mitigation** (implemented in `ShortcutPlugin.java`):
-- Before every `addDynamicShortcuts()` call, the pool is checked via `ensureDynamicShortcutSlot()`
-- If at capacity, the oldest dynamic shortcut that is already confirmed as pinned is evicted (it no longer needs the shadow)
-- If eviction fails, a retry with aggressive eviction is attempted
-- The eviction logic is shared between `createPinnedShortcut` and `updatePinnedShortcut`
+1. Before every `addDynamicShortcuts()` call, `ensureDynamicShortcutSlot()` checks pool capacity
+2. If at capacity, `evictOldestDynamicShortcut()` runs:
+   - **Pass 1**: Evict the oldest pinned-but-dynamic shortcut outside the 10-second cooldown (it doesn't need the shadow anymore)
+   - **Pass 2**: Evict the oldest non-cooldown shortcut regardless of pin state
+   - **Never**: Evict a shortcut created within the last 10 seconds (cooldown protection)
+3. If eviction fails (all in cooldown), a retry with aggressive eviction is attempted
 
 ### Sync Triggers
 
@@ -518,12 +551,31 @@ Android imposes a **hard limit** on dynamic shortcuts per app (typically 4–15,
 | App resume | `useShortcuts.ts` | Calls `syncWithHomeScreen()` on `appStateChange(isActive)` |
 | Delete from app | `useShortcuts.ts` | Calls `disablePinnedShortcut()` then removes from localStorage |
 
-### Zero-ID Guard
+### Reconciliation Logic (`syncWithHomeScreen`)
 
-If the OS returns 0 pinned IDs but localStorage has shortcuts, the sync uses heuristics:
-- If `dynamicCount < 0` (error state): skip sync
-- If localStorage has >3 shortcuts: skip sync (likely API failure)
-- If localStorage has ≤3 shortcuts: proceed (user may have legitimately unpinned all)
+```
+1. Get OS pinned IDs + registry IDs + recently created IDs from native
+2. Build "confirmed pinned" set:
+   - Start with OS pinned IDs
+   - ADD any recently created IDs (created <10s ago, protected from race window)
+3. Zero-ID guard (cross-reference with registry):
+   - If OS returned 0 AND dynamicCount is -1 (error): skip sync entirely
+   - If OS returned 0 AND registry has >3 entries: skip sync (likely OEM API failure)
+   - If OS returned 0 AND registry has ≤3 entries: proceed (user may have removed all)
+4. Filter localStorage shortcuts against confirmed set
+5. Save filtered list (removing orphans)
+```
+
+### Failure Mode Coverage
+
+| Scenario | Protection |
+|----------|------------|
+| OEM returns 0 pinned (Xiaomi/Huawei) | Registry cross-reference blocks false deletion |
+| Sync runs 2s after shortcut creation | `recentlyCreatedIds` protects during cooldown |
+| Dynamic pool full, shadow fails | Timestamp eviction ensures slot; cooldown protects new entry |
+| Samsung 30s cache delay | Cooldown + registry prevent premature deletion |
+| Third-party launcher loses state | Registry preserves knowledge of creation |
+| User actually removes shortcut | OS confirms removal; shortcut filtered out on next sync |
 
 ### Things Android Will Never Tell Us
 

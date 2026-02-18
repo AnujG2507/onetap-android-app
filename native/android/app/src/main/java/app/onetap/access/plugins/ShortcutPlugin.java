@@ -133,8 +133,71 @@ public class ShortcutPlugin extends Plugin {
     
     // Legacy threshold for general file copying (5MB)
     private static final long FILE_SIZE_THRESHOLD = 5 * 1024 * 1024;
+
+    // Shortcut creation registry: tracks every shortcut ID we've ever created
+    // with its creation timestamp. Used as secondary source of truth when
+    // ShortcutManager returns unreliable data (OEM issues, race conditions).
+    private static final String REGISTRY_PREFS = "shortcut_creation_registry";
+    private static final long CREATION_COOLDOWN_MS = 10_000; // 10 seconds
     
     private PluginCall pendingPermissionCall;
+
+    // ========== Shortcut Creation Registry Methods ==========
+
+    /**
+     * Record that a shortcut was created at the current time.
+     * Called after successful requestPinShortcut().
+     */
+    private void registerShortcutCreation(String id) {
+        Context ctx = getContext();
+        if (ctx == null) return;
+        SharedPreferences prefs = ctx.getSharedPreferences(REGISTRY_PREFS, Context.MODE_PRIVATE);
+        prefs.edit().putLong(id, System.currentTimeMillis()).apply();
+        android.util.Log.d("ShortcutPlugin", "Registered shortcut creation: " + id);
+    }
+
+    /**
+     * Remove a shortcut from the creation registry.
+     * Called when a shortcut is explicitly deleted from the app.
+     */
+    private void unregisterShortcut(String id) {
+        Context ctx = getContext();
+        if (ctx == null) return;
+        SharedPreferences prefs = ctx.getSharedPreferences(REGISTRY_PREFS, Context.MODE_PRIVATE);
+        prefs.edit().remove(id).apply();
+        android.util.Log.d("ShortcutPlugin", "Unregistered shortcut: " + id);
+    }
+
+    /**
+     * Get all registered shortcut IDs from the creation registry.
+     */
+    private List<String> getRegisteredShortcutIds() {
+        Context ctx = getContext();
+        if (ctx == null) return new ArrayList<>();
+        SharedPreferences prefs = ctx.getSharedPreferences(REGISTRY_PREFS, Context.MODE_PRIVATE);
+        return new ArrayList<>(prefs.getAll().keySet());
+    }
+
+    /**
+     * Get IDs of shortcuts created within the cooldown period (last 10 seconds).
+     * These are protected from sync deletion to avoid race conditions.
+     */
+    private List<String> getRecentlyCreatedIds() {
+        Context ctx = getContext();
+        if (ctx == null) return new ArrayList<>();
+        SharedPreferences prefs = ctx.getSharedPreferences(REGISTRY_PREFS, Context.MODE_PRIVATE);
+        long now = System.currentTimeMillis();
+        List<String> recent = new ArrayList<>();
+        for (java.util.Map.Entry<String, ?> entry : prefs.getAll().entrySet()) {
+            if (entry.getValue() instanceof Long) {
+                long created = (Long) entry.getValue();
+                if (now - created < CREATION_COOLDOWN_MS) {
+                    recent.add(entry.getKey());
+                }
+            }
+        }
+        return recent;
+    }
 
     @PluginMethod
     public void createPinnedShortcut(PluginCall call) {
@@ -440,6 +503,10 @@ public class ShortcutPlugin extends Plugin {
                         // Also register as dynamic shortcut so OEM launchers (OnePlus, Xiaomi, OPPO, Vivo)
                         // can track pinned IDs via getShortcuts(FLAG_MATCH_PINNED)
                         if (requested) {
+                            // Register in creation registry FIRST (before shadow registration)
+                            // This protects the shortcut from sync deletion during the race window
+                            registerShortcutCreation(finalId);
+
                             ensureDynamicShortcutSlot(shortcutManager);
                             try {
                                 shortcutManager.addDynamicShortcuts(Collections.singletonList(finalShortcutInfo));
@@ -4208,8 +4275,26 @@ public class ShortcutPlugin extends Plugin {
                 ", actuallyPinned=" + actuallyPinned +
                 ", orphansCleaned=" + orphanDynamicIds.size());
 
+            // Get registry data for cross-reference
+            List<String> registeredIds = getRegisteredShortcutIds();
+            List<String> recentlyCreatedIds = getRecentlyCreatedIds();
+            
+            JSArray registeredIdsArray = new JSArray();
+            for (String regId : registeredIds) {
+                registeredIdsArray.put(regId);
+            }
+            JSArray recentIdsArray = new JSArray();
+            for (String recentId : recentlyCreatedIds) {
+                recentIdsArray.put(recentId);
+            }
+
+            android.util.Log.d("ShortcutPlugin", "Registry: " + registeredIds.size() + " total, " + 
+                recentlyCreatedIds.size() + " recently created (cooldown protected)");
+
             JSObject result = new JSObject();
             result.put("ids", ids);
+            result.put("registeredIds", registeredIdsArray);
+            result.put("recentlyCreatedIds", recentIdsArray);
             result.put("dynamicCount", dynamicShortcuts.size() - orphanDynamicIds.size());
             result.put("maxDynamic", manager.getMaxShortcutCountPerActivity());
             result.put("manufacturer", Build.MANUFACTURER);
@@ -4218,6 +4303,8 @@ public class ShortcutPlugin extends Plugin {
             android.util.Log.e("ShortcutPlugin", "Error getting pinned shortcuts: " + e.getMessage(), e);
             JSObject result = new JSObject();
             result.put("ids", new JSArray());
+            result.put("registeredIds", new JSArray());
+            result.put("recentlyCreatedIds", new JSArray());
             result.put("dynamicCount", -1);
             result.put("maxDynamic", -1);
             result.put("manufacturer", Build.MANUFACTURER);
@@ -4303,6 +4390,9 @@ public class ShortcutPlugin extends Plugin {
                     android.util.Log.w("ShortcutPlugin", "removeLongLivedShortcuts failed: " + e.getMessage());
                 }
             }
+
+            // Clean up creation registry
+            unregisterShortcut(shortcutId);
 
             JSObject result = new JSObject();
             result.put("success", true);
@@ -4814,22 +4904,44 @@ public class ShortcutPlugin extends Plugin {
             List<ShortcutInfo> currentDynamic = manager.getDynamicShortcuts();
             if (currentDynamic.isEmpty()) return;
 
-            // Prefer evicting shortcuts that are already pinned (they don't need the shadow)
-            String toEvict = null;
+            Context ctx = getContext();
+            SharedPreferences prefs = ctx != null 
+                ? ctx.getSharedPreferences(REGISTRY_PREFS, Context.MODE_PRIVATE) 
+                : null;
+            long now = System.currentTimeMillis();
+
+            String oldestId = null;
+            long oldestTime = Long.MAX_VALUE;
+
+            // Pass 1: Prefer evicting pinned shortcuts outside cooldown (they don't need shadow)
             for (ShortcutInfo info : currentDynamic) {
-                if (info.isPinned()) {
-                    toEvict = info.getId();
-                    break; // Take the first one (oldest in list order)
+                long created = prefs != null ? prefs.getLong(info.getId(), 0) : 0;
+                // Never evict shortcuts in cooldown period
+                if (now - created < CREATION_COOLDOWN_MS) continue;
+                if (info.isPinned() && created < oldestTime) {
+                    oldestId = info.getId();
+                    oldestTime = created;
                 }
             }
 
-            // If no pinned shortcuts to evict, evict the first dynamic shortcut
-            if (toEvict == null) {
-                toEvict = currentDynamic.get(0).getId();
+            // Pass 2: Fallback — oldest non-cooldown shortcut regardless of pin state
+            if (oldestId == null) {
+                for (ShortcutInfo info : currentDynamic) {
+                    long created = prefs != null ? prefs.getLong(info.getId(), 0) : 0;
+                    if (now - created < CREATION_COOLDOWN_MS) continue;
+                    if (created < oldestTime) {
+                        oldestId = info.getId();
+                        oldestTime = created;
+                    }
+                }
             }
 
-            manager.removeDynamicShortcuts(Collections.singletonList(toEvict));
-            android.util.Log.d("ShortcutPlugin", "Evicted dynamic shortcut to make room: " + toEvict);
+            if (oldestId != null) {
+                manager.removeDynamicShortcuts(Collections.singletonList(oldestId));
+                android.util.Log.d("ShortcutPlugin", "Evicted dynamic shortcut (timestamp-based): " + oldestId);
+            } else {
+                android.util.Log.w("ShortcutPlugin", "All dynamic shortcuts are in cooldown, cannot evict");
+            }
         } catch (Exception e) {
             android.util.Log.w("ShortcutPlugin", "evictOldestDynamicShortcut error: " + e.getMessage());
         }

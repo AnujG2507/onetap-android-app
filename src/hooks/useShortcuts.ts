@@ -52,38 +52,41 @@ export function useShortcuts() {
     if (!Capacitor.isNativePlatform()) return;
     
     try {
-      const { ids, dynamicCount, maxDynamic, manufacturer } = await ShortcutPlugin.getPinnedShortcutIds();
+      const { ids, registeredIds, recentlyCreatedIds, dynamicCount, maxDynamic, manufacturer } = await ShortcutPlugin.getPinnedShortcutIds();
       const stored = localStorage.getItem(STORAGE_KEY);
       const currentShortcuts: ShortcutData[] = stored ? JSON.parse(stored) : [];
       
-      console.log(`[useShortcuts] Sync: ${ids.length} pinned on OS, ${currentShortcuts.length} in storage, dynamic=${dynamicCount}/${maxDynamic}, mfr=${manufacturer}`);
+      if (currentShortcuts.length === 0) return; // Nothing to reconcile
       
-      // Improved zero-ID guard:
-      // If OS returns 0 pinned IDs but we have shortcuts locally, check diagnostics
+      console.log(`[useShortcuts] Sync: ${ids.length} pinned on OS, ${registeredIds.length} in registry, ${recentlyCreatedIds.length} recently created, ${currentShortcuts.length} in storage, dynamic=${dynamicCount}/${maxDynamic}, mfr=${manufacturer}`);
+      
+      // Build confirmed set: OS pinned IDs + recently created IDs (race protection)
+      const confirmed = new Set([...ids, ...recentlyCreatedIds]);
+      
+      // Zero-ID guard: cross-reference with registry
       if (ids.length === 0 && currentShortcuts.length > 0) {
-        // If dynamic count is also -1 (error) or the API seems broken, skip
+        // If dynamic count is -1 (error state), skip sync entirely
         if (dynamicCount < 0) {
           console.log('[useShortcuts] OS returned error state, skipping sync');
           setShortcuts(currentShortcuts);
           return;
         }
-        // If we have many shortcuts (>3) and OS says 0, likely ShortcutManager API failure
-        if (currentShortcuts.length > 3) {
-          console.log('[useShortcuts] OS returned 0 IDs with >3 local shortcuts, likely API failure — skipping');
+        // If registry has >3 entries but OS says 0, likely OEM API failure (Xiaomi/Huawei)
+        if (registeredIds.length > 3) {
+          console.log('[useShortcuts] OS returned 0 IDs but registry has ' + registeredIds.length + ' entries — likely OEM API failure, skipping sync');
           setShortcuts(currentShortcuts);
           return;
         }
-        // For small counts (1-3), it's plausible the user removed all manually
-        console.log('[useShortcuts] OS returned 0 IDs with ≤3 local shortcuts, proceeding with sync');
+        // For small registry counts (≤3), it's plausible user removed all manually
+        console.log('[useShortcuts] OS returned 0 IDs with ≤3 registry entries, proceeding with sync');
       }
       
-      // Trust the OS response — shadow dynamic registration makes it reliable
-      const pinnedSet = new Set(ids);
-      const synced = currentShortcuts.filter(s => pinnedSet.has(s.id));
+      // Filter localStorage shortcuts against confirmed set
+      const synced = currentShortcuts.filter(s => confirmed.has(s.id));
       
       if (synced.length !== currentShortcuts.length) {
         const removedCount = currentShortcuts.length - synced.length;
-        console.log(`[useShortcuts] Removed ${removedCount} orphaned shortcuts`);
+        console.log(`[useShortcuts] Removed ${removedCount} orphaned shortcuts (3-source reconciliation)`);
         saveShortcuts(synced);
       } else {
         setShortcuts(currentShortcuts);
