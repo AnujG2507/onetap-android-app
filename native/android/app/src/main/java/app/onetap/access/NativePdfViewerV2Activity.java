@@ -46,6 +46,7 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -100,6 +101,8 @@ public class NativePdfViewerV2Activity extends Activity {
     // Bitmap cache: key = "pageIndex_zoomBucket"
     private LruCache<String, Bitmap> bitmapCache;
     private final Set<String> pendingRenders = ConcurrentHashMap.newKeySet();
+    // Secondary index: pageIndex -> last-rendered cache key (avoids snapshot() in onDraw)
+    private final ConcurrentHashMap<Integer, String> pageKeyIndex = new ConcurrentHashMap<>();
     private ExecutorService renderExecutor;
     private final AtomicInteger renderGeneration = new AtomicInteger(0);
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -439,6 +442,7 @@ public class NativePdfViewerV2Activity extends Activity {
 
             String key = cacheKey(pageIndex, targetZoom);
             bitmapCache.put(key, bitmap);
+            pageKeyIndex.put(pageIndex, key); // Update secondary index
             pendingRenders.remove(key);
 
             // Trigger redraw — no setImageBitmap, just invalidate
@@ -494,16 +498,29 @@ public class NativePdfViewerV2Activity extends Activity {
      * Prefers exact zoom match, falls back to any available zoom level.
      */
     Bitmap findBestBitmap(int pageIndex, float targetZoom) {
-        // Exact match
+        // Exact match (fast path — just a get())
         Bitmap exact = bitmapCache.get(cacheKey(pageIndex, targetZoom));
         if (exact != null && !exact.isRecycled()) return exact;
 
-        // Search all cached zoom levels for this page
+        // Secondary index: check the last-rendered key for this page (no snapshot needed)
+        String lastKey = pageKeyIndex.get(pageIndex);
+        if (lastKey != null) {
+            Bitmap cached = bitmapCache.get(lastKey);
+            if (cached != null && !cached.isRecycled()) return cached;
+            // Stale entry — remove
+            pageKeyIndex.remove(pageIndex, lastKey);
+        }
+
+        // Rare fallback: full snapshot scan
+        return findBestBitmapFullScan(pageIndex, targetZoom);
+    }
+
+    private Bitmap findBestBitmapFullScan(int pageIndex, float targetZoom) {
         Bitmap best = null;
         float bestZoomDiff = Float.MAX_VALUE;
-        java.util.Map<String, Bitmap> snapshot = bitmapCache.snapshot();
+        Map<String, Bitmap> snapshot = bitmapCache.snapshot();
         String prefix = pageIndex + "_";
-        for (java.util.Map.Entry<String, Bitmap> entry : snapshot.entrySet()) {
+        for (Map.Entry<String, Bitmap> entry : snapshot.entrySet()) {
             if (entry.getKey().startsWith(prefix)) {
                 Bitmap bmp = entry.getValue();
                 if (bmp != null && !bmp.isRecycled()) {
@@ -517,6 +534,10 @@ public class NativePdfViewerV2Activity extends Activity {
                     } catch (NumberFormatException ignored) {}
                 }
             }
+        }
+        if (best != null) {
+            // Populate secondary index for next time
+            // (we don't have the exact key here, but it's a rare path)
         }
         return best;
     }
@@ -880,6 +901,29 @@ public class NativePdfViewerV2Activity extends Activity {
         private final Paint bitmapPaint = new Paint(Paint.FILTER_BITMAP_FLAG);
         private final Paint pageBgPaint = new Paint();
         private final Paint shadowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final RectF drawRect = new RectF(); // Reusable — avoids GC in onDraw
+
+        // Floating page indicator
+        private final Paint pageIndicatorBgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint pageIndicatorTextPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private float pageIndicatorAlpha = 0f;
+        private int lastIndicatorPage = -1;
+        private ValueAnimator pageIndicatorFadeAnimator;
+        private final Handler piHideHandler = new Handler(Looper.getMainLooper());
+        private final Runnable piHideRunnable = () -> {
+            if (pageIndicatorFadeAnimator != null && pageIndicatorFadeAnimator.isRunning())
+                pageIndicatorFadeAnimator.cancel();
+            pageIndicatorFadeAnimator = ValueAnimator.ofFloat(pageIndicatorAlpha, 0f);
+            pageIndicatorFadeAnimator.setDuration(300);
+            pageIndicatorFadeAnimator.addUpdateListener(a -> {
+                pageIndicatorAlpha = (float) a.getAnimatedValue();
+                invalidate();
+            });
+            pageIndicatorFadeAnimator.start();
+        };
+
+        // Fling render throttle
+        private long lastFlingRenderTime = 0;
 
         // Fast scroll (draggable)
         private final Paint fastScrollThumbPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -931,6 +975,14 @@ public class NativePdfViewerV2Activity extends Activity {
             fsPopupTextPaint.setTextSize(14 * density);
             fsPopupTextPaint.setTextAlign(Paint.Align.RIGHT);
 
+            // Floating page indicator paints
+            pageIndicatorBgPaint.setColor(0xCC333333);
+            pageIndicatorBgPaint.setStyle(Paint.Style.FILL);
+            pageIndicatorTextPaint.setColor(0xFFFFFFFF);
+            pageIndicatorTextPaint.setTextSize(13 * density);
+            pageIndicatorTextPaint.setTextAlign(Paint.Align.CENTER);
+            pageIndicatorTextPaint.setTypeface(Typeface.DEFAULT_BOLD);
+
             scroller = new OverScroller(context);
 
             scaleDetector = new ScaleGestureDetector(context,
@@ -978,7 +1030,8 @@ public class NativePdfViewerV2Activity extends Activity {
                     @Override
                     public void onScaleEnd(ScaleGestureDetector d) {
                         isScaling = false;
-                        getParent().requestDisallowInterceptTouchEvent(false);
+                        // Do NOT release parent touch intercept here — let ACTION_UP/CANCEL handle it
+                        // This prevents parent from stealing touch when user transitions from pinch to pan
                         // Schedule high-res re-render after settle
                         mainHandler.removeCallbacks(renderAfterSettle);
                         mainHandler.postDelayed(renderAfterSettle, 150);
@@ -1035,7 +1088,7 @@ public class NativePdfViewerV2Activity extends Activity {
                         scroller.fling(
                             (int) -panX, (int) scrollY,
                             zoomLevel > 1.0f ? (int) -vx : 0, (int) -vy,
-                            0, zoomLevel > 1.0f ? getMaxPanX() : 0,
+                            zoomLevel > 1.0f ? -getMaxPanX() : 0, zoomLevel > 1.0f ? getMaxPanX() : 0,
                             0, maxScrollY);
                         postInvalidateOnAnimation();
                         return true;
@@ -1176,12 +1229,12 @@ public class NativePdfViewerV2Activity extends Activity {
                 canvas.drawRect(screenLeft, screenTop, screenLeft + screenW,
                     screenTop + screenH, pageBgPaint);
 
-                // Draw bitmap
+                // Draw bitmap (reuse drawRect to avoid GC)
                 Bitmap bmp = findBestBitmap(i, zoomLevel);
                 if (bmp != null && !bmp.isRecycled()) {
-                    RectF dst = new RectF(screenLeft, screenTop,
+                    drawRect.set(screenLeft, screenTop,
                         screenLeft + screenW, screenTop + screenH);
-                    canvas.drawBitmap(bmp, null, dst, bitmapPaint);
+                    canvas.drawBitmap(bmp, null, drawRect, bitmapPaint);
                 }
                 // If no bitmap: white page is already drawn — never gray, never placeholder
             }
@@ -1190,10 +1243,19 @@ public class NativePdfViewerV2Activity extends Activity {
             if (firstVisible >= 0) {
                 final int fv = firstVisible;
                 mainHandler.post(() -> updatePageIndicator(fv, docPageCount));
+
+                // Show floating page indicator
+                if (fv != lastIndicatorPage) {
+                    lastIndicatorPage = fv;
+                    showPageIndicator();
+                }
             }
 
             // Draw fast scroll thumb
             drawFastScroll(canvas, viewW, viewH);
+
+            // Draw floating page indicator pill
+            drawPageIndicator(canvas, viewW, viewH, firstVisible);
         }
 
         private void drawFastScroll(Canvas canvas, int viewW, int viewH) {
@@ -1257,6 +1319,37 @@ public class NativePdfViewerV2Activity extends Activity {
             fsHideHandler.postDelayed(fsHideRunnable, 1500);
         }
 
+        private void showPageIndicator() {
+            if (pageIndicatorFadeAnimator != null && pageIndicatorFadeAnimator.isRunning())
+                pageIndicatorFadeAnimator.cancel();
+            pageIndicatorAlpha = 1f;
+            piHideHandler.removeCallbacks(piHideRunnable);
+            piHideHandler.postDelayed(piHideRunnable, 1500);
+        }
+
+        private void drawPageIndicator(Canvas canvas, int viewW, int viewH, int firstVisible) {
+            if (pageIndicatorAlpha <= 0 || firstVisible < 0 || docPageCount <= 1) return;
+            // Don't show when fast-scroll popup is already showing page info
+            if (fsDragging) return;
+
+            String text = "Page " + (firstVisible + 1) + " of " + docPageCount;
+            float textWidth = pageIndicatorTextPaint.measureText(text);
+            float padH = 14 * density;
+            float padV = 8 * density;
+            float pillW = textWidth + padH * 2;
+            float pillH = pageIndicatorTextPaint.getTextSize() + padV * 2;
+            float pillLeft = (viewW - pillW) / 2f;
+            float pillTop = viewH - pillH - 16 * density;
+
+            pageIndicatorBgPaint.setAlpha((int) (0xCC * pageIndicatorAlpha));
+            pageIndicatorTextPaint.setAlpha((int) (0xFF * pageIndicatorAlpha));
+
+            drawRect.set(pillLeft, pillTop, pillLeft + pillW, pillTop + pillH);
+            canvas.drawRoundRect(drawRect, pillH / 2f, pillH / 2f, pageIndicatorBgPaint);
+            float textY = pillTop + pillH / 2f + pageIndicatorTextPaint.getTextSize() / 3f;
+            canvas.drawText(text, viewW / 2f, textY, pageIndicatorTextPaint);
+        }
+
         private void fsScrollToY(float touchY) {
             int viewH = getHeight();
             if (viewH <= 0 || totalDocHeight <= 0) return;
@@ -1297,6 +1390,14 @@ public class NativePdfViewerV2Activity extends Activity {
                 }
                 clampScrollAndPan();
                 showFastScroll();
+
+                // Throttled render during fling (pre-fetch pages user is about to see)
+                long now = System.currentTimeMillis();
+                if (now - lastFlingRenderTime > 200) {
+                    lastFlingRenderTime = now;
+                    requestVisiblePageRenders();
+                }
+
                 postInvalidateOnAnimation();
             } else if (!scroller.isFinished()) {
                 // Fling ended — render at final position
@@ -1356,6 +1457,8 @@ public class NativePdfViewerV2Activity extends Activity {
             if (scaleDetector.isInProgress()) return true;
 
             if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
+                // Release parent touch intercept here (safe — gesture is fully ended)
+                getParent().requestDisallowInterceptTouchEvent(false);
                 mainHandler.removeCallbacks(renderAfterSettle);
                 mainHandler.postDelayed(renderAfterSettle, 100);
             }
