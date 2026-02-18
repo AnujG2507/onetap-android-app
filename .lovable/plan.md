@@ -1,104 +1,114 @@
 
-# Bulletproof Preview & Thumbnail Experience
+
+# V2 PDF Viewer: Critical Fixes and Experience Improvements
 
 ## Summary
 
-Six targeted changes to eliminate blank preview states, add reminder parity for slideshow shares, and make every fallback feel designed.
+One confirmed bug causing the panning failure, two performance bottlenecks causing scroll lag, and three UX enhancements to elevate the experience.
 
 ---
 
-## Change 1: Enable Reminders for Slideshow Shares
+## Bug Fix 1: Panning Only Works in One Direction (ROOT CAUSE)
 
-**File:** `src/pages/Index.tsx`
+**File:** `NativePdfViewerV2Activity.java` (line 1035-1039)
 
-Remove the `hideReminder` flag for multi-image shares. Currently line 687 sets `hideReminder={!!pendingSharedMultiFiles}`, which blocks reminder creation for slideshows.
+The fling X-axis bounds are wrong. Currently:
 
-- Remove `hideReminder` prop (or set to `false`)
-- The existing `handleCreateSharedFileReminder` callback already handles file-based reminders correctly -- it will use the first file's URI and name
+```text
+scroller.fling(
+    (int) -panX, ...
+    ...,
+    0, getMaxPanX(),   // X bounds: 0 to maxPan
+    ...);
+```
 
----
+Then in `computeScroll`: `panX = -scroller.getCurrX()`
 
-## Change 2: Add Image Preview to SharedFileActionSheet
+This means panX can only range from `-maxPan` to `0` during fling. The user can only fling-pan in one horizontal direction. Dragging works both ways (onScroll does `panX -= dx` and clamp allows `-maxPan` to `+maxPan`), but the moment the user lifts their finger and fling takes over, the scroller clamps X to `[0, maxPan]`, snapping the view back.
 
-**File:** `src/components/SharedFileActionSheet.tsx`
+**Fix:** Change fling X bounds from `[0, getMaxPanX()]` to `[-getMaxPanX(), getMaxPanX()]`:
 
-Replace the generic `FileIcon` in the preview card with an actual thumbnail when the file is an image.
-
-- Import `ImageWithFallback` and `buildImageSources` from existing utilities
-- When `file.mimeType` starts with `image/`, attempt to render the thumbnail using `ImageWithFallback` with the file's `thumbnailData` and `uri`
-- Fall back to the existing `FileIcon` component if no image sources are valid or loading fails
-- For multi-image shares (when `displayName` like "3 images" is passed), show a stacked-images visual: a small `Layers` icon on a colored background instead of a single generic icon
-
----
-
-## Change 3: Fix All "display:none" onError Handlers
-
-Three locations where `onError` hides an image and leaves an empty container.
-
-**File:** `src/components/SharedUrlActionSheet.tsx`
-- **Video thumbnail (line ~232):** Replace `e.currentTarget.style.display = 'none'` with a state flag that switches to showing the platform badge or a `Play` icon on the muted background -- never an empty box
-- **Favicon (line ~272):** Replace `display: none` with showing a `Globe` icon fallback (like how `ShortcutCustomizer` falls back to emoji)
-
-**File:** `src/components/MyShortcutsContent.tsx`
-- **Favicon icon type (line ~130):** Replace `display: none` with showing a `Globe` icon fallback inside the same container
+```java
+scroller.fling(
+    (int) -panX, (int) scrollY,
+    zoomLevel > 1.0f ? (int) -vx : 0, (int) -vy,
+    -getMaxPanX(), getMaxPanX(),
+    0, maxScrollY);
+```
 
 ---
 
-## Change 4: Use ContentPreview in SharedFileActionSheet
+## Bug Fix 2: Parent Steals Touch During Scale Gesture
 
-**File:** `src/components/SharedFileActionSheet.tsx`
+**File:** `NativePdfViewerV2Activity.java` (line 981)
 
-Replace the hand-rolled preview card (icon + fileName + fileSubtitle) with the existing `ContentPreview` component, which already handles:
-- Platform detection for URLs
-- Image thumbnails with `ImageWithFallback`
-- File type emoji fallbacks
-- Consistent styling
+`onScaleEnd` calls `getParent().requestDisallowInterceptTouchEvent(false)` immediately. If the user transitions from pinch to pan without lifting their finger, the parent (LinearLayout) can intercept the touch and kill the pan gesture.
 
-This eliminates duplicate preview logic. The `displayName` and `displaySubtitle` overrides will still work by wrapping `ContentPreview` with the override text when provided.
+**Fix:** Remove the `requestDisallowInterceptTouchEvent(false)` from `onScaleEnd`. Instead, release in `onTouchEvent` on `ACTION_UP`/`ACTION_CANCEL` only.
 
 ---
 
-## Change 5: Improve SlideshowCustomizer Missing-Thumbnail State
+## Performance Fix 1: Cache Lookup Allocates in onDraw
 
-**File:** `src/components/SlideshowCustomizer.tsx`
+**File:** `NativePdfViewerV2Activity.java` (line 496-522)
 
-In `SortableImage`, when no thumbnail is available (line 78-83), replace the bare `Image` icon with a more intentional placeholder:
-- Use a numbered badge overlay on a subtle gradient background
-- Show the image index number prominently so the user knows which slot it represents
-- This makes it clear the placeholder is deliberate, not broken
+`findBestBitmap` calls `bitmapCache.snapshot()` which creates a full `LinkedHashMap` copy on **every call**, and it's called **per visible page per frame**. For a 5-page visible range at 60fps, that's 300 map copies per second.
+
+**Fix:** 
+- For the exact-match path (most common case), keep as-is -- it's just a `get()`.
+- For the fallback path, maintain a lightweight secondary index: a `ConcurrentHashMap<Integer, String>` mapping `pageIndex` to its last-rendered cache key. When an exact match misses, look up this secondary index first before doing the full snapshot scan.
+- Move the snapshot scan to a separate method called only when the secondary index also misses (rare).
 
 ---
 
-## Change 6: Harden Video Thumbnail in SharedUrlActionSheet
+## Performance Fix 2: Object Allocation in onDraw Hot Path
 
-**File:** `src/components/SharedUrlActionSheet.tsx`
+**File:** `NativePdfViewerV2Activity.java` (line 1182)
 
-The video thumbnail section (lines 220-257) uses a raw `<img>` tag. Replace with `ImageWithFallback` so that:
-- Failed video thumbnails gracefully fall back to the platform badge on a muted background with a play icon
-- No empty `aspect-video` boxes are ever visible
-- Loading state shows a skeleton (already handled by `ImageWithFallback`)
+Every frame allocates `new RectF(...)` per visible page. At 60fps with 5 visible pages, that's 300 object allocations per second that pressure the GC.
+
+**Fix:** Pre-allocate a single reusable `RectF drawRect` field in PdfDocumentView and reuse it via `drawRect.set(...)` in onDraw.
+
+---
+
+## Performance Fix 3: Trigger Renders During Fling
+
+**File:** `NativePdfViewerV2Activity.java` (line 1292-1306)
+
+Currently, `computeScroll` only triggers renders after the fling ends. During a fast fling through a long document, the user sees white pages because no render requests are made until the fling decelerates to a stop.
+
+**Fix:** Add a throttled render request during fling. Track the last render-request time, and if more than 200ms has passed during `computeScroll`, fire `requestVisiblePageRenders()` for the current position. This pre-fetches pages the user is about to see.
+
+---
+
+## UX Enhancement 1: Floating Page Indicator During Scroll
+
+Since the page indicator was removed from the header, the user has no way to know which page they're on except during fast-scroll drag.
+
+**Fix:** Add a floating page indicator pill (similar to Google Drive's) that appears during scroll/fling and auto-hides after 1.5s. Render it in `onDraw` at bottom-center of the view, showing "Page X of Y". Use the same fade logic as the fast-scroll thumb.
 
 ---
 
 ## Technical Details
 
-### Files Modified
-1. `src/pages/Index.tsx` -- 1 line change (remove `hideReminder`)
-2. `src/components/SharedFileActionSheet.tsx` -- Replace preview card with `ContentPreview`, add image thumbnail support
-3. `src/components/SharedUrlActionSheet.tsx` -- Fix 2 onError handlers, replace video thumbnail `<img>` with `ImageWithFallback`
-4. `src/components/MyShortcutsContent.tsx` -- Fix 1 onError handler for favicon
-5. `src/components/SlideshowCustomizer.tsx` -- Improve missing-thumbnail placeholder
+### File Modified
+- `native/android/app/src/main/java/app/onetap/access/NativePdfViewerV2Activity.java`
 
-### No New Files
-All changes use existing components (`ContentPreview`, `ImageWithFallback`, `buildImageSources`) and utilities (`imageUtils`).
+### Changes Summary
 
-### No New Dependencies
-Everything needed is already in the codebase.
+| Change | Lines Affected | Impact |
+|--------|---------------|--------|
+| Fix fling X bounds | ~1035-1039 | Fixes panning in zoomed state |
+| Fix parent touch intercept | ~981 + ~1358 | Prevents pan gesture theft |
+| Cache lookup optimization | ~496-522 + new field | Eliminates 300+ map copies/sec |
+| Reusable RectF | ~1182 + new field | Eliminates GC pressure in draw |
+| Fling render throttle | ~1292-1306 | Reduces white pages during fling |
+| Floating page indicator | New draw code in onDraw | Page awareness without header |
 
 ### Testing Checklist
-- Share a single image from gallery -- preview shows thumbnail in action sheet
-- Share multiple images -- preview shows "N images" with Layers icon, reminder button is visible
-- Share a URL with broken favicon -- Globe icon shown, not blank
-- Share a YouTube link -- if thumbnail fails, play icon on muted background shown
-- Open My Shortcuts with a favicon-based shortcut where favicon URL is broken -- Globe icon shown
-- Create slideshow where one image has no thumbnail -- numbered placeholder shown
+- Open a multi-page PDF, pinch to zoom in, pan left AND right -- both directions should work smoothly
+- Zoom in, fling horizontally -- should continue panning in fling direction, not snap back
+- Fast scroll through a 50+ page PDF -- pages should render during fling, not only after stopping
+- Scroll normally -- floating page indicator appears at bottom and auto-hides
+- Verify no visible regressions in zoom, double-tap, or fast-scroll drag
+
