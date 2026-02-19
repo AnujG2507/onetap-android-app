@@ -139,8 +139,8 @@ export function useAutoSync() {
     // Check on initial mount (counts as "foregrounding")
     if (!hasAttemptedForegroundSync.current) {
       hasAttemptedForegroundSync.current = true;
-      // Longer delay on initial mount to not compete with app startup
-      setTimeout(performDailySync, 5000);
+      // Short delay on initial mount to not compete with app startup
+      setTimeout(performDailySync, 2000);
     }
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
