@@ -1,81 +1,32 @@
 
 
-# Fix: Status Bar Icons Not Matching App Theme
+# Fix: Theme Buttons Overlapping Native Navigation Bar
 
 ## Problem
 
-The status bar and navigation bar icon colors are based on the **system** dark mode setting, not the **app's** chosen theme. When they differ (e.g., system is dark but app is light), the icons become invisible against the background.
+The theme selection buttons at the bottom of the side menu sit flush against the bottom edge with only `mb-2` padding. On Android, the system navigation bar (gesture bar / buttons) overlaps this area because the menu sheet doesn't account for the safe bottom inset.
 
-The app already syncs its resolved theme to native SharedPreferences via `ShortcutPlugin.syncTheme()`, but `MainActivity` never reads it -- it only checks `UI_MODE_NIGHT_MASK`.
+## Solution
 
-## Changes
+Add the `safe-bottom` class to the theme section's wrapper div so it gains `padding-bottom: var(--android-safe-bottom)`, pushing the buttons above the native navigation area.
 
-### 1. `native/android/app/src/main/java/app/onetap/access/MainActivity.java`
+## Technical Details
 
-**In `onResume()`** -- add logic to read the resolved theme from SharedPreferences and update system bar icon colors accordingly:
+### `src/components/AppMenu.tsx`
 
-```java
-// Read app's resolved theme (synced from JS via ShortcutPlugin.syncTheme)
-SharedPreferences prefs = getSharedPreferences("app_settings", Context.MODE_PRIVATE);
-String resolvedTheme = prefs.getString("resolvedTheme", null);
+Change the bottom section wrapper (line 224) from:
 
-boolean isLightMode;
-if (resolvedTheme != null) {
-    isLightMode = "light".equals(resolvedTheme);
-} else {
-    // Fallback to system theme if app hasn't synced yet
-    int nightMode = getResources().getConfiguration().uiMode
-        & android.content.res.Configuration.UI_MODE_NIGHT_MASK;
-    isLightMode = nightMode != android.content.res.Configuration.UI_MODE_NIGHT_YES;
-}
-
-WindowInsetsControllerCompat insetsController =
-    WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
-if (insetsController != null) {
-    insetsController.setAppearanceLightStatusBars(isLightMode);
-    insetsController.setAppearanceLightNavigationBars(isLightMode);
-}
+```
+<div className="mt-auto pt-4">
 ```
 
-This runs every time the app resumes, so it picks up theme changes made in settings.
+to:
 
-### 2. `native/android/app/src/main/java/app/onetap/access/plugins/ShortcutPlugin.java`
-
-**In `syncTheme()`** -- after saving to SharedPreferences, immediately update the system bar icons on the current activity so changes take effect without needing to background/resume the app:
-
-```java
-// Update system bar icon colors immediately
-Activity activity = getActivity();
-if (activity != null) {
-    activity.runOnUiThread(() -> {
-        boolean isLight = "light".equals(resolvedTheme);
-        WindowInsetsControllerCompat ctrl =
-            WindowCompat.getInsetsController(activity.getWindow(), activity.getWindow().getDecorView());
-        if (ctrl != null) {
-            ctrl.setAppearanceLightStatusBars(isLight);
-            ctrl.setAppearanceLightNavigationBars(isLight);
-        }
-    });
-}
+```
+<div className="mt-auto pt-4 safe-bottom">
 ```
 
-### 3. Update `body::before` CSS tint strip
+This uses the existing `safe-bottom` utility class (defined in `index.css`) which applies `padding-bottom: var(--android-safe-bottom, 16px)` -- the same pattern used by `BottomNav` and other bottom-anchored UI.
 
-**In `src/index.css`** -- the `body::before` pseudo-element (status bar tint) already handles light and dark correctly. No CSS changes needed.
-
-## How It Works
-
-```text
-User changes theme in Settings
-  --> next-themes applies CSS class
-  --> AppMenu syncs resolvedTheme to native SharedPreferences
-  --> ShortcutPlugin.syncTheme() updates bar icons immediately
-  --> On next onResume(), bar icons re-checked from SharedPreferences
-```
-
-## Why This Fixes It
-
-- **On app launch**: `onCreate` uses system theme as initial guess (unchanged), then `onResume` corrects it from SharedPreferences
-- **On theme change**: `syncTheme` updates icons instantly
-- **On app resume**: `onResume` re-reads SharedPreferences, catching any changes
+Single line change, no other files affected.
 
