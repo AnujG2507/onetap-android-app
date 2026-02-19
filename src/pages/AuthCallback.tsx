@@ -118,7 +118,7 @@ export default function AuthCallback() {
   }, [navigate]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <div className="min-h-app-viewport flex items-center justify-center bg-background p-4 safe-top">
       <div className="w-full max-w-md text-center space-y-6">
         {authState === 'loading' && <AuthLoadingState />}
         {authState === 'success' && <AuthSuccessState />}

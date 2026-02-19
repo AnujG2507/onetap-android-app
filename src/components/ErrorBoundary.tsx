@@ -42,7 +42,7 @@ class ErrorBoundaryComponent extends Component<ErrorBoundaryProps, ErrorBoundary
     
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-background">
+        <div className="min-h-app-viewport flex flex-col items-center justify-center p-6 bg-background safe-top">
           <div className="text-center space-y-4 max-w-sm">
             <div className="h-16 w-16 mx-auto rounded-full bg-muted flex items-center justify-center">
               <RefreshCw className="h-8 w-8 text-muted-foreground" />

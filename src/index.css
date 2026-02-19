@@ -45,6 +45,15 @@ All colors MUST be HSL.
     --surface-1: 0 0% 99%;
     --surface-2: 0 0% 98%;
     --surface-3: 0 0% 96%;
+
+    /* Available viewport height between system bars */
+    --app-available-height: calc(100vh - var(--android-safe-top, 0px) - var(--android-safe-bottom, 0px));
+  }
+
+  @supports (height: 100dvh) {
+    :root {
+      --app-available-height: calc(100dvh - var(--android-safe-top, 0px) - var(--android-safe-bottom, 0px));
+    }
   }
 
   .dark {
@@ -219,6 +228,14 @@ All colors MUST be HSL.
   /* RTL icon flip for directional icons */
   [dir="rtl"] .rtl-flip {
     transform: scaleX(-1);
+  }
+
+  /* App viewport utilities */
+  .h-app-viewport {
+    height: var(--app-available-height, 100vh);
+  }
+  .min-h-app-viewport {
+    min-height: var(--app-available-height, 100vh);
   }
 
   /* PDF Reading Mode Filters */
