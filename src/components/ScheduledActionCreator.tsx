@@ -814,12 +814,12 @@ export function ScheduledActionCreator({
                     <h4 className="font-medium text-sm truncate">
                       {name || getSuggestedName(destination)}
                     </h4>
-                    <p className="text-xs text-muted-foreground mt-0.5">
+                    <p className="text-xs text-muted-foreground mt-0.5 break-all line-clamp-2">
                       {destination.type === 'file' && destination.name}
                       {destination.type === 'url' && destination.uri}
                       {destination.type === 'contact' && destination.contactName}
                     </p>
-                    <p className="text-xs text-primary mt-1.5">
+                    <p className="text-xs text-primary mt-1.5 break-words">
                       {new Date(timing.triggerTime).toLocaleString(undefined, {
                         weekday: 'short',
                         month: 'short',
