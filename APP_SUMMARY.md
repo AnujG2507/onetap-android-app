@@ -26,10 +26,10 @@ A local-first Android app that lets users create home screen shortcuts for quick
 - Persists across device reboots (`BootReceiver.java`)
 
 ### 4. Android Share Sheet Integration
-- App appears in the Android Share Sheet for **any** file type (catch-all `*/*` intent filter) and URLs
-- **Shared URLs** → `SharedUrlActionSheet` with 4 options: Quick Save, Edit & Save, One Tap Access, Remind Later
-- **Shared files** (single) → `SharedFileActionSheet` with 2 options: One Tap Access, Remind Later
-- **Shared images** (multiple) → `SharedFileActionSheet` (slideshow variant) with One Tap Access only
+- App appears in the Android Share Sheet for **any** file type and URLs
+- **Shared URLs** → SharedUrlActionSheet with 4 options: Quick Save, Edit & Save, One Tap Access, Remind Later
+- **Shared files** (single) → SharedFileActionSheet showing the actual file name and (for images) a thumbnail preview, with 2 options: One Tap Access, Remind Later
+- **Shared images** (multiple) → SharedFileActionSheet (slideshow variant) with One Tap Access only
 - Videos shared via Share Sheet auto-open in the native video player
 - All action sheets include swipe-to-close gesture, back button handling, and exit animation
 
@@ -50,7 +50,7 @@ A local-first Android app that lets users create home screen shortcuts for quick
 - **i18next** for internationalization
 
 ### Backend (Supabase — External Project)
-- **Client**: Custom client in `src/lib/supabaseClient.ts` with hardcoded credentials (project `xfnugumyjhnctmqgiyqm`), configured with `flowType: 'implicit'`
+- **Client**: Custom client in `src/lib/supabaseClient.ts` pointing to the external Supabase project, configured with `flowType: 'implicit'`
 - **Types**: Manually maintained in `src/lib/supabaseTypes.ts`
 - **Tables**: `cloud_bookmarks`, `cloud_trash`, `cloud_scheduled_actions`
 - **Edge Functions**: `fetch-url-metadata`, `delete-account`

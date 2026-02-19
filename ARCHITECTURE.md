@@ -382,6 +382,17 @@ Content shared via Android Share Sheet
         └── Mixed/unsupported ──▶ Toast + exit
 ```
 
+### File Name and Thumbnail Handling
+
+When a file is shared to the app:
+
+1. **Native layer** (`ShortcutPlugin.java`) queries `ContentResolver` for `OpenableColumns.DISPLAY_NAME` to extract the actual file name (e.g., "Vacation_Photo.jpg")
+2. **JS layer** (`useSharedContent.ts`) passes the name into the `ContentSource` object
+3. **SharedFileActionSheet** converts `content://` URIs to WebView-renderable URLs via `Capacitor.convertFileSrc()` for image thumbnail display
+4. **ShortcutCustomizer** receives the `ContentSource` with the correct name, pre-populating the shortcut name field
+
+For single image shortcuts, `SlideshowViewer.tsx` implements a thumbnail fallback: if the full-quality `content://` URI becomes inaccessible (stale permission), the viewer falls back to the stored base64 thumbnail instead of showing a black screen.
+
 **Key files:**
 - `src/hooks/useSharedContent.ts` — Intercepts shared content from native layer
 - `src/components/SharedUrlActionSheet.tsx` — Action picker for shared URLs
