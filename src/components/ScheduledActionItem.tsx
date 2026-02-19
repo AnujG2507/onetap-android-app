@@ -395,8 +395,6 @@ export function ScheduledActionItem({
                 onTouchStart={(e) => e.stopPropagation()}
                 onTouchEnd={(e) => {
                   e.stopPropagation();
-                  triggerHaptic('light');
-                  onToggle();
                 }}
               >
                 <Switch
