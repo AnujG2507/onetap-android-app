@@ -238,13 +238,8 @@ export default function SlideshowViewer() {
     setIsPlaying(false);
   }, [images.length, resetControlsTimeout]);
 
-  const handleSwipeDown = useCallback(() => {
-    if (Capacitor.isNativePlatform()) {
-      App.exitApp();
-    } else {
-      window.history.back();
-    }
-  }, []);
+  // Swipe-down-to-close is intentionally disabled for the viewer.
+  // Exit is only via the header close button or hardware back.
 
   // Pause slideshow when zooming in
   const handleZoomChange = useCallback((isZoomed: boolean) => {
