@@ -551,7 +551,7 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-app-viewport bg-background flex flex-col overflow-hidden safe-top">
+    <div className="min-h-app-viewport bg-background flex flex-col overflow-hidden">
       {/* OAuth Recovery Banner - calm UI for interrupted sign-in */}
       {(oauthRecoveryState === 'checking' || oauthRecoveryState === 'recovering' || oauthRecoveryState === 'failed') && (
         <OAuthRecoveryBanner
