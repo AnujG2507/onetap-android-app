@@ -184,11 +184,7 @@ export function ProfilePage({}: ProfilePageProps = {}) {
           title: t('profile.syncComplete'),
           description: hasChanges ? t('profile.everythingSynced') : t('profile.alreadyInSync'),
         });
-        if (result.downloaded > 0) {
-          window.location.reload();
-        } else {
-          refreshCounts();
-        }
+        refreshCounts();
       } else {
         toast({
           title: t('profile.syncFailed'),
