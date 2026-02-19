@@ -50,70 +50,26 @@ export function useShortcuts() {
   // removes shortcuts if we get a positive signal that they're definitely unpinned.
   const syncWithHomeScreen = useCallback(async () => {
     if (!Capacitor.isNativePlatform()) return;
-    
+
     try {
-      const { ids, registeredIds, recentlyCreatedIds, dynamicCount, maxDynamic, manufacturer } = await ShortcutPlugin.getPinnedShortcutIds();
+      const { ids, recentlyCreatedIds } = await ShortcutPlugin.getPinnedShortcutIds();
       const stored = localStorage.getItem(STORAGE_KEY);
       const currentShortcuts: ShortcutData[] = stored ? JSON.parse(stored) : [];
-      
-      if (currentShortcuts.length === 0) return; // Nothing to reconcile
-      
-      console.log(`[useShortcuts] Sync: ${ids.length} pinned on OS, ${registeredIds.length} in registry, ${recentlyCreatedIds.length} recently created, ${currentShortcuts.length} in storage, dynamic=${dynamicCount}/${maxDynamic}, mfr=${manufacturer}`);
-      
-      // Build confirmed set: OS pinned IDs + recently created IDs (race protection)
+
+      if (currentShortcuts.length === 0) return;
+
+      // Recently created shortcuts get race protection (OS may not report them yet)
       const confirmed = new Set([...ids, ...recentlyCreatedIds]);
-      
-      // Zero-ID guard: if OS says 0 pinned but we have shortcuts, always skip.
-      // Rationale: the only way to reach OS=0 + localStorage>0 is an OS API failure
-      // (Samsung One UI, Xiaomi MIUI). Legitimate deletions go through deleteShortcut()
-      // which removes from localStorage directly, so localStorage would already be 0.
-      if (ids.length === 0 && currentShortcuts.length > 0) {
-        if (dynamicCount < 0) {
-          console.log('[useShortcuts] OS returned error state, skipping sync');
-          setShortcuts(currentShortcuts);
-          return;
-        }
-        console.log('[useShortcuts] OS returned 0 IDs but localStorage has ' + 
-          currentShortcuts.length + ' shortcuts — skipping sync (OEM protection)');
-        setShortcuts(currentShortcuts);
-        return;
-      }
-      
-      let synced = currentShortcuts.filter(s => confirmed.has(s.id));
-      
-      // Partial-zero guard: cap deletions per sync to 50% of shortcuts (rounded up).
-      // Prevents mass deletion from intermittent OS failures that return partial results.
-      const maxDeletions = Math.ceil(currentShortcuts.length / 2);
-      if (synced.length < currentShortcuts.length - maxDeletions) {
-        console.log('[useShortcuts] Sync would delete too many shortcuts (' + 
-          (currentShortcuts.length - synced.length) + '/' + currentShortcuts.length + 
-          '), capping at ' + maxDeletions);
-        const unconfirmed = currentShortcuts
-          .filter(s => !confirmed.has(s.id))
-          .sort((a, b) => b.createdAt - a.createdAt);
-        const toKeep = unconfirmed.slice(0, unconfirmed.length - maxDeletions);
-        const toKeepIds = new Set(toKeep.map(s => s.id));
-        synced = currentShortcuts.filter(s => confirmed.has(s.id) || toKeepIds.has(s.id));
-      }
-      
+
+      // Trust the OS: keep only shortcuts that are confirmed on home screen
+      const synced = currentShortcuts.filter(s => confirmed.has(s.id));
+
       if (synced.length !== currentShortcuts.length) {
         const removedCount = currentShortcuts.length - synced.length;
-        console.log(`[useShortcuts] Removed ${removedCount} orphaned shortcuts (3-source reconciliation)`);
+        console.log(`[useShortcuts] Removed ${removedCount} shortcuts not found on home screen`);
         saveShortcuts(synced);
       } else {
         setShortcuts(currentShortcuts);
-      }
-
-      // Registry self-cleaning: prune stale entries when OS returned >0 pinned IDs
-      if (ids.length > 0) {
-        try {
-          const cleanupResult = await ShortcutPlugin.cleanupRegistry({ confirmedIds: ids });
-          if (cleanupResult.pruned && cleanupResult.pruned > 0) {
-            console.log(`[useShortcuts] Registry cleanup: pruned ${cleanupResult.pruned} stale entries`);
-          }
-        } catch (cleanupError) {
-          console.warn('[useShortcuts] Registry cleanup failed:', cleanupError);
-        }
       }
     } catch (error) {
       console.warn('[useShortcuts] Sync failed:', error);
