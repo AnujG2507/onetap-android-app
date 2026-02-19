@@ -134,7 +134,7 @@ All colors MUST be HSL.
   }
 
   .dark body::before {
-    background: hsl(0 0% 12%);
+    background: hsl(0 0% 7%);
   }
 
   /* Safe area for Android navigation — single source of truth */
