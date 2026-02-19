@@ -167,6 +167,12 @@ export function useShortcuts() {
     syncNativeUsageEvents();
     
     initialSyncDone.current = true;
+
+    // Sync with home screen on cold start (2s delay for app to settle)
+    const timer = setTimeout(() => {
+      syncWithHomeScreen();
+    }, 2000);
+    return () => clearTimeout(timer);
   }, []); // Only on mount
 
   // Listen for changes from other hook instances
