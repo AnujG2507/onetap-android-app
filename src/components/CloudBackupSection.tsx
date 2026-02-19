@@ -86,7 +86,7 @@ export function CloudBackupSection() {
         toast({
           title: t('cloudBackup.syncComplete'),
           description: hasChanges 
-            ? t('cloudBackup.syncCompleteChanges', { downloaded: result.downloaded, uploaded: result.uploaded })
+            ? t('cloudBackup.everythingSynced')
             : t('cloudBackup.alreadyInSync'),
         });
         if (result.downloaded > 0) {
