@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { getTrashCount, getTrashLinks, getDaysRemaining } from '@/lib/savedLinksManager';
 import { useTheme } from 'next-themes';
 import { useSheetBackHandler } from '@/hooks/useSheetBackHandler';
@@ -154,98 +155,105 @@ export function AppMenu({ onOpenTrash, onOpenSettings }: AppMenuProps) {
           <SheetTitle className="text-start">{t('menu.title', 'Menu')}</SheetTitle>
         </SheetHeader>
 
-        <div className="flex flex-col gap-1 flex-1">
-          {/* My Shortcuts */}
-          <Button
-            variant="ghost"
-            className="w-full justify-start h-12 ps-3 pe-3"
-            onClick={() => handleMenuItem(() => navigate('/my-shortcuts'))}
-          >
-            <div className="flex items-center gap-3 flex-1">
-              <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Zap className="h-4 w-4 text-primary" />
-              </div>
-              <span className="font-medium">{t('menu.shortcuts')}</span>
-            </div>
-            {shortcutsCount > 0 && (
-              <span className="h-5 min-w-5 px-1.5 rounded-full bg-primary text-[11px] font-semibold text-primary-foreground flex items-center justify-center">
-                {shortcutsCount > 99 ? '99+' : shortcutsCount}
-              </span>
-            )}
-          </Button>
-
-          {/* Trash */}
-          <Button
-            variant="ghost"
-            className="w-full justify-start h-12 ps-3 pe-3"
-            onClick={() => handleMenuItem(onOpenTrash)}
-          >
-            <div className="flex items-center gap-3 flex-1">
-              <div className="h-9 w-9 rounded-lg bg-destructive/10 flex items-center justify-center">
-                <Trash2 className="h-4 w-4 text-destructive" />
-              </div>
-              <span className="font-medium">{t('menu.trash', 'Trash')}</span>
-            </div>
-            {trashCount > 0 && (
-              <div className="flex items-center gap-1.5">
-                {expiringCount > 0 && (
-                  <span className="h-5 min-w-5 px-1.5 rounded-full bg-warning text-[11px] font-semibold text-white flex items-center justify-center gap-0.5">
-                    <AlertTriangle className="h-3 w-3" />
-                    {expiringCount}
+        <ScrollArea className="flex-1 min-h-0">
+          <div className="flex flex-col min-h-full">
+            <div className="flex flex-col gap-1">
+              {/* My Shortcuts */}
+              <Button
+                variant="ghost"
+                className="w-full justify-start h-12 ps-3 pe-3"
+                onClick={() => handleMenuItem(() => navigate('/my-shortcuts'))}
+              >
+                <div className="flex items-center gap-3 flex-1">
+                  <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <Zap className="h-4 w-4 text-primary" />
+                  </div>
+                  <span className="font-medium">{t('menu.shortcuts')}</span>
+                </div>
+                {shortcutsCount > 0 && (
+                  <span className="h-5 min-w-5 px-1.5 rounded-full bg-primary text-[11px] font-semibold text-primary-foreground flex items-center justify-center">
+                    {shortcutsCount > 99 ? '99+' : shortcutsCount}
                   </span>
                 )}
-                <span className="h-5 min-w-5 px-1.5 rounded-full bg-destructive text-[11px] font-semibold text-destructive-foreground flex items-center justify-center">
-                  {trashCount > 99 ? '99+' : trashCount}
-                </span>
-              </div>
-            )}
-          </Button>
+              </Button>
 
-          {/* Settings */}
-          <Button
-            variant="ghost"
-            className="w-full justify-start h-12 ps-3 pe-3"
-            onClick={() => handleMenuItem(onOpenSettings)}
-          >
-            <div className="flex items-center gap-3 flex-1">
-              <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center">
-                <Settings className="h-4 w-4 text-muted-foreground" />
-              </div>
-              <span className="font-medium">{t('settings.title')}</span>
+              {/* Trash */}
+              <Button
+                variant="ghost"
+                className="w-full justify-start h-12 ps-3 pe-3"
+                onClick={() => handleMenuItem(onOpenTrash)}
+              >
+                <div className="flex items-center gap-3 flex-1">
+                  <div className="h-9 w-9 rounded-lg bg-destructive/10 flex items-center justify-center">
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </div>
+                  <span className="font-medium">{t('menu.trash', 'Trash')}</span>
+                </div>
+                {trashCount > 0 && (
+                  <div className="flex items-center gap-1.5">
+                    {expiringCount > 0 && (
+                      <span className="h-5 min-w-5 px-1.5 rounded-full bg-warning text-[11px] font-semibold text-white flex items-center justify-center gap-0.5">
+                        <AlertTriangle className="h-3 w-3" />
+                        {expiringCount}
+                      </span>
+                    )}
+                    <span className="h-5 min-w-5 px-1.5 rounded-full bg-destructive text-[11px] font-semibold text-destructive-foreground flex items-center justify-center">
+                      {trashCount > 99 ? '99+' : trashCount}
+                    </span>
+                  </div>
+                )}
+              </Button>
+
+              {/* Settings */}
+              <Button
+                variant="ghost"
+                className="w-full justify-start h-12 ps-3 pe-3"
+                onClick={() => handleMenuItem(onOpenSettings)}
+              >
+                <div className="flex items-center gap-3 flex-1">
+                  <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center">
+                    <Settings className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <span className="font-medium">{t('settings.title')}</span>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground rtl:rotate-180" />
+              </Button>
+
+              {/* Cloud Backup Section */}
+              <CloudBackupSection />
             </div>
-            <ChevronRight className="h-4 w-4 text-muted-foreground rtl:rotate-180" />
-          </Button>
 
-          {/* Cloud Backup Section */}
-          <CloudBackupSection />
-        </div>
+            {/* Spacer pushes theme to bottom when room available */}
+            <div className="flex-1" />
 
-        {/* Quick Settings - Theme only */}
-        <div className="mt-auto pt-4 safe-bottom">
-          <Separator className="mb-4" />
-          <p className="text-xs text-muted-foreground ps-3 mb-3">{t('settings.appearance')}</p>
-          
-          {/* Theme Selection */}
-          <div className="ps-3 pe-3 mb-2">
-            <div className="flex gap-1">
-              {themeOptions.map((option) => (
-                <Button
-                  key={option.value}
-                  variant="outline"
-                  size="sm"
-                  className={cn(
-                    "flex-1 gap-1.5",
-                    theme === option.value && "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
-                  )}
-                  onClick={() => setTheme(option.value)}
-                >
-                  {option.icon}
-                  <span className="text-xs">{option.label}</span>
-                </Button>
-              ))}
+            {/* Quick Settings - Theme only */}
+            <div className="pt-4 safe-bottom">
+              <Separator className="mb-4" />
+              <p className="text-xs text-muted-foreground ps-3 mb-3">{t('settings.appearance')}</p>
+              
+              {/* Theme Selection */}
+              <div className="ps-3 pe-3 mb-2">
+                <div className="flex gap-1">
+                  {themeOptions.map((option) => (
+                    <Button
+                      key={option.value}
+                      variant="outline"
+                      size="sm"
+                      className={cn(
+                        "flex-1 gap-1.5",
+                        theme === option.value && "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
+                      )}
+                      onClick={() => setTheme(option.value)}
+                    >
+                      {option.icon}
+                      <span className="text-xs">{option.label}</span>
+                    </Button>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
-        </div>
+        </ScrollArea>
       </SheetContent>
     </Sheet>
   );
