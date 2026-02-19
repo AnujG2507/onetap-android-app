@@ -1,58 +1,25 @@
 
 
-# Fix Status Bar Visibility on Android
+# Fix: Sheet Menu Overlapping Android Status Bar and Navigation Bar
 
 ## Problem
 
-On Android, the status bar is fully transparent (`android:statusBarColor = transparent`) and the app background is near-white (`#fafafa`). Since the header areas use `pt-header-safe` which only adds padding (no background color change), the status bar area visually blends into the app content with zero separation. The clock, battery, and signal icons appear to float directly on the app surface.
+The Sheet component (sliding menu) uses `inset-y-0 h-full` which stretches it edge-to-edge across the entire screen. On Android, this means the menu content goes underneath the status bar at the top and the navigation bar at the bottom. The close (X) button is also positioned at `top-4`, which gets hidden behind the status bar.
 
-## Solution
+## Fix
 
-Add a subtle tinted background strip behind the Android status bar area so it's visually distinct from the main content. This will be done purely in CSS -- no Java changes needed.
+**File: `src/components/ui/sheet.tsx`**
 
-## Changes
+For the left/right sheet variants, add safe area padding so the content stays within the usable viewport:
 
-### 1. `src/index.css` -- Add a status bar background strip
+1. Add `safe-top` and `safe-bottom` CSS classes to the left and right side variants in `sheetVariants`. These classes use the existing `--android-safe-top` and `--android-safe-bottom` CSS variables that are already injected by the native Android code.
 
-Add a `::before` pseudo-element on the `body` that covers exactly the status bar area with a very subtle tint (slightly darker than the background). This creates a natural visual boundary.
+2. Update the close button positioning from `top-4` to include the safe area offset using an inline style or a CSS utility, so it sits below the status bar.
 
-```css
-body::before {
-  content: '';
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: var(--android-safe-top, 0px);
-  background: hsl(0 0% 94%);  /* slightly darker than --background */
-  z-index: 9999;
-  pointer-events: none;
-}
-```
+Specifically:
+- Left variant: add `safe-top safe-bottom` classes
+- Right variant: add `safe-top safe-bottom` classes
+- Close button: change from `top-4` to use a dynamic top value that accounts for `var(--android-safe-top)`
 
-For dark mode, the tint will use a slightly lighter shade than the dark background:
-```css
-.dark body::before {
-  background: hsl(0 0% 12%);  /* slightly lighter than dark --background */
-}
-```
+This fix applies globally to all sheets in the app (menu, trash, settings, etc.), ensuring none of them overlap with system UI.
 
-This approach:
-- Works globally across all pages/tabs without modifying individual headers
-- Is zero-maintenance (no per-component changes)
-- Gracefully degrades (when `--android-safe-top` is `0px`, the strip is invisible)
-- Keeps the transparent status bar for the native Android feel while adding just enough contrast to make it visible
-
-### 2. `native/android/app/src/main/res/values/styles.xml` -- No changes needed
-
-The existing transparent status bar with light status bar icons is correct. The CSS fix handles the visual separation.
-
-### 3. `index.html` -- No changes needed
-
-The `theme-color` meta tag (`#fafafa`) remains correct as it matches the app background.
-
-## Technical Notes
-
-- The `z-index: 9999` ensures the strip renders above all app content but below native Android system UI
-- `pointer-events: none` ensures it doesn't block touch interactions
-- The strip height is exactly `var(--android-safe-top)`, which is 0 on web and the actual status bar height on Android -- so this has no effect in browser preview, only on the native app
