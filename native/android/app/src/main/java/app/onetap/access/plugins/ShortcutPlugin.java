@@ -140,7 +140,7 @@ public class ShortcutPlugin extends Plugin {
     // with its creation timestamp. Used as secondary source of truth when
     // ShortcutManager returns unreliable data (OEM issues, race conditions).
     private static final String REGISTRY_PREFS = "shortcut_creation_registry";
-    private static final long CREATION_COOLDOWN_MS = 10_000; // 10 seconds
+    private static final long CREATION_COOLDOWN_MS = 30_000; // 30 seconds — allows slow launcher pin confirmations
     
     private PluginCall pendingPermissionCall;
 
@@ -4197,6 +4197,7 @@ public class ShortcutPlugin extends Plugin {
             result.put("dynamicCount", -1);
             result.put("maxDynamic", -1);
             result.put("manufacturer", Build.MANUFACTURER);
+            result.put("error", true);
             call.resolve(result);
             return;
         }
@@ -4212,6 +4213,7 @@ public class ShortcutPlugin extends Plugin {
                 result.put("dynamicCount", -1);
                 result.put("maxDynamic", -1);
                 result.put("manufacturer", Build.MANUFACTURER);
+                result.put("error", true);
                 call.resolve(result);
                 return;
             }
@@ -4226,6 +4228,7 @@ public class ShortcutPlugin extends Plugin {
                 result.put("dynamicCount", -1);
                 result.put("maxDynamic", -1);
                 result.put("manufacturer", Build.MANUFACTURER);
+                result.put("error", true);
                 call.resolve(result);
                 return;
             }
@@ -4324,6 +4327,7 @@ public class ShortcutPlugin extends Plugin {
             result.put("dynamicCount", dynamicShortcuts.size() - orphanDynamicIds.size());
             result.put("maxDynamic", manager.getMaxShortcutCountPerActivity());
             result.put("manufacturer", Build.MANUFACTURER);
+            result.put("error", false);
             call.resolve(result);
         } catch (Exception e) {
             android.util.Log.e("ShortcutPlugin", "Error getting pinned shortcuts: " + e.getMessage(), e);
@@ -4334,6 +4338,7 @@ public class ShortcutPlugin extends Plugin {
             result.put("dynamicCount", -1);
             result.put("maxDynamic", -1);
             result.put("manufacturer", Build.MANUFACTURER);
+            result.put("error", true);
             call.resolve(result);
         }
     }
