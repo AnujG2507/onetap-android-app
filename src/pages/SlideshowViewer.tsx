@@ -363,7 +363,7 @@ export default function SlideshowViewer() {
               onTap={handleTap}
               onSwipeLeft={handleNext}
               onSwipeRight={handlePrevious}
-              onSwipeDown={handleSwipeDown}
+              
               onZoomChange={handleZoomChange}
             />
           </motion.div>
