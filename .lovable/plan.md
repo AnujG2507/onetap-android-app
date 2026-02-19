@@ -1,133 +1,116 @@
 
 
-# Universal Content Sizing: Fit Content Between System Bars
+# Fix: CSS Inset Variables Lost After App Resume
 
-## Problem
+## Root Cause
 
-The app uses `min-h-screen` (which maps to `100vh`) for page containers. With Capacitor 8's forced edge-to-edge rendering, `100vh` includes the area **behind** the status bar and navigation bar. While individual components apply safe-area padding (e.g., `pt-header-safe`, `safe-bottom`), there is no single, reliable CSS variable representing the **actual usable viewport height** between the two system bars. This means:
+The `setupNavBarInsetInjection()` method in `MainActivity.java` sets up a `ViewCompat.setOnApplyWindowInsetsListener` and calls `requestApplyInsets()` once during `onCreate`. This works on first launch because:
 
-- Content sizing is based on the full physical screen, not the available space
-- Different devices with different status bar and nav bar heights get subtly different content proportions
-- Components that size children relative to the viewport (e.g., `h-full`, `flex-1` inside `min-h-screen`) may not distribute space correctly
+1. `onCreate` runs
+2. The listener is registered
+3. `requestApplyInsets()` triggers the listener
+4. CSS variables are injected into the DOM
+
+On subsequent app opens (resume from background, or WebView reload after memory pressure):
+
+- `onCreate` is NOT called (only `onResume`)
+- The listener exists but doesn't re-fire (insets haven't changed)
+- The WebView may have reloaded its page, wiping the CSS variables
+- Result: `--android-safe-top` and `--android-safe-bottom` are both `0px` (the CSS fallback defaults)
 
 ## Solution
 
-Introduce a CSS custom property `--app-available-height` that represents the usable viewport between system bars, and apply it to key page containers. This gives every page a consistent, device-agnostic content area.
+Two changes to `MainActivity.java`:
 
-### How It Works
+1. **Store the last known inset values** as instance fields so they can be re-injected at any time
+2. **Override `onResume()`** to re-inject the stored values into the WebView every time the app comes to the foreground
 
-```text
-+----------------------------+
-|      Status Bar (top)      |  <-- --android-safe-top
-+----------------------------+
-|                            |
-|   App Content Area         |  <-- --app-available-height
-|   (universal across all    |
-|    devices and OEMs)       |
-|                            |
-+----------------------------+
-|    Navigation Bar (bottom) |  <-- --android-safe-bottom
-+----------------------------+
-```
-
-The CSS calculation:
-```
---app-available-height = 100dvh - --android-safe-top - --android-safe-bottom
-```
-
-With `100vh` fallback for older WebViews that don't support `dvh`.
+This covers all scenarios:
+- First launch: listener fires, values stored and injected
+- Resume from background: `onResume` re-injects stored values
+- WebView reload (memory pressure): `onResume` re-injects after the page reloads
+- Configuration change: listener fires again with new values
 
 ## Changes
 
-### File 1: `src/index.css` -- Add CSS variable and utility classes
+### File: `native/android/app/src/main/java/app/onetap/access/MainActivity.java`
 
-In the `:root` block, add:
-```css
---app-available-height: calc(100vh - var(--android-safe-top, 0px) - var(--android-safe-bottom, 0px));
+**Add instance fields** to store last known inset values (after the existing `pendingSlideshowId` field):
+
+```java
+// Last known inset values (in dp) for re-injection on resume
+private float lastSafeTop = 0f;
+private float lastSafeBottom = 0f;
 ```
 
-Add a `@supports` block for modern WebViews:
-```css
-@supports (height: 100dvh) {
-  :root {
-    --app-available-height: calc(100dvh - var(--android-safe-top, 0px) - var(--android-safe-bottom, 0px));
-  }
+**Update `setupNavBarInsetInjection()`** to store values when the listener fires:
+
+```java
+private void setupNavBarInsetInjection() {
+    getBridge().getWebView().post(() -> {
+        WebView webView = getBridge().getWebView();
+        float density = getResources().getDisplayMetrics().density;
+
+        ViewCompat.setOnApplyWindowInsetsListener(webView, (view, insets) -> {
+            int navBottom = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom;
+            int statusTop = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top;
+
+            lastSafeBottom = navBottom / density;
+            lastSafeTop = statusTop / density;
+
+            injectInsetsIntoWebView(webView);
+
+            return ViewCompat.onApplyWindowInsets(view, insets);
+        });
+
+        webView.requestApplyInsets();
+    });
 }
 ```
 
-Add utility classes in the `@layer utilities` block:
-```css
-.h-app-viewport {
-  height: var(--app-available-height, 100vh);
+**Add a helper method** to inject the stored values:
+
+```java
+private void injectInsetsIntoWebView(WebView webView) {
+    String js = "document.documentElement.style.setProperty('--android-safe-bottom', '"
+        + lastSafeBottom + "px');"
+        + "document.documentElement.style.setProperty('--android-safe-top', '"
+        + lastSafeTop + "px');";
+
+    webView.evaluateJavascript(js, null);
+    Log.d(TAG, "Insets injected -- bottom: " + lastSafeBottom + "px, top: " + lastSafeTop + "px");
 }
-.min-h-app-viewport {
-  min-height: var(--app-available-height, 100vh);
+```
+
+**Add `onResume()` override** to re-inject on every foreground transition:
+
+```java
+@Override
+protected void onResume() {
+    super.onResume();
+    Log.d(TAG, "onResume called");
+    CrashLogger.getInstance().addBreadcrumb(CrashLogger.CAT_LIFECYCLE, "MainActivity.onResume");
+
+    // Re-inject insets into WebView on every resume
+    // The DOM may have been reset if WebView was unloaded due to memory pressure
+    if (getBridge() != null && getBridge().getWebView() != null) {
+        getBridge().getWebView().post(() -> {
+            injectInsetsIntoWebView(getBridge().getWebView());
+            // Also request fresh insets in case they changed (e.g. navigation mode switch)
+            getBridge().getWebView().requestApplyInsets();
+        });
+    }
 }
 ```
 
-### File 2: `src/pages/Index.tsx` (line 554)
+## Why This Works Across All OEMs
 
-Replace `min-h-screen` with `min-h-app-viewport safe-top safe-bottom`:
-```
-- <div className="min-h-screen bg-background flex flex-col overflow-hidden">
-+ <div className="min-h-app-viewport bg-background flex flex-col overflow-hidden safe-top">
-```
+- The inset values come from the OS via `ViewCompat` (AndroidX) -- this is OEM-agnostic
+- Storing values as instance fields means they survive as long as the Activity is alive
+- `onResume()` is called on every foreground transition on every Android device
+- `requestApplyInsets()` in `onResume` also handles the edge case where the user changed navigation mode (gesture vs 3-button) while the app was in the background
+- No new dependencies or permissions required
 
-This makes the main app container fit exactly between the system bars. The `safe-top` adds status bar padding. Bottom spacing is handled by `BottomNav` which already has `safe-bottom`.
+## No Web/CSS Changes Needed
 
-### File 3: `src/pages/MyShortcuts.tsx` (line 46)
-
-```
-- <div className="min-h-screen bg-background flex flex-col">
-+ <div className="min-h-app-viewport bg-background flex flex-col safe-top">
-```
-
-### File 4: `src/components/ContactShortcutCustomizer.tsx` (line 169)
-
-```
-- <div className="min-h-screen bg-background flex flex-col animate-fade-in">
-+ <div className="min-h-app-viewport bg-background flex flex-col animate-fade-in safe-top">
-```
-
-Note: This component already uses `pt-header-safe-compact` on its header, which includes `--android-safe-top` + visual padding. Adding `safe-top` to the container would double the top inset. Instead, we only change the height:
-
-```
-- <div className="min-h-screen bg-background flex flex-col animate-fade-in">
-+ <div className="min-h-app-viewport bg-background flex flex-col animate-fade-in">
-```
-
-### File 5: `src/pages/AuthCallback.tsx` (line 121)
-
-```
-- <div className="min-h-screen flex items-center justify-center bg-background p-4">
-+ <div className="min-h-app-viewport flex items-center justify-center bg-background p-4 safe-top">
-```
-
-### File 6: `src/pages/NotFound.tsx` (line 14)
-
-```
-- <div className="flex min-h-screen items-center justify-center bg-muted">
-+ <div className="flex min-h-app-viewport items-center justify-center bg-muted safe-top">
-```
-
-### File 7: `src/components/ErrorBoundary.tsx` (line 45)
-
-```
-- <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-background">
-+ <div className="min-h-app-viewport flex flex-col items-center justify-center p-6 bg-background safe-top">
-```
-
-### Files NOT changed (and why)
-
-- **`SlideshowViewer.tsx`** and **`VideoPlayer.tsx`**: These are immersive full-screen viewers with absolute-positioned overlays. They intentionally fill the entire screen (including behind system bars) for a cinematic experience, with individual safe-area classes on their controls. Changing them would break the immersive effect.
-- **`BottomNav.tsx`**: Already uses `safe-bottom` correctly. No changes needed.
-- **`AccessFlow.tsx`**: Not a page container -- it's a child of `Index.tsx`. Its header already uses `pt-header-safe`. No changes needed.
-- **`NotificationsPage.tsx`**, **`BookmarkLibrary.tsx`**, **`ProfilePage.tsx`**: These are tab content components within `Index.tsx`, not standalone pages. They use `flex-1` to fill available space within the already-sized parent. No changes needed.
-
-## Technical Notes
-
-- `100dvh` (dynamic viewport height) accounts for the Android Chrome URL bar appearing/disappearing. It is supported in Chromium 108+ (Android 13+). The `@supports` block uses it when available, falling back to `100vh`.
-- `--android-safe-top` and `--android-safe-bottom` are injected at runtime by `MainActivity.java` using Android's `ViewCompat.setOnApplyWindowInsetsListener` -- this is OS-level and works across all OEMs.
-- The combination of these two mechanisms makes the available height calculation accurate on every Android device.
-- No changes to native Java code are needed.
-
+The CSS variable definitions and utility classes (`--app-available-height`, `.min-h-app-viewport`, etc.) are already correct. The issue is purely that the native side stops injecting the values after the first launch.
