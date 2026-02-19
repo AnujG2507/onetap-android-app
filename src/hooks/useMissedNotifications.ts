@@ -4,6 +4,8 @@
 // Syncs native Android click data on startup
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { App } from '@capacitor/app';
 import type { ScheduledAction } from '@/types/scheduledAction';
 import { 
   getScheduledActions, 
@@ -126,6 +128,7 @@ async function syncNativeClickedIds(): Promise<void> {
 export function useMissedNotifications(): UseMissedNotificationsReturn {
   const [missedActions, setMissedActions] = useState<ScheduledAction[]>([]);
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => getDismissedIds());
+  const [syncComplete, setSyncComplete] = useState(false);
   const nativeSyncDone = useRef(false);
 
   // Find all past-due actions that haven't been dismissed or clicked
@@ -163,14 +166,34 @@ export function useMissedNotifications(): UseMissedNotificationsReturn {
   useEffect(() => {
     if (!nativeSyncDone.current) {
       nativeSyncDone.current = true;
-      // Clean up old dismissed IDs first
       cleanupOldDismissedIds();
-      // Then sync native data
-      syncNativeClickedIds().then(() => {
-        // Re-check after syncing native data
-        checkForMissedActions();
-      });
+
+      if (Capacitor.isNativePlatform()) {
+        syncNativeClickedIds().then(() => {
+          checkForMissedActions();
+          setSyncComplete(true);
+        });
+      } else {
+        setSyncComplete(true);
+      }
     }
+  }, [checkForMissedActions]);
+
+  // Re-sync native clicked IDs every time app resumes from background
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    const listener = App.addListener('appStateChange', ({ isActive }) => {
+      if (isActive) {
+        syncNativeClickedIds().then(() => {
+          checkForMissedActions();
+        });
+      }
+    });
+
+    return () => {
+      listener.then(handle => handle.remove());
+    };
   }, [checkForMissedActions]);
 
   // Initial check and subscribe to changes
@@ -279,8 +302,8 @@ export function useMissedNotifications(): UseMissedNotificationsReturn {
   }, [missedActions, dismissAction]);
 
   return {
-    missedActions,
-    hasMissedActions: missedActions.length > 0,
+    missedActions: syncComplete ? missedActions : [],
+    hasMissedActions: syncComplete && missedActions.length > 0,
     dismissAction,
     dismissAll,
     executeAction,
