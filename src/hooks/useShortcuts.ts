@@ -44,15 +44,33 @@ export function useShortcuts() {
     window.dispatchEvent(new CustomEvent('shortcuts-changed', { detail: data }));
   }, [syncToWidgets]);
 
+  // Sync guards: prevent concurrent syncs and rapid-fire syncs on OEM devices
+  const syncInProgress = useRef(false);
+  const lastSyncTime = useRef(0);
+  const MIN_SYNC_INTERVAL = 5000; // 5 seconds debounce for Samsung split-screen / notification shade
+
   // Sync with home screen - remove orphaned shortcuts that were deleted from home screen
-  // NOTE: On Android 12+, getPinnedShortcuts() is unreliable for shortcuts created via
-  // requestPinShortcut() without dynamic shortcut registration. Therefore, sync only
-  // removes shortcuts if we get a positive signal that they're definitely unpinned.
   const syncWithHomeScreen = useCallback(async () => {
     if (!Capacitor.isNativePlatform()) return;
+    if (syncInProgress.current) return;
+
+    const now = Date.now();
+    if (now - lastSyncTime.current < MIN_SYNC_INTERVAL) return;
+
+    syncInProgress.current = true;
+    lastSyncTime.current = now;
 
     try {
-      const { ids, recentlyCreatedIds } = await ShortcutPlugin.getPinnedShortcutIds();
+      const result = await ShortcutPlugin.getPinnedShortcutIds();
+
+      // If native side reported an error (context null, manager null, exception),
+      // skip sync entirely to avoid deleting all shortcuts
+      if (result.error) {
+        console.warn('[useShortcuts] Native reported error, skipping sync');
+        return;
+      }
+
+      const { ids, recentlyCreatedIds } = result;
       const stored = localStorage.getItem(STORAGE_KEY);
       const currentShortcuts: ShortcutData[] = stored ? JSON.parse(stored) : [];
 
@@ -73,6 +91,8 @@ export function useShortcuts() {
       }
     } catch (error) {
       console.warn('[useShortcuts] Sync failed:', error);
+    } finally {
+      syncInProgress.current = false;
     }
   }, [saveShortcuts]);
 
@@ -137,14 +157,14 @@ export function useShortcuts() {
   const initialSyncDone = useRef(false);
 
   // Initial sync on mount + migrate usage history
+  // NOTE: syncWithHomeScreen is NOT called here — the appStateChange listener
+  // is the single entry point for sync, preventing double-sync race on cold start.
   useEffect(() => {
     syncToWidgets(shortcuts);
     // Migrate existing usage data to history (one-time)
     usageHistoryManager.migrateExistingUsage(shortcuts);
     // Sync native usage events from home screen taps
     syncNativeUsageEvents();
-    // Sync with home screen to remove orphaned shortcuts
-    syncWithHomeScreen();
     
     initialSyncDone.current = true;
   }, []); // Only on mount
