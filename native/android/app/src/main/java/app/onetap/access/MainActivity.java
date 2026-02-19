@@ -6,9 +6,8 @@ import android.net.Uri;
 import android.util.Log;
 import android.view.View;
 import android.webkit.WebView;
-import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
-import androidx.core.view.WindowInsetsCompat;
+import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.BridgeActivity;
 import app.onetap.access.plugins.ShortcutPlugin;
 
@@ -135,31 +134,16 @@ public class MainActivity extends BridgeActivity {
     }
     
     /**
-     * Inject --android-safe-bottom CSS variable into the WebView.
-     * Reads both navigationBars and systemGestures insets, takes the max,
-     * and applies a 24px CSS minimum floor for touch safety.
+     * Inject --android-safe-bottom as 0px.
+     * setDecorFitsSystemWindows(true) already resizes the WebView to end
+     * above the system navigation bar, so no additional CSS padding is needed.
      */
     private void setupNavBarInsetInjection() {
         getBridge().getWebView().post(() -> {
             WebView webView = getBridge().getWebView();
-            float density = getResources().getDisplayMetrics().density;
-            
-            // Inject 24px default synchronously before inset listener fires
             webView.evaluateJavascript(
-                "document.documentElement.style.setProperty('--android-safe-bottom', '24px')", null);
-            
-            ViewCompat.setOnApplyWindowInsetsListener(webView, (view, insets) -> {
-                int navBottom = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom;
-                int gestureBottom = insets.getInsets(WindowInsetsCompat.Type.systemGestures()).bottom;
-                int safeBottom = Math.max(navBottom, gestureBottom);
-                float cssPx = Math.max(24f, safeBottom / density);
-                String js = "document.documentElement.style.setProperty('--android-safe-bottom', '" + cssPx + "px')";
-                webView.evaluateJavascript(js, null);
-                Log.d(TAG, "Injected --android-safe-bottom: " + cssPx + "px (nav: " + navBottom + ", gesture: " + gestureBottom + ", density: " + density + ")");
-                return ViewCompat.onApplyWindowInsets(view, insets);
-            });
-            
-            webView.requestApplyInsets();
+                "document.documentElement.style.setProperty('--android-safe-bottom', '0px')", null);
+            Log.d(TAG, "Injected --android-safe-bottom: 0px (system handles spacing via setDecorFitsSystemWindows)");
         });
     }
     
