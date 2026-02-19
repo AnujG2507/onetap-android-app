@@ -221,7 +221,7 @@ export function AppMenu({ onOpenTrash, onOpenSettings }: AppMenuProps) {
         </div>
 
         {/* Quick Settings - Theme only */}
-        <div className="mt-auto pt-4">
+        <div className="mt-auto pt-4 safe-bottom">
           <Separator className="mb-4" />
           <p className="text-xs text-muted-foreground ps-3 mb-3">{t('settings.appearance')}</p>
           
