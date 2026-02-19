@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Capacitor } from '@capacitor/core';
 import { X, Smartphone, Bell, Share2, Layers } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -86,7 +87,16 @@ export function SharedFileActionSheet({
   // Build image sources for thumbnail preview
   const imageSources = useMemo(() => {
     if (!isImage || isMultiImage) return [];
-    return buildImageSources(file.thumbnailData, file.uri);
+
+    // Convert content:// URI to a WebView-renderable URL
+    let renderableUri = file.uri;
+    if (file.uri?.startsWith('content://') || file.uri?.startsWith('file://')) {
+      try {
+        renderableUri = Capacitor.convertFileSrc(file.uri);
+      } catch { /* fall through to buildImageSources */ }
+    }
+
+    return buildImageSources(file.thumbnailData, renderableUri);
   }, [isImage, isMultiImage, file.thumbnailData, file.uri]);
 
   const fileName = displayName || file.name || info.label;
