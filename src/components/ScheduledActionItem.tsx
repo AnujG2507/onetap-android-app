@@ -392,6 +392,12 @@ export function ScheduledActionItem({
               <div 
                 className="flex items-center shrink-0 relative z-10 pt-2 ms-2" 
                 onClick={handleToggleSwitch}
+                onTouchStart={(e) => e.stopPropagation()}
+                onTouchEnd={(e) => {
+                  e.stopPropagation();
+                  triggerHaptic('light');
+                  onToggle();
+                }}
               >
                 <Switch
                   checked={action.enabled}
