@@ -298,7 +298,7 @@ export default function SlideshowViewer() {
           <div className="absolute inset-0 bg-muted/20 animate-pulse" />
           
           {/* Top bar skeleton */}
-          <div className="absolute top-0 left-0 right-0 p-4 pt-safe bg-gradient-to-b from-black/60 to-transparent">
+          <div className="absolute top-0 left-0 right-0 p-4 pt-header-safe bg-gradient-to-b from-black/60 to-transparent">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-white/20 rounded-full animate-pulse" />
@@ -312,7 +312,7 @@ export default function SlideshowViewer() {
           </div>
           
           {/* Bottom bar skeleton */}
-          <div className="absolute bottom-0 left-0 right-0 p-4 pb-safe bg-gradient-to-t from-black/60 to-transparent">
+          <div className="absolute bottom-0 left-0 right-0 p-4 safe-bottom bg-gradient-to-t from-black/60 to-transparent">
             <div className="flex flex-col items-center gap-2">
               <div className="w-12 h-4 bg-white/20 rounded animate-pulse" />
               <div className="flex items-center gap-1.5">
@@ -455,7 +455,7 @@ export default function SlideshowViewer() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 20 }}
               transition={{ duration: 0.2 }}
-              className="absolute bottom-0 left-0 right-0 p-4 pb-safe bg-gradient-to-t from-black/60 to-transparent"
+              className="absolute bottom-0 left-0 right-0 p-4 safe-bottom bg-gradient-to-t from-black/60 to-transparent"
             >
               <div className="flex flex-col items-center gap-2">
                 {/* Play/Pause status indicator (only show if auto-advance is configured) */}

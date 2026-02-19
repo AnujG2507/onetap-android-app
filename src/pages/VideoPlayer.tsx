@@ -396,7 +396,7 @@ const VideoPlayer = () => {
     <div className="min-h-screen bg-black flex flex-col">
       {/* Premium header with 4-stop gradient matching native player */}
       <header 
-        className="absolute top-0 inset-x-0 z-10 p-4 pt-safe"
+        className="absolute top-0 inset-x-0 z-10 p-4 pt-header-safe"
         style={{ 
           background: 'linear-gradient(to bottom, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.7) 30%, rgba(0,0,0,0.3) 70%, transparent 100%)' 
         }}
