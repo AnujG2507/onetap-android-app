@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, ExternalLink, Share2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Share2, ChevronLeft, ChevronRight, ImageOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useShortcuts } from '@/hooks/useShortcuts';
 import { App } from '@capacitor/app';
@@ -32,6 +32,7 @@ export default function SlideshowViewer() {
   // Full-quality image URLs converted for WebView display
   const [convertedUrls, setConvertedUrls] = useState<Map<number, string>>(new Map());
   const [imageLoadStates, setImageLoadStates] = useState<Map<number, 'loading' | 'ready' | 'error'>>(new Map());
+  const [failedIndices, setFailedIndices] = useState<Set<number>>(new Set());
   
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const autoAdvanceRef = useRef<NodeJS.Timeout | null>(null);
@@ -50,6 +51,7 @@ export default function SlideshowViewer() {
     // Reset all image state for a clean load on every navigation
     setConvertedUrls(new Map());
     setImageLoadStates(new Map());
+    setFailedIndices(new Set());
     setImages([]);
     setThumbnails([]);
     setCurrentIndex(0);
@@ -126,13 +128,17 @@ export default function SlideshowViewer() {
 
   // Get the best available image source for an index
   const getImageSource = useCallback((index: number): string => {
-    // Priority 1: Converted full-quality URI (native platform)
-    const converted = convertedUrls.get(index);
-    if (converted) return converted;
+    const hasFailed = failedIndices.has(index);
     
-    // Priority 2: Original URI (for web or HTTP sources)
+    // Priority 1: Converted full-quality URI (skip if previously failed)
+    if (!hasFailed) {
+      const converted = convertedUrls.get(index);
+      if (converted) return converted;
+    }
+    
+    // Priority 2: Original URI (for web or HTTP sources, skip if failed)
     const original = images[index];
-    if (original?.startsWith('http')) return original;
+    if (!hasFailed && original?.startsWith('http')) return original;
     if (original?.startsWith('data:')) return original;
     
     // Priority 3: Thumbnail as fallback
@@ -144,16 +150,21 @@ export default function SlideshowViewer() {
     }
     
     return '';
-  }, [convertedUrls, images, thumbnails]);
+  }, [convertedUrls, images, thumbnails, failedIndices]);
 
   // Handle image load success
   const handleImageLoad = useCallback((index: number) => {
     setImageLoadStates(prev => new Map(prev).set(index, 'ready'));
   }, []);
 
-  // Handle image load error - fallback to thumbnail
+  // Handle image load error - mark as failed to trigger thumbnail fallback
   const handleImageError = useCallback((index: number) => {
     setImageLoadStates(prev => new Map(prev).set(index, 'error'));
+    setFailedIndices(prev => {
+      const next = new Set(prev);
+      next.add(index);
+      return next;
+    });
   }, []);
 
   // Auto-hide controls
@@ -368,6 +379,19 @@ export default function SlideshowViewer() {
             />
           </motion.div>
         </AnimatePresence>
+
+        {/* Error state - shown when image cannot be loaded and no fallback available */}
+        {currentLoadState === 'error' && !currentImageSrc && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
+            <ImageOff className="h-16 w-16 text-white/40" />
+            <p className="text-white/60 text-sm">{t('slideshow.imageUnavailable', 'Image unavailable')}</p>
+            <Button variant="outline" size="sm" onClick={handleOpenWith}
+              className="text-white border-white/30 hover:bg-white/10">
+              <ExternalLink className="h-4 w-4 mr-2" />
+              {t('slideshow.openWith', 'Open with another app')}
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Controls overlay */}

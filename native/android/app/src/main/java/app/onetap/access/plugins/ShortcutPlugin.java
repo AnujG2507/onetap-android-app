@@ -637,7 +637,7 @@ public class ShortcutPlugin extends Plugin {
         try {
             Context context = getContext();
             if (context != null) {
-                int takeFlags = data.getFlags() & (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+                int takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION;
                 context.getContentResolver().takePersistableUriPermission(uri, takeFlags);
                 android.util.Log.d("ShortcutPlugin", "Persisted URI permission: " + uri);
             }
