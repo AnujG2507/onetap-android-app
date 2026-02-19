@@ -155,7 +155,7 @@ export function AppMenu({ onOpenTrash, onOpenSettings }: AppMenuProps) {
           <SheetTitle className="text-start">{t('menu.title', 'Menu')}</SheetTitle>
         </SheetHeader>
 
-        <ScrollArea className="flex-1 min-h-0">
+        <ScrollArea className="flex-1 min-h-0" viewportClassName="!overflow-x-visible">
           <div className="flex flex-col min-h-full">
             <div className="flex flex-col gap-1">
               {/* My Shortcuts */}
