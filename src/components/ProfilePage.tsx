@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { User, Cloud, Upload, Download, RefreshCw, LogOut, HardDrive, Clock, Trash2 } from 'lucide-react';
+import { User, Cloud, RefreshCw, LogOut, Trash2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { UsageInsights } from '@/components/UsageInsights';
@@ -27,7 +27,7 @@ import { useSheetBackHandler } from '@/hooks/useSheetBackHandler';
 import { useTutorial } from '@/hooks/useTutorial';
 import { getSavedLinks } from '@/lib/savedLinksManager';
 import { getScheduledActions } from '@/lib/scheduledActionsManager';
-import { syncBookmarks, uploadBookmarksToCloud, downloadBookmarksFromCloud, getCloudBookmarkCount, getCloudScheduledActionsCount } from '@/lib/cloudSync';
+import { syncBookmarks } from '@/lib/cloudSync';
 import { getSyncStatus, recordSync, formatRelativeTime, clearSyncStatus } from '@/lib/syncStatusManager';
 import { getSettings, updateSettings } from '@/lib/settingsManager';
 import { supabase } from '@/lib/supabaseClient';
@@ -43,12 +43,7 @@ export function ProfilePage({}: ProfilePageProps = {}) {
   const { user, loading, signInWithGoogle, signOut } = useAuth();
   const { toast } = useToast();
   const [isSyncing, setIsSyncing] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-  const [isDownloading, setIsDownloading] = useState(false);
-  const [localCount, setLocalCount] = useState(0);
-  const [localRemindersCount, setLocalRemindersCount] = useState(0);
-  const [cloudCount, setCloudCount] = useState<number | null>(null);
-  const [cloudRemindersCount, setCloudRemindersCount] = useState<number | null>(null);
+  const [localItemCount, setLocalItemCount] = useState(0);
   const [syncStatus, setSyncStatus] = useState(getSyncStatus());
   const [autoSyncEnabled, setAutoSyncEnabled] = useState(() => getSettings().autoSyncEnabled);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -75,25 +70,16 @@ export function ProfilePage({}: ProfilePageProps = {}) {
   useSheetBackHandler('profile-trash-sheet', isTrashOpen, handleCloseTrash);
   useSheetBackHandler('profile-settings-page', showSettings, handleCloseSettings);
 
-  const isOperating = isSyncing || isUploading || isDownloading || isDeleting;
+  const isOperating = isSyncing || isDeleting;
 
-  // Refresh counts
-  const refreshCounts = async () => {
+  // Refresh counts - local only, fast and simple
+  const refreshCounts = useCallback(() => {
     try {
-      setLocalCount(getSavedLinks().length);
-      setLocalRemindersCount(getScheduledActions().length);
-      if (user) {
-        const [bookmarkCount, actionsCount] = await Promise.all([
-          getCloudBookmarkCount(),
-          getCloudScheduledActionsCount()
-        ]);
-        setCloudCount(bookmarkCount);
-        setCloudRemindersCount(actionsCount);
-      }
+      setLocalItemCount(getSavedLinks().length + getScheduledActions().length);
     } catch (error) {
       console.error('[ProfilePage] refreshCounts failed:', error);
     }
-  };
+  }, []);
 
   const handleAutoSyncToggle = (enabled: boolean) => {
     setAutoSyncEnabled(enabled);
@@ -184,8 +170,6 @@ export function ProfilePage({}: ProfilePageProps = {}) {
 
   const handleSignOut = async () => {
     await signOut();
-    setCloudCount(null);
-    setCloudRemindersCount(null);
   };
 
   const handleSync = async () => {
@@ -195,14 +179,15 @@ export function ProfilePage({}: ProfilePageProps = {}) {
       if (result.success) {
         recordSync(result.uploaded, result.downloaded);
         setSyncStatus(getSyncStatus());
+        const hasChanges = result.uploaded > 0 || result.downloaded > 0;
         toast({
           title: t('profile.syncComplete'),
-          description: t('profile.syncCompleteDesc', { uploaded: result.uploaded, downloaded: result.downloaded }),
+          description: hasChanges ? t('profile.everythingSynced') : t('profile.alreadyInSync'),
         });
         if (result.downloaded > 0) {
           window.location.reload();
         } else {
-          await refreshCounts();
+          refreshCounts();
         }
       } else {
         toast({
@@ -216,55 +201,6 @@ export function ProfilePage({}: ProfilePageProps = {}) {
     }
   };
 
-  const handleUpload = async () => {
-    setIsUploading(true);
-    try {
-      const result = await uploadBookmarksToCloud();
-      if (result.success) {
-        recordSync(result.uploaded, 0);
-        setSyncStatus(getSyncStatus());
-        toast({
-          title: t('profile.uploadComplete'),
-          description: t('profile.uploadCompleteDesc', { count: result.uploaded }),
-        });
-        await refreshCounts();
-      } else {
-        toast({
-          title: t('profile.uploadFailed'),
-          description: result.error,
-          variant: 'destructive',
-        });
-      }
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const handleDownload = async () => {
-    setIsDownloading(true);
-    try {
-      const result = await downloadBookmarksFromCloud();
-      if (result.success) {
-        recordSync(0, result.downloaded);
-        setSyncStatus(getSyncStatus());
-        toast({
-          title: t('profile.downloadComplete'),
-          description: t('profile.downloadCompleteDesc', { count: result.downloaded }),
-        });
-        if (result.downloaded > 0) {
-          window.location.reload();
-        }
-      } else {
-        toast({
-          title: t('profile.downloadFailed'),
-          description: result.error,
-          variant: 'destructive',
-        });
-      }
-    } finally {
-      setIsDownloading(false);
-    }
-  };
 
   // Show settings page
   if (showSettings) {
@@ -403,77 +339,35 @@ export function ProfilePage({}: ProfilePageProps = {}) {
         </CardContent>
       </Card>
 
-      {/* Sync Status Card */}
+      {/* Cloud Sync Card */}
       <Card className="mb-4">
-        <CardHeader className="pb-3">
+        <CardContent className="pt-5 space-y-4">
+          {/* Header row: title + auto-sync toggle */}
           <div className="flex items-center justify-between">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Clock className="w-4 h-4" />
-              {t('profile.syncStatus')}
-            </CardTitle>
             <div className="flex items-center gap-2">
-              {/* Subtle sync status indicator */}
+              <Cloud className="w-4 h-4 text-primary" />
+              <span className="text-sm font-semibold">{t('profile.cloudSync')}</span>
               <SyncStatusIndicator />
-              {autoSyncEnabled ? (
-                <span className="text-xs text-green-600 dark:text-green-400">
-                  {t('profile.autoSyncOn')}
-                </span>
-              ) : (
-                <span className="text-xs text-muted-foreground">{t('profile.autoSyncOff')}</span>
-              )}
             </div>
-          </div>
-          <CardDescription>
-            {formatRelativeTime(syncStatus.lastSyncAt)}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-              <HardDrive className="w-5 h-5 text-muted-foreground shrink-0" />
-              <div className="min-w-0">
-                <p className="text-lg font-bold leading-tight">
-                  {localCount} <span className="text-sm font-normal text-muted-foreground">{t('profile.bookmarks')}</span>
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {localRemindersCount} <span className="text-xs">{t('profile.reminders')}</span>
-                </p>
-                <p className="text-[10px] text-muted-foreground/70 mt-0.5">{t('profile.local')}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-              <Cloud className="w-5 h-5 text-muted-foreground shrink-0" />
-              <div className="min-w-0">
-                <p className="text-lg font-bold leading-tight">
-                  {cloudCount ?? '—'} <span className="text-sm font-normal text-muted-foreground">{t('profile.bookmarks')}</span>
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {cloudRemindersCount ?? '—'} <span className="text-xs">{t('profile.reminders')}</span>
-                </p>
-                <p className="text-[10px] text-muted-foreground/70 mt-0.5">{t('profile.cloud')}</p>
-              </div>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="auto-sync" className="text-xs text-muted-foreground">
+                {t('profile.autoSync')}
+              </Label>
+              <Switch
+                id="auto-sync"
+                checked={autoSyncEnabled}
+                onCheckedChange={handleAutoSyncToggle}
+                className="scale-90"
+              />
             </div>
           </div>
 
-          {syncStatus.lastSyncAt && (
-            <div className="mt-3 text-xs text-muted-foreground text-center">
-              {t('profile.lastSyncInfo', { uploaded: syncStatus.lastUploadCount, downloaded: syncStatus.lastDownloadCount })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          {/* Item count */}
+          <p className="text-sm text-muted-foreground">
+            {localItemCount} {t('profile.items')}
+          </p>
 
-      {/* Usage Insights */}
-      <div className="mb-4 w-full min-w-0 overflow-hidden">
-        <UsageInsights />
-      </div>
-
-      {/* Actions Card */}
-      <Card className="mb-4">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">{t('profile.quickActions')}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
+          {/* Sync button */}
           <Button 
             onClick={handleSync} 
             disabled={isOperating}
@@ -482,53 +376,18 @@ export function ProfilePage({}: ProfilePageProps = {}) {
             <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
             {isSyncing ? t('profile.syncing') : t('profile.syncNow')}
           </Button>
-          
-          <div className="grid grid-cols-2 gap-2">
-            <Button 
-              variant="outline" 
-              onClick={handleUpload}
-              disabled={isOperating}
-              className="gap-2"
-            >
-              <Upload className="w-4 h-4" />
-              {isUploading ? t('profile.uploading') : t('profile.upload')}
-            </Button>
-            <Button 
-              variant="outline" 
-              onClick={handleDownload}
-              disabled={isOperating}
-              className="gap-2"
-            >
-              <Download className="w-4 h-4" />
-              {isDownloading ? t('profile.downloading') : t('profile.download')}
-            </Button>
-          </div>
+
+          {/* Last sync time */}
+          <p className="text-xs text-muted-foreground text-center">
+            {formatRelativeTime(syncStatus.lastSyncAt)}
+          </p>
         </CardContent>
       </Card>
 
-      {/* Settings Card */}
-      <Card className="mb-4">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">{t('settings.title')}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="auto-sync" className="text-sm font-medium">
-                {t('profile.autoSync')}
-              </Label>
-              <p className="text-xs text-muted-foreground">
-                {t('profile.autoSyncDesc')}
-              </p>
-            </div>
-            <Switch
-              id="auto-sync"
-              checked={autoSyncEnabled}
-              onCheckedChange={handleAutoSyncToggle}
-            />
-          </div>
-        </CardContent>
-      </Card>
+      {/* Usage Insights */}
+      <div className="mb-4 w-full min-w-0 overflow-hidden">
+        <UsageInsights />
+      </div>
 
       {/* Account Actions */}
       <div className="space-y-2">
