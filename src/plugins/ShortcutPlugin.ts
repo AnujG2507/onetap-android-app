@@ -34,6 +34,7 @@ export interface ShortcutPluginInterface {
     type?: string;
     data?: string;
     text?: string;
+    name?: string;
     // PDF viewer extras
     shortcutId?: string;
     resume?: boolean | string;
