@@ -1,32 +1,76 @@
 
 
-# Fix: Badge Counts Clipped in Hamburger Menu
+# Fix: Text Overflow in Scheduled Reminders Journey
 
-## Problem
+## Issues Found
 
-After adding `ScrollArea` for landscape scrolling, the count badges on "My Access Points" (blue) and "Trash" (red) are being cut off at the right edge of the menu. This happens because the Radix ScrollArea viewport internally sets `overflow: scroll` in both directions, which clips content near the edges.
+### 1. Creator Confirm Step - Preview Card URL (CRITICAL - reported issue)
+**File:** `src/components/ScheduledActionCreator.tsx`, lines 817-820
 
-## Solution
-
-Use the existing `viewportClassName` prop on `ScrollArea` to disable horizontal overflow clipping. Since we only need vertical scrolling, the horizontal axis should not constrain content.
-
-## Technical Details
-
-### File: `src/components/AppMenu.tsx`
-
-Change line 158 from:
-
+The URL destination text in the confirmation preview card has NO overflow handling:
 ```tsx
-<ScrollArea className="flex-1 min-h-0">
+<p className="text-xs text-muted-foreground mt-0.5">
+  {destination.type === 'url' && destination.uri}
+</p>
 ```
+Long URLs will overflow the card and extend beyond the screen edge. Needs `break-all` and `line-clamp-2` (or `truncate`).
 
+### 2. Creator Confirm Step - Preview Card Title
+**File:** `src/components/ScheduledActionCreator.tsx`, line 814
+
+The title uses `truncate` which is fine, but the file name line (818) also has no overflow control for long file names.
+
+### 3. Creator Confirm Step - Timing Text
+**File:** `src/components/ScheduledActionCreator.tsx`, lines 822-832
+
+The timing + recurrence line could overflow on narrow screens with long locale strings. Needs wrapping protection.
+
+### 4. ScheduledActionItem - Trigger Time Line
+**File:** `src/components/ScheduledActionItem.tsx`, lines 282-286
+
+Has `truncate` -- OK, but the "Expired" prefix concatenation could push content. Already has `truncate`, so this is fine.
+
+### 5. Action Sheet - Destination Name (Already handled)
+**File:** `src/components/ScheduledActionActionSheet.tsx`, line 194
+
+Already uses `break-all` -- correctly handled.
+
+### 6. Editor Main View - Destination Label (Already handled)
+**File:** `src/components/ScheduledActionEditor.tsx`, line 622
+
+Already uses `truncate` -- correctly handled.
+
+---
+
+## Changes Required
+
+### File: `src/components/ScheduledActionCreator.tsx`
+
+**Fix the confirm step preview card** (lines 813-833):
+
+Change the destination detail `<p>` tag (line 817) from:
+```tsx
+<p className="text-xs text-muted-foreground mt-0.5">
+```
 To:
-
 ```tsx
-<ScrollArea className="flex-1 min-h-0" viewportClassName="!overflow-x-visible">
+<p className="text-xs text-muted-foreground mt-0.5 break-all line-clamp-2">
 ```
 
-This uses the `viewportClassName` prop (already supported by the project's custom `ScrollArea` component) to override the Radix viewport's horizontal overflow, ensuring badges are fully visible while vertical scrolling continues to work correctly in landscape mode.
+This adds:
+- `break-all`: Forces long URLs to wrap at any character boundary instead of overflowing
+- `line-clamp-2`: Limits to 2 lines max with ellipsis, preventing tall cards
 
-Single line change, no other files affected.
+Change the timing `<p>` tag (line 822) from:
+```tsx
+<p className="text-xs text-primary mt-1.5">
+```
+To:
+```tsx
+<p className="text-xs text-primary mt-1.5 break-words">
+```
+
+This ensures locale-formatted date strings wrap properly on narrow viewports.
+
+Two lines changed, single file.
 
