@@ -3864,6 +3864,14 @@ public class ShortcutPlugin extends Plugin {
 
             android.util.Log.d("ShortcutPlugin", "Theme synced: " + theme + " (resolved: " + resolvedTheme + ")");
 
+            // Immediately update system bar icon colors on the current activity
+            Activity activity = getActivity();
+            if (activity instanceof MainActivity) {
+                activity.runOnUiThread(() -> {
+                    ((MainActivity) activity).updateSystemBarAppearance();
+                });
+            }
+
             JSObject result = new JSObject();
             result.put("success", true);
             call.resolve(result);
