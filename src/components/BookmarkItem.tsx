@@ -411,7 +411,7 @@ export function BookmarkItem({
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction 
               onClick={handleMoveToTrash}
-              className="border border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100 dark:border-amber-600 dark:bg-amber-950 dark:text-amber-200 dark:hover:bg-amber-900"
+              className="border border-warning/40 bg-warning/10 text-warning-foreground hover:bg-warning/20"
             >
               Move to Trash
             </AlertDialogAction>
