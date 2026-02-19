@@ -1,116 +1,87 @@
 
 
-# Fix: CSS Inset Variables Lost After App Resume
+# Fix: CSS Inset Variables Lost Due to Page Load Race Condition
 
 ## Root Cause
 
-The `setupNavBarInsetInjection()` method in `MainActivity.java` sets up a `ViewCompat.setOnApplyWindowInsetsListener` and calls `requestApplyInsets()` once during `onCreate`. This works on first launch because:
+The native `setupNavBarInsetInjection()` runs during `onCreate` and injects CSS variables via `evaluateJavascript`. However, Capacitor loads the web page asynchronously. On subsequent cold starts (app killed then relaunched), the app initializes faster, and the inset injection fires **before** the page has finished loading. When the page finishes loading, it resets the DOM and the injected inline styles are lost.
 
-1. `onCreate` runs
-2. The listener is registered
-3. `requestApplyInsets()` triggers the listener
-4. CSS variables are injected into the DOM
+Timeline on first install:
+```text
+onCreate -> WebView created -> (slow init) -> page loads -> insets inject -> works!
+```
 
-On subsequent app opens (resume from background, or WebView reload after memory pressure):
+Timeline on subsequent launches:
+```text
+onCreate -> WebView created -> insets inject -> page loads (wipes styles) -> broken!
+```
 
-- `onCreate` is NOT called (only `onResume`)
-- The listener exists but doesn't re-fire (insets haven't changed)
-- The WebView may have reloaded its page, wiping the CSS variables
-- Result: `--android-safe-top` and `--android-safe-bottom` are both `0px` (the CSS fallback defaults)
+The `onResume` re-injection doesn't help here because `onResume` is called right after `onCreate` during a cold start — still before the page finishes loading.
 
-## Solution
+## Solution: Two-Part Fix
 
-Two changes to `MainActivity.java`:
+### Part 1: CSS `env()` Defaults (Immediate, No JS Needed)
 
-1. **Store the last known inset values** as instance fields so they can be re-injected at any time
-2. **Override `onResume()`** to re-inject the stored values into the WebView every time the app comes to the foreground
+The `index.html` already has `viewport-fit=cover`, which makes `env(safe-area-inset-*)` available in CSS. We set the `--android-safe-*` variables to use these `env()` values as their **initial defaults**. This means the correct inset values are available the instant the CSS is parsed — no native injection needed.
 
-This covers all scenarios:
-- First launch: listener fires, values stored and injected
-- Resume from background: `onResume` re-injects stored values
-- WebView reload (memory pressure): `onResume` re-injects after the page reloads
-- Configuration change: listener fires again with new values
+When the native code eventually fires `style.setProperty(...)`, it overrides the `env()` defaults with OS-reported pixel values (which are typically identical but guaranteed accurate).
+
+### Part 2: Delayed Re-injection in Native Code
+
+Add a delayed re-injection (500ms) in `onResume` to catch any edge case where the page loads after the initial injection. This ensures the native values always win once the page is ready.
 
 ## Changes
 
-### File: `native/android/app/src/main/java/app/onetap/access/MainActivity.java`
+### File 1: `src/index.css`
 
-**Add instance fields** to store last known inset values (after the existing `pendingSlideshowId` field):
+Add `--android-safe-top` and `--android-safe-bottom` variable declarations with `env()` defaults in the `:root` block. These provide correct values immediately on page load without waiting for native JS injection.
 
-```java
-// Last known inset values (in dp) for re-injection on resume
-private float lastSafeTop = 0f;
-private float lastSafeBottom = 0f;
-```
+```css
+:root {
+    /* ... existing variables ... */
 
-**Update `setupNavBarInsetInjection()`** to store values when the listener fires:
+    /* Safe area insets - env() provides immediate values from viewport-fit=cover,
+       native Java code overrides these with OS-reported values when ready */
+    --android-safe-top: env(safe-area-inset-top, 0px);
+    --android-safe-bottom: env(safe-area-inset-bottom, 0px);
 
-```java
-private void setupNavBarInsetInjection() {
-    getBridge().getWebView().post(() -> {
-        WebView webView = getBridge().getWebView();
-        float density = getResources().getDisplayMetrics().density;
-
-        ViewCompat.setOnApplyWindowInsetsListener(webView, (view, insets) -> {
-            int navBottom = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom;
-            int statusTop = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top;
-
-            lastSafeBottom = navBottom / density;
-            lastSafeTop = statusTop / density;
-
-            injectInsetsIntoWebView(webView);
-
-            return ViewCompat.onApplyWindowInsets(view, insets);
-        });
-
-        webView.requestApplyInsets();
-    });
+    /* Available viewport height between system bars */
+    --app-available-height: calc(100vh - var(--android-safe-top, 0px) - var(--android-safe-bottom, 0px));
 }
 ```
 
-**Add a helper method** to inject the stored values:
+### File 2: `native/android/app/src/main/java/app/onetap/access/MainActivity.java`
 
-```java
-private void injectInsetsIntoWebView(WebView webView) {
-    String js = "document.documentElement.style.setProperty('--android-safe-bottom', '"
-        + lastSafeBottom + "px');"
-        + "document.documentElement.style.setProperty('--android-safe-top', '"
-        + lastSafeTop + "px');";
-
-    webView.evaluateJavascript(js, null);
-    Log.d(TAG, "Insets injected -- bottom: " + lastSafeBottom + "px, top: " + lastSafeTop + "px");
-}
-```
-
-**Add `onResume()` override** to re-inject on every foreground transition:
+Update `onResume()` to add a delayed re-injection (500ms) to handle cases where the page finishes loading after the initial injection:
 
 ```java
 @Override
-protected void onResume() {
+public void onResume() {
     super.onResume();
     Log.d(TAG, "onResume called");
     CrashLogger.getInstance().addBreadcrumb(CrashLogger.CAT_LIFECYCLE, "MainActivity.onResume");
 
-    // Re-inject insets into WebView on every resume
-    // The DOM may have been reset if WebView was unloaded due to memory pressure
     if (getBridge() != null && getBridge().getWebView() != null) {
-        getBridge().getWebView().post(() -> {
-            injectInsetsIntoWebView(getBridge().getWebView());
-            // Also request fresh insets in case they changed (e.g. navigation mode switch)
-            getBridge().getWebView().requestApplyInsets();
+        WebView wv = getBridge().getWebView();
+        // Immediate injection
+        wv.post(() -> {
+            injectInsetsIntoWebView(wv);
+            wv.requestApplyInsets();
         });
+        // Delayed injection to catch page-load race condition
+        wv.postDelayed(() -> {
+            injectInsetsIntoWebView(wv);
+        }, 500);
     }
 }
 ```
 
-## Why This Works Across All OEMs
+## Why This Fully Solves the Problem
 
-- The inset values come from the OS via `ViewCompat` (AndroidX) -- this is OEM-agnostic
-- Storing values as instance fields means they survive as long as the Activity is alive
-- `onResume()` is called on every foreground transition on every Android device
-- `requestApplyInsets()` in `onResume` also handles the edge case where the user changed navigation mode (gesture vs 3-button) while the app was in the background
-- No new dependencies or permissions required
+1. **CSS `env()` defaults**: Correct values are available the instant the page loads -- zero race condition, zero dependency on native timing.
+2. **Immediate native injection**: Overrides with OS-accurate values when the bridge is ready.
+3. **Delayed native injection**: Catches any edge case where the page loads after the immediate injection.
+4. **`onApplyWindowInsetsListener`**: Still fires on configuration changes (rotation, nav mode switch).
 
-## No Web/CSS Changes Needed
+Every possible timing scenario is now covered. No new dependencies or permissions required.
 
-The CSS variable definitions and utility classes (`--app-available-height`, `.min-h-app-viewport`, etc.) are already correct. The issue is purely that the native side stops injecting the values after the first launch.
