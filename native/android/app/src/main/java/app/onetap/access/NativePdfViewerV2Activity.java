@@ -126,6 +126,12 @@ public class NativePdfViewerV2Activity extends Activity {
     // Error state
     private FrameLayout errorView;
 
+    // Pending resume state (deferred until page scan completes for long docs)
+    private boolean hasPendingResume = false;
+    private float pendingScrollFraction = 0f;
+    private float pendingZoom = 1.0f;
+    private float pendingPanX = 0f;
+
     // Intent data
     private Uri pdfUri;
     private String pdfTitle;
@@ -356,6 +362,7 @@ public class NativePdfViewerV2Activity extends Activity {
                         mainHandler.post(() -> {
                             if (documentView != null) {
                                 documentView.onPageScanProgress(scannedPageCount, true);
+                                applyPendingResume();
                                 requestVisiblePageRenders();
                             }
                         });
@@ -604,27 +611,50 @@ public class NativePdfViewerV2Activity extends Activity {
     private void loadResumeState() {
         if (shortcutId == null || !resumeEnabled) return;
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        float scrollY = prefs.getFloat(shortcutId + "_scrollY", 0f);
-        float zoom = prefs.getFloat(shortcutId + "_zoom", 1.0f);
-        float panX = prefs.getFloat(shortcutId + "_panX", 0f);
-        int savedWidth = prefs.getInt(shortcutId + "_screenWidth", screenWidth);
 
-        if (documentView != null) {
-            // Adjust scroll if screen width changed
-            if (savedWidth != screenWidth) {
-                float ratio = (float) screenWidth / savedWidth;
-                scrollY *= ratio;
-            }
-            documentView.restoreState(scrollY, zoom, panX);
+        pendingScrollFraction = prefs.getFloat(shortcutId + "_scrollFraction", 0f);
+        // Backward compat: if no fraction saved, try old scrollY key (can't convert reliably)
+        if (pendingScrollFraction == 0f) {
+            float oldScrollY = prefs.getFloat(shortcutId + "_scrollY", 0f);
+            // Can't convert absolute scrollY to fraction without full doc height; leave at 0
         }
+        pendingZoom = prefs.getFloat(shortcutId + "_zoom", 1.0f);
+        pendingPanX = prefs.getFloat(shortcutId + "_panX", 0f);
+        hasPendingResume = (pendingScrollFraction > 0f || pendingZoom != 1.0f);
+
+        if (pageScanComplete) {
+            applyPendingResume();
+        }
+        // Otherwise, will be applied when onPageScanProgress completes
+    }
+
+    private void applyPendingResume() {
+        if (!hasPendingResume || documentView == null) return;
+        hasPendingResume = false;
+
+        float totalH = documentView.getTotalDocHeight();
+        float scrollY = pendingScrollFraction * totalH * pendingZoom;
+        documentView.restoreState(scrollY, pendingZoom, pendingPanX);
+        requestVisiblePageRenders();
     }
 
     private void saveResumeState() {
         if (shortcutId == null || !resumeEnabled || documentView == null) return;
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+
+        float scrollY = documentView.getScrollYPosition();
+        float zoom = documentView.getZoomLevel();
+        float totalH = documentView.getTotalDocHeight();
+
+        // Save as fraction of total zoomed document height for scan-independence
+        float scrollFraction = 0f;
+        if (totalH * zoom > 0) {
+            scrollFraction = scrollY / (totalH * zoom);
+        }
+
         prefs.edit()
-            .putFloat(shortcutId + "_scrollY", documentView.getScrollYPosition())
-            .putFloat(shortcutId + "_zoom", documentView.getZoomLevel())
+            .putFloat(shortcutId + "_scrollFraction", scrollFraction)
+            .putFloat(shortcutId + "_zoom", zoom)
             .putFloat(shortcutId + "_panX", documentView.getPanX())
             .putInt(shortcutId + "_screenWidth", screenWidth)
             .putLong(shortcutId + "_timestamp", System.currentTimeMillis())
@@ -1213,6 +1243,7 @@ public class NativePdfViewerV2Activity extends Activity {
         float getScrollYPosition() { return scrollY; }
         float getZoomLevel() { return zoomLevel; }
         float getPanX() { return panX; }
+        float getTotalDocHeight() { return totalDocHeight; }
 
         /**
          * Returns [firstVisiblePage, lastVisiblePage] or null.
