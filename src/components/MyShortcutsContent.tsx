@@ -370,6 +370,7 @@ export function MyShortcutsContent({ onCreateReminder, onRefresh, isSyncing: ext
   // Search and filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
+  const [showDormant, setShowDormant] = useState(false);
   const [sortMode, setSortMode] = useState<SortMode>(() => {
     const saved = localStorage.getItem(SORT_MODE_KEY);
     return (saved as SortMode) || 'usage';
@@ -385,20 +386,25 @@ export function MyShortcutsContent({ onCreateReminder, onRefresh, isSyncing: ext
     localStorage.setItem(SORT_MODE_KEY, sortMode);
   }, [sortMode]);
   
-  // Calculate counts for each filter type
+  // Separate active and dormant shortcuts
+  const activeShortcuts = useMemo(() => shortcuts.filter(s => !isDormant(s)), [shortcuts]);
+  const dormantCount = useMemo(() => shortcuts.filter(s => isDormant(s)).length, [shortcuts]);
+  
+  // Calculate counts for each filter type (active only)
   const typeCounts = useMemo(() => {
     return {
-      all: shortcuts.length,
-      link: shortcuts.filter(s => s.type === 'link').length,
-      file: shortcuts.filter(s => s.type === 'file').length,
-      whatsapp: shortcuts.filter(s => s.type === 'message' && s.messageApp === 'whatsapp').length,
-      contact: shortcuts.filter(s => s.type === 'contact').length,
+      all: activeShortcuts.length,
+      link: activeShortcuts.filter(s => s.type === 'link').length,
+      file: activeShortcuts.filter(s => s.type === 'file').length,
+      whatsapp: activeShortcuts.filter(s => s.type === 'message' && s.messageApp === 'whatsapp').length,
+      contact: activeShortcuts.filter(s => s.type === 'contact').length,
     };
-  }, [shortcuts]);
+  }, [activeShortcuts]);
   
   // Filter and sort shortcuts
   const filteredShortcuts = useMemo(() => {
-    let result = [...shortcuts];
+    // Start with active shortcuts, or include dormant if toggled on
+    let result = showDormant ? [...shortcuts] : [...activeShortcuts];
     
     // Type filter
     if (typeFilter !== 'all') {
@@ -436,7 +442,7 @@ export function MyShortcutsContent({ onCreateReminder, onRefresh, isSyncing: ext
     });
     
     return result;
-  }, [shortcuts, typeFilter, searchQuery, sortMode]);
+  }, [shortcuts, activeShortcuts, showDormant, typeFilter, searchQuery, sortMode]);
   
   // Check if filters are active
   const hasActiveFilters = searchQuery.trim() !== '' || typeFilter !== 'all';
@@ -660,6 +666,24 @@ export function MyShortcutsContent({ onCreateReminder, onRefresh, isSyncing: ext
                     onClick={() => setTypeFilter(value)}
                   />
                 ))}
+                {dormantCount > 0 && (
+                  <button
+                    onClick={() => setShowDormant(prev => !prev)}
+                    className={`
+                      flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors
+                      ${showDormant 
+                        ? 'bg-muted-foreground/80 text-background' 
+                        : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                      }
+                    `}
+                  >
+                    <CloudOff className="h-3.5 w-3.5" />
+                    <span>{t('shortcuts.filterDormant', 'Dormant')}</span>
+                    <span className={`text-xs ${showDormant ? 'text-background/70' : 'text-muted-foreground/70'}`}>
+                      ({dormantCount})
+                    </span>
+                  </button>
+                )}
               </div>
               <ScrollBar orientation="horizontal" />
             </ScrollArea>

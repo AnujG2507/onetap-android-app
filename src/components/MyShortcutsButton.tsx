@@ -17,7 +17,8 @@ export function MyShortcutsButton() {
       try {
         const stored = localStorage.getItem(SHORTCUTS_STORAGE_KEY);
         const shortcuts = stored ? JSON.parse(stored) : [];
-        setShortcutsCount(Array.isArray(shortcuts) ? shortcuts.length : 0);
+        const active = Array.isArray(shortcuts) ? shortcuts.filter((s: any) => s.syncState !== 'dormant') : [];
+        setShortcutsCount(active.length);
       } catch {
         setShortcutsCount(0);
       }
