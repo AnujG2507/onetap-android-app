@@ -1,42 +1,26 @@
 
 
-# Fix: Long Title Overflow in Viewer Headers
+# Fix: Slideshow Viewer Back Button Should Exit App (Like Video Player)
 
-## Scope
+## Problem
 
-After reviewing all viewer components:
-- **SlideshowViewer** -- HAS the bug (title text pushes buttons off-screen)
-- **VideoPlayer** -- NOT affected (no title displayed in header, just back/share/open buttons)
-- **Native PDF Viewer** -- NOT affected (handled entirely in Java, not web)
+When a slideshow shortcut is tapped from the home screen, the native `SlideshowProxyActivity` launches `MainActivity` with a deep link. Pressing the back button (or the header arrow) calls `navigate(-1)`, which goes back in the WebView history to the app's home screen instead of closing the app. This is inconsistent with the Video Player, which calls `App.exitApp()` to close immediately.
 
-Only `SlideshowViewer.tsx` needs fixing.
+## Solution
+
+Match the Video Player's behavior: on native platform, exit the app; on web, use `window.history.back()`.
 
 ## Changes
 
 ### File: `src/pages/SlideshowViewer.tsx`
 
-Three CSS class additions in the header bar (around lines 374-387):
+1. **Replace `useBackButton` hook** (lines 39-43) with a direct `App.addListener('backButton')` that calls `App.exitApp()`, matching how `VideoPlayer.tsx` does it.
 
-1. **Left container** (back button + title): Add `min-w-0 flex-1` so it can shrink
-2. **Title span**: Add `truncate` so long names get ellipsis
-3. **Right container** (counter + share + open): Add `flex-shrink-0` so buttons never compress
+2. **Update `handleClose`** (lines 270-272) to call `App.exitApp()` on native instead of `navigate(-1)`.
 
-### Before
-```
-[<-] My Very Long Shortcut Name That Goes On And On   [1/1] [Share] [Open]
-                                                        ^^^ pushed off screen
-```
+3. **Update `handleSwipeDown`** (lines 227-229) to also exit the app on native.
 
-### After
-```
-[<-] My Very Long Shortcut Na...   [1/1] [Share] [Open]
-```
+All three exit paths (hardware back, header arrow, swipe down) will consistently exit the app on native, and use `window.history.back()` on web.
 
-### Technical Detail
-
-- Line ~375: `<div className="flex items-center gap-3">` becomes `<div className="flex items-center gap-3 min-w-0 flex-1">`
-- Line ~384: `<span className="text-white font-medium">` becomes `<span className="text-white font-medium truncate">`
-- Line ~387: `<div className="flex items-center gap-2">` becomes `<div className="flex items-center gap-2 flex-shrink-0">`
-
-No other files need changes.
+### No other files changed.
 
