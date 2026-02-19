@@ -216,17 +216,25 @@ function ShortcutListItem({
 
       {/* Text column - must be minmax(0,1fr) to enable truncation */}
       <div className="min-w-0 overflow-hidden flex flex-col">
-        {/* Title */}
-        <span className={cn("font-medium truncate", dormant && "text-muted-foreground")}>
-          {shortcut.name}
-        </span>
+        {/* Title + tap count on same line */}
+        <div className="flex items-center gap-2">
+          <span className={cn("font-medium truncate flex-1 min-w-0", dormant && "text-muted-foreground")}>
+            {shortcut.name}
+          </span>
+          <Badge
+            variant="outline"
+            className="shrink-0 text-[10px] px-1.5 py-0 h-5 font-semibold bg-primary/5 border-primary/20 text-primary whitespace-nowrap"
+          >
+            {usageCount} {usageCount === 1 ? t('shortcuts.tap') : t('shortcuts.taps')}
+          </Badge>
+        </div>
         {dormant && (
           <span className="text-xs text-muted-foreground/70 mt-0.5">
             {t('shortcuts.tapToReconnect')}
           </span>
         )}
 
-        {/* Meta row: Type | Target (truncates unless expanded) | Expand button | Badge */}
+        {/* Meta row: Type | Target */}
         <div className="mt-0.5 min-w-0 overflow-hidden flex items-center gap-1.5">
           <span className="text-xs text-muted-foreground shrink-0">
             {typeLabel}
@@ -262,13 +270,6 @@ function ShortcutListItem({
               </motion.span>
             </span>
           )}
-
-          <Badge
-            variant="outline"
-            className="shrink-0 text-[10px] px-1.5 py-0 h-5 font-semibold bg-primary/5 border-primary/20 text-primary whitespace-nowrap"
-          >
-            {usageCount} {usageCount === 1 ? t('shortcuts.tap') : t('shortcuts.taps')}
-          </Badge>
         </div>
       </div>
 
