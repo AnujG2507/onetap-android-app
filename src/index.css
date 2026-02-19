@@ -102,26 +102,26 @@ All colors MUST be HSL.
 
   /* Safe area for Android navigation — single source of truth */
   .safe-bottom {
-    padding-bottom: var(--android-safe-bottom, 0px);
+    padding-bottom: var(--android-safe-bottom, 16px);
   }
 
   /* Safe area for Android status bar */
   .safe-top {
-    padding-top: env(safe-area-inset-top, 0px);
+    padding-top: var(--android-safe-top, 0px);
   }
 
-  /* Safe area for action buttons — small visual margin above bottom edge */
+  /* Safe area for action buttons — includes safe bottom + visual margin */
   .safe-bottom-action {
-    padding-bottom: 16px;
+    padding-bottom: calc(var(--android-safe-bottom, 16px) + 16px);
   }
 
   /* Header-safe utilities: combines safe area + visual padding */
   .pt-header-safe {
-    padding-top: calc(env(safe-area-inset-top, 0px) + 1rem);
+    padding-top: calc(var(--android-safe-top, 0px) + 1rem);
   }
 
   .pt-header-safe-compact {
-    padding-top: calc(env(safe-area-inset-top, 0px) + 0.75rem);
+    padding-top: calc(var(--android-safe-top, 0px) + 0.75rem);
   }
 
   /* Sticky header with scroll shadow */

@@ -4,10 +4,9 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.net.Uri;
 import android.util.Log;
-import android.view.View;
 import android.webkit.WebView;
-import androidx.core.view.WindowCompat;
-import com.getcapacitor.BridgeActivity;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import com.getcapacitor.BridgeActivity;
 import app.onetap.access.plugins.ShortcutPlugin;
 
@@ -26,9 +25,8 @@ public class MainActivity extends BridgeActivity {
         // Register the ShortcutPlugin BEFORE calling super.onCreate()
         registerPlugin(ShortcutPlugin.class);
         
-        // Disable edge-to-edge: system resizes the WebView to exclude nav bar.
-        // Prevents content from rendering behind the navigation bar on ALL devices.
-        WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
+        // Let Capacitor 8 manage edge-to-edge (it overrides setDecorFitsSystemWindows anyway).
+        // We inject actual insets as CSS variables in setupNavBarInsetInjection().
         
         super.onCreate(savedInstanceState);
         
@@ -134,16 +132,34 @@ public class MainActivity extends BridgeActivity {
     }
     
     /**
-     * Inject --android-safe-bottom as 0px.
-     * setDecorFitsSystemWindows(true) already resizes the WebView to end
-     * above the system navigation bar, so no additional CSS padding is needed.
+     * Read real system insets and inject them as CSS variables.
+     * Capacitor 8 forces edge-to-edge, so the WebView extends behind system bars.
+     * We read the actual inset values and pass them to CSS for proper padding.
      */
     private void setupNavBarInsetInjection() {
         getBridge().getWebView().post(() -> {
             WebView webView = getBridge().getWebView();
-            webView.evaluateJavascript(
-                "document.documentElement.style.setProperty('--android-safe-bottom', '0px')", null);
-            Log.d(TAG, "Injected --android-safe-bottom: 0px (system handles spacing via setDecorFitsSystemWindows)");
+            float density = getResources().getDisplayMetrics().density;
+
+            ViewCompat.setOnApplyWindowInsetsListener(webView, (view, insets) -> {
+                int navBottom = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom;
+                int statusTop = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top;
+
+                float bottomDp = navBottom / density;
+                float topDp = statusTop / density;
+
+                String js = "document.documentElement.style.setProperty('--android-safe-bottom', '"
+                    + bottomDp + "px');"
+                    + "document.documentElement.style.setProperty('--android-safe-top', '"
+                    + topDp + "px');";
+
+                webView.evaluateJavascript(js, null);
+                Log.d(TAG, "Insets injected -- bottom: " + bottomDp + "px, top: " + topDp + "px");
+
+                return ViewCompat.onApplyWindowInsets(view, insets);
+            });
+
+            webView.requestApplyInsets();
         });
     }
     
