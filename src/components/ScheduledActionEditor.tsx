@@ -15,7 +15,8 @@ import {
   Clipboard, 
   Globe, 
   Bookmark,
-  FolderOpen
+  FolderOpen,
+  MessageCircle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScheduledTimingPicker } from './ScheduledTimingPicker';
@@ -124,14 +125,15 @@ export function ScheduledActionEditor({
       case 'url': return <Link className="h-5 w-5" />;
       case 'contact': 
         // Contact avatar handles its own background
-        const contactName = dest?.type === 'contact' ? dest.contactName : undefined;
-        const photoUri = dest?.type === 'contact' ? dest.photoUri : undefined;
+        const cName = dest?.type === 'contact' ? dest.contactName : undefined;
+        const cPhoto = dest?.type === 'contact' ? dest.photoUri : undefined;
+        const isWA = dest?.type === 'contact' && dest.isWhatsApp;
         return (
           <ContactAvatar
-            photoUri={photoUri}
-            name={contactName}
+            photoUri={cPhoto}
+            name={cName}
             className="h-full w-full rounded-xl text-sm"
-            fallbackIcon={<Phone className="h-5 w-5" />}
+            fallbackIcon={isWA ? <MessageCircle className="h-5 w-5" /> : <Phone className="h-5 w-5" />}
           />
         );
     }
@@ -149,11 +151,14 @@ export function ScheduledActionEditor({
     }
   };
 
-  const getDestinationTypeLabel = (type: 'file' | 'url' | 'contact'): string => {
+  const getDestinationTypeLabel = (type: 'file' | 'url' | 'contact', dest?: ScheduledActionDestination): string => {
     switch (type) {
       case 'file': return t('scheduledEditor.file');
       case 'url': return t('scheduledEditor.link');
-      case 'contact': return t('scheduledEditor.contact');
+      case 'contact': 
+        return dest?.type === 'contact' && dest.isWhatsApp 
+          ? t('scheduledEditor.whatsappMessage') 
+          : t('scheduledEditor.contact');
     }
   };
 
@@ -203,7 +208,7 @@ export function ScheduledActionEditor({
   };
 
   // Contact picker handler
-  const handleContactSelect = async () => {
+  const handleContactSelect = async (isWhatsApp = false) => {
     triggerHaptic('light');
     try {
       const result = await ShortcutPlugin.pickContact();
@@ -214,6 +219,7 @@ export function ScheduledActionEditor({
           contactName: result.name || 'Contact',
           // Store photo for display - prefer base64 for immediate use
           photoUri: result.photoBase64 || result.photoUri,
+          ...(isWhatsApp && { isWhatsApp: true }),
         });
       }
     } catch (error) {
@@ -504,7 +510,13 @@ export function ScheduledActionEditor({
                     icon={<Phone className="h-5 w-5" />}
                     label={t('scheduledEditor.contact')}
                     description={t('scheduledEditor.contactDesc')}
-                    onClick={handleContactSelect}
+                    onClick={() => handleContactSelect(false)}
+                  />
+                  <DestinationOption
+                    icon={<MessageCircle className="h-5 w-5" />}
+                    label={t('scheduledEditor.whatsappMessage')}
+                    description={t('scheduledEditor.whatsappMessageDesc')}
+                    onClick={() => handleContactSelect(true)}
                   />
                 </div>
             </div>
@@ -605,7 +617,7 @@ export function ScheduledActionEditor({
                     </div>
                     <div className="flex-1 min-w-0 text-start">
                       <p className="text-sm font-medium truncate">
-                        {getDestinationTypeLabel(destination.type)}
+                        {getDestinationTypeLabel(destination.type, destination)}
                       </p>
                       <p className="text-xs text-muted-foreground truncate">
                         {getDestinationLabel(destination)}

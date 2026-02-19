@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { ChevronLeft, FileText, Link, Phone, Check, Clipboard, Globe, Bookmark, UserCircle2, Edit3 } from 'lucide-react';
+import { ChevronLeft, FileText, Link, Phone, Check, Clipboard, Globe, Bookmark, UserCircle2, Edit3, MessageCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScheduledTimingPicker } from './ScheduledTimingPicker';
 import { ContactAvatar } from '@/components/ContactAvatar';
@@ -69,6 +69,9 @@ export function ScheduledActionCreator({
   const [contactPhone, setContactPhone] = useState('');
   const [isContactPhoneValid, setIsContactPhoneValid] = useState(false);
   const [hasManuallyEditedName, setHasManuallyEditedName] = useState(false);
+  // WhatsApp mode state
+  const [isWhatsAppMode, setIsWhatsAppMode] = useState(false);
+  const [whatsappMessage, setWhatsappMessage] = useState('');
 
   // Fetch URL metadata for auto-filling name
   const urlForMetadata = destination?.type === 'url' ? destination.uri : null;
@@ -103,6 +106,8 @@ export function ScheduledActionCreator({
       setContactName('');
       setContactPhone('');
       setIsContactPhoneValid(false);
+      setIsWhatsAppMode(false);
+      setWhatsappMessage('');
       return;
     }
     
@@ -129,7 +134,7 @@ export function ScheduledActionCreator({
       case 'url':
         return dest.name || 'Open link';
       case 'contact':
-        return `Call ${dest.contactName}`;
+        return dest.isWhatsApp ? `Message ${dest.contactName}` : `Call ${dest.contactName}`;
     }
   }, []);
 
@@ -144,6 +149,8 @@ export function ScheduledActionCreator({
     setContactName('');
     setContactPhone('');
     setIsContactPhoneValid(false);
+    setIsWhatsAppMode(false);
+    setWhatsappMessage('');
     setStep('timing');
   };
 
@@ -177,6 +184,7 @@ export function ScheduledActionCreator({
           contactName: result.name || 'Contact',
           // Store photo for display - prefer base64 for immediate use
           photoUri: result.photoBase64 || result.photoUri,
+          ...(isWhatsAppMode && { isWhatsApp: true, quickMessage: whatsappMessage.trim() || undefined }),
         });
       }
     } catch (error) {
@@ -192,6 +200,7 @@ export function ScheduledActionCreator({
       type: 'contact',
       phoneNumber: contactPhone,
       contactName: contactName.trim() || 'Contact',
+      ...(isWhatsAppMode && { isWhatsApp: true, quickMessage: whatsappMessage.trim() || undefined }),
     });
   };
 
@@ -349,6 +358,8 @@ export function ScheduledActionCreator({
       setContactName('');
       setContactPhone('');
       setIsContactPhoneValid(false);
+      setIsWhatsAppMode(false);
+      setWhatsappMessage('');
       return;
     }
     
@@ -375,14 +386,15 @@ export function ScheduledActionCreator({
       case 'url': return <Link className="h-5 w-5" />;
       case 'contact': 
         // Contact avatar handles its own background
-        const contactName = dest?.type === 'contact' ? dest.contactName : undefined;
+        const cName = dest?.type === 'contact' ? dest.contactName : undefined;
         const photoUri = dest?.type === 'contact' ? dest.photoUri : undefined;
+        const isWA = dest?.type === 'contact' && dest.isWhatsApp;
         return (
           <ContactAvatar
             photoUri={photoUri}
-            name={contactName}
+            name={cName}
             className="h-full w-full rounded-xl text-sm"
-            fallbackIcon={<Phone className="h-5 w-5" />}
+            fallbackIcon={isWA ? <MessageCircle className="h-5 w-5" /> : <Phone className="h-5 w-5" />}
           />
         );
     }
@@ -544,6 +556,10 @@ export function ScheduledActionCreator({
       );
     }
 
+    // Contact sub-step: Optional WhatsApp message (shown after contact is NOT yet selected - this is the message step before picking)
+    // Actually, per plan: show message textarea AFTER contact is selected, before advancing to timing
+    // We'll handle this via a 'message' sub-step
+
     // Contact sub-step: Choose contact source
     if (contactSubStep === 'choose') {
       return (
@@ -614,6 +630,15 @@ export function ScheduledActionCreator({
               label={t('scheduledActions.contact')}
               description={t('scheduledActions.contactDesc')}
               onClick={() => setContactSubStep('choose')}
+            />
+            <DestinationOption
+              icon={<MessageCircle className="h-5 w-5" />}
+              label={t('scheduledActions.whatsappMessage')}
+              description={t('scheduledActions.whatsappMessageDesc')}
+              onClick={() => {
+                setIsWhatsAppMode(true);
+                setContactSubStep('choose');
+              }}
             />
           </div>
         </div>

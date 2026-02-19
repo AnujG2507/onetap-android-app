@@ -12,6 +12,7 @@ import {
   CalendarDays,
   RefreshCw,
   ChevronDown,
+  MessageCircle,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -114,7 +115,7 @@ export function ScheduledActionItem({
             photoUri={action.destination.photoUri}
             name={action.destination.contactName}
             className="h-full w-full rounded-xl text-sm"
-            fallbackIcon={<Phone className="h-5 w-5" />}
+            fallbackIcon={action.destination.isWhatsApp ? <MessageCircle className="h-5 w-5" /> : <Phone className="h-5 w-5" />}
           />
         );
     }

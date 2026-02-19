@@ -316,7 +316,11 @@
     "recurrenceOnce": "once",
     "recurrenceDaily": "daily",
     "recurrenceWeekly": "weekly",
-    "recurrenceYearly": "yearly"
+    "recurrenceYearly": "yearly",
+    "whatsappMessage": "WhatsApp Message",
+    "whatsappMessageDesc": "Message Someone at a Scheduled Time",
+    "optionalMessage": "Message (optional)",
+    "optionalMessagePlaceholder": "Pre-fill a message draft..."
   },
   "scheduledActionSheet": {
     "enabled": "Enabled",
@@ -694,7 +698,9 @@
     "localFile": "Local File",
     "localFileDesc": "Photo, Video, PDF, or Document",
     "linkDesc": "Website or Saved Bookmark",
-    "contactDesc": "Call Someone at a Scheduled Time"
+    "contactDesc": "Call Someone at a Scheduled Time",
+    "whatsappMessage": "WhatsApp Message",
+    "whatsappMessageDesc": "Message Someone at a Scheduled Time"
   },
   "trash": {
     "title": "Trash",
