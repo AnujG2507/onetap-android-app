@@ -1,25 +1,36 @@
 
 
-# Fix: Sheet Menu Overlapping Android Status Bar and Navigation Bar
+# Fix: Bottom Sheets Overlapping Android Navigation Bar
 
 ## Problem
 
-The Sheet component (sliding menu) uses `inset-y-0 h-full` which stretches it edge-to-edge across the entire screen. On Android, this means the menu content goes underneath the status bar at the top and the navigation bar at the bottom. The close (X) button is also positioned at `top-4`, which gets hidden behind the status bar.
+All bottom sheets (action sheets, editors, bookmark sheets, etc.) use the `bottom` variant in `sheet.tsx`, which currently has no safe area padding. On Android with edge-to-edge rendering, the bottom action buttons and content get hidden behind the system navigation bar.
 
 ## Fix
 
 **File: `src/components/ui/sheet.tsx`**
 
-For the left/right sheet variants, add safe area padding so the content stays within the usable viewport:
+Add `safe-bottom` class to the `bottom` variant in `sheetVariants`. This uses the existing `--android-safe-bottom` CSS variable to add padding, keeping content above the navigation bar.
 
-1. Add `safe-top` and `safe-bottom` CSS classes to the left and right side variants in `sheetVariants`. These classes use the existing `--android-safe-top` and `--android-safe-bottom` CSS variables that are already injected by the native Android code.
+Change:
+```
+bottom: "inset-x-0 bottom-0 border-t w-full max-w-full overflow-x-hidden ..."
+```
+To:
+```
+bottom: "inset-x-0 bottom-0 border-t w-full max-w-full overflow-x-hidden safe-bottom ..."
+```
 
-2. Update the close button positioning from `top-4` to include the safe area offset using an inline style or a CSS utility, so it sits below the status bar.
+This single change fixes all bottom sheets app-wide since they all use `side="bottom"` on `SheetContent`:
+- BookmarkActionSheet
+- ScheduledActionActionSheet
+- ScheduledActionEditor
+- SavedLinksSheet
+- TrashSheet
+- LanguagePicker
+- BatteryOptimizationHelp
+- MessageChooserSheet
+- And any future bottom sheets
 
-Specifically:
-- Left variant: add `safe-top safe-bottom` classes
-- Right variant: add `safe-top safe-bottom` classes
-- Close button: change from `top-4` to use a dynamic top value that accounts for `var(--android-safe-top)`
-
-This fix applies globally to all sheets in the app (menu, trash, settings, etc.), ensuring none of them overlap with system UI.
+No individual component changes needed.
 
