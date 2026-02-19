@@ -1,70 +1,93 @@
 
 
-# Add WhatsApp Message Reminder to Scheduled Action Creator
+# Streamline the Sync UI on Profile Page
 
 ## Problem
 
-The Reminders tab's "Add Reminder" flow only offers three destination types: Local File, Link, and Contact (call). There is no option to create a WhatsApp message reminder, even though the data model (`ContactDestination`) already supports `isWhatsApp` and `quickMessage` fields.
+The current Profile page sync section is overly complex and technical:
+- Shows 4 separate counts: local bookmarks, local reminders, cloud bookmarks, cloud reminders
+- Displays "Last sync: arrow-up X uploaded, arrow-down Y downloaded" detail
+- Has 3 action buttons: Sync Now, Upload, Download (Upload/Download are redundant with Sync)
+- Has a separate Settings card just for the auto-sync toggle
+- Feels like a developer dashboard, not a convenience feature
 
 ## Solution
 
-Add a fourth destination option -- "WhatsApp Message" -- to the destination picker in the `ScheduledActionCreator`, and mirror the same in the `ScheduledActionEditor`. When selected, it follows the same contact-picking sub-flow (pick from contacts or enter manually), but also shows an optional message prefill field. The destination is stored with `isWhatsApp: true`.
+Simplify to a single, clean sync card that shows only what matters: whether things are synced, and a single action to sync. Merge counts into a single "items" number. Remove separate upload/download buttons (keep them only in CloudBackupSection recovery tools). Fold auto-sync toggle into the sync card itself.
 
 ## Changes
 
-### 1. `src/i18n/locales/en.json`
+### 1. `src/components/ProfilePage.tsx` -- Major simplification
 
-Add new translation keys under `scheduledActions` and `scheduledEditor`:
+**Remove:**
+- Separate `isUploading`, `isDownloading` states and their handlers (`handleUpload`, `handleDownload`)
+- Separate `cloudCount`, `cloudRemindersCount` states and their cloud count fetches
+- The Upload/Download buttons grid
+- The separate Settings card for auto-sync toggle
+- The "Last sync: arrow-up X uploaded, arrow-down Y downloaded" line
+- Imports for `Upload`, `Download`, `getCloudBookmarkCount`, `getCloudScheduledActionsCount`
 
-- `whatsappMessage`: "WhatsApp Message"
-- `whatsappMessageDesc`: "Message Someone at a Scheduled Time"
-- `optionalMessage`: "Message (optional)"
-- `optionalMessagePlaceholder`: "Pre-fill a message draft..."
+**Simplify the Sync Status Card to show:**
+- A single "items" count combining local bookmarks + reminders (e.g., "42 Items")
+- A relative time label ("Synced 2 hours ago" or "Never synced")
+- A single Sync Now button
+- The auto-sync toggle moved into this card as a compact row
 
-### 2. `src/components/ScheduledActionCreator.tsx`
+**Simplify `refreshCounts`:**
+- Only count local items (no cloud API calls -- faster, simpler)
+- Single `localItemCount` state replacing `localCount` + `localRemindersCount`
 
-- Import `MessageCircle` from lucide-react
-- Add state: `isWhatsAppMode` (boolean) to distinguish WhatsApp vs call contact flow
-- Add state: `whatsappMessage` (string) for optional message prefill
-- Add a 4th `DestinationOption` in the main destination step with `MessageCircle` icon, using the new translation keys
-- When WhatsApp is selected, set `isWhatsAppMode = true` then enter the same `contactSubStep: 'choose'` flow (pick from contacts or enter manually)
-- In both the "pick contact" and "manual contact submit" handlers, check `isWhatsAppMode` -- if true, set `isWhatsApp: true` and `quickMessage` on the `ContactDestination`
-- Before advancing to timing, show an optional textarea for the message draft (only when `isWhatsAppMode` is true)
-- Update `getSuggestedName` to return "Message {name}" instead of "Call {name}" when `isWhatsApp` is true
-- Reset `isWhatsAppMode` and `whatsappMessage` on back navigation
+**Simplify toast messages:**
+- On sync success with changes: "Everything is synced."
+- On sync success without changes: "Already in sync."
+- Remove uploaded/downloaded count details from toasts
 
-### 3. `src/components/ScheduledActionEditor.tsx`
+### 2. `src/components/CloudBackupSection.tsx` -- Simplify toast messages
 
-- Import `MessageCircle` from lucide-react
-- Add a 4th `DestinationOption` ("WhatsApp Message") in the destination change step
-- When selected, pick contact via the existing handler but set `isWhatsApp: true` on the resulting destination
-- Add `getDestinationIcon` case: when `dest.type === 'contact' && dest.isWhatsApp`, show `MessageCircle` instead of `Phone`
+- Change sync success toast to show "Everything is synced." instead of "Added X from cloud, backed up Y to cloud."
+- Keep recovery tools as-is (they serve a different purpose)
 
-### 4. `src/components/ScheduledActionItem.tsx`
+### 3. `src/i18n/locales/en.json` -- Update translations
 
-- Import `MessageCircle` from lucide-react
-- In the icon rendering logic, check `dest.isWhatsApp` on contact destinations and show `MessageCircle` instead of `Phone`
+- Add `items` key: "Items"
+- Add `everythingSynced` key: "Everything is synced."  
+- Update `syncCompleteChanges` to simpler message without counts
+- Remove unused keys: `localBookmarks`, `cloudBookmarks`, `lastSyncInfo`
 
 ## Technical Details
 
-The `ContactDestination` type already has the required fields:
-```typescript
-interface ContactDestination {
-  type: 'contact';
-  phoneNumber: string;
-  contactName: string;
-  photoUri?: string;
-  quickMessage?: string;   // already exists
-  isWhatsApp?: boolean;     // already exists
-}
+**Before (Sync Status Card):**
+```text
++----------------------------------+
+| Sync Status      Auto-sync: ON   |
+| Synced 2 hours ago               |
+|                                  |
+| [HDD] 12 bookmarks  [Cloud] 12  |
+|        3 reminders          3    |
+|        Local             Cloud   |
+|                                  |
+| Last sync: up-5 uploaded, down-2 |
++----------------------------------+
++----------------------------------+
+| Quick Actions                    |
+| [ -------- Sync Now --------- ] |
+| [ Upload ]       [ Download ]   |
++----------------------------------+
++----------------------------------+
+| Settings                         |
+| Auto-sync    [toggle]           |
++----------------------------------+
 ```
 
-The notification handler on the native side already reads `isWhatsApp` and `quickMessage` to open WhatsApp instead of the dialer, so no native changes are needed.
+**After (Single Sync Card):**
+```text
++----------------------------------+
+| Cloud Sync         Auto-sync [x] |
+| 15 Items on this device          |
+|                                  |
+| [ -------- Sync Now --------- ] |
+| Synced 2 hours ago               |
++----------------------------------+
+```
 
-Flow for the new WhatsApp destination:
-1. User taps "WhatsApp Message" in destination picker
-2. Sub-flow: pick from contacts or enter manually (same as call contact)
-3. After contact is selected, show an optional message textarea
-4. User taps continue to proceed to timing step
-5. Destination is stored with `isWhatsApp: true` and optional `quickMessage`
-6. When the reminder fires, it opens WhatsApp with the contact (and optional prefilled message)
+Three cards replaced by one compact section. The sync feels like a simple, obvious convenience rather than a technical dashboard.
