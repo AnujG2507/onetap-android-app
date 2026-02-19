@@ -120,6 +120,23 @@ All colors MUST be HSL.
     touch-action: manipulation;
   }
 
+  /* Subtle tinted strip behind Android status bar for visibility */
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: var(--android-safe-top, 0px);
+    background: hsl(0 0% 94%);
+    z-index: 9999;
+    pointer-events: none;
+  }
+
+  .dark body::before {
+    background: hsl(0 0% 12%);
+  }
+
   /* Safe area for Android navigation — single source of truth */
   .safe-bottom {
     padding-bottom: var(--android-safe-bottom, 16px);
