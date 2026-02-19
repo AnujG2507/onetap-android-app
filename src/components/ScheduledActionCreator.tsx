@@ -29,7 +29,7 @@ import type {
 
 type CreatorStep = 'destination' | 'timing' | 'confirm';
 type UrlSubStep = 'choose' | 'input' | null;
-type ContactSubStep = 'choose' | 'manual' | null;
+type ContactSubStep = 'choose' | 'manual' | 'message' | null;
 
 interface ScheduledActionCreatorProps {
   onComplete: () => void;
@@ -101,6 +101,13 @@ export function ScheduledActionCreator({
       return;
     }
     // Handle contact sub-step back
+    if (contactSubStep === 'message') {
+      // Go back to contact choose step (contact was already picked, discard it)
+      setContactSubStep('choose');
+      setDestination(null);
+      setWhatsappMessage('');
+      return;
+    }
     if (contactSubStep) {
       setContactSubStep(null);
       setContactName('');
@@ -178,14 +185,21 @@ export function ScheduledActionCreator({
         const parsed = parsePhone(result.phoneNumber);
         const normalizedPhone = parsed?.e164 || result.phoneNumber;
         
-        handleDestinationSelect({
+        const dest: ScheduledActionDestination = {
           type: 'contact',
           phoneNumber: normalizedPhone,
           contactName: result.name || 'Contact',
-          // Store photo for display - prefer base64 for immediate use
           photoUri: result.photoBase64 || result.photoUri,
-          ...(isWhatsAppMode && { isWhatsApp: true, quickMessage: whatsappMessage.trim() || undefined }),
-        });
+          ...(isWhatsAppMode && { isWhatsApp: true }),
+        };
+        
+        if (isWhatsAppMode) {
+          // Store contact temporarily and show message step
+          setDestination(dest);
+          setContactSubStep('message');
+        } else {
+          handleDestinationSelect(dest);
+        }
       }
     } catch (error) {
       console.warn('Contact picker failed:', error);
@@ -196,12 +210,29 @@ export function ScheduledActionCreator({
   const handleManualContactSubmit = () => {
     if (!contactPhone || !isContactPhoneValid) return;
     
-    handleDestinationSelect({
+    const dest: ScheduledActionDestination = {
       type: 'contact',
       phoneNumber: contactPhone,
       contactName: contactName.trim() || 'Contact',
-      ...(isWhatsAppMode && { isWhatsApp: true, quickMessage: whatsappMessage.trim() || undefined }),
-    });
+      ...(isWhatsAppMode && { isWhatsApp: true }),
+    };
+    
+    if (isWhatsAppMode) {
+      setDestination(dest);
+      setContactSubStep('message');
+    } else {
+      handleDestinationSelect(dest);
+    }
+  };
+
+  // WhatsApp message step - continue to timing with optional message
+  const handleWhatsAppMessageContinue = () => {
+    if (!destination || destination.type !== 'contact') return;
+    const finalDest: ScheduledActionDestination = {
+      ...destination,
+      quickMessage: whatsappMessage.trim() || undefined,
+    };
+    handleDestinationSelect(finalDest);
   };
 
   // URL flow handlers
@@ -353,6 +384,12 @@ export function ScheduledActionCreator({
       return;
     }
     // Handle contact sub-step back
+    if (contactSubStep === 'message') {
+      setContactSubStep('choose');
+      setDestination(null);
+      setWhatsappMessage('');
+      return;
+    }
     if (contactSubStep) {
       setContactSubStep(null);
       setContactName('');
@@ -556,9 +593,58 @@ export function ScheduledActionCreator({
       );
     }
 
-    // Contact sub-step: Optional WhatsApp message (shown after contact is NOT yet selected - this is the message step before picking)
-    // Actually, per plan: show message textarea AFTER contact is selected, before advancing to timing
-    // We'll handle this via a 'message' sub-step
+    // Contact sub-step: WhatsApp message prefill
+    if (contactSubStep === 'message' && isWhatsAppMode && destination?.type === 'contact') {
+      return (
+        <div className="flex flex-col h-full animate-fade-in">
+          <div className="flex items-center gap-3 px-5 pt-header-safe-compact pb-4 landscape:px-4 landscape:pt-2 landscape:pb-2 border-b border-border">
+            <button
+              onClick={handleBack}
+              className="p-2 -ms-2 rounded-full hover:bg-muted active:scale-95 transition-transform"
+            >
+              <ChevronLeft className="h-5 w-5 rtl:rotate-180" />
+            </button>
+            <h2 className="text-lg font-semibold">{t('scheduledActions.whatsappMessage')}</h2>
+          </div>
+
+          <div className="flex-1 px-5 py-6 landscape:px-4 landscape:py-4 space-y-4 landscape:space-y-3">
+            <div className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border">
+              <ContactAvatar
+                photoUri={destination.photoUri}
+                name={destination.contactName}
+                className="h-10 w-10 rounded-xl text-sm"
+                fallbackIcon={<MessageCircle className="h-5 w-5" />}
+              />
+              <div className="min-w-0">
+                <p className="font-medium text-sm truncate">{destination.contactName}</p>
+                <p className="text-xs text-muted-foreground truncate">{destination.phoneNumber}</p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>{t('scheduledActions.optionalMessage')}</Label>
+              <Textarea
+                value={whatsappMessage}
+                onChange={(e) => setWhatsappMessage(e.target.value)}
+                placeholder={t('scheduledActions.optionalMessagePlaceholder')}
+                className="rounded-xl text-base resize-none"
+                rows={3}
+                autoFocus
+              />
+            </div>
+          </div>
+
+          <div className="p-5 landscape:p-3 border-t border-border">
+            <Button
+              onClick={handleWhatsAppMessageContinue}
+              className="w-full h-12 landscape:h-10 rounded-2xl text-base"
+            >
+              {t('common.continue')}
+            </Button>
+          </div>
+        </div>
+      );
+    }
 
     // Contact sub-step: Choose contact source
     if (contactSubStep === 'choose') {
