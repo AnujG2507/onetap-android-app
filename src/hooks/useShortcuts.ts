@@ -63,26 +63,38 @@ export function useShortcuts() {
       // Build confirmed set: OS pinned IDs + recently created IDs (race protection)
       const confirmed = new Set([...ids, ...recentlyCreatedIds]);
       
-      // Zero-ID guard: cross-reference with registry
+      // Zero-ID guard: if OS says 0 pinned but we have shortcuts, always skip.
+      // Rationale: the only way to reach OS=0 + localStorage>0 is an OS API failure
+      // (Samsung One UI, Xiaomi MIUI). Legitimate deletions go through deleteShortcut()
+      // which removes from localStorage directly, so localStorage would already be 0.
       if (ids.length === 0 && currentShortcuts.length > 0) {
-        // If dynamic count is -1 (error state), skip sync entirely
         if (dynamicCount < 0) {
           console.log('[useShortcuts] OS returned error state, skipping sync');
           setShortcuts(currentShortcuts);
           return;
         }
-        // If registry has >3 entries but OS says 0, likely OEM API failure (Xiaomi/Huawei)
-        if (registeredIds.length > 3) {
-          console.log('[useShortcuts] OS returned 0 IDs but registry has ' + registeredIds.length + ' entries — likely OEM API failure, skipping sync');
-          setShortcuts(currentShortcuts);
-          return;
-        }
-        // For small registry counts (≤3), it's plausible user removed all manually
-        console.log('[useShortcuts] OS returned 0 IDs with ≤3 registry entries, proceeding with sync');
+        console.log('[useShortcuts] OS returned 0 IDs but localStorage has ' + 
+          currentShortcuts.length + ' shortcuts — skipping sync (OEM protection)');
+        setShortcuts(currentShortcuts);
+        return;
       }
       
-      // Filter localStorage shortcuts against confirmed set
-      const synced = currentShortcuts.filter(s => confirmed.has(s.id));
+      let synced = currentShortcuts.filter(s => confirmed.has(s.id));
+      
+      // Partial-zero guard: cap deletions per sync to 50% of shortcuts (rounded up).
+      // Prevents mass deletion from intermittent OS failures that return partial results.
+      const maxDeletions = Math.ceil(currentShortcuts.length / 2);
+      if (synced.length < currentShortcuts.length - maxDeletions) {
+        console.log('[useShortcuts] Sync would delete too many shortcuts (' + 
+          (currentShortcuts.length - synced.length) + '/' + currentShortcuts.length + 
+          '), capping at ' + maxDeletions);
+        const unconfirmed = currentShortcuts
+          .filter(s => !confirmed.has(s.id))
+          .sort((a, b) => b.createdAt - a.createdAt);
+        const toKeep = unconfirmed.slice(0, unconfirmed.length - maxDeletions);
+        const toKeepIds = new Set(toKeep.map(s => s.id));
+        synced = currentShortcuts.filter(s => confirmed.has(s.id) || toKeepIds.has(s.id));
+      }
       
       if (synced.length !== currentShortcuts.length) {
         const removedCount = currentShortcuts.length - synced.length;
