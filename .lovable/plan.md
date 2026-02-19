@@ -1,154 +1,111 @@
 
+# Fix: Crash on Rapid PDF Open/Close
 
-# Fix: PDF Resume Position Lost in V2 Viewer
+## Problem
 
-## Problem Identified
+When a PDF shortcut is opened and closed quickly multiple times, the app crashes. The root cause is a chain of race conditions and missing guards in the cleanup path.
 
-The V2 PDF viewer has a **race condition** that breaks resume for documents longer than 10 pages.
+## Crash Vectors Identified
 
-### Root Cause
-
-In `onCreate`, the sequence is:
-
+### 1. `evictAll()` triggers re-render after executor shutdown (RejectedExecutionException)
+In `onDestroy`, the sequence is:
 ```text
-1. openPdf()         --> scans only first 10 pages synchronously (SYNC_SCAN_PAGES = 10)
-2. initDocument()    --> calculates totalDocHeight based on those 10 pages only
-3. loadResumeState() --> restores scrollY (e.g., page 50's scroll position)
-   --> restoreState() calls clampScrollAndPan()
-   --> maxScroll = totalDocHeight * zoom - viewHeight
-   --> totalDocHeight only covers 10 pages, so scrollY gets CLAMPED to end of page 10
-4. Background thread finishes scanning remaining pages
-   --> onPageScanProgress() recalculates totalDocHeight with all pages
-   --> But the saved scrollY has already been clamped and lost
+renderExecutor.shutdownNow()  // line 279
+renderExecutor = null          // line 285
+bitmapCache.evictAll()         // line 288 -- triggers entryRemoved() callbacks
+  -> entryRemoved posts to mainHandler
+    -> scheduleRender() called
+      -> renderExecutor.execute() -- NPE or RejectedExecutionException
 ```
+The `evictAll()` call fires `entryRemoved` for every cached bitmap. The callback checks if the page is visible and posts a re-render -- but the executor is already dead.
 
-The V1 viewer didn't have this problem because it saved a **page index** (integer) which doesn't depend on document height. V2 saves **scrollY** (float) which is only valid when the full document dimensions are known.
+### 2. `scheduleRender` has no null-check on `renderExecutor`
+Line 428: `renderExecutor.execute(...)` will NPE if called after `onDestroy` sets it to null.
 
-### Additional Issue
+### 3. Background threads hold stale PdfRenderer reference
+A render thread grabs `PdfRenderer r = pdfRenderer` (line 466), then enters `synchronized(r)`. Meanwhile `onDestroy` sets `pdfRenderer = null` and calls `rendererToClose.close()`. The thread is still inside `synchronized(r)` using the now-closed renderer -- `IllegalStateException: Already closed`.
 
-V2 uses a different SharedPreferences file (`pdf_resume_positions_v2`) from V1 (`pdf_resume_positions`). This is correct (different coordinate systems), but users upgrading from V1 lose all saved resume positions. This is acceptable since the formats are incompatible, but worth noting.
+### 4. No `isFinishing()` guard on mainHandler posts
+Background threads post to `mainHandler` without checking if the activity is finishing, causing work to execute on a destroyed activity.
+
+### 5. No `isDestroyed` flag for fast short-circuit
+Multiple code paths check `pdfRenderer == null` and `documentView != null` individually, but there's no single flag to short-circuit everything during teardown.
 
 ## Solution
 
-Store the resume scrollY as a **fraction of total document height** instead of an absolute pixel value. This makes resume resilient to:
-- Incomplete page scans (the fraction is recalculated when full height is known)
-- Screen size changes (already partially handled, but this is more robust)
-
-Additionally, defer resume application until page scan is complete for long documents.
-
-## Technical Changes
-
-### File: `NativePdfViewerV2Activity.java`
-
-#### 1. Save as fraction instead of absolute scrollY
-
-In `saveResumeState()`, save `scrollFraction` = `scrollY / (totalDocHeight * zoomLevel)`:
-
+### Add a volatile `destroyed` flag
 ```java
-private void saveResumeState() {
-    if (shortcutId == null || !resumeEnabled || documentView == null) return;
-    SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+private volatile boolean destroyed = false;
+```
+Set it as the very first thing in `onDestroy()`. Check it in all background thread paths.
 
-    float scrollY = documentView.getScrollYPosition();
-    float zoom = documentView.getZoomLevel();
-    float totalH = documentView.getTotalDocHeight();
+### Fix onDestroy ordering
+Move `bitmapCache.evictAll()` BEFORE `renderExecutor.shutdownNow()` -- no wait, that makes it worse. Instead, **set `documentView = null` before `evictAll()`** so `entryRemoved` sees `documentView == null` and skips re-render.
 
-    // Save as fraction of total zoomed document height for scan-independence
-    float scrollFraction = 0f;
-    if (totalH * zoom > 0) {
-        scrollFraction = scrollY / (totalH * zoom);
-    }
+Corrected `onDestroy` sequence:
+```text
+1. destroyed = true
+2. Set documentView = null (prevents entryRemoved from scheduling renders)
+3. Increment renderGeneration (invalidates in-flight renders)
+4. shutdownNow + awaitTermination
+5. evictAll (safe now -- entryRemoved sees documentView==null)
+6. Close renderer + fd
+```
 
-    prefs.edit()
-        .putFloat(shortcutId + "_scrollFraction", scrollFraction)
-        .putFloat(shortcutId + "_zoom", zoom)
-        .putFloat(shortcutId + "_panX", documentView.getPanX())
-        .putInt(shortcutId + "_screenWidth", screenWidth)
-        .putLong(shortcutId + "_timestamp", System.currentTimeMillis())
-        .apply();
+### Guard `scheduleRender` against null executor
+```java
+private void scheduleRender(int pageIndex, float zoom) {
+    ExecutorService exec = renderExecutor;
+    if (destroyed || exec == null || ...) return;
+    ...
+    exec.execute(() -> renderPage(pageIndex, zoom, gen));
 }
 ```
 
-#### 2. Add pending resume fields and deferred application
-
-Add instance fields to hold pending resume state:
-
+### Guard `renderPage` with destroyed check
 ```java
-private boolean hasPendingResume = false;
-private float pendingScrollFraction = 0f;
-private float pendingZoom = 1.0f;
-private float pendingPanX = 0f;
-```
-
-#### 3. Update loadResumeState to store pending values
-
-```java
-private void loadResumeState() {
-    if (shortcutId == null || !resumeEnabled) return;
-    SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-
-    pendingScrollFraction = prefs.getFloat(shortcutId + "_scrollFraction", 0f);
-    // Backward compat: if no fraction saved, try old scrollY key
-    if (pendingScrollFraction == 0f) {
-        float oldScrollY = prefs.getFloat(shortcutId + "_scrollY", 0f);
-        // Can't convert reliably without full doc height, leave at 0
-    }
-    pendingZoom = prefs.getFloat(shortcutId + "_zoom", 1.0f);
-    pendingPanX = prefs.getFloat(shortcutId + "_panX", 0f);
-    hasPendingResume = (pendingScrollFraction > 0f || pendingZoom != 1.0f);
-
-    if (pageScanComplete) {
-        applyPendingResume();
-    }
-    // Otherwise, will be applied when onPageScanProgress completes
+private void renderPage(int pageIndex, float targetZoom, int generation) {
+    if (destroyed) return;
+    ...
 }
 ```
 
-#### 4. Add applyPendingResume method
-
-```java
-private void applyPendingResume() {
-    if (!hasPendingResume || documentView == null) return;
-    hasPendingResume = false;
-
-    float totalH = documentView.getTotalDocHeight();
-    float scrollY = pendingScrollFraction * totalH * pendingZoom;
-    documentView.restoreState(scrollY, pendingZoom, pendingPanX);
-    requestVisiblePageRenders();
-}
-```
-
-#### 5. Apply resume after background scan completes
-
-In `onPageScanProgress`, after recalculating offsets, apply pending resume:
-
+### Guard all `mainHandler.post` calls
 ```java
 mainHandler.post(() -> {
-    if (documentView != null) {
-        documentView.onPageScanProgress(scannedPageCount, true);
-        applyPendingResume();  // <-- ADD THIS
-        requestVisiblePageRenders();
-    }
+    if (destroyed || documentView == null) return;
+    ...
 });
 ```
 
-#### 6. Expose totalDocHeight from PdfDocumentView
+## Technical Details
 
-Add a getter to the inner `PdfDocumentView` class:
+### File: `NativePdfViewerV2Activity.java`
 
-```java
-float getTotalDocHeight() { return totalDocHeight; }
-```
+1. Add field: `private volatile boolean destroyed = false;`
 
-### For short documents (10 pages or fewer)
+2. Update `onDestroy()`:
+   - Set `destroyed = true` first
+   - Set `documentView = null` before evictAll
+   - Increment `renderGeneration` to cancel in-flight renders
+   - Clear `pendingRenders` and `pageKeyIndex`
 
-When `pageScanComplete` is true after `openPdf()`, `loadResumeState()` calls `applyPendingResume()` immediately -- no deferred behavior needed.
+3. Update `scheduleRender()`:
+   - Add `destroyed` and null executor check
+   - Capture executor in local variable to avoid NPE
 
-## Summary
+4. Update `renderPage()`:
+   - Add `if (destroyed) return` at the top
+   - Add `destroyed` check after bitmap creation (before PdfRenderer access)
 
-| Aspect | V1 (working) | V2 (broken) | V2 (fixed) |
-|--------|-------------|-------------|------------|
-| Saved format | Page index | Absolute scrollY | Scroll fraction |
-| Scan dependency | None | Requires full scan | Deferred until scan complete |
-| 10+ page docs | Works | Clamped to page 10 | Works |
+5. Update `entryRemoved()` callback:
+   - Add `if (destroyed) return` at the top
 
+6. Update background scan thread (in `openPdf`):
+   - Add `if (destroyed) break` in the loop
+   - Guard the `mainHandler.post` with `if (!destroyed)`
+
+7. Update `requestVisiblePageRenders()`:
+   - Add `if (destroyed)` guard
+
+No changes to other files.
