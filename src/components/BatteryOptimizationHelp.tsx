@@ -140,7 +140,7 @@ export function BatteryOptimizationHelp({
       <SheetContent side="bottom" className="h-[85vh] rounded-t-2xl">
         <SheetHeader className="text-start pb-2">
           <SheetTitle className="flex items-center gap-2">
-            <BatteryWarning className="h-5 w-5 text-amber-500" />
+            <BatteryWarning className="h-5 w-5 text-warning" />
             {t('batteryHelp.title')}
           </SheetTitle>
           <SheetDescription>
@@ -150,8 +150,8 @@ export function BatteryOptimizationHelp({
 
         <ScrollArea className="h-[calc(85vh-140px)] -mx-6 px-6">
           {/* Warning Alert */}
-          <Alert className="mb-4 border-amber-500/50 bg-amber-500/10">
-            <AlertTriangle className="h-4 w-4 text-amber-500" />
+          <Alert className="mb-4 border-warning/50 bg-warning/10">
+            <AlertTriangle className="h-4 w-4 text-warning" />
             <AlertDescription className="text-sm">
               {t('batteryHelp.warningMessage')}
             </AlertDescription>
@@ -192,7 +192,7 @@ export function BatteryOptimizationHelp({
                         ))}
                       </ol>
                       {oem.additionalNotes && (
-                        <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-500/10 p-2 rounded">
+                        <p className="text-xs text-warning-foreground bg-warning/10 p-2 rounded">
                           💡 {oem.additionalNotes}
                         </p>
                       )}

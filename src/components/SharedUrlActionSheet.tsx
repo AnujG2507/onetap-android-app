@@ -209,9 +209,9 @@ export function SharedUrlActionSheet({
 
             {/* Offline indicator */}
             {!isOnline && (
-              <div className="flex items-center gap-2 px-4 landscape:px-3 py-2 landscape:py-1.5 bg-amber-500/10 border-b border-border">
-                <WifiOff className="h-3.5 w-3.5 landscape:h-3 landscape:w-3 text-amber-600 dark:text-amber-400 flex-shrink-0" />
-                <span className="text-xs landscape:text-[10px] text-amber-600 dark:text-amber-400">{t('sharedUrl.offlineMode')}</span>
+              <div className="flex items-center gap-2 px-4 landscape:px-3 py-2 landscape:py-1.5 bg-warning/10 border-b border-border">
+                <WifiOff className="h-3.5 w-3.5 landscape:h-3 landscape:w-3 text-warning-foreground flex-shrink-0" />
+                <span className="text-xs landscape:text-[10px] text-warning-foreground">{t('sharedUrl.offlineMode')}</span>
               </div>
             )}
 

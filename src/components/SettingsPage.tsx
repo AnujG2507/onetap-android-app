@@ -478,7 +478,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
                         <p>Session: {crashLogs.sessionId || 'N/A'}</p>
                         <p>Duration: {crashLogs.sessionDurationSeconds || 0}s</p>
                         {!isNative && (
-                          <p className="text-amber-500">{t('settingsPage.debugLogsNativeOnly')}</p>
+                          <p className="text-warning">{t('settingsPage.debugLogsNativeOnly')}</p>
                         )}
                       </div>
                     )}

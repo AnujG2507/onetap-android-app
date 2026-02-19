@@ -31,7 +31,7 @@ function SyncStatusIndicatorInner({ className }: { className?: string }) {
 
       {/* Pending or syncing state: amber */}
       {(syncState === 'pending' || syncState === 'syncing') && (
-        <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
+        <span className="relative inline-flex rounded-full h-2 w-2 bg-warning" />
       )}
     </span>
   );

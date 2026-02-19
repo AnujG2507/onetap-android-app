@@ -391,7 +391,7 @@ export function ClipboardSuggestion({
         <div className="p-4 landscape:p-3">
           {/* Offline indicator */}
           {!isOnline && (
-            <div className="flex items-center gap-2 px-3 py-2 landscape:py-1.5 mb-3 landscape:mb-2 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
+            <div className="flex items-center gap-2 px-3 py-2 landscape:py-1.5 mb-3 landscape:mb-2 rounded-lg bg-warning/10 text-warning-foreground">
               <WifiOff className="h-3.5 w-3.5 landscape:h-3 landscape:w-3 flex-shrink-0" />
               <span className="text-xs landscape:text-[10px]">{t('clipboard.offlineMode')}</span>
             </div>

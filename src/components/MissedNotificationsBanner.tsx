@@ -110,15 +110,15 @@ export function MissedNotificationsBanner({ className }: MissedNotificationsBann
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -20 }}
-        className={`bg-amber-500/10 border border-amber-500/30 rounded-xl overflow-hidden ${className}`}
+        className={`bg-warning/10 border border-warning/30 rounded-xl overflow-hidden ${className}`}
       >
         {/* Header */}
         <button
           onClick={() => setIsExpanded(!isExpanded)}
           className="w-full flex items-center gap-3 p-3 text-start"
         >
-          <div className="h-8 w-8 rounded-lg bg-amber-500/20 flex items-center justify-center shrink-0">
-            <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+          <div className="h-8 w-8 rounded-lg bg-warning/20 flex items-center justify-center shrink-0">
+            <AlertCircle className="h-4 w-4 text-warning-foreground" />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-foreground">
@@ -173,7 +173,7 @@ export function MissedNotificationsBanner({ className }: MissedNotificationsBann
                         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                           <Clock className="h-3 w-3" />
                           <span>{formatTriggerTime(action.triggerTime)}</span>
-                          <span className="text-amber-600 dark:text-amber-400">
+                          <span className="text-warning-foreground">
                             • {t('missedNotifications.missed')}
                           </span>
                         </div>

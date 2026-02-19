@@ -137,7 +137,7 @@ export function AppMenu({ onOpenTrash, onOpenSettings }: AppMenuProps) {
         <Button variant="ghost" size="icon" className="h-9 w-9 relative">
           <Menu className="h-5 w-5" />
           {expiringCount > 0 && (
-            <span className="absolute -top-0.5 -end-0.5 h-4 w-4 rounded-full bg-amber-500 flex items-center justify-center">
+            <span className="absolute -top-0.5 -end-0.5 h-4 w-4 rounded-full bg-warning flex items-center justify-center">
               <AlertTriangle className="h-2.5 w-2.5 text-white" />
             </span>
           )}
@@ -189,7 +189,7 @@ export function AppMenu({ onOpenTrash, onOpenSettings }: AppMenuProps) {
             {trashCount > 0 && (
               <div className="flex items-center gap-1.5">
                 {expiringCount > 0 && (
-                  <span className="h-5 min-w-5 px-1.5 rounded-full bg-amber-500 text-[11px] font-semibold text-white flex items-center justify-center gap-0.5">
+                  <span className="h-5 min-w-5 px-1.5 rounded-full bg-warning text-[11px] font-semibold text-white flex items-center justify-center gap-0.5">
                     <AlertTriangle className="h-3 w-3" />
                     {expiringCount}
                   </span>
