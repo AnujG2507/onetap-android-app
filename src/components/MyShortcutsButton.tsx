@@ -26,11 +26,21 @@ export function MyShortcutsButton() {
     updateCount();
 
     // Listen for shortcuts changes
-    const handleShortcutsChange = () => updateCount();
-    window.addEventListener('shortcuts-changed', handleShortcutsChange);
+    window.addEventListener('shortcuts-changed', updateCount);
+    
+    // Re-read on app foreground (native sync or cloud sync may have changed data)
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') updateCount();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    
+    // Cross-tab storage changes
+    window.addEventListener('storage', updateCount);
     
     return () => {
-      window.removeEventListener('shortcuts-changed', handleShortcutsChange);
+      window.removeEventListener('shortcuts-changed', updateCount);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('storage', updateCount);
     };
   }, []);
 
