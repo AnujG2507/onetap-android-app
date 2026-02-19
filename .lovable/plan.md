@@ -1,87 +1,132 @@
 
 
-# Fix: CSS Inset Variables Lost Due to Page Load Race Condition
+# Audit: Single Image Shortcut Loading Issues
 
-## Root Cause
+## Issues Found
 
-The native `setupNavBarInsetInjection()` runs during `onCreate` and injects CSS variables via `evaluateJavascript`. However, Capacitor loads the web page asynchronously. On subsequent cold starts (app killed then relaunched), the app initializes faster, and the inset injection fires **before** the page has finished loading. When the page finishes loading, it resets the DOM and the injected inline styles are lost.
+### Issue 1: No fallback when full-quality image fails to load (Critical)
 
-Timeline on first install:
-```text
-onCreate -> WebView created -> (slow init) -> page loads -> insets inject -> works!
+When `handleImageError` fires (line 155-157), the state is set to `'error'` but the viewer **does not try the thumbnail fallback**. The `getImageSource` function returns the converted URL as priority 1, and even though a thumbnail exists, it's never tried after a load failure.
+
+**Why slideshows work**: Slideshow images have the same issue technically, but slideshow URIs are all selected in the same session and persisted together. Single image shortcuts are more vulnerable because they're created independently and the `content://` URI may lose permission over time.
+
+**Fix**: When `handleImageError` fires, fall back to the thumbnail. Update `getImageSource` to accept a `failed` flag, or maintain a set of failed indices and skip the converted URL for those indices.
+
+### Issue 2: `content://` URI permission loss is silent (Critical)
+
+`takePersistableUriPermission` at line 641 uses `data.getFlags() & (FLAG_GRANT_READ | FLAG_GRANT_WRITE)` to compute `takeFlags`. If the intent flags don't include the persistable flag (which happens on some OEMs and some content providers), `takeFlags` becomes 0, and the call either silently does nothing or throws an exception that's caught and logged but not surfaced.
+
+For the multi-picker (line 802), `takeFlags` is hardcoded to `Intent.FLAG_GRANT_READ_URI_PERMISSION` which is more reliable.
+
+**Fix**: Use the same hardcoded approach in the single-file picker result, matching the multi-picker pattern.
+
+### Issue 3: No error state UI for single images (Medium)
+
+When all image sources fail, the viewer shows nothing -- a black screen. There's no error message, no retry button, and no indication of what went wrong. Slideshows at least have dot indicators showing position.
+
+**Fix**: Add an error state that shows the shortcut name, an error icon, and an "Open with..." button to try opening the file with an external app.
+
+### Issue 4: `Capacitor.convertFileSrc` for stale URIs returns a URL that fails silently (Medium)
+
+`Capacitor.convertFileSrc` converts `content://...` to `http://localhost/_capacitor_content_/...`. This URL will return an HTTP error if the underlying content provider denies access, but there's no pre-check. The image just fails to load.
+
+**Fix**: This is addressed by Issue 1's fix (thumbnail fallback on error).
+
+## Proposed Changes
+
+### File 1: `src/pages/SlideshowViewer.tsx`
+
+**A. Track failed indices and fall back to thumbnails**
+
+Add a `failedIndices` state set. Update `handleImageError` to add the index to the failed set. Update `getImageSource` to skip converted URLs for failed indices and go straight to thumbnail.
+
+```typescript
+const [failedIndices, setFailedIndices] = useState<Set<number>>(new Set());
+
+// Reset on mount (alongside existing resets)
+setFailedIndices(new Set());
 ```
 
-Timeline on subsequent launches:
-```text
-onCreate -> WebView created -> insets inject -> page loads (wipes styles) -> broken!
+Update `handleImageError`:
+```typescript
+const handleImageError = useCallback((index: number) => {
+  setImageLoadStates(prev => new Map(prev).set(index, 'error'));
+  setFailedIndices(prev => {
+    const next = new Set(prev);
+    next.add(index);
+    return next;
+  });
+}, []);
 ```
 
-The `onResume` re-injection doesn't help here because `onResume` is called right after `onCreate` during a cold start — still before the page finishes loading.
-
-## Solution: Two-Part Fix
-
-### Part 1: CSS `env()` Defaults (Immediate, No JS Needed)
-
-The `index.html` already has `viewport-fit=cover`, which makes `env(safe-area-inset-*)` available in CSS. We set the `--android-safe-*` variables to use these `env()` values as their **initial defaults**. This means the correct inset values are available the instant the CSS is parsed — no native injection needed.
-
-When the native code eventually fires `style.setProperty(...)`, it overrides the `env()` defaults with OS-reported pixel values (which are typically identical but guaranteed accurate).
-
-### Part 2: Delayed Re-injection in Native Code
-
-Add a delayed re-injection (500ms) in `onResume` to catch any edge case where the page loads after the initial injection. This ensures the native values always win once the page is ready.
-
-## Changes
-
-### File 1: `src/index.css`
-
-Add `--android-safe-top` and `--android-safe-bottom` variable declarations with `env()` defaults in the `:root` block. These provide correct values immediately on page load without waiting for native JS injection.
-
-```css
-:root {
-    /* ... existing variables ... */
-
-    /* Safe area insets - env() provides immediate values from viewport-fit=cover,
-       native Java code overrides these with OS-reported values when ready */
-    --android-safe-top: env(safe-area-inset-top, 0px);
-    --android-safe-bottom: env(safe-area-inset-bottom, 0px);
-
-    /* Available viewport height between system bars */
-    --app-available-height: calc(100vh - var(--android-safe-top, 0px) - var(--android-safe-bottom, 0px));
-}
+Update `getImageSource` to check `failedIndices`:
+```typescript
+const getImageSource = useCallback((index: number): string => {
+  const hasFailed = failedIndices.has(index);
+  
+  // Priority 1: Converted full-quality URI (skip if previously failed)
+  if (!hasFailed) {
+    const converted = convertedUrls.get(index);
+    if (converted) return converted;
+  }
+  
+  // Priority 2: Original URI (for web or HTTP sources)
+  const original = images[index];
+  if (!hasFailed && original?.startsWith('http')) return original;
+  if (original?.startsWith('data:')) return original;
+  
+  // Priority 3: Thumbnail as fallback
+  const thumbnail = thumbnails[index];
+  if (thumbnail) {
+    return thumbnail.startsWith('data:') 
+      ? thumbnail 
+      : `data:image/jpeg;base64,${thumbnail}`;
+  }
+  
+  return '';
+}, [convertedUrls, images, thumbnails, failedIndices]);
 ```
 
-### File 2: `native/android/app/src/main/java/app/onetap/access/MainActivity.java`
+**B. Add error state UI when all sources fail**
 
-Update `onResume()` to add a delayed re-injection (500ms) to handle cases where the page finishes loading after the initial injection:
+After the thumbnail fallback, if even that fails (empty string or thumbnail also errors), show a user-friendly error overlay:
+
+```tsx
+{/* Error state - shown when image cannot be loaded */}
+{currentLoadState === 'error' && !currentImageSrc && (
+  <div className="absolute inset-0 flex flex-col items-center justify-center text-white gap-4">
+    <ImageOff className="h-16 w-16 text-white/40" />
+    <p className="text-white/60 text-sm">Image unavailable</p>
+    <Button variant="outline" size="sm" onClick={handleOpenWith}
+      className="text-white border-white/30">
+      Open with another app
+    </Button>
+  </div>
+)}
+```
+
+### File 2: `native/android/app/src/main/java/app/onetap/access/plugins/ShortcutPlugin.java`
+
+**Fix the single-file picker's `takePersistableUriPermission` to use hardcoded flags** (matching the multi-picker pattern):
 
 ```java
-@Override
-public void onResume() {
-    super.onResume();
-    Log.d(TAG, "onResume called");
-    CrashLogger.getInstance().addBreadcrumb(CrashLogger.CAT_LIFECYCLE, "MainActivity.onResume");
+// Current (line 640):
+int takeFlags = data.getFlags() & (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+context.getContentResolver().takePersistableUriPermission(uri, takeFlags);
 
-    if (getBridge() != null && getBridge().getWebView() != null) {
-        WebView wv = getBridge().getWebView();
-        // Immediate injection
-        wv.post(() -> {
-            injectInsetsIntoWebView(wv);
-            wv.requestApplyInsets();
-        });
-        // Delayed injection to catch page-load race condition
-        wv.postDelayed(() -> {
-            injectInsetsIntoWebView(wv);
-        }, 500);
-    }
-}
+// Fixed:
+int takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION;
+context.getContentResolver().takePersistableUriPermission(uri, takeFlags);
 ```
 
-## Why This Fully Solves the Problem
+This ensures the read permission is always requested, regardless of what flags the intent carries. The multi-picker already does this correctly at line 802.
 
-1. **CSS `env()` defaults**: Correct values are available the instant the page loads -- zero race condition, zero dependency on native timing.
-2. **Immediate native injection**: Overrides with OS-accurate values when the bridge is ready.
-3. **Delayed native injection**: Catches any edge case where the page loads after the immediate injection.
-4. **`onApplyWindowInsetsListener`**: Still fires on configuration changes (rotation, nav mode switch).
+## Summary
 
-Every possible timing scenario is now covered. No new dependencies or permissions required.
+| Issue | Severity | Fix |
+|-------|----------|-----|
+| No thumbnail fallback on load error | Critical | Track failed indices, skip to thumbnail |
+| Single-file picker uses unreliable flag masking for persistable permission | Critical | Hardcode `FLAG_GRANT_READ_URI_PERMISSION` |
+| No error UI when image is inaccessible | Medium | Show error state with "Open with" option |
+| Silent failures from `convertFileSrc` | Medium | Covered by thumbnail fallback fix |
 
