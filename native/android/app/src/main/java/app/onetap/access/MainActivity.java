@@ -71,6 +71,9 @@ public class MainActivity extends BridgeActivity {
         Log.d(TAG, "onResume called");
         CrashLogger.getInstance().addBreadcrumb(CrashLogger.CAT_LIFECYCLE, "MainActivity.onResume");
 
+        // Update system bar icon colors based on app's resolved theme
+        updateSystemBarAppearance();
+
         if (getBridge() != null && getBridge().getWebView() != null) {
             WebView wv = getBridge().getWebView();
             // Immediate injection
@@ -83,6 +86,33 @@ public class MainActivity extends BridgeActivity {
                 injectInsetsIntoWebView(wv);
             }, 500);
         }
+    }
+    
+    /**
+     * Update status bar and navigation bar icon colors to match the app's resolved theme.
+     * Reads from SharedPreferences (synced from JS via ShortcutPlugin.syncTheme),
+     * falling back to system UI_MODE_NIGHT_MASK if no theme has been synced yet.
+     */
+    public void updateSystemBarAppearance() {
+        android.content.SharedPreferences prefs = getSharedPreferences("app_settings", android.content.Context.MODE_PRIVATE);
+        String resolvedTheme = prefs.getString("resolvedTheme", null);
+
+        boolean isLightMode;
+        if (resolvedTheme != null) {
+            isLightMode = "light".equals(resolvedTheme);
+        } else {
+            int nightMode = getResources().getConfiguration().uiMode
+                & android.content.res.Configuration.UI_MODE_NIGHT_MASK;
+            isLightMode = nightMode != android.content.res.Configuration.UI_MODE_NIGHT_YES;
+        }
+
+        androidx.core.view.WindowInsetsControllerCompat insetsController =
+            androidx.core.view.WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
+        if (insetsController != null) {
+            insetsController.setAppearanceLightStatusBars(isLightMode);
+            insetsController.setAppearanceLightNavigationBars(isLightMode);
+        }
+        Log.d(TAG, "System bar appearance updated: isLightMode=" + isLightMode + " (resolvedTheme=" + resolvedTheme + ")");
     }
     
     @Override
