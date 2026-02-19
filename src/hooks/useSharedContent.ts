@@ -118,6 +118,7 @@ export function useSharedContent() {
             type: 'file',
             uri: data,
             mimeType: shared.type,
+            name: shared.name || undefined,
           });
         } else if (text) {
           // Try to extract a URL from text that may contain other content

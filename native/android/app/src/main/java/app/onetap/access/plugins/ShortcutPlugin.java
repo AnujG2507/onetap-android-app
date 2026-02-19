@@ -2712,6 +2712,28 @@ public class ShortcutPlugin extends Plugin {
                 if (uri != null) {
                     result.put("data", uri.toString());
                     android.util.Log.d("ShortcutPlugin", "Shared data URI: " + uri.toString());
+
+                    // Query display name from ContentResolver
+                    try {
+                        android.database.Cursor cursor = getContext().getContentResolver().query(
+                            uri,
+                            new String[]{OpenableColumns.DISPLAY_NAME},
+                            null, null, null
+                        );
+                        if (cursor != null) {
+                            if (cursor.moveToFirst()) {
+                                String name = cursor.getString(0);
+                                if (name != null) {
+                                    result.put("name", name);
+                                    android.util.Log.d("ShortcutPlugin", "Shared file name: " + name);
+                                }
+                            }
+                            cursor.close();
+                        }
+                    } catch (Exception e) {
+                        android.util.Log.w("ShortcutPlugin",
+                            "Could not get display name for shared file: " + e.getMessage());
+                    }
                 }
             }
 
