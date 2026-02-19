@@ -1,72 +1,70 @@
 
 
-# Fix: Status Bar Icons Invisible in Light Mode
+# Add WhatsApp Message Reminder to Scheduled Action Creator
 
 ## Problem
 
-In light mode, the status bar icons (clock, battery, signal) are white/light-colored against a white/light app background, making them invisible. This happens because:
-
-1. Capacitor 8 forces edge-to-edge rendering, making the status bar area transparent (app content shows behind it)
-2. No `windowLightStatusBar` flag is set, so the system defaults to white/light status bar icons
-3. White icons on a white background = invisible
+The Reminders tab's "Add Reminder" flow only offers three destination types: Local File, Link, and Contact (call). There is no option to create a WhatsApp message reminder, even though the data model (`ContactDestination`) already supports `isWhatsApp` and `quickMessage` fields.
 
 ## Solution
 
-Two changes are needed:
+Add a fourth destination option -- "WhatsApp Message" -- to the destination picker in the `ScheduledActionCreator`, and mirror the same in the `ScheduledActionEditor`. When selected, it follows the same contact-picking sub-flow (pick from contacts or enter manually), but also shows an optional message prefill field. The destination is stored with `isWhatsApp: true`.
 
-### 1. `native/android/app/src/main/java/app/onetap/access/MainActivity.java`
+## Changes
 
-Add code in `onCreate` (after `super.onCreate()`) to:
-- Set the status bar background to fully transparent (ensuring no tinted overlay)
-- Set `APPEARANCE_LIGHT_STATUS_BARS` flag so status bar icons render as **dark** (visible on light backgrounds)
+### 1. `src/i18n/locales/en.json`
 
-This uses `WindowInsetsControllerCompat` which is already available via the AndroidX dependency Capacitor includes.
+Add new translation keys under `scheduledActions` and `scheduledEditor`:
 
-```java
-// After super.onCreate(savedInstanceState);
+- `whatsappMessage`: "WhatsApp Message"
+- `whatsappMessageDesc`: "Message Someone at a Scheduled Time"
+- `optionalMessage`: "Message (optional)"
+- `optionalMessagePlaceholder`: "Pre-fill a message draft..."
 
-// Make status bar transparent with dark icons for light mode visibility
-if (getBridge() != null) {
-    getWindow().setStatusBarColor(android.graphics.Color.TRANSPARENT);
-    androidx.core.view.WindowInsetsControllerCompat insetsController =
-        androidx.core.view.WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
-    if (insetsController != null) {
-        insetsController.setAppearanceLightStatusBars(true);
-    }
+### 2. `src/components/ScheduledActionCreator.tsx`
+
+- Import `MessageCircle` from lucide-react
+- Add state: `isWhatsAppMode` (boolean) to distinguish WhatsApp vs call contact flow
+- Add state: `whatsappMessage` (string) for optional message prefill
+- Add a 4th `DestinationOption` in the main destination step with `MessageCircle` icon, using the new translation keys
+- When WhatsApp is selected, set `isWhatsAppMode = true` then enter the same `contactSubStep: 'choose'` flow (pick from contacts or enter manually)
+- In both the "pick contact" and "manual contact submit" handlers, check `isWhatsAppMode` -- if true, set `isWhatsApp: true` and `quickMessage` on the `ContactDestination`
+- Before advancing to timing, show an optional textarea for the message draft (only when `isWhatsAppMode` is true)
+- Update `getSuggestedName` to return "Message {name}" instead of "Call {name}" when `isWhatsApp` is true
+- Reset `isWhatsAppMode` and `whatsappMessage` on back navigation
+
+### 3. `src/components/ScheduledActionEditor.tsx`
+
+- Import `MessageCircle` from lucide-react
+- Add a 4th `DestinationOption` ("WhatsApp Message") in the destination change step
+- When selected, pick contact via the existing handler but set `isWhatsApp: true` on the resulting destination
+- Add `getDestinationIcon` case: when `dest.type === 'contact' && dest.isWhatsApp`, show `MessageCircle` instead of `Phone`
+
+### 4. `src/components/ScheduledActionItem.tsx`
+
+- Import `MessageCircle` from lucide-react
+- In the icon rendering logic, check `dest.isWhatsApp` on contact destinations and show `MessageCircle` instead of `Phone`
+
+## Technical Details
+
+The `ContactDestination` type already has the required fields:
+```typescript
+interface ContactDestination {
+  type: 'contact';
+  phoneNumber: string;
+  contactName: string;
+  photoUri?: string;
+  quickMessage?: string;   // already exists
+  isWhatsApp?: boolean;     // already exists
 }
 ```
 
-### 2. `native/android/app/src/main/res/values/styles.xml`
+The notification handler on the native side already reads `isWhatsApp` and `quickMessage` to open WhatsApp instead of the dialer, so no native changes are needed.
 
-Add `statusBarColor` and `windowLightStatusBar` to the AppTheme as a fallback (covers the brief moment before Java code runs):
-
-```xml
-<style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
-    <item name="android:statusBarColor">@android:color/transparent</item>
-    <item name="android:windowLightStatusBar">true</item>
-</style>
-```
-
-### 3. `index.html`
-
-Change the `theme-color` meta tag from blue (`#2563eb`) to match the app background in light mode (`#fafafa` which is `0 0% 98%` in HSL -- the current `--background` value). This tells the Android system the intended header color:
-
-```
-Before: <meta name="theme-color" content="#2563eb" />
-After:  <meta name="theme-color" content="#fafafa" />
-```
-
-## What This Achieves
-
-- Status bar area remains transparent (app content draws behind it, as Capacitor 8 intended)
-- Status bar icons (time, battery, signal) render in **dark** color, clearly visible against the light app background
-- The safe-area CSS variables (`--android-safe-top`) continue to provide proper spacing so app content doesn't overlap the icons
-
-## Files Changed
-
-| File | Change |
-|------|--------|
-| `MainActivity.java` | Set transparent status bar + light status bar appearance (dark icons) |
-| `styles.xml` | Add XML-level fallback for transparent status bar + light icons |
-| `index.html` | Update theme-color meta tag to match light background |
-
+Flow for the new WhatsApp destination:
+1. User taps "WhatsApp Message" in destination picker
+2. Sub-flow: pick from contacts or enter manually (same as call contact)
+3. After contact is selected, show an optional message textarea
+4. User taps continue to proceed to timing step
+5. Destination is stored with `isWhatsApp: true` and optional `quickMessage`
+6. When the reminder fires, it opens WhatsApp with the contact (and optional prefilled message)
