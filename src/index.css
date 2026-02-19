@@ -40,6 +40,11 @@ All colors MUST be HSL.
 
     --radius: 0.75rem;
 
+    /* Safe area insets - env() provides immediate values from viewport-fit=cover,
+       native Java code overrides these with OS-reported values when ready */
+    --android-safe-top: env(safe-area-inset-top, 0px);
+    --android-safe-bottom: env(safe-area-inset-bottom, 0px);
+
     /* Surface elevation levels (Material Design) */
     --surface-0: 0 0% 100%;
     --surface-1: 0 0% 99%;

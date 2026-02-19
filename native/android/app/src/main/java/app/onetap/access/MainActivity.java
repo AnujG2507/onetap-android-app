@@ -58,14 +58,17 @@ public class MainActivity extends BridgeActivity {
         Log.d(TAG, "onResume called");
         CrashLogger.getInstance().addBreadcrumb(CrashLogger.CAT_LIFECYCLE, "MainActivity.onResume");
 
-        // Re-inject insets into WebView on every resume
-        // The DOM may have been reset if WebView was unloaded due to memory pressure
         if (getBridge() != null && getBridge().getWebView() != null) {
-            getBridge().getWebView().post(() -> {
-                injectInsetsIntoWebView(getBridge().getWebView());
-                // Also request fresh insets in case they changed (e.g. navigation mode switch)
-                getBridge().getWebView().requestApplyInsets();
+            WebView wv = getBridge().getWebView();
+            // Immediate injection
+            wv.post(() -> {
+                injectInsetsIntoWebView(wv);
+                wv.requestApplyInsets();
             });
+            // Delayed injection to catch page-load race condition
+            wv.postDelayed(() -> {
+                injectInsetsIntoWebView(wv);
+            }, 500);
         }
     }
     
