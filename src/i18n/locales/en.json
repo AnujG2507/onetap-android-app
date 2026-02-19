@@ -286,11 +286,11 @@
     "whatToOpen": "What to open",
     "selectDescription": "Select what should open when this action triggers.",
     "localFile": "Local File",
-    "localFileDesc": "Photo, video, PDF, or document",
+    "localFileDesc": "Photo, Video, PDF, or Document",
     "link": "Link",
-    "linkDesc": "Website or saved bookmark",
+    "linkDesc": "Website or Saved Bookmark",
     "contact": "Contact",
-    "contactDesc": "Call someone at a scheduled time",
+    "contactDesc": "Call Someone at a Scheduled Time",
     "addLink": "Add a link",
     "enterUrl": "Enter URL",
     "typeOrPaste": "Type or paste a link",
@@ -692,9 +692,9 @@
     "changeDestination": "Change destination",
     "selectDestDesc": "Select what should open when this action triggers.",
     "localFile": "Local File",
-    "localFileDesc": "Photo, video, PDF, or document",
-    "linkDesc": "Website or saved bookmark",
-    "contactDesc": "Call someone at a scheduled time"
+    "localFileDesc": "Photo, Video, PDF, or Document",
+    "linkDesc": "Website or Saved Bookmark",
+    "contactDesc": "Call Someone at a Scheduled Time"
   },
   "trash": {
     "title": "Trash",
