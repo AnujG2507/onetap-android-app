@@ -1,97 +1,67 @@
 
 
-# Fix: Display Actual File Names for Shared Files
+# Documentation Update: Reflect Recent Share Sheet Improvements
 
-## Problem
+## Why
 
-When a file is shared to the app via Android share sheet, the file name is not extracted or displayed. The dialog shows a generic "File" label, and the shortcut creation starts with no meaningful name. This contrasts with shared URLs, which correctly show the page title or platform name.
-
-## Root Cause
-
-Two gaps in the single-file share flow:
-
-1. **Native layer** (`ShortcutPlugin.java`): The `ACTION_SEND` handler for single files (line 2710-2716) only extracts the URI and MIME type. It never queries `ContentResolver` for the file's display name. The multi-file `ACTION_SEND_MULTIPLE` handler already does this correctly using `OpenableColumns.DISPLAY_NAME`.
-
-2. **JS layer** (`useSharedContent.ts`): Even if the native side provided a `name` field, the hook does not read `shared.name` when constructing the `ContentSource` for file shares. It only reads `shared.data` (URI) and `shared.type` (MIME type).
+Three recent changes improved the file sharing UX but the documentation still describes the old behavior. Keeping docs current prevents confusion for future development.
 
 ## Changes
 
-### File 1: `native/android/app/src/main/java/app/onetap/access/plugins/ShortcutPlugin.java`
+### File 1: `APP_SUMMARY.md`
 
-In the `getSharedContent` method, inside the `ACTION_SEND` block for non-text types (around line 2710), add a `ContentResolver` query for `OpenableColumns.DISPLAY_NAME` -- the exact same pattern already used in the `ACTION_SEND_MULTIPLE` block.
+Update the Share Sheet Integration section (lines 28-34) to reflect:
+- Shared files now display the **actual file name** (e.g., "Vacation_Photo.jpg") instead of generic "File"
+- Shared images show a **thumbnail preview** in the action sheet dialog
+- Single image shortcuts have a **thumbnail fallback** when the full-quality source becomes inaccessible
 
-```java
-// Current code (line 2710-2716):
-} else {
-    Uri uri = intent.getParcelableExtra(Intent.EXTRA_STREAM);
-    if (uri != null) {
-        result.put("data", uri.toString());
-    }
-}
-
-// Updated:
-} else {
-    Uri uri = intent.getParcelableExtra(Intent.EXTRA_STREAM);
-    if (uri != null) {
-        result.put("data", uri.toString());
-
-        // Query display name from ContentResolver
-        try {
-            Cursor cursor = getContext().getContentResolver().query(
-                uri,
-                new String[]{OpenableColumns.DISPLAY_NAME},
-                null, null, null
-            );
-            if (cursor != null) {
-                if (cursor.moveToFirst()) {
-                    String name = cursor.getString(0);
-                    if (name != null) {
-                        result.put("name", name);
-                    }
-                }
-                cursor.close();
-            }
-        } catch (Exception e) {
-            android.util.Log.w("ShortcutPlugin",
-                "Could not get display name for shared file: " + e.getMessage());
-        }
-    }
-}
+Updated section:
+```
+### 4. Android Share Sheet Integration
+- App appears in the Android Share Sheet for **any** file type and URLs
+- **Shared URLs** -> SharedUrlActionSheet with 4 options: Quick Save, Edit & Save, One Tap Access, Remind Later
+- **Shared files** (single) -> SharedFileActionSheet showing the actual file name and (for images) a thumbnail preview, with 2 options: One Tap Access, Remind Later
+- **Shared images** (multiple) -> SharedFileActionSheet (slideshow variant) with One Tap Access only
+- Videos shared via Share Sheet auto-open in the native video player
+- All action sheets include swipe-to-close gesture, back button handling, and exit animation
 ```
 
-This requires adding the `OpenableColumns` import if not already present:
-```java
-import android.provider.OpenableColumns;
+### File 2: `ARCHITECTURE.md`
+
+Update the Share Sheet Integration sub-section (around line 360-380) to document the file name extraction and thumbnail rendering pipeline:
+
+Add after the existing share flow diagram:
+```
+### File Name and Thumbnail Handling
+
+When a file is shared to the app:
+
+1. **Native layer** (`ShortcutPlugin.java`) queries `ContentResolver` for `OpenableColumns.DISPLAY_NAME` to extract the actual file name (e.g., "Vacation_Photo.jpg")
+2. **JS layer** (`useSharedContent.ts`) passes the name into the `ContentSource` object
+3. **SharedFileActionSheet** converts `content://` URIs to WebView-renderable URLs via `Capacitor.convertFileSrc()` for image thumbnail display
+4. **ShortcutCustomizer** receives the `ContentSource` with the correct name, pre-populating the shortcut name field
+
+For single image shortcuts, `SlideshowViewer.tsx` implements a thumbnail fallback: if the full-quality `content://` URI becomes inaccessible (stale permission), the viewer falls back to the stored base64 thumbnail instead of showing a black screen.
 ```
 
-### File 2: `src/hooks/useSharedContent.ts`
+### File 3: `APP_SUMMARY.md` -- Backend section cleanup
 
-In the file share branch (around line 117), pass `shared.name` into the `ContentSource`:
-
-```typescript
-// Current (line 117-121):
-setSharedContent({
-  type: 'file',
-  uri: data,
-  mimeType: shared.type,
-});
-
-// Updated:
-setSharedContent({
-  type: 'file',
-  uri: data,
-  mimeType: shared.type,
-  name: shared.name || undefined,
-});
+Remove the hardcoded external project ID from line 53. Replace:
+```
+- **Client**: Custom client in `src/lib/supabaseClient.ts` with hardcoded credentials (project `xfnugumyjhnctmqgiyqm`), configured with `flowType: 'implicit'`
+```
+With:
+```
+- **Client**: Custom client in `src/lib/supabaseClient.ts` pointing to the external Supabase project, configured with `flowType: 'implicit'`
 ```
 
-## How It Works End-to-End
+## Summary
 
-1. User shares a file (e.g., "Vacation_Photo.jpg") to the app
-2. **Native** `getSharedContent` queries `DISPLAY_NAME` from the content provider and returns `{ data: "content://...", type: "image/jpeg", name: "Vacation_Photo.jpg" }`
-3. **JS** `useSharedContent` passes `name: "Vacation_Photo.jpg"` into the `ContentSource`
-4. `SharedFileActionSheet` displays `file.name` via `formatContentInfo` which returns `{ label: "Vacation_Photo.jpg", ... }` instead of generic "File"
-5. `ShortcutCustomizer` receives the `ContentSource` with the correct name, pre-populating the shortcut name field
+| File | Change | Reason |
+|------|--------|--------|
+| APP_SUMMARY.md | Update Share Sheet section | Reflect file name + thumbnail UX |
+| APP_SUMMARY.md | Remove project ID from Backend section | Reduce unnecessary technical exposure |
+| ARCHITECTURE.md | Add file name/thumbnail pipeline docs | Document the new share flow details |
 
-No changes needed to `SharedFileActionSheet`, `formatContentInfo`, or `ShortcutCustomizer` -- they already use `source.name` when available.
+No database changes required. No code changes required.
 
