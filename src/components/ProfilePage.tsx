@@ -75,7 +75,19 @@ export function ProfilePage({}: ProfilePageProps = {}) {
   // Refresh counts - local only, fast and simple
   const refreshCounts = useCallback(() => {
     try {
-      setLocalItemCount(getSavedLinks().length + getScheduledActions().length);
+      const linksCount = getSavedLinks().length;
+      const actionsCount = getScheduledActions().length;
+
+      let shortcutsCount = 0;
+      const stored = localStorage.getItem('quicklaunch_shortcuts');
+      if (stored) {
+        const shortcuts = JSON.parse(stored);
+        shortcutsCount = Array.isArray(shortcuts)
+          ? shortcuts.filter((s: any) => s.syncState !== 'dormant').length
+          : 0;
+      }
+
+      setLocalItemCount(linksCount + actionsCount + shortcutsCount);
     } catch (error) {
       console.error('[ProfilePage] refreshCounts failed:', error);
     }
@@ -94,21 +106,30 @@ export function ProfilePage({}: ProfilePageProps = {}) {
   };
 
   useEffect(() => {
-    let cancelled = false;
-    const doRefresh = async () => {
-      try {
-        await refreshCounts();
-      } catch (e) {
-        console.error('[ProfilePage] Refresh failed:', e);
-      }
-      if (!cancelled) {
-        setSyncStatus(getSyncStatus());
-      }
+    refreshCounts();
+    setSyncStatus(getSyncStatus());
+
+    const handleUpdate = () => {
+      refreshCounts();
+      setSyncStatus(getSyncStatus());
     };
-    doRefresh();
-    
-    return () => { cancelled = true; };
-  }, [user]);
+
+    window.addEventListener('shortcuts-changed', handleUpdate);
+    window.addEventListener('bookmarks-changed', handleUpdate);
+    window.addEventListener('scheduled-actions-changed', handleUpdate);
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') handleUpdate();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      window.removeEventListener('shortcuts-changed', handleUpdate);
+      window.removeEventListener('bookmarks-changed', handleUpdate);
+      window.removeEventListener('scheduled-actions-changed', handleUpdate);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [user, refreshCounts]);
 
   const handleDeleteAccount = async () => {
     setIsDeleting(true);
