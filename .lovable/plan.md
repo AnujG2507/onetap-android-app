@@ -1,57 +1,59 @@
 
 
-# Sync Access Points Count After Home Screen Unpin
+# Fix: Hamburger Menu Not Scrollable in Landscape Mode
 
 ## Problem
 
-When a user unpins a shortcut from the home screen and then opens the app, the "My Access Points" button still shows the old count. The sync that reconciles with the OS (`syncWithHomeScreen`) only runs reliably when the app **resumes** from background -- not on a fresh cold start.
+The hamburger menu (AppMenu) uses a flex column layout inside a side Sheet, but has no scroll container. In landscape mode, the available viewport height is roughly 300-400px. The menu content (header + 3 menu items + cloud backup + separator + theme picker + safe-bottom padding) easily exceeds this, making bottom items unreachable.
 
-### Why It Happens
+## Affected Component
 
-The `useShortcuts` hook has two relevant effects:
+**`src/components/AppMenu.tsx`** -- the main (and only) component that needs fixing.
 
-1. **Mount effect** -- runs once on startup, sets `initialSyncDone = true`, but deliberately does NOT call `syncWithHomeScreen` (per the code comment).
-2. **appStateChange listener** -- calls `syncWithHomeScreen` when the app becomes active, but only if `initialSyncDone` is already `true`.
+### Other components already handle landscape correctly:
+- **SettingsPage**: Uses `ScrollArea className="flex-1"` around its content -- OK
+- **BookmarkLibrary**: Uses `ScrollArea` with flex layout -- OK
+- **ProfilePage**: Uses `ScrollArea` -- OK
+- **NotificationsPage**: Uses `ScrollArea` -- OK
+- **SavedLinksSheet**: Uses `ScrollArea` with explicit `landscape:h-[90vh]` -- OK
+- **TrashSheet**: Uses `ScrollArea` -- OK
 
-On a cold start (app was killed), the Capacitor `appStateChange` event with `isActive=true` may fire before the listener is even registered, or the event may not fire at all since it's a fresh launch, not a resume. This means `syncWithHomeScreen` never runs, and the stale shortcut data (including the unpinned one) persists until the user backgrounds and foregrounds the app.
+The hamburger menu is the only view missing scroll support.
 
 ## Solution
 
-Call `syncWithHomeScreen()` during the mount effect with a small delay (to avoid racing with other startup work). This ensures the OS is queried for the current set of pinned shortcuts on every app launch, not just on resume.
+Wrap the entire menu body (items + theme section) in a `ScrollArea` so it scrolls when content exceeds the available height. The layout changes:
+
+**Before:**
+```
+SheetContent (flex col, full height)
+  SheetHeader (shrink-0)
+  div.flex-1 (menu items -- overflows in landscape)
+  div.mt-auto (theme picker -- pushed off-screen)
+```
+
+**After:**
+```
+SheetContent (flex col, full height)
+  SheetHeader (shrink-0)
+  ScrollArea.flex-1.min-h-0 (scrollable container)
+    div (menu items)
+    div (theme picker -- now scrollable into view)
+```
 
 ## Technical Details
 
-### File: `src/hooks/useShortcuts.ts`
+### File: `src/components/AppMenu.tsx`
 
-**Change the mount effect** (lines 162-170) to also call `syncWithHomeScreen` after a short delay:
+1. Import `ScrollArea` from `@/components/ui/scroll-area`
 
-```
-// Current:
-useEffect(() => {
-  syncToWidgets(shortcuts);
-  usageHistoryManager.migrateExistingUsage(shortcuts);
-  syncNativeUsageEvents();
-  initialSyncDone.current = true;
-}, []);
+2. Wrap the menu items div and theme section together inside a single `ScrollArea`:
+   - The `ScrollArea` gets `className="flex-1 min-h-0"` (min-h-0 is critical for flex children to allow shrinking below content size)
+   - Inside the ScrollArea, place both the menu items and the theme section as siblings in a wrapper div
+   - Remove `mt-auto` from the theme section since it will now be in the normal flow inside the scroll container
+   - Add a spacer (`flex-1`) between menu items and theme section so theme stays at the bottom when there's room, but scrolls when there isn't
 
-// Updated:
-useEffect(() => {
-  syncToWidgets(shortcuts);
-  usageHistoryManager.migrateExistingUsage(shortcuts);
-  syncNativeUsageEvents();
-  initialSyncDone.current = true;
-
-  // Sync with home screen on cold start (2s delay for app to settle)
-  const timer = setTimeout(() => {
-    syncWithHomeScreen();
-  }, 2000);
-  return () => clearTimeout(timer);
-}, []);
-```
-
-This aligns with the existing 2-second delay pattern used by `useAutoSync` for daily sync on initial mount.
-
-### No changes needed to `MyShortcutsButton.tsx`
-
-The button already listens for the `shortcuts-changed` event, which `saveShortcuts` dispatches when `syncWithHomeScreen` removes unpinned shortcuts. Once the sync runs on cold start, the button count will update automatically.
-
+This approach ensures:
+- In portrait mode: theme stays at the bottom (same as current behavior)
+- In landscape mode: everything is reachable by scrolling
+- No visual change when content fits
