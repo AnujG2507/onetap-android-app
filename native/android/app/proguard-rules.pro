@@ -79,7 +79,7 @@
 -keep class app.onetap.access.ShortcutEditProxyActivity { *; }
 -keep class app.onetap.access.DesktopWebViewActivity { *; }
 -keep class app.onetap.access.NativeVideoPlayerActivity { *; }
--keep class app.onetap.access.NativePdfViewerActivity { *; }
+
 -keep class app.onetap.access.NativePdfViewerV2Activity { *; }
 -keep class app.onetap.access.NotificationClickActivity { *; }
 
