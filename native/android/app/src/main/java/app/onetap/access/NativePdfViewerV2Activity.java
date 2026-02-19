@@ -270,13 +270,22 @@ public class NativePdfViewerV2Activity extends Activity {
         // 1. Set destroyed flag FIRST — all background threads & callbacks check this
         destroyed = true;
 
+        // 1a. Cancel ALL queued handler runnables (renderAfterZoom, renderAfterScroll, etc.)
+        mainHandler.removeCallbacksAndMessages(null);
+
         hideHandler.removeCallbacks(hideRunnable);
 
         if (doubleTapAnimator != null && doubleTapAnimator.isRunning()) {
             doubleTapAnimator.cancel();
         }
 
-        // 2. Null out documentView BEFORE evictAll so entryRemoved sees null and skips re-render
+        // 2. Cleanup inner view animators and scroller before nulling
+        PdfDocumentView dv = documentView;
+        if (dv != null) {
+            dv.cleanup();
+        }
+
+        // 3. Null out documentView BEFORE evictAll so entryRemoved sees null and skips re-render
         documentView = null;
 
         // 3. Increment generation to invalidate all in-flight renders
@@ -364,7 +373,9 @@ public class NativePdfViewerV2Activity extends Activity {
             // Background scan remaining pages
             if (!pageScanComplete) {
                 final int start = syncCount;
-                renderExecutor.execute(() -> {
+                ExecutorService exec = renderExecutor;
+                if (exec == null || destroyed) return true;
+                exec.execute(() -> {
                     try {
                         for (int i = start; i < pageCount; i++) {
                             if (destroyed) break;
@@ -449,7 +460,11 @@ public class NativePdfViewerV2Activity extends Activity {
 
         pendingRenders.add(key);
         final int gen = renderGeneration.get();
-        exec.execute(() -> renderPage(pageIndex, zoom, gen));
+        try {
+            exec.execute(() -> renderPage(pageIndex, zoom, gen));
+        } catch (Exception e) {
+            pendingRenders.remove(key);
+        }
     }
 
     private void renderPage(int pageIndex, float targetZoom, int generation) {
@@ -1521,6 +1536,7 @@ public class NativePdfViewerV2Activity extends Activity {
 
         @Override
         public void computeScroll() {
+            if (destroyed) return;
             if (scroller.computeScrollOffset()) {
                 scrollY = scroller.getCurrY();
                 if (zoomLevel > 1.0f) {
@@ -1668,6 +1684,20 @@ public class NativePdfViewerV2Activity extends Activity {
             if (zoomLevel <= 1.0f) return 0;
             float overflow = screenWidth * zoomLevel - getWidth();
             return Math.max(0, (int) overflow);
+        }
+
+        // =================================================================
+        // CLEANUP (called from onDestroy before documentView is nulled)
+        // =================================================================
+
+        void cleanup() {
+            scroller.forceFinished(true);
+            mainHandler.removeCallbacks(renderAfterZoom);
+            mainHandler.removeCallbacks(renderAfterScroll);
+            piHideHandler.removeCallbacksAndMessages(null);
+            fsHideHandler.removeCallbacksAndMessages(null);
+            if (pageIndicatorFadeAnimator != null) pageIndicatorFadeAnimator.cancel();
+            if (fsFadeAnimator != null) fsFadeAnimator.cancel();
         }
     }
 }
