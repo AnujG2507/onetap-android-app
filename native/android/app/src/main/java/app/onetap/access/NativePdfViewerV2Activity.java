@@ -87,6 +87,9 @@ public class NativePdfViewerV2Activity extends Activity {
     private static final long MAX_BITMAP_BYTES = 100 * 1024 * 1024;
     private static final int MAX_BITMAP_DIMENSION = 4096;
 
+    // Lifecycle guard — set once in onDestroy, checked everywhere
+    private volatile boolean destroyed = false;
+
     // Core
     private PdfDocumentView documentView;
     private PdfRenderer pdfRenderer;
@@ -175,15 +178,16 @@ public class NativePdfViewerV2Activity extends Activity {
 
             @Override
             protected void entryRemoved(boolean evicted, String key, Bitmap oldValue, Bitmap newValue) {
-                if (!evicted) return; // Explicit removal — don't interfere
+                if (!evicted || destroyed) return;
                 // Check if evicted page is currently visible
                 try {
                     int idx = key.indexOf('_');
                     if (idx > 0) {
                         int pageIdx = Integer.parseInt(key.substring(0, idx));
-                        if (documentView != null && pageIdx >= documentView.visibleFirst
-                                && pageIdx <= documentView.visibleLast
-                                && documentView.visibleFirst >= 0) {
+                        PdfDocumentView dv = documentView;
+                        if (dv != null && pageIdx >= dv.visibleFirst
+                                && pageIdx <= dv.visibleLast
+                                && dv.visibleFirst >= 0) {
                             // Throttle: skip if already re-rendered within 500ms (prevents infinite loop)
                             long now = System.currentTimeMillis();
                             Long lastTime = evictReRenderTimes.get(pageIdx);
@@ -193,9 +197,8 @@ public class NativePdfViewerV2Activity extends Activity {
                             evictReRenderTimes.put(pageIdx, now);
                             // Visible page evicted — schedule immediate re-render
                             mainHandler.post(() -> {
-                                if (documentView != null) {
-                                    scheduleRender(pageIdx, documentView.getZoomLevel());
-                                }
+                                if (destroyed || documentView == null) return;
+                                scheduleRender(pageIdx, documentView.getZoomLevel());
                             });
                         }
                     }
@@ -264,17 +267,28 @@ public class NativePdfViewerV2Activity extends Activity {
         super.onDestroy();
         crashLogger.addBreadcrumb(CrashLogger.CAT_LIFECYCLE, "PdfViewerV2.onDestroy");
 
+        // 1. Set destroyed flag FIRST — all background threads & callbacks check this
+        destroyed = true;
+
         hideHandler.removeCallbacks(hideRunnable);
 
         if (doubleTapAnimator != null && doubleTapAnimator.isRunning()) {
             doubleTapAnimator.cancel();
         }
 
+        // 2. Null out documentView BEFORE evictAll so entryRemoved sees null and skips re-render
+        documentView = null;
+
+        // 3. Increment generation to invalidate all in-flight renders
+        renderGeneration.incrementAndGet();
+
+        // 4. Capture references for closing, then null the fields
         PdfRenderer rendererToClose = pdfRenderer;
         ParcelFileDescriptor fdToClose = fileDescriptor;
         pdfRenderer = null;
         fileDescriptor = null;
 
+        // 5. Shut down executor and wait for threads to finish
         if (renderExecutor != null) {
             renderExecutor.shutdownNow();
             try {
@@ -285,8 +299,14 @@ public class NativePdfViewerV2Activity extends Activity {
             renderExecutor = null;
         }
 
+        // 6. Safe to evict now — entryRemoved sees documentView==null and destroyed==true
         if (bitmapCache != null) bitmapCache.evictAll();
 
+        // 7. Clear tracking sets
+        pendingRenders.clear();
+        pageKeyIndex.clear();
+
+        // 8. Close renderer and file descriptor
         if (rendererToClose != null) {
             try { rendererToClose.close(); } catch (Exception e) {
                 crashLogger.recordError("PdfViewerV2", "onDestroy", e);
@@ -347,10 +367,11 @@ public class NativePdfViewerV2Activity extends Activity {
                 renderExecutor.execute(() -> {
                     try {
                         for (int i = start; i < pageCount; i++) {
+                            if (destroyed) break;
                             PdfRenderer r = pdfRenderer;
                             if (r == null) break;
                             synchronized (r) {
-                                if (pdfRenderer == null) break;
+                                if (destroyed || pdfRenderer == null) break;
                                 PdfRenderer.Page page = r.openPage(i);
                                 pageWidths[i] = page.getWidth();
                                 pageHeights[i] = page.getHeight();
@@ -359,13 +380,14 @@ public class NativePdfViewerV2Activity extends Activity {
                             scannedPageCount = i + 1;
                         }
                         pageScanComplete = true;
-                        mainHandler.post(() -> {
-                            if (documentView != null) {
+                        if (!destroyed) {
+                            mainHandler.post(() -> {
+                                if (destroyed || documentView == null) return;
                                 documentView.onPageScanProgress(scannedPageCount, true);
                                 applyPendingResume();
                                 requestVisiblePageRenders();
-                            }
-                        });
+                            });
+                        }
                     } catch (Exception e) {
                         pageScanComplete = true;
                         crashLogger.recordError("PdfViewerV2", "backgroundScan", e);
@@ -393,7 +415,7 @@ public class NativePdfViewerV2Activity extends Activity {
      * Request renders for pages currently visible in the document view.
      */
     private void requestVisiblePageRenders() {
-        if (documentView == null || pdfRenderer == null || renderExecutor == null) return;
+        if (destroyed || documentView == null || pdfRenderer == null || renderExecutor == null) return;
 
         float zoom = documentView.getZoomLevel();
         int[] visible = documentView.getVisiblePageRange();
@@ -419,16 +441,19 @@ public class NativePdfViewerV2Activity extends Activity {
     }
 
     private void scheduleRender(int pageIndex, float zoom) {
+        ExecutorService exec = renderExecutor;
+        if (destroyed || exec == null) return;
         if (pageIndex < 0 || pageIndex >= scannedPageCount) return;
         String key = cacheKey(pageIndex, zoom);
         if (bitmapCache.get(key) != null || pendingRenders.contains(key)) return;
 
         pendingRenders.add(key);
         final int gen = renderGeneration.get();
-        renderExecutor.execute(() -> renderPage(pageIndex, zoom, gen));
+        exec.execute(() -> renderPage(pageIndex, zoom, gen));
     }
 
     private void renderPage(int pageIndex, float targetZoom, int generation) {
+        if (destroyed) return;
         try {
             if (renderGeneration.get() != generation) {
                 pendingRenders.remove(cacheKey(pageIndex, targetZoom));
@@ -463,6 +488,12 @@ public class NativePdfViewerV2Activity extends Activity {
             Bitmap bitmap = Bitmap.createBitmap(bmpW, bmpH, Bitmap.Config.ARGB_8888);
             bitmap.eraseColor(Color.WHITE);
 
+            if (destroyed) {
+                bitmap.recycle();
+                pendingRenders.remove(cacheKey(pageIndex, targetZoom));
+                return;
+            }
+
             PdfRenderer r = pdfRenderer;
             if (r == null) {
                 bitmap.recycle();
@@ -493,7 +524,7 @@ public class NativePdfViewerV2Activity extends Activity {
             pendingRenders.remove(key);
 
             // Trigger redraw — no setImageBitmap, just invalidate
-            if (documentView != null) {
+            if (!destroyed && documentView != null) {
                 documentView.postInvalidate();
             }
 
