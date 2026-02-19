@@ -168,10 +168,12 @@ export function useShortcuts() {
     
     initialSyncDone.current = true;
 
-    // Sync with home screen on cold start (2s delay for app to settle)
+    // Sync with home screen on cold start — reset debounce guard so this
+    // isn't blocked if appStateChange already fired before the timer
     const timer = setTimeout(() => {
+      lastSyncTime.current = 0;
       syncWithHomeScreen();
-    }, 2000);
+    }, 1500);
     return () => clearTimeout(timer);
   }, []); // Only on mount
 
