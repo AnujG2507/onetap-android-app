@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { ArrowLeft, ExternalLink, Share2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useShortcuts } from '@/hooks/useShortcuts';
-import { useBackButton } from '@/hooks/useBackButton';
+import { App } from '@capacitor/app';
 import ShortcutPlugin from '@/plugins/ShortcutPlugin';
 import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
@@ -36,11 +36,14 @@ export default function SlideshowViewer() {
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const autoAdvanceRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Android back button: close the viewer instead of exiting the app
-  useBackButton({
-    isHomeScreen: false,
-    onBack: () => navigate(-1),
-  });
+  // Android back button: exit app on native (matches VideoPlayer behavior)
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    const handler = App.addListener('backButton', () => {
+      App.exitApp();
+    });
+    return () => { handler.then(h => h.remove()); };
+  }, []);
 
   // Load shortcut data - try hook first, fallback to direct localStorage read
   useEffect(() => {
@@ -225,8 +228,12 @@ export default function SlideshowViewer() {
   }, [images.length, resetControlsTimeout]);
 
   const handleSwipeDown = useCallback(() => {
-    navigate(-1);
-  }, [navigate]);
+    if (Capacitor.isNativePlatform()) {
+      App.exitApp();
+    } else {
+      window.history.back();
+    }
+  }, []);
 
   // Pause slideshow when zooming in
   const handleZoomChange = useCallback((isZoomed: boolean) => {
@@ -268,8 +275,12 @@ export default function SlideshowViewer() {
   }, [images, currentIndex]);
 
   const handleClose = useCallback(() => {
-    navigate(-1);
-  }, [navigate]);
+    if (Capacitor.isNativePlatform()) {
+      App.exitApp();
+    } else {
+      window.history.back();
+    }
+  }, []);
 
 
   // Get current image source (prioritize full-quality, fallback to thumbnail)
