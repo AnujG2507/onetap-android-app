@@ -198,9 +198,9 @@ export function ContactShortcutCustomizer({
                 }
               />
             </div>
-            <div>
-              <p className="font-medium text-foreground">{pickedContact.name}</p>
-              <p className="text-sm text-muted-foreground">{pickedContact.phoneNumber}</p>
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-foreground truncate">{pickedContact.name}</p>
+              <p className="text-sm text-muted-foreground truncate">{pickedContact.phoneNumber}</p>
             </div>
           </div>
         )}
