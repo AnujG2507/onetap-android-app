@@ -19,6 +19,10 @@ public class MainActivity extends BridgeActivity {
     
     // Pending slideshow ID to open (from deep link)
     private String pendingSlideshowId = null;
+    
+    // Last known inset values (in dp) for re-injection on resume
+    private float lastSafeTop = 0f;
+    private float lastSafeBottom = 0f;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -46,6 +50,23 @@ public class MainActivity extends BridgeActivity {
         
         // Inject Android navigation bar height as CSS variable into the WebView
         setupNavBarInsetInjection();
+    }
+    
+    @Override
+    protected void onResume() {
+        super.onResume();
+        Log.d(TAG, "onResume called");
+        CrashLogger.getInstance().addBreadcrumb(CrashLogger.CAT_LIFECYCLE, "MainActivity.onResume");
+
+        // Re-inject insets into WebView on every resume
+        // The DOM may have been reset if WebView was unloaded due to memory pressure
+        if (getBridge() != null && getBridge().getWebView() != null) {
+            getBridge().getWebView().post(() -> {
+                injectInsetsIntoWebView(getBridge().getWebView());
+                // Also request fresh insets in case they changed (e.g. navigation mode switch)
+                getBridge().getWebView().requestApplyInsets();
+            });
+        }
     }
     
     @Override
@@ -145,22 +166,26 @@ public class MainActivity extends BridgeActivity {
                 int navBottom = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom;
                 int statusTop = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top;
 
-                float bottomDp = navBottom / density;
-                float topDp = statusTop / density;
+                lastSafeBottom = navBottom / density;
+                lastSafeTop = statusTop / density;
 
-                String js = "document.documentElement.style.setProperty('--android-safe-bottom', '"
-                    + bottomDp + "px');"
-                    + "document.documentElement.style.setProperty('--android-safe-top', '"
-                    + topDp + "px');";
-
-                webView.evaluateJavascript(js, null);
-                Log.d(TAG, "Insets injected -- bottom: " + bottomDp + "px, top: " + topDp + "px");
+                injectInsetsIntoWebView(webView);
 
                 return ViewCompat.onApplyWindowInsets(view, insets);
             });
 
             webView.requestApplyInsets();
         });
+    }
+    
+    private void injectInsetsIntoWebView(WebView webView) {
+        String js = "document.documentElement.style.setProperty('--android-safe-bottom', '"
+            + lastSafeBottom + "px');"
+            + "document.documentElement.style.setProperty('--android-safe-top', '"
+            + lastSafeTop + "px');";
+
+        webView.evaluateJavascript(js, null);
+        Log.d(TAG, "Insets injected -- bottom: " + lastSafeBottom + "px, top: " + lastSafeTop + "px");
     }
     
     private void logIntent(Intent intent) {
