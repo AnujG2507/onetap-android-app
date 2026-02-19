@@ -372,7 +372,7 @@ export default function SlideshowViewer() {
               className="absolute top-0 left-0 right-0 px-4 pb-4 pt-header-safe bg-gradient-to-b from-black/60 to-transparent"
             >
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
                   <Button 
                     variant="ghost" 
                     size="icon" 
@@ -381,10 +381,10 @@ export default function SlideshowViewer() {
                   >
                     <ArrowLeft className="h-5 w-5" />
                   </Button>
-                  <span className="text-white font-medium">{title}</span>
+                  <span className="text-white font-medium truncate">{title}</span>
                 </div>
                 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-shrink-0">
                   {/* Image counter */}
                   <span className="text-white/80 text-sm bg-black/40 px-3 py-1 rounded-full">
                     {currentIndex + 1} / {images.length}
