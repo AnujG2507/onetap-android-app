@@ -1,99 +1,66 @@
 
 
-# Fix: Auto-Sync Deletes Shortcuts on Samsung When OS Returns 0 Pinned IDs
+# Simplify: Trust the OS, Remove All Guards
 
-## Root Cause
+## Philosophy
 
-The sync logic in `syncWithHomeScreen` (useShortcuts.ts) has a **fatal threshold bug** in the zero-ID guard:
+The user's position is clear: **removing a shortcut from the home screen means the user wants it deleted**. The OS API should be trusted. No guards, no thresholds, no caps.
 
-```text
-Samsung OS returns 0 pinned IDs (intermittent One UI bug)
-  -> registeredIds.length is 1 (you have 1 shortcut)
-  -> 1 <= 3 threshold
-  -> Guard says: "plausible user removed all manually"
-  -> Proceeds to filter localStorage against empty confirmed set
-  -> Shortcut deleted from localStorage
-```
-
-The `registeredIds.length > 3` guard was designed to catch OEM API failures, but it only protects users with 4+ shortcuts. Users with 1-3 shortcuts are completely unprotected.
-
-Additionally, a second issue: even when sync runs correctly, `cleanupRegistry` prunes the registry entry for the shortcut (since OS confirmed it as pinned, this is fine), but on the NEXT app resume, if Samsung returns 0 again, the registry is now empty (0 entries, still <=3), and the shortcut is deleted.
-
-## Fix Strategy
-
-Replace the fixed threshold (`> 3`) with a smarter guard that compares the OS result against localStorage count rather than registry count. The principle: **never trust a sudden drop to zero**.
-
-### Rule Changes
-
-| Scenario | Old Behavior | New Behavior |
-|----------|-------------|--------------|
-| OS=0, localStorage=1, registry=1 | Deletes shortcut | Skips sync (sudden zero) |
-| OS=0, localStorage=5, registry=8 | Skips sync (registry>3) | Skips sync (sudden zero) |
-| OS=0, localStorage=0 | No-op (nothing to reconcile) | No-op |
-| OS=2, localStorage=5 | Removes 3 shortcuts | Removes 3 shortcuts (unchanged) |
-| OS=1, localStorage=2 | Removes 1 shortcut | Removes 1 shortcut (unchanged) |
-
-### The Core Fix
-
-**When OS returns 0 pinned IDs but localStorage has shortcuts, ALWAYS skip sync.** Users cannot remove all shortcuts simultaneously without also deleting them from the app. The only scenario where OS=0 and localStorage>0 is an OS API failure.
-
-This is safe because:
-- Deleting a shortcut from the app calls `disablePinnedShortcut` which removes it from localStorage directly
-- Removing a shortcut from the home screen (drag to Remove) does NOT delete it from localStorage -- the app still shows it
-- Therefore OS=0 + localStorage>0 always means the OS lied
-
-## Implementation
+## What Changes
 
 ### File: `src/hooks/useShortcuts.ts`
 
-Replace the zero-ID guard block (lines 67-82) with:
+Replace the entire `syncWithHomeScreen` body (lines 51-120) with straightforward logic:
+
+1. Ask OS for pinned shortcut IDs
+2. Build confirmed set from OS pinned IDs + recently created IDs (keep race protection for brand-new shortcuts only)
+3. Filter localStorage to only keep confirmed shortcuts
+4. Save the result -- no guards, no caps, no skip conditions
+
+The new logic will be:
 
 ```typescript
-// Zero-ID guard: if OS says 0 pinned but we have shortcuts, always skip.
-// Rationale: the only way to reach OS=0 + localStorage>0 is an OS API failure
-// (Samsung One UI, Xiaomi MIUI). Legitimate deletions go through deleteShortcut()
-// which removes from localStorage directly, so localStorage would already be 0.
-if (ids.length === 0 && currentShortcuts.length > 0) {
-  if (dynamicCount < 0) {
-    console.log('[useShortcuts] OS returned error state, skipping sync');
-    setShortcuts(currentShortcuts);
-    return;
+const syncWithHomeScreen = useCallback(async () => {
+  if (!Capacitor.isNativePlatform()) return;
+
+  try {
+    const { ids, recentlyCreatedIds } = await ShortcutPlugin.getPinnedShortcutIds();
+    const stored = localStorage.getItem(STORAGE_KEY);
+    const currentShortcuts: ShortcutData[] = stored ? JSON.parse(stored) : [];
+
+    if (currentShortcuts.length === 0) return;
+
+    // Recently created shortcuts get race protection (OS may not report them yet)
+    const confirmed = new Set([...ids, ...recentlyCreatedIds]);
+
+    // Trust the OS: keep only shortcuts that are confirmed on home screen
+    const synced = currentShortcuts.filter(s => confirmed.has(s.id));
+
+    if (synced.length !== currentShortcuts.length) {
+      const removedCount = currentShortcuts.length - synced.length;
+      console.log(`[useShortcuts] Removed ${removedCount} shortcuts not found on home screen`);
+      saveShortcuts(synced);
+    } else {
+      setShortcuts(currentShortcuts);
+    }
+  } catch (error) {
+    console.warn('[useShortcuts] Sync failed:', error);
   }
-  console.log('[useShortcuts] OS returned 0 IDs but localStorage has ' + 
-    currentShortcuts.length + ' shortcuts — skipping sync (OEM protection)');
-  setShortcuts(currentShortcuts);
-  return;
-}
+}, [saveShortcuts]);
 ```
 
-Also add a **partial-zero guard**: if OS returns significantly fewer IDs than localStorage in a single sync, cap the maximum deletions to prevent mass wipes:
+### What's removed
 
-```typescript
-// Partial-zero guard: cap deletions per sync to 50% of shortcuts (rounded up).
-// Prevents mass deletion from intermittent OS failures that return partial results.
-const maxDeletions = Math.ceil(currentShortcuts.length / 2);
-if (synced.length < currentShortcuts.length - maxDeletions) {
-  console.log('[useShortcuts] Sync would delete too many shortcuts (' + 
-    (currentShortcuts.length - synced.length) + '/' + currentShortcuts.length + 
-    '), capping at ' + maxDeletions);
-  // Keep the most recently created shortcuts that OS didn't confirm
-  const unconfirmed = currentShortcuts
-    .filter(s => !confirmed.has(s.id))
-    .sort((a, b) => b.createdAt - a.createdAt);
-  const toKeep = unconfirmed.slice(0, unconfirmed.length - maxDeletions);
-  const toKeepIds = new Set(toKeep.map(s => s.id));
-  synced = currentShortcuts.filter(s => confirmed.has(s.id) || toKeepIds.has(s.id));
-}
-```
+- Zero-ID guard (the "OS returned 0, skip sync" block) -- gone
+- Partial-zero guard (the "cap deletions at 50%" block) -- gone
+- Registry cleanup call -- gone (unnecessary complexity)
+- All OEM-specific workarounds -- gone
 
-### File: No other files changed
+### What's kept
 
-Only `useShortcuts.ts` needs modification. The native Java code is correct -- the problem is entirely in how the JS interprets the native response.
+- `recentlyCreatedIds` race protection -- a shortcut created 2 seconds ago may not yet appear in OS query, so we still trust those
+- Basic error handling with try/catch
+- The rest of the hook (create, delete, update, usage tracking) is untouched
 
-## Summary
-
-- Remove the `registeredIds.length > 3` threshold -- it's fundamentally flawed for small shortcut counts
-- Always skip sync when OS returns 0 and localStorage has shortcuts
-- Add a partial-zero guard to cap maximum deletions per sync cycle at 50%
-- This makes sync bulletproof against Samsung One UI's intermittent `getShortcuts()` failures
+### No other files changed
 
