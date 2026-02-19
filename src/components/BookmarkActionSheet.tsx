@@ -378,9 +378,9 @@ export function BookmarkActionSheet({
               {/* Move to Trash - immediate action, no confirmation needed */}
               <button
                 onClick={() => handleAction(handleMoveToTrash)}
-                className="w-full flex items-center gap-3 p-3 landscape:p-2.5 rounded-xl hover:bg-muted/50 transition-colors"
+                className="w-full flex items-center gap-3 p-3 landscape:p-2.5 rounded-xl hover:bg-destructive/10 transition-colors text-destructive"
               >
-                <Trash2 className="h-5 w-5 landscape:h-4 landscape:w-4 text-muted-foreground" />
+                <Trash2 className="h-5 w-5 landscape:h-4 landscape:w-4" />
                 <span className="font-medium landscape:text-sm">{t('bookmarkAction.moveToTrash')}</span>
               </button>
 

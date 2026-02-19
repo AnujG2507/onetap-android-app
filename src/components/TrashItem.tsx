@@ -217,7 +217,7 @@ export function TrashItem({ link, onRestore, onDelete }: TrashItemProps) {
             <span
               className={cn(
                 "text-[10px] flex items-center gap-1",
-                daysRemaining <= 7 ? "text-destructive" : "text-muted-foreground"
+                daysRemaining <= 7 ? "text-destructive" : "text-foreground/70"
               )}
             >
               <Clock className="h-3 w-3" />
