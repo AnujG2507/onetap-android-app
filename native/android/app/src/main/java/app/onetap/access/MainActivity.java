@@ -34,12 +34,17 @@ public class MainActivity extends BridgeActivity {
         
         super.onCreate(savedInstanceState);
         
-        // Make status bar transparent with dark icons for light mode visibility
+        // Make status bar and navigation bar transparent, theme-aware icons
         getWindow().setStatusBarColor(android.graphics.Color.TRANSPARENT);
+        getWindow().setNavigationBarColor(android.graphics.Color.TRANSPARENT);
         androidx.core.view.WindowInsetsControllerCompat insetsController =
             androidx.core.view.WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
+        int nightMode = getResources().getConfiguration().uiMode
+            & android.content.res.Configuration.UI_MODE_NIGHT_MASK;
+        boolean isLightMode = nightMode != android.content.res.Configuration.UI_MODE_NIGHT_YES;
         if (insetsController != null) {
-            insetsController.setAppearanceLightStatusBars(true);
+            insetsController.setAppearanceLightStatusBars(isLightMode);
+            insetsController.setAppearanceLightNavigationBars(isLightMode);
         }
         
         // Initialize crash logger early with application context
