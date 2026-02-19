@@ -185,16 +185,7 @@
             android:launchMode="singleTask"
             android:resizeableActivity="true" />
 
-        <!-- Native PDF viewer for Drive-level smooth reading experience -->
-        <!-- Uses PdfRenderer + RecyclerView for hardware-accelerated rendering -->
-        <!-- configChanges prevents activity restart on rotation for seamless recentering -->
-        <activity
-            android:name=".NativePdfViewerActivity"
-            android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen"
-            android:exported="false"
-            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden" />
-
-        <!-- Native PDF viewer V2 (parallel implementation — single custom View architecture) -->
+        <!-- Native PDF viewer (single custom View architecture) -->
         <activity
             android:name=".NativePdfViewerV2Activity"
             android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen"
