@@ -243,9 +243,15 @@ export function useMissedNotifications(): UseMissedNotificationsReturn {
     // Dismiss from missed list
     dismissAction(action.id);
     
-    // For recurring actions, advance to next trigger
+    // For recurring actions, advance until trigger is in the future
     if (action.recurrence !== 'once') {
-      advanceToNextTrigger(action.id);
+      let maxIterations = 365;
+      let current = getScheduledActions().find(a => a.id === action.id);
+      while (current && current.triggerTime < Date.now() && maxIterations > 0) {
+        advanceToNextTrigger(action.id);
+        current = getScheduledActions().find(a => a.id === action.id);
+        maxIterations--;
+      }
     } else {
       // For one-time actions that have been executed, disable them
       updateScheduledAction(action.id, { enabled: false, notificationClicked: true });
@@ -258,8 +264,14 @@ export function useMissedNotifications(): UseMissedNotificationsReturn {
     if (!action) return;
     
     if (action.recurrence !== 'once' && action.recurrenceAnchor) {
-      // Advance to next trigger time
-      advanceToNextTrigger(id);
+      // Advance until the trigger time is in the future
+      let maxIterations = 365;
+      let current = getScheduledActions().find(a => a.id === id);
+      while (current && current.triggerTime < Date.now() && maxIterations > 0) {
+        advanceToNextTrigger(id);
+        current = getScheduledActions().find(a => a.id === id);
+        maxIterations--;
+      }
     }
     
     // Dismiss from missed list

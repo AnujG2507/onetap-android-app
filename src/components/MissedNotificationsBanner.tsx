@@ -170,10 +170,10 @@ export function MissedNotificationsBanner({ className }: MissedNotificationsBann
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{action.name}</p>
-                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                          <Clock className="h-3 w-3" />
-                          <span>{formatTriggerTime(action.triggerTime)}</span>
-                          <span className="text-warning-foreground">
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground min-w-0 flex-wrap">
+                          <Clock className="h-3 w-3 shrink-0" />
+                          <span className="truncate">{formatTriggerTime(action.triggerTime)}</span>
+                          <span className="text-warning-foreground shrink-0">
                             • {t('missedNotifications.missed')}
                           </span>
                         </div>
