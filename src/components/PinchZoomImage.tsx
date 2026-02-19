@@ -154,7 +154,7 @@ export default function PinchZoomImage({
       lastPosRef.current = { ...position };
       isPanningRef.current = false;
       
-      if (timeSinceLastTap < DOUBLE_TAP_DELAY && !isZoomed) {
+      if (timeSinceLastTap < DOUBLE_TAP_DELAY) {
         handleDoubleTap(touches[0].clientX, touches[0].clientY);
         lastTapRef.current = 0;
         e.preventDefault();
