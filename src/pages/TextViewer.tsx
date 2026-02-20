@@ -113,7 +113,7 @@ export default function TextViewer() {
         >
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <h1 className="text-base font-semibold truncate flex-1">{name}</h1>
+        <h1 className="text-base font-semibold truncate flex-1 text-foreground">{name}</h1>
       </div>
 
       {/* Content */}
