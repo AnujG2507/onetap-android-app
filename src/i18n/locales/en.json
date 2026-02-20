@@ -618,7 +618,9 @@
     "next": "Next",
     "continue": "Continue",
     "clearTitle": "Clear title",
-    "clearText": "Clear text"
+    "clearText": "Clear text",
+    "add": "Add",
+    "remove": "Remove"
   },
   "pagination": {
     "previous": "Previous",
