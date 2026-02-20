@@ -792,9 +792,9 @@ public class TextProxyActivity extends Activity {
             + "strong{font-weight:700}em{font-style:italic}"
             // min-height:48px meets Android's recommended touch target size.
             // pointer-events:none on input — the div onclick handles the tap, input is visual only.
-            + ".ci{display:flex;align-items:center;gap:12px;margin:6px 0;min-height:48px;padding:4px 0;cursor:pointer}"
-            + ".ci input[type=checkbox]{pointer-events:none;width:22px;height:22px;margin:0;accent-color:" + accent + ";flex-shrink:0}"
-            + ".ci span{line-height:1.5;flex:1;font-size:1em}"
+            + ".ci{display:flex;align-items:flex-start;gap:12px;margin:6px 0;min-height:48px;padding:4px 0;cursor:pointer}"
+            + ".ci input[type=checkbox]{pointer-events:none;width:22px;height:22px;margin-top:3px;accent-color:" + accent + ";flex-shrink:0}"
+            + ".ci span{line-height:1.5;flex:1;font-size:1em;word-break:break-word;overflow-wrap:anywhere}"
             + ".ci.done span{text-decoration:line-through;opacity:0.45}"
             + "</style>"
             + "</head><body>"
