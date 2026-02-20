@@ -319,6 +319,7 @@ public class ShortcutPlugin extends Plugin {
             textIntent.putExtra("shortcut_id", id);
             if (finalTextContent != null) textIntent.putExtra("text_content", finalTextContent);
             textIntent.putExtra("is_checklist", finalIsChecklist);
+            textIntent.putExtra("shortcut_name", finalLabel);
             textIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 
             Icon textIcon = createIcon(call);
@@ -4904,6 +4905,7 @@ public class ShortcutPlugin extends Plugin {
                 intent.putExtra("text_content", textContent);
             }
             intent.putExtra("is_checklist", isChecklist != null && isChecklist);
+            intent.putExtra("shortcut_name", label != null ? label : "");
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         }
         
