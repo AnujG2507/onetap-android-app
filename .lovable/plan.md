@@ -1,61 +1,60 @@
 
-## Root Cause
+## Problem
 
-In `src/pages/Index.tsx`, the `swipeEnabled` flag gates the swipe gesture handler:
+When the shortcut creation flow moves from the source picker step to the customizer steps (`ShortcutCustomizer`, `ContactShortcutCustomizer`, `SlideshowCustomizer`, `UrlInput`), the header looks cramped compared to the My Access Points (MyShortcuts) page. Specifically:
 
-```ts
-const swipeEnabled = showBottomNav
-  && !isBookmarkSelectionMode
-  && !isNotificationsSelectionMode
-  && !isRemindersCreatorOpen
-  && !isRemindersEditorOpen
-  && !isBookmarkActionSheetOpen
-  && !isAccessPickerOpen;   // <-- this is the culprit
+- **Horizontal padding**: Customizer headers use `p-4` which gives 16px side padding. MyShortcuts uses `ps-5 pe-5` = 20px.
+- **Top breathing room**: Customizer headers use `pt-header-safe-compact` = `calc(var(--android-safe-top) + 0.75rem)`. MyShortcuts uses `pt-header-safe` = `calc(var(--android-safe-top) + 1rem)`.
+
+Both use `var(--android-safe-top)` so the status bar is not clipped in either — but the visual breathing room and side insets differ, making the customizer screens look tighter and inconsistent.
+
+## Files to Change
+
+| File | What Changes |
+|------|-------------|
+| `src/components/ShortcutCustomizer.tsx` | Header: `p-4 pt-header-safe-compact` → `px-5 pt-header-safe pb-4` (portrait); landscape keeps compact |
+| `src/components/ContactShortcutCustomizer.tsx` | Header: `px-5 pt-header-safe-compact pb-4` → `px-5 pt-header-safe pb-4` (portrait); landscape keeps compact |
+| `src/components/UrlInput.tsx` | Header: `p-4 pt-header-safe-compact` → `px-5 pt-header-safe pb-4` (portrait); landscape keeps compact |
+| `src/components/SlideshowCustomizer.tsx` | Verify/align header padding to match |
+
+## Exact Changes
+
+### `ShortcutCustomizer.tsx` — line 197
+
+```
+// Before
+<header className="flex items-center gap-3 p-4 pt-header-safe-compact landscape:p-3 border-b">
+
+// After
+<header className="flex items-center gap-3 px-5 pt-header-safe pb-4 landscape:px-4 landscape:pt-2 landscape:pb-2 border-b">
 ```
 
-When the inline picker (photo/video/link/etc.) in the Access tab is expanded, `isAccessPickerOpen` becomes `true`, which sets `swipeEnabled = false` and completely disables the swipe-to-navigate hook.
+### `ContactShortcutCustomizer.tsx` — line 171
 
-This was likely added defensively to prevent accidental tab switches while interacting with the picker. However, the `useSwipeNavigation` hook already handles this correctly on its own — it has a built-in vertical lock:
+```
+// Before
+<header className="px-5 pt-header-safe-compact pb-4 landscape:px-4 landscape:pt-2 landscape:pb-2 flex items-center gap-4">
 
-```ts
-// from useSwipeNavigation.ts
-if (deltaY > 10 && deltaY >= deltaX) {
-  isVerticalLocked.current = true;
-  return; // bail out, let vertical scroll work
-}
+// After
+<header className="px-5 pt-header-safe pb-4 landscape:px-4 landscape:pt-2 landscape:pb-2 flex items-center gap-4">
 ```
 
-Any tap or vertical drag on the picker (expanding it, selecting an option) will be classified as a vertical gesture and the hook will bail immediately. Only a clear, intentional horizontal swipe triggers tab navigation. So the `!isAccessPickerOpen` guard is redundant and overly restrictive.
+### `UrlInput.tsx` — line 146
 
-## Fix
+```
+// Before
+<header className="flex items-center gap-3 p-4 pt-header-safe-compact landscape:p-3 landscape:pt-2 border-b">
 
-Remove `&& !isAccessPickerOpen` from the `swipeEnabled` condition in `src/pages/Index.tsx`.
-
-### Before
-```ts
-const swipeEnabled = showBottomNav
-  && !isBookmarkSelectionMode
-  && !isNotificationsSelectionMode
-  && !isRemindersCreatorOpen
-  && !isRemindersEditorOpen
-  && !isBookmarkActionSheetOpen
-  && !isAccessPickerOpen;
+// After
+<header className="flex items-center gap-3 px-5 pt-header-safe pb-4 landscape:px-4 landscape:pt-2 landscape:pb-2 border-b">
 ```
 
-### After
-```ts
-const swipeEnabled = showBottomNav
-  && !isBookmarkSelectionMode
-  && !isNotificationsSelectionMode
-  && !isRemindersCreatorOpen
-  && !isRemindersEditorOpen
-  && !isBookmarkActionSheetOpen;
-```
+### `SlideshowCustomizer.tsx`
 
-The `isAccessPickerOpen` state and its setter (`setIsAccessPickerOpen`) can then be removed entirely since nothing else uses them.
+Will verify and align header padding to use `px-5 pt-header-safe pb-4` in portrait (landscape stays compact) if it differs.
 
-## Files Changed
+## Why This Is Safe
 
-| File | Change |
-|------|--------|
-| `src/pages/Index.tsx` | Remove `!isAccessPickerOpen` from `swipeEnabled`, remove `isAccessPickerOpen` state, remove `onPickerOpenChange={setIsAccessPickerOpen}` prop from `AccessFlow` |
+- `var(--android-safe-top)` is already present in both `pt-header-safe` and `pt-header-safe-compact` — no status bar clipping risk.
+- The landscape overrides (`landscape:pt-2`) keep compact padding in landscape mode where vertical space is precious, exactly as other screens do.
+- All other customizer internals (scroll area, confirm button, etc.) are unaffected.
