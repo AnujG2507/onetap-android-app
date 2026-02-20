@@ -1,163 +1,146 @@
 
-# Audit: Edge-to-Edge Overlap on Access Page Sub-Screens
+# Audit: Shortcut Customizer Journeys — Safe-Area Compliance
 
-## Root Cause Analysis
+## Scope
 
-The app uses a safe-area system defined in `src/index.css`:
-- `--android-safe-bottom` is injected by `MainActivity.java` as a CSS variable (e.g., `24px` for a device with gesture navigation)
-- `safe-bottom` class = `padding-bottom: var(--android-safe-bottom, 16px)`
-- `safe-bottom-action` = `padding-bottom: calc(var(--android-safe-bottom, 16px) + 16px)`
-- The BottomNav is `fixed bottom-0` and uses `safe-bottom`, making it taller than `56px` on devices with gesture navigation
+The "shortcut customizer journeys" encompass every screen a user traverses after tapping a content type (Photo, Video, Audio, Document, Link, Contact, Slideshow) in the Access tab:
 
-The pages that scroll under the fixed bottom nav need to add clearance equal to **BottomNav height + Android safe bottom**. The BottomNav is `h-14` (56px = 3.5rem) in portrait. So the correct clearance is `calc(3.5rem + var(--android-safe-bottom, 0px))`.
+1. `AccessFlow` (source step) — the container shell
+2. `UrlInput` — Enter Link step
+3. `ShortcutCustomizer` — Set Up Access step (covers Photo, Video, Audio, Document, Link)
+4. `SlideshowCustomizer` — Slideshow step (multiple photos)
+5. `ContactShortcutCustomizer` — Contact (Call / WhatsApp) step
+6. `SuccessScreen` — final confirmation
 
-**The problem:** Several screens use `pb-20` (80px fixed) as their bottom clearance instead of the safe-area-aware formula. On a device with, e.g., 24px gesture nav inset, the bottom nav occupies `56px + 24px = 80px`. So `pb-20` accidentally works on some devices but fails on others. On gesture-nav devices with larger insets, or on the sub-screens that bypass the layout, content is clipped or overlaps the nav bar.
+The container `Index.tsx` wraps `AccessFlow` in `flex-1 flex flex-col`, and `AccessFlow` itself uses `flex-1 flex flex-col` for each step — so all sub-screens inherit the available height between the status bar and the bottom of the display.
 
-## Findings by Component
+---
 
-### CRITICAL: `ContactShortcutCustomizer.tsx` — Wrong root class
+## Findings by Screen
 
-**Line 169:** `<div className="min-h-app-viewport bg-background flex flex-col animate-fade-in">`
+### 1. `AccessFlow` — source step shell ✅ CORRECT
 
-`min-h-app-viewport` makes this component own a full-viewport height root, detaching it from the parent flex chain in `AccessFlow`. Because `AccessFlow` renders it inside a `flex-1 flex flex-col` container, the correct root class is `flex-1 flex flex-col` — just like `UrlInput` and `ShortcutCustomizer` use. 
+- Header: `pt-header-safe` ✅ — handles status bar
+- Scrollable content area: `flex-1 min-h-0 overflow-hidden` ✅
+- `ContentSourcePicker` inner scroller: `pb-6` (visual breathing room) ✅ — no BottomNav overlap concern because the BottomNav is rendered *outside* this flex chain in `Index.tsx`
+- `MyShortcutsButton` fixed position: `bottom-[calc(3.5rem+var(--android-safe-bottom,0px)+0.75rem)]` ✅ — correctly accounts for BottomNav + safe bottom
 
-Using `min-h-app-viewport` here causes the component to size itself relative to `100dvh` rather than fitting in the available space, potentially creating overflow or layout bugs on some Android devices.
+**No issues.**
 
-**Fix:** Change line 169 root div from `min-h-app-viewport bg-background flex flex-col animate-fade-in` → `flex-1 flex flex-col animate-fade-in`
+---
 
-Also: the bottom content area on line 183 uses `safe-bottom-action` inside the scroll area — this is correct, but since the root was wrong, this fix depends on the root fix above.
+### 2. `UrlInput` ✅ CORRECT
 
-### HIGH: `SettingsPage.tsx` — `pb-20` hard-coded bottom clearance
+- Root: `flex flex-col h-full` — inherits from AccessFlow container ✅
+- Header: `pt-header-safe-compact` ✅
+- Footer CTA: `safe-bottom-action` ✅ = `padding-bottom: calc(var(--android-safe-bottom, 16px) + 16px)` — correct for a full-screen sub-step with no BottomNav visible
 
-**Line 218:** `<div className="flex-1 flex flex-col pb-20">`
+**No issues.**
 
-`SettingsPage` renders as a full-screen replacement within `AccessFlow` (via `if (showSettings) return <SettingsPage .../>`). It also appears from `NotificationsPage`. There is **no BottomNav** visible when Settings is open (it's a full-screen overlay). So `pb-20` is just a visual breathing room, which is fine **only if there's no Android nav bar safe area to worry about**. But the `pt-header-safe-compact` in the header does cover the status bar.
+---
 
-However, the bottom of `SettingsPage` renders directly behind the Android gesture navigation bar (since there's no bottom nav, but the gesture nav bar still overlays content). It should use `safe-bottom` on the scroll area or the last content item.
+### 3. `ShortcutCustomizer` (Photo, Video, Audio, Document, Link) ⚠️ ONE ISSUE
 
-**Fix:** The `ScrollArea` inside (line 234) doesn't account for the Android nav safe area. Add `safe-bottom` padding to the scroll area's inner content `div` instead of `pb-20` on the root. Change `pb-20` → `pb-0` on the root wrapper and add `safe-bottom` to the scroll area's inner `<div className="space-y-4 pb-8">` → `<div className="space-y-4 pb-8 safe-bottom">`.
+- Root: `flex flex-col h-full` ✅
+- Header: `pt-header-safe-compact` ✅
+- Scrollable body: `flex-1 p-4 overflow-auto` ✅ (scrolls within the flex chain)
+- Footer CTA: `p-4 safe-bottom-action space-y-3` ✅
 
-Actually the simpler fix is: the root `pb-20` should be replaced with `pb-[calc(5rem+var(--android-safe-bottom,0px))]` — but since this is a full-screen page with no BottomNav, it just needs `safe-bottom` clearance. Change `pb-20` to `pb-safe-bottom` (or use `safe-bottom` on the inner div).
+**BUT:** The scrollable body `div` (line 203) uses `overflow-auto` — this is fine for the scroll, but the inner content has **no bottom padding of its own**. On short screens in portrait mode, when the keyboard is up (user editing the shortcut name), the content can be hidden behind the CTA footer. This is an ergonomics issue, not a system-bar overlap issue.
 
-### HIGH: `ProfilePage.tsx` — `pb-20` hard-coded bottom clearance
+**System bar overlap verdict: ✅ CORRECT** — `safe-bottom-action` in the footer correctly pushes above the Android nav bar.
 
-**Lines 239 and 315:** `<div className="flex flex-col pb-20 min-w-0 w-full">`
+---
 
-These are inside a `ScrollArea` (which is `flex-1`). The bottom nav IS visible on the profile tab, so the clearance needs to be nav height + safe bottom. `pb-20` (80px) = `h-14` (56px) + ~24px extra, which is close but not safe-area-aware.
+### 4. `SlideshowCustomizer` ❌ TWO ISSUES
 
-**Fix:** Change `pb-20` → `pb-[calc(3.5rem+var(--android-safe-bottom,0px)+1rem)]` on both instances. Or more cleanly, use a Tailwind arbitrary value: `pb-[calc(3.5rem+var(--android-safe-bottom,0px)+1rem)]`.
+**Issue A — Fixed bottom button bleeds edge-to-edge:**
 
-### MEDIUM: `NotificationsPage.tsx` — `pb-20` hard-coded bottom clearance
-
-**Line 591:** `<div className="flex-1 flex flex-col pb-20">`
-
-Same pattern as ProfilePage — BottomNav is visible on this tab.
-
-**Fix:** Change `pb-20` → `pb-[calc(3.5rem+var(--android-safe-bottom,0px)+1rem)]`.
-
-### MEDIUM: `BookmarkLibrary.tsx` — `pb-20` hard-coded bottom clearance
-
-**Line 605:** `<div className="flex flex-col h-full pb-20">`
-
-Same — BottomNav is visible on bookmarks tab.
-
-**Fix:** Change `pb-20` → `pb-[calc(3.5rem+var(--android-safe-bottom,0px)+1rem)]`.
-
-Also, the inner scroll content: **Line 968:** `<div ref={scrollContainerRef} className="ps-5 pe-5 pb-16">` — `pb-16` (64px) here is extra scroll padding inside the scroll area. This is fine as-is since the parent has the clearance fix.
-
-### LOW: `SlideshowCustomizer.tsx` — `pb-24` hard-coded
-
-**Line 233:** `<div className="flex-1 overflow-y-auto px-5 pb-24 space-y-6">`
-
-This is a sub-screen inside AccessFlow (no BottomNav visible). `pb-24` (96px) is extra visual clearance for the fixed confirm button. The confirm button is not actually shown (the scrollable content ends and the button appears in the header area?). Let me verify — SlideshowCustomizer has its CTA in the header, so the `pb-24` may just be extra scroll breathing room. The key question is whether the bottom content area overlaps the Android nav bar.
-
-Since the SlideshowCustomizer renders inside `flex-1 flex flex-col` (line 216 `<div className="flex-1 flex flex-col min-h-0">`), the parent handles the height bounding. The `pb-24` here is just internal scroll spacing, not a layout concern. **No change needed.**
-
-## Summary of Changes
-
-| File | Line | Issue | Fix |
-|------|------|-------|-----|
-| `ContactShortcutCustomizer.tsx` | 169 | Wrong root class (`min-h-app-viewport`) breaks layout chain | Change to `flex-1 flex flex-col animate-fade-in` |
-| `SettingsPage.tsx` | 218 | `pb-20` doesn't respect Android nav safe area when Settings shown without BottomNav | Change `pb-20` → remove it; add `safe-bottom` to inner scroll content div (line 235) |
-| `ProfilePage.tsx` | 239, 315 | `pb-20` doesn't respect Android nav safe area dynamically | Change to `pb-[calc(3.5rem+var(--android-safe-bottom,0px)+1rem)]` |
-| `NotificationsPage.tsx` | 591 | `pb-20` doesn't respect Android nav safe area dynamically | Change to `pb-[calc(3.5rem+var(--android-safe-bottom,0px)+1rem)]` |
-| `BookmarkLibrary.tsx` | 605 | `pb-20` doesn't respect Android nav safe area dynamically | Change to `pb-[calc(3.5rem+var(--android-safe-bottom,0px)+1rem)]` |
-
-## Implementation Details
-
-### File 1: `src/components/ContactShortcutCustomizer.tsx`
-
-Line 169 — change root wrapper:
 ```tsx
-// Before:
-<div className="min-h-app-viewport bg-background flex flex-col animate-fade-in">
-
-// After:
-<div className="flex-1 flex flex-col animate-fade-in">
-```
-This makes it consistent with `UrlInput` (line 145) and `ShortcutCustomizer` (line 192), which both use `flex flex-col h-full` and correctly inherit from the AccessFlow container.
-
-### File 2: `src/components/SettingsPage.tsx`
-
-Line 218 — remove `pb-20` from root, it's unnecessary since Settings is full-screen with no BottomNav:
-```tsx
-// Before:
-<div className="flex-1 flex flex-col pb-20">
-
-// After:
-<div className="flex-1 flex flex-col">
+// Line 398
+<div className="fixed bottom-0 left-0 right-0 p-5 safe-bottom-action bg-gradient-to-t from-background via-background to-transparent">
 ```
 
-Line 235 — add `safe-bottom` to inner scroll div so the last item doesn't sit behind the Android gesture nav bar:
-```tsx
-// Before:
-<div className="space-y-4 pb-8">
+This uses `fixed bottom-0` — which means it is positioned relative to the viewport, **not** the flex chain. On a gesture-navigation device, `bottom-0` places the button flush against the bottom of the screen. The `safe-bottom-action` class adds `calc(var(--android-safe-bottom, 16px) + 16px)` as `padding-bottom` — this pushes the button text UP inside the fixed container, but the div itself still starts at `bottom: 0` and will overlap the gesture nav bar visually (the gradient bleeds into it). This is the same edge-to-edge pattern that was just fixed elsewhere.
 
-// After:
-<div className="space-y-4 pb-8 safe-bottom">
+**Issue B — Scrollable content area `pb-24` is not safe-area-aware:**
+
+```tsx
+// Line 233
+<div className="flex-1 overflow-y-auto px-5 pb-24 space-y-6">
 ```
 
-### File 3: `src/components/ProfilePage.tsx`
+`pb-24` (96px) is meant to create clearance for the fixed bottom button. But because the button is `fixed bottom-0` with `safe-bottom-action` padding inside it, the effective button height is `safe-bottom-action height + button height`. On a device with 24px gesture nav: `(24px + 16px) + 48px = 88px` — so `pb-24` (96px) is barely enough and not dynamically calculated.
 
-Lines 239 and 315 — update `pb-20` to safe-area-aware formula:
+**Fix for both:** Replace the `fixed` bottom button pattern with a proper `flex flex-col` footer — identical to how `ShortcutCustomizer`, `UrlInput`, and `ContactShortcutCustomizer` handle it. The scrollable area becomes `flex-1 overflow-y-auto` (no `pb-24`), and the button goes in a `<div className="p-5 safe-bottom-action">` footer as part of the normal flex flow.
+
+---
+
+### 5. `ContactShortcutCustomizer` ✅ CORRECT (after previous fix)
+
+- Root: `flex-1 flex flex-col animate-fade-in` ✅ (fixed in the previous session)
+- Header: `pt-header-safe-compact` ✅
+- Scrollable body: `flex-1 px-5 pb-6 ... overflow-y-auto safe-bottom-action` ✅
+
+The scrollable body itself carries `safe-bottom-action`. This means the last item (the Confirm button) has the safe-bottom padding as part of the scroll content — so it never sits behind the Android nav bar, even when scrolled to the bottom.
+
+**No issues.**
+
+---
+
+### 6. `SuccessScreen` ✅ CORRECT
+
+- Root: `flex flex-col items-center justify-center h-full p-8 text-center` — fills the inherited height from AccessFlow's flex chain ✅
+- No fixed positioning
+- Content is vertically centered — can never be clipped by system bars since it respects the flex chain's bounding
+
+**No issues.**
+
+---
+
+## Summary Table
+
+| Screen | Journey | Header safe-top | Footer safe-bottom | Status |
+|---|---|---|---|---|
+| AccessFlow (source) | All | `pt-header-safe` ✅ | N/A (no footer CTA) | ✅ |
+| UrlInput | Link | `pt-header-safe-compact` ✅ | `safe-bottom-action` ✅ | ✅ |
+| ShortcutCustomizer | Photo/Video/Audio/Document/Link | `pt-header-safe-compact` ✅ | `safe-bottom-action` ✅ | ✅ |
+| SlideshowCustomizer | Photo (multi) | `pt-header-safe` ✅ | `fixed bottom-0` ❌ | ❌ |
+| ContactShortcutCustomizer | Contact (Call/WhatsApp) | `pt-header-safe-compact` ✅ | `safe-bottom-action` in scroll ✅ | ✅ |
+| SuccessScreen | All | N/A (centered) | N/A (centered) | ✅ |
+
+---
+
+## Change Required
+
+**One file:** `src/components/SlideshowCustomizer.tsx`
+
+### Current (broken):
 ```tsx
-// Before:
-<div className="flex flex-col pb-20 min-w-0 w-full">
+// Scrollable area — pb-24 to clear fixed button
+<div className="flex-1 overflow-y-auto px-5 pb-24 space-y-6">
+  {/* ... content ... */}
+</div>
 
-// After:
-<div className="flex flex-col pb-[calc(3.5rem+var(--android-safe-bottom,0px)+1rem)] min-w-0 w-full">
+{/* Fixed bottom button — positioned relative to viewport */}
+<div className="fixed bottom-0 left-0 right-0 p-5 safe-bottom-action bg-gradient-to-t from-background via-background to-transparent">
+  <Button ...>Add to Home Screen</Button>
+</div>
 ```
 
-### File 4: `src/components/NotificationsPage.tsx`
-
-Line 591 — update `pb-20` to safe-area-aware formula:
+### Fixed (matches pattern used by ShortcutCustomizer, UrlInput):
 ```tsx
-// Before:
-<div className="flex-1 flex flex-col pb-20">
+// Scrollable area — no fixed pb needed, footer is in flex flow
+<div className="flex-1 overflow-y-auto px-5 pb-6 space-y-6">
+  {/* ... content ... */}
+</div>
 
-// After:
-<div className="flex-1 flex flex-col pb-[calc(3.5rem+var(--android-safe-bottom,0px)+1rem)]">
+{/* Footer CTA — in flex flow, not fixed */}
+<div className="p-5 safe-bottom-action">
+  <Button ...>Add to Home Screen</Button>
+</div>
 ```
 
-### File 5: `src/components/BookmarkLibrary.tsx`
+The `bg-gradient-to-t` gradient on the original fixed button was a visual affordance to fade content behind it — this is unnecessary when the button is in the flex flow (content stops above it naturally). It can be removed.
 
-Line 605 — update `pb-20` to safe-area-aware formula:
-```tsx
-// Before:
-<div className="flex flex-col h-full pb-20">
-
-// After:
-<div className="flex flex-col h-full pb-[calc(3.5rem+var(--android-safe-bottom,0px)+1rem)]">
-```
-
-## No Changes Needed
-
-- `UrlInput.tsx` — correct `flex flex-col h-full`, uses `safe-bottom-action` in footer
-- `ShortcutCustomizer.tsx` — correct `flex flex-col h-full`, uses `safe-bottom-action` in footer
-- `SlideshowCustomizer.tsx` — correct `flex-1 flex flex-col min-h-0`, `pb-24` is internal scroll spacing
-- `SuccessScreen.tsx` — renders as flex child inside AccessFlow, no layout issues
-- `OnboardingFlow.tsx` — uses `fixed inset-0` intentionally (modal overlay), uses `pt-header-safe-compact` correctly
-- `ErrorBoundary.tsx` — uses `min-h-app-viewport` with `safe-top`, acceptable for error state
-- `ScheduledActionCreator.tsx` / `ScheduledTimingPicker.tsx` — rendered inside Sheets, sheet handles safe areas
-- `MyShortcuts.tsx` — standalone page (no BottomNav), uses `min-h-app-viewport` correctly
-- `AuthCallback.tsx` — standalone page, uses `min-h-app-viewport safe-top` correctly
+The `SlideshowCustomizer` root is already `flex-1 flex flex-col min-h-0` (line 216), so adding a non-fixed footer div will slot in correctly between the scrollable area and the bottom of the container.
