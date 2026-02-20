@@ -120,28 +120,30 @@ export default function TextViewer() {
       <ScrollArea className="flex-1">
         <div className="p-5 max-w-2xl mx-auto">
           {isChecklist ? (
-            <div className="space-y-3">
-              {items.map((item, i) => (
-                <label
-                  key={i}
-                  className="flex items-start gap-3 cursor-pointer group"
-                  onClick={() => toggleItem(i)}
-                >
-                  <Checkbox
-                    checked={item.checked}
-                    onCheckedChange={() => toggleItem(i)}
-                    className="mt-0.5 shrink-0"
-                  />
-                  <span
-                    className={cn(
-                      'text-base leading-relaxed select-none',
-                      item.checked && 'line-through text-muted-foreground'
-                    )}
-                  >
-                    {item.text}
-                  </span>
-                </label>
-              ))}
+            <div className="space-y-1">
+              {items.length === 0 ? (
+                <p className="text-muted-foreground text-sm py-4 text-center">No items</p>
+              ) : (
+                items.map((item, i) => (
+                  <div key={i} className="flex items-start gap-3 py-2">
+                    <Checkbox
+                      id={`chk-${i}`}
+                      checked={item.checked}
+                      onCheckedChange={() => toggleItem(i)}
+                      className="mt-0.5 shrink-0"
+                    />
+                    <label
+                      htmlFor={`chk-${i}`}
+                      className={cn(
+                        'text-base leading-relaxed select-none cursor-pointer flex-1',
+                        item.checked && 'line-through text-muted-foreground'
+                      )}
+                    >
+                      {item.text}
+                    </label>
+                  </div>
+                ))
+              )}
             </div>
           ) : (
             <div className="space-y-1 text-base">
