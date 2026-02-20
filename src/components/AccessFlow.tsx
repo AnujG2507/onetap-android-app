@@ -598,6 +598,7 @@ export function AccessFlow({
               onSelectContact={handleSelectContact}
               onSelectFromLibrary={handleSelectFromLibrary}
               onEnterUrl={handleEnterUrl}
+              onSelectText={handleSelectText}
               onPickerOpenChange={(isOpen) => {
                 setIsInlinePickerOpen(isOpen);
                 onPickerOpenChange?.(isOpen);
@@ -667,6 +668,15 @@ export function AccessFlow({
           contact={contactData || undefined}
           onConfirm={handleContactConfirm}
           onBack={handleGoBack}
+        />
+      )}
+
+      {step === 'text-editor' && (
+        <TextEditorStep
+          showIconPicker={pendingActionMode !== 'reminder'}
+          isReminder={pendingActionMode === 'reminder'}
+          onBack={handleGoBack}
+          onConfirm={handleTextConfirm}
         />
       )}
 
