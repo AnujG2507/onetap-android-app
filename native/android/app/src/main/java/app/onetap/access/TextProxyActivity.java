@@ -245,14 +245,15 @@ public class TextProxyActivity extends Activity {
         divider.setLayoutParams(dividerParams);
         contentLayout.addView(divider);
 
-        // ── WebView — start with WRAP_CONTENT; onPageFinished resizes to fit ──
+        // ── WebView — start at 72% screen height so dialog lays out correctly on first pass.
+        // onPageFinished shrinks it to exact content height. WRAP_CONTENT collapses to 0px
+        // inside an AlertDialog before content loads — a known Android platform limitation.
         webView = new WebView(this);
-        // Start at WRAP_CONTENT; height is set precisely after page load via JS bridge
+        int initialWebHeight = (int)(dm.heightPixels * 0.72f);
         LinearLayout.LayoutParams webParams = new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
+            initialWebHeight
         );
-        webView.setMinimumHeight(dpToPx(120)); // Prevent flash of zero-height before load
         webView.setLayoutParams(webParams);
         webView.setBackgroundColor(colorBg);
         // Prevent scrollbar from consuming layout space
@@ -279,12 +280,21 @@ public class TextProxyActivity extends Activity {
                     value -> {
                         try {
                             int contentHeight = Integer.parseInt(value.trim());
-                            int maxPx = (int)(dm.heightPixels * 0.65f);
-                            int finalHeight = Math.min(contentHeight + dpToPx(16), maxPx);
+                            int maxPx = (int)(dm.heightPixels * 0.72f);
+                            int finalHeight = Math.min(contentHeight + dpToPx(24), maxPx);
                             runOnUiThread(() -> {
                                 ViewGroup.LayoutParams lp = webView.getLayoutParams();
                                 lp.height = finalHeight;
                                 webView.setLayoutParams(lp);
+                                // Force the AlertDialog window to re-measure after inner height changes.
+                                // Without this, floating dialogs (windowIsFloating=true) clamp to the
+                                // height committed at show() time and ignore child view resizes.
+                                if (dialog != null && dialog.getWindow() != null) {
+                                    dialog.getWindow().setLayout(
+                                        ViewGroup.LayoutParams.MATCH_PARENT,
+                                        ViewGroup.LayoutParams.WRAP_CONTENT
+                                    );
+                                }
                             });
                         } catch (Exception ignored) {
                             Log.w(TAG, "Could not parse scrollHeight from JS: " + value);
@@ -327,7 +337,8 @@ public class TextProxyActivity extends Activity {
 
         dialog = builder.create();
 
-        // Override background to respect dark/light colorBg and colorBorder
+        // Override background + explicitly set window layout so the floating dialog
+        // (windowIsFloating=true) expands to full measured content height from the start.
         dialog.setOnShowListener(d -> {
             if (dialog.getWindow() != null) {
                 GradientDrawable bg = new GradientDrawable();
@@ -335,6 +346,12 @@ public class TextProxyActivity extends Activity {
                 bg.setCornerRadius(dpToPx(20));
                 bg.setStroke(dpToPx(1), colorBorder);
                 dialog.getWindow().setBackgroundDrawable(bg);
+                // Allow dialog to grow/shrink to its measured content height.
+                // Without this call the window is clamped to the height measured at show() time.
+                dialog.getWindow().setLayout(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                );
             }
         });
 
@@ -713,6 +730,10 @@ public class TextProxyActivity extends Activity {
 
         // Checklist renderer: supports - [ ] and - [x] format; reads from savedState (no localStorage)
         // onchange is used (not onclick on div) to avoid the double-toggle caused by label+div both firing
+        // onchange on <input type=checkbox> is unreliable inside an AlertDialog WebView on Android:
+        // the dialog's window touch interceptor can cancel the touch sequence before onchange fires.
+        // Fix: remove onchange entirely; handle tap on the .ci container div via onclick,
+        // and manually toggle cb.checked in JS. pointer-events:none on the input prevents double-toggle.
         String checklistRenderer = ""
             + "var savedState=" + savedJson + ";"
             + "function renderChecklist(text, sid){"
@@ -722,9 +743,11 @@ public class TextProxyActivity extends Activity {
             + "    if(m){"
             + "      var key='chk_'+sid+'_'+i;"
             + "      var checked=(savedState[key]!==undefined)?savedState[key]:(m[1].toLowerCase()==='x');"
-            + "      html+='<div class=\"ci'+(checked?' done':'')+'\" id=\"ci'+i+'\">';"
-            + "      html+='<input type=\"checkbox\" id=\"cb'+i+'\"'+(checked?' checked':'')+' onchange=\"onCheck('+i+',this.checked)\">';"
-            + "      html+='<label for=\"cb'+i+'\">'+escHtml(m[2])+'</label></div>';"
+            // onclick on div — reliable in AlertDialog WebView; onchange on input is not
+            + "      html+='<div class=\"ci'+(checked?' done':'')+'\" id=\"ci'+i+'\" onclick=\"onCheck('+i+')\">';"
+            // pointer-events:none on input — div handles the tap; input is visual only
+            + "      html+='<input type=\"checkbox\" id=\"cb'+i+'\"'+(checked?' checked':'')+' onclick=\"event.stopPropagation()\">';"
+            + "      html+='<span>'+escHtml(m[2])+'</span></div>';"
             + "    } else if(line.trim()!==''){"
             + "      html+='<p>'+escHtml(line)+'</p>';"
             + "    } else {"
@@ -733,9 +756,12 @@ public class TextProxyActivity extends Activity {
             + "  });"
             + "  return html;"
             + "}"
-            + "function onCheck(i,checked){"
+            + "function onCheck(i){"
+            + "  var cb=document.getElementById('cb'+i);"
             + "  var item=document.getElementById('ci'+i);"
-            + "  if(!item)return;"
+            + "  if(!cb||!item)return;"
+            + "  cb.checked=!cb.checked;"
+            + "  var checked=cb.checked;"
             + "  var key='chk_'+" + (sid != null ? "'" + sid.replace("'", "\\'") + "'" : "''") + "+'_'+i;"
             + "  savedState[key]=checked;"
             + "  item.className='ci'+(checked?' done':'');"
@@ -769,10 +795,12 @@ public class TextProxyActivity extends Activity {
             + "pre{background:" + codeBg + ";padding:12px;border-radius:8px;overflow-x:auto}"
             + "pre code{background:none;padding:0}"
             + "strong{font-weight:700}em{font-style:italic}"
-            + ".ci{display:flex;align-items:flex-start;gap:12px;margin:12px 0;cursor:pointer}"
-            + ".ci input[type=checkbox]{width:22px;height:22px;margin:0;accent-color:" + accent + ";flex-shrink:0;cursor:pointer;margin-top:1px}"
-            + ".ci label{cursor:pointer;line-height:1.5;flex:1;font-size:1em}"
-            + ".ci.done label{text-decoration:line-through;opacity:0.45}"
+            // min-height:48px meets Android's recommended touch target size.
+            // pointer-events:none on input — the div onclick handles the tap, input is visual only.
+            + ".ci{display:flex;align-items:center;gap:12px;margin:6px 0;min-height:48px;padding:4px 0;cursor:pointer}"
+            + ".ci input[type=checkbox]{pointer-events:none;width:22px;height:22px;margin:0;accent-color:" + accent + ";flex-shrink:0}"
+            + ".ci span{line-height:1.5;flex:1;font-size:1em}"
+            + ".ci.done span{text-decoration:line-through;opacity:0.45}"
             + "</style>"
             + "</head><body>"
             + "<div id='content'></div>"
@@ -812,13 +840,19 @@ public class TextProxyActivity extends Activity {
          */
         @JavascriptInterface
         public void onContentHeight(int height) {
-            int maxPx = (int)(dm.heightPixels * 0.65f);
-            int finalH = Math.min(height + dpToPx(16), maxPx);
+            int maxPx = (int)(dm.heightPixels * 0.72f);
+            int finalH = Math.min(height + dpToPx(24), maxPx);
             runOnUiThread(() -> {
                 if (webView != null) {
                     ViewGroup.LayoutParams lp = webView.getLayoutParams();
                     lp.height = finalH;
                     webView.setLayoutParams(lp);
+                    if (dialog != null && dialog.getWindow() != null) {
+                        dialog.getWindow().setLayout(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.WRAP_CONTENT
+                        );
+                    }
                 }
             });
         }
