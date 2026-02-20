@@ -173,6 +173,15 @@ const Index = () => {
 
   // Handler for re-adding shortcut to home screen
   const handleReAddToHomeScreen = useCallback(async (shortcut: ShortcutData) => {
+    // Step 1: Disable/remove the old pinned shortcut before pinning the updated one
+    if (Capacitor.isNativePlatform()) {
+      try {
+        await ShortcutPlugin.disablePinnedShortcut({ id: shortcut.id });
+      } catch (e) {
+        console.warn('[Index] Failed to disable old shortcut before re-add:', e);
+      }
+    }
+    // Step 2: Pin the new shortcut with updated data
     const success = await createHomeScreenShortcut(shortcut, {
       fileData: shortcut.thumbnailData,
       thumbnailData: shortcut.thumbnailData,
