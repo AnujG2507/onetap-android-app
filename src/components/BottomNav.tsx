@@ -18,7 +18,7 @@ export function BottomNav({ activeTab, onTabChange, hasShortlist, isSignedIn, ha
   const { isLandscape } = useOrientation();
   
   return (
-    <nav className="fixed bottom-0 inset-x-0 bg-background border-t border-border safe-bottom z-50">
+    <nav className="fixed bottom-0 inset-x-0 bg-background border-t border-border safe-bottom safe-x z-50">
       <div className={cn(
         "flex items-center justify-around",
         isLandscape ? "h-10" : "h-14"
