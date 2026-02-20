@@ -189,7 +189,7 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
   }, [name, isCreating, onConfirm, icon, isPdf, resumeEnabled]);
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex-1 flex flex-col min-h-0">
       <header className="flex items-center gap-3 p-4 pt-header-safe-compact landscape:p-3 landscape:pt-2 border-b">
         <button
           onClick={onBack}
@@ -200,7 +200,7 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
         <h2 className="text-lg font-medium">{t('shortcutCustomizer.setUpAccess')}</h2>
       </header>
       
-      <div className="flex-1 p-4 landscape:p-3 overflow-auto animate-fade-in">
+      <div className="flex-1 p-4 landscape:p-3 overflow-auto animate-fade-in min-h-0">
         <div className="space-y-8 landscape:space-y-0 landscape:grid landscape:grid-cols-2 landscape:gap-6">
           {/* Left column: Content preview, name input, icon picker */}
           <div className="space-y-6 landscape:space-y-4">
