@@ -153,12 +153,12 @@ export function ScheduledActionCreator({
       case 'file':
         return dest.name.replace(/\.[^/.]+$/, ''); // Remove extension
       case 'url':
-        return dest.name || 'Open link';
+        return dest.name || t('scheduledActions.link');
       case 'contact':
         return dest.isWhatsApp ? t('scheduledActions.messageName', { name: dest.contactName }) : t('scheduledActions.callName_reminder', { name: dest.contactName });
       case 'text': {
         const firstLine = dest.text.split('\n')[0].replace(/^[☐☑]\s*/, '').trim();
-        return firstLine.slice(0, 40) || t('scheduledActions.textTitle', 'Text note');
+        return firstLine.slice(0, 40) || t('scheduledActions.textTitle');
       }
     }
   }, [t]);
@@ -257,14 +257,14 @@ export function ScheduledActionCreator({
   const handleUrlSubmit = () => {
     let finalUrl = urlInput.trim();
     if (!finalUrl) {
-      setUrlError('Please enter a URL');
+      setUrlError(t('scheduledActions.pleaseEnterUrl'));
       return;
     }
     if (!finalUrl.startsWith('http://') && !finalUrl.startsWith('https://')) {
       finalUrl = 'https://' + finalUrl;
     }
     if (!isValidUrl(finalUrl)) {
-      setUrlError('Please enter a valid URL');
+      setUrlError(t('scheduledActions.pleaseEnterValidUrl'));
       return;
     }
     try {
@@ -275,7 +275,7 @@ export function ScheduledActionCreator({
         name: hostname,
       });
     } catch {
-      setUrlError('Please enter a valid URL');
+      setUrlError(t('scheduledActions.pleaseEnterValidUrl'));
     }
   };
 
@@ -475,7 +475,7 @@ export function ScheduledActionCreator({
             const dest: ScheduledActionDestination = {
               type: 'text',
               text: data.textContent,
-              name: data.name || data.textContent.split('\n')[0].replace(/^[☐☑]\s*/, '').trim().slice(0, 40) || t('scheduledActions.textTitle', 'Text note'),
+              name: data.name || data.textContent.split('\n')[0].replace(/^[☐☑]\s*/, '').trim().slice(0, 40) || t('scheduledActions.textTitle'),
               isChecklist: data.isChecklist,
             };
             handleDestinationSelect(dest);
@@ -507,7 +507,7 @@ export function ScheduledActionCreator({
                     setUrlInput(e.target.value);
                     setUrlError('');
                   }}
-                  placeholder="example.com"
+                  placeholder={t('scheduledActions.urlPlaceholder')}
                   className="h-12 landscape:h-10 ps-10 rounded-xl text-base"
                   autoFocus
                   onKeyDown={(e) => e.key === 'Enter' && handleUrlSubmit()}
@@ -817,7 +817,7 @@ export function ScheduledActionCreator({
                 id="action-name"
                 value={name}
                 onChange={(e) => { setName(e.target.value); setHasManuallyEditedName(true); }}
-                placeholder={destination ? getSuggestedName(destination) : 'My action'}
+                placeholder={destination ? getSuggestedName(destination) : t('scheduledActions.myAction')}
                 className="h-12 landscape:h-10 rounded-xl text-base"
                 autoFocus
               />
