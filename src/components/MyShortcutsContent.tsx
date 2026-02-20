@@ -545,13 +545,22 @@ export function MyShortcutsContent({ onCreateReminder, onRefresh, isSyncing: ext
     } else if (shortcut.type === 'slideshow') {
       navigate(`/slideshow/${shortcut.id}`);
     } else if (shortcut.type === 'text') {
-      navigate(`/text/${shortcut.id}`, {
-        state: {
+      if (Capacitor.isNativePlatform()) {
+        await ShortcutPlugin.openTextShortcut({
+          shortcutId: shortcut.id,
           textContent: shortcut.textContent || '',
           isChecklist: shortcut.isChecklist || false,
           name: shortcut.name,
-        },
-      });
+        });
+      } else {
+        navigate(`/text/${shortcut.id}`, {
+          state: {
+            textContent: shortcut.textContent || '',
+            isChecklist: shortcut.isChecklist || false,
+            name: shortcut.name,
+          },
+        });
+      }
     } else if (shortcut.type === 'file') {
       if (Capacitor.isNativePlatform() && shortcut.contentUri) {
         await ShortcutPlugin.openWithExternalApp({

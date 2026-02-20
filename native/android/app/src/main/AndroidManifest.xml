@@ -263,11 +263,12 @@
             android:noHistory="true"
             android:excludeFromRecents="true" />
 
-        <!-- Text Proxy Activity - renders text/checklist shortcuts in a WebView -->
+        <!-- Text Proxy Activity - renders text/checklist shortcuts in a WebView (slides up from bottom) -->
         <activity
             android:name=".TextProxyActivity"
-            android:theme="@android:style/Theme.NoTitleBar"
+            android:theme="@style/TextViewerTheme"
             android:exported="false"
+            android:noHistory="false"
             android:configChanges="orientation|screenSize|keyboard|keyboardHidden" />
 
         <!-- Scheduled Actions: Alarm Receiver -->
