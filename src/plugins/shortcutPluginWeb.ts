@@ -424,6 +424,16 @@ export class ShortcutPluginWeb implements ShortcutPluginInterface {
     return { success: true };
   }
 
+  async clearChecklistState(options: { id: string }): Promise<{ success: boolean; error?: string }> {
+    console.log('[ShortcutPluginWeb] clearChecklistState called (web fallback)', options.id);
+    // On web, checklist state is stored in localStorage — clear keys with this shortcut's prefix
+    const prefix = `chk_${options.id}_`;
+    Object.keys(localStorage)
+      .filter(k => k.startsWith(prefix))
+      .forEach(k => localStorage.removeItem(k));
+    return { success: true };
+  }
+
   async openTextShortcut(_options: {
     shortcutId: string;
     textContent: string;

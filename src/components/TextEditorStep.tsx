@@ -1,12 +1,29 @@
 import { useState, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronLeft, Bold, Italic, Heading1, Heading2, Minus, Plus, X } from 'lucide-react';
+import { ChevronLeft, Bold, Italic, Heading1, Heading2, Minus, Plus, X, GripVertical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { IconPicker } from '@/components/IconPicker';
 import { cn } from '@/lib/utils';
 import type { ShortcutIcon } from '@/types/shortcut';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { toast } from 'sonner';
 
 const MAX_CHARS = 2000;
 
@@ -29,6 +46,7 @@ interface TextEditorStepProps {
     isChecklist: boolean;
     name: string;
     icon: ShortcutIcon;
+    orderChanged: boolean;
   }) => void;
   /** Called when user taps back */
   onBack: () => void;
@@ -57,6 +75,91 @@ function parseChecklistItems(text: string): ChecklistItem[] {
     }));
 }
 
+// ── Sortable checklist item ────────────────────────────────────────────────
+
+interface SortableChecklistItemProps {
+  item: ChecklistItem;
+  index: number;
+  onUpdate: (id: string, text: string) => void;
+  onRemove: (id: string) => void;
+  onAddNext: () => void;
+  canRemove: boolean;
+  placeholder: string;
+}
+
+function SortableChecklistItem({
+  item,
+  index,
+  onUpdate,
+  onRemove,
+  onAddNext,
+  canRemove,
+  placeholder,
+}: SortableChecklistItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: item.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        'flex items-center gap-2',
+        isDragging && 'opacity-50 z-50'
+      )}
+    >
+      {/* Drag handle */}
+      <button
+        {...attributes}
+        {...listeners}
+        type="button"
+        className="p-1.5 text-muted-foreground cursor-grab active:cursor-grabbing touch-none shrink-0"
+        tabIndex={-1}
+        aria-label="Drag to reorder"
+      >
+        <GripVertical className="h-4 w-4" />
+      </button>
+
+      <span className="text-muted-foreground shrink-0 text-base">☐</span>
+
+      <Input
+        value={item.text}
+        onChange={e => onUpdate(item.id, e.target.value)}
+        placeholder={`${placeholder} ${index + 1}`}
+        className="flex-1 h-10 rounded-xl"
+        onKeyDown={e => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            onAddNext();
+          }
+        }}
+      />
+
+      <button
+        type="button"
+        onClick={() => onRemove(item.id)}
+        disabled={!canRemove}
+        className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive disabled:opacity-30 transition-colors shrink-0"
+      >
+        <X className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────
+
 export function TextEditorStep({
   showIconPicker = true,
   isReminder = false,
@@ -70,6 +173,7 @@ export function TextEditorStep({
 }: TextEditorStepProps) {
   const { t } = useTranslation();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const orderWarnedRef = useRef(false);
 
   const [mode, setMode] = useState<EditorMode>(initialIsChecklist ? 'checklist' : 'note');
   const [noteText, setNoteText] = useState(initialIsChecklist ? '' : initialText);
@@ -81,6 +185,17 @@ export function TextEditorStep({
   });
   const [name, setName] = useState(initialName);
   const [icon, setIcon] = useState<ShortcutIcon>(initialIcon);
+  const [orderChanged, setOrderChanged] = useState(false);
+
+  // dnd-kit sensors — PointerSensor + TouchSensor for mobile
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 5 },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 200, tolerance: 5 },
+    })
+  );
 
   // Derived values
   const currentText = mode === 'note' ? noteText : generateChecklistText(checklistItems);
@@ -109,10 +224,8 @@ export function TextEditorStep({
     let newCursorEnd: number;
 
     if (wrap.linePrefix) {
-      // Line prefix mode (e.g., # heading)
       const lineStart = value.lastIndexOf('\n', start - 1) + 1;
       const linePrefix = wrap.linePrefix;
-      // Check if already prefixed — toggle off
       const currentLine = value.slice(lineStart, end || value.indexOf('\n', lineStart));
       if (currentLine.startsWith(linePrefix)) {
         newValue = value.slice(0, lineStart) + currentLine.slice(linePrefix.length) + value.slice(lineStart + currentLine.length);
@@ -126,7 +239,6 @@ export function TextEditorStep({
     } else {
       const before = wrap.before;
       const after = wrap.after ?? wrap.before;
-      // Check if already wrapped — toggle off
       const isWrapped =
         value.slice(start - before.length, start) === before &&
         value.slice(end, end + after.length) === after;
@@ -148,7 +260,6 @@ export function TextEditorStep({
 
     setNoteText(newValue);
 
-    // Restore selection after state update
     requestAnimationFrame(() => {
       textarea.focus();
       textarea.setSelectionRange(newCursorStart, newCursorEnd);
@@ -184,18 +295,38 @@ export function TextEditorStep({
     setChecklistItems(prev => prev.map(i => i.id === id ? { ...i, text } : i));
   }, []);
 
+  // ── Drag end ─────────────────────────────────────────────────────────────
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    setChecklistItems(prev => {
+      const oldIndex = prev.findIndex(i => i.id === active.id);
+      const newIndex = prev.findIndex(i => i.id === over.id);
+      return arrayMove(prev, oldIndex, newIndex);
+    });
+
+    setOrderChanged(true);
+
+    if (!orderWarnedRef.current) {
+      orderWarnedRef.current = true;
+      toast(t('textEditor.reorderWarning'), {
+        duration: 4000,
+      });
+    }
+  }, [t]);
+
   // ── Mode switching ───────────────────────────────────────────────────────
 
   const handleModeSwitch = (newMode: EditorMode) => {
     if (newMode === mode) return;
     if (newMode === 'checklist' && noteText.trim()) {
-      // Convert note lines to checklist items
       const items = noteText.split('\n')
         .filter(l => l.trim())
         .map((l, i) => ({ id: `item-${i}`, text: l.trim() }));
       setChecklistItems(items.length > 0 ? items : [{ id: 'item-0', text: '' }]);
     } else if (newMode === 'note' && checklistItems.some(i => i.text.trim())) {
-      // Convert checklist to note lines
       setNoteText(checklistItems.map(i => i.text).filter(Boolean).join('\n'));
     }
     setMode(newMode);
@@ -210,6 +341,7 @@ export function TextEditorStep({
       isChecklist: mode === 'checklist',
       name: name.trim(),
       icon,
+      orderChanged,
     });
   };
 
@@ -294,30 +426,31 @@ export function TextEditorStep({
         {/* Checklist mode */}
         {mode === 'checklist' && (
           <div className="space-y-2">
-            {checklistItems.map((item, index) => (
-              <div key={item.id} className="flex items-center gap-2">
-                <span className="text-muted-foreground shrink-0 text-base">☐</span>
-                <Input
-                  value={item.text}
-                  onChange={e => updateChecklistItem(item.id, e.target.value)}
-                  placeholder={t('textEditor.checklistPlaceholder') + ` ${index + 1}`}
-                  className="flex-1 h-10 rounded-xl"
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      addChecklistItem();
-                    }
-                  }}
-                />
-                <button
-                  onClick={() => removeChecklistItem(item.id)}
-                  disabled={checklistItems.length === 1}
-                  className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive disabled:opacity-30 transition-colors"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            ))}
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={checklistItems.map(i => i.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="space-y-2">
+                  {checklistItems.map((item, index) => (
+                    <SortableChecklistItem
+                      key={item.id}
+                      item={item}
+                      index={index}
+                      onUpdate={updateChecklistItem}
+                      onRemove={removeChecklistItem}
+                      onAddNext={addChecklistItem}
+                      canRemove={checklistItems.length > 1}
+                      placeholder={t('textEditor.checklistPlaceholder')}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
 
             {/* Add item */}
             <button
