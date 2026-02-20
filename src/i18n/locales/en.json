@@ -267,7 +267,10 @@
     "trashEmptied": "Trash emptied",
     "trashEmptiedDesc": "All items have been permanently deleted",
     "allRestored": "All items restored",
-    "allRestoredDesc": "{{count}} bookmark(s) restored"
+    "allRestoredDesc": "{{count}} bookmark(s) restored",
+    "expiresToday": "Expires today",
+    "expiresTomorrow": "Expires tomorrow",
+    "daysLeft": "{{days}} days left"
   },
   "bookmarkAction": {
     "openInBrowser": "Open in Browser",
@@ -498,6 +501,7 @@
     "retention60": "60 days",
     "advanced": "Advanced",
     "openSettings": "Open Settings",
+    "trashRetention": "Trash settings",
     "videoPlayer": "Video Player",
     "videoPlayerDesc": "Configure video playback behavior",
     "pipMode": "Picture-in-Picture",
@@ -710,33 +714,6 @@
     "contactDesc": "Call Someone at a Scheduled Time",
     "whatsappMessage": "WhatsApp Message",
     "whatsappMessageDesc": "Message Someone at a Scheduled Time"
-  },
-  "trash": {
-    "title": "Trash",
-    "empty": "Trash is empty",
-    "emptyDesc": "Deleted bookmarks will appear here for {{days}} days before being permanently removed.",
-    "noItems": "No items in trash",
-    "itemCount": "{{count}} item(s)",
-    "itemCountSingular": "{{count}} item",
-    "itemCountPlural": "{{count}} items",
-    "swipeHint": "Swipe right to restore, left to delete",
-    "restoreAll": "Restore All",
-    "emptyTrash": "Empty Trash",
-    "emptyTrashConfirm": "Empty Trash?",
-    "emptyTrashDesc": "This will permanently delete all {{count}} item(s) in trash. This action cannot be undone.",
-    "restoreAllConfirm": "Restore All Items?",
-    "restoreAllDesc": "This will restore all {{count}} item(s) from trash back to your bookmarks.",
-    "deleteConfirm": "Delete permanently?",
-    "deleteConfirmDesc": "This bookmark will be permanently deleted. This action cannot be undone.",
-    "restored": "Bookmark restored",
-    "permanentlyDeleted": "Permanently deleted",
-    "trashEmptied": "Trash emptied",
-    "trashEmptiedDesc": "All items have been permanently deleted",
-    "allRestored": "All items restored",
-    "allRestoredDesc": "{{count}} bookmark(s) restored",
-    "expiresToday": "Expires today",
-    "expiresTomorrow": "Expires tomorrow",
-    "daysLeft": "{{days}} days left"
   },
   "success": {
     "title": "Added to Home Screen",
