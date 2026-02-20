@@ -10,7 +10,7 @@ import { ContentPreview } from './ContentPreview';
 import { ImageWithFallback } from '@/components/ui/image-with-fallback';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import { getContentName, generateThumbnail, getPlatformEmoji, getFileTypeEmoji, getDetectedPlatform, smartTruncate } from '@/lib/contentResolver';
-import { buildImageSources } from '@/lib/imageUtils';
+import { buildImageSources, normalizeBase64 } from '@/lib/imageUtils';
 import { detectPlatform } from '@/lib/platformIcons';
 import { useUrlMetadata } from '@/hooks/useUrlMetadata';
 import type { ContentSource, ShortcutIcon } from '@/types/shortcut';
@@ -70,12 +70,21 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
       // Will update to favicon when metadata loads - start with emoji fallback
       return { type: 'emoji', value: getPlatformEmoji(source.uri) };
     }
+    // For image files with pre-existing thumbnail data, use it immediately
+    if (source.thumbnailData) {
+      const normalized = normalizeBase64(source.thumbnailData);
+      if (normalized) {
+        return { type: 'thumbnail', value: normalized };
+      }
+    }
     // For files, use file-type specific emoji
     return { type: 'emoji', value: getFileTypeEmoji(source.mimeType, source.name) };
   };
-  
+
+  // If thumbnailData is already present and normalizable, skip the loading state entirely
+  const hasImmediateThumbnail = !!source.thumbnailData && !!normalizeBase64(source.thumbnailData);
   const [icon, setIcon] = useState<ShortcutIcon>(getInitialIcon);
-  const [isLoadingThumbnail, setIsLoadingThumbnail] = useState(true);
+  const [isLoadingThumbnail, setIsLoadingThumbnail] = useState(!hasImmediateThumbnail);
   const [isCreating, setIsCreating] = useState(false);
   const [creationProgress, setCreationProgress] = useState(0);
   
@@ -109,21 +118,16 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
   }, [isUrlSource, urlMetadata?.title, hasManuallyEditedName]);
   
   useEffect(() => {
-    // If we already have thumbnailData from native picker, use it immediately (Fix #5)
+    // If we already have thumbnailData from native picker, use it immediately (synchronous, no async gap)
     if (source.thumbnailData) {
-      import('@/lib/imageUtils').then(({ normalizeBase64 }) => {
-        const normalized = normalizeBase64(source.thumbnailData);
-        if (normalized) {
-          console.log('[ShortcutCustomizer] Using pre-generated thumbnail from source');
-          setThumbnail(normalized);
-          setIcon({ type: 'thumbnail', value: normalized });
-          setIsLoadingThumbnail(false);
-          return;
-        }
-        // Fall through to generateThumbnail if normalization fails
-        fetchThumbnail();
-      });
-      return;
+      const normalized = normalizeBase64(source.thumbnailData);
+      if (normalized) {
+        setThumbnail(normalized);
+        setIcon({ type: 'thumbnail', value: normalized });
+        setIsLoadingThumbnail(false);
+        return;
+      }
+      // Fall through to generateThumbnail if normalization fails
     }
     
     // Otherwise try to generate thumbnail
