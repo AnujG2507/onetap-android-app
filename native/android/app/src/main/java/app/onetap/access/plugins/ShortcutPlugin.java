@@ -96,6 +96,7 @@ import app.onetap.access.PDFProxyActivity;
 import app.onetap.access.ScheduledActionReceiver;
 import app.onetap.access.ShortcutEditProxyActivity;
 import app.onetap.access.SlideshowProxyActivity;
+import app.onetap.access.TextProxyActivity;
 import app.onetap.access.VideoProxyActivity;
 import app.onetap.access.WhatsAppProxyActivity;
 
@@ -250,12 +251,18 @@ public class ShortcutPlugin extends Plugin {
         String whatsappContactName = null;
         
         // Parse extras if present
+        String textContent = null;
+        boolean isChecklist = false;
         try {
             JSObject extras = call.getObject("extras");
             if (extras != null) {
                 whatsappPhoneNumber = extras.optString("phone_number", null);
                 whatsappQuickMessages = extras.optString("quick_messages", null);
                 whatsappContactName = extras.optString("contact_name", null);
+                String tc = extras.optString("text_content", null);
+                if (tc != null && !tc.isEmpty()) textContent = tc;
+                String ic = extras.optString("is_checklist", null);
+                if (ic != null) isChecklist = "true".equalsIgnoreCase(ic);
             }
         } catch (Exception e) {
             android.util.Log.w("ShortcutPlugin", "Error parsing extras: " + e.getMessage());
@@ -296,7 +303,45 @@ public class ShortcutPlugin extends Plugin {
         final String finalFileName = fileName;
         final String finalFileMimeType = fileMimeType;
         final long finalFileSize = fileSize;
-        
+        final String finalTextContent = textContent;
+        final boolean finalIsChecklist = isChecklist;
+
+        // ── Text shortcuts: no file I/O needed, handle synchronously ──────────
+        if ("app.onetap.OPEN_TEXT".equals(intentAction)) {
+            android.util.Log.d("ShortcutPlugin", "Using TextProxyActivity for text shortcut");
+            Intent textIntent = new Intent(context, TextProxyActivity.class);
+            textIntent.setAction("app.onetap.OPEN_TEXT");
+            textIntent.setData(intentData != null ? Uri.parse(intentData) : Uri.parse("onetap://text/" + id));
+            textIntent.putExtra("shortcut_id", id);
+            if (finalTextContent != null) textIntent.putExtra("text_content", finalTextContent);
+            textIntent.putExtra("is_checklist", finalIsChecklist);
+            textIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
+            Icon textIcon = createIcon(call);
+            ShortcutInfo textShortcutInfo = new ShortcutInfo.Builder(context, id)
+                    .setShortLabel(label)
+                    .setLongLabel(label)
+                    .setIcon(textIcon)
+                    .setIntent(textIntent)
+                    .build();
+
+            ShortcutManager sm = context.getSystemService(ShortcutManager.class);
+            boolean requested = sm.requestPinShortcut(textShortcutInfo, null);
+            if (requested) {
+                registerShortcutCreation(id);
+                ensureDynamicShortcutSlot(sm);
+                try {
+                    sm.addDynamicShortcuts(Collections.singletonList(textShortcutInfo));
+                } catch (Exception dynEx) {
+                    android.util.Log.w("ShortcutPlugin", "Dynamic shortcut registration failed for text: " + dynEx.getMessage());
+                }
+            }
+            JSObject textResult = new JSObject();
+            textResult.put("success", requested);
+            call.resolve(textResult);
+            return;
+        }
+
         // Run file operations on background thread to prevent UI freezing
         new Thread(() -> {
             try {
