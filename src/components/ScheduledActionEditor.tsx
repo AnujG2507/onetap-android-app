@@ -396,7 +396,7 @@ export function ScheduledActionEditor({
                         setUrlInput(e.target.value);
                         setUrlError('');
                       }}
-                      placeholder="example.com"
+                      placeholder={t('scheduledActions.urlPlaceholder')}
                       className="h-12 landscape:h-10 ps-10 rounded-xl text-base"
                       autoFocus
                       onKeyDown={(e) => e.key === 'Enter' && handleUrlSubmit()}
