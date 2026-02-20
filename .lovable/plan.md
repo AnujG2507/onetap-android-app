@@ -1,70 +1,110 @@
 
-# Make the Native Android "Reset Checklist" Confirmation Dialog Premium
+# Fix: Editing a Text/Checklist Access Point — Two Bugs
 
-## Problem
+## What's Broken
 
-The only dialog triggered from the `TextProxyActivity` that looks non-premium is the **Reset confirmation** in `clearChecklistState()`. It uses a raw `AlertDialog.Builder` which renders a plain stock Android OS dialog — completely inconsistent with the surrounding premium centered card UI.
+### Bug 1 — "Save" Does Not Save Changes When `isChecklist` Flips
 
-```java
-new AlertDialog.Builder(this)
-    .setTitle("Reset checklist?")
-    .setMessage("All checked items will be unchecked. This cannot be undone.")
-    .setPositiveButton("Reset", ...)
-    .setNegativeButton("Cancel", null)
-    .show();
+In `handleSave()` (line 142–234 of `ShortcutEditSheet.tsx`), the updates object only includes `textContent` and `isChecklist` **when `shortcut.type === 'text'`**:
+
+```ts
+textContent: shortcut.type === 'text' ? textContent : undefined,
+isChecklist: shortcut.type === 'text' ? isChecklist : undefined,
 ```
 
-This is the only "option" (dialog) triggered from the text viewer, and it sticks out badly.
+This is correct and does save. However, the `hasChanges` tracking in the `useEffect` (lines 113–132) has a subtle issue — it evaluates `textChanged` as:
 
-## Solution
-
-Replace the stock `AlertDialog.Builder` with a **custom-built premium confirmation dialog** that:
-
-- Uses the same `MessageChooserDialog` style (already applied to the parent TextProxyActivity dialog) for the window chrome
-- Overrides the window background with the same `GradientDrawable` (rounded corners, theme-aware bg, border) already used in `showPremiumDialog()`
-- Has the same indigo accent bar at top
-- Has a proper title + message using `colorText` / `colorTextMuted`, matching typography
-- Has a footer with **two buttons** — "Cancel" (muted) and "Reset" (red/destructive accent) — using the same `RippleDrawable` rounded-corner pattern as the existing Done/Reset footer buttons
-- Is theme-aware (dark/light) using the already-initialized color fields
-
-## Implementation Detail
-
-### File: `native/android/app/src/main/java/app/onetap/access/TextProxyActivity.java`
-
-**Replace `clearChecklistState()` entirely.**
-
-Instead of calling `AlertDialog.Builder`, we build a custom view programmatically (same pattern as `showPremiumDialog`) and show it via `AlertDialog.Builder` with `setView()` and the `MessageChooserDialog` style, then override the window background in `setOnShowListener`.
-
-The confirmation dialog layout (built in code, no XML needed):
-
-```
-┌─────────────────────────────────────┐
-│ ████████████████████████████████ ← 4dp indigo bar
-│                                     │
-│  Reset checklist?          [bold]   │
-│  All checked items will be unchecked│
-│  ─────────────────────────────────  │
-│         Cancel  │  Reset            │
-└─────────────────────────────────────┘
+```ts
+const textChanged = shortcut.type === 'text' && (
+  textContent !== (shortcut.textContent || '') || isChecklist !== (shortcut.isChecklist || false)
+);
 ```
 
-- The "Reset" button uses a **red/destructive** text color (`#EF4444`) to signal danger, consistent with premium product conventions
-- "Cancel" uses `colorTextMuted` (matches the Done button style)
-- Both buttons get the same `RippleDrawable` with proper rounded bottom corners
-- No "Are you sure?" language (per Premium Experience Philosophy: prohibited)
-- Title changed from "Reset checklist?" → **"Reset checklist"** (no question mark — more confident, premium)
-- Message: **"All checked items will be unchecked"** (removed "This cannot be undone" — per philosophy: no redundant confirmation language)
+This correctly detects changes so the Save button should be enabled. Looking deeper: when `isChecklist` changes from `true` (checklist) to `false` (note), the native `updatePinnedShortcut` call in `useShortcuts.updateShortcut` (line 404–422) **does** pass `isChecklist: shortcut.isChecklist`. This should work for the native side too.
 
-### No new files, no XML changes needed
+**However** — the `handleReAdd` function (line 236–277) is the real culprit. It **does not include `textContent` or `isChecklist` in its `updates` object**:
 
-All styling is done programmatically, consistent with how the entire `TextProxyActivity` is built. The existing `colorBg`, `colorBorder`, `colorDivider`, `colorRipple`, `colorText`, `colorTextMuted`, `COLOR_ACCENT` fields are all reused.
+```ts
+const updates = {
+  name,
+  icon,
+  quickMessages: ...,
+  resumeEnabled: ...,
+  // ← textContent and isChecklist are COMPLETELY MISSING
+};
+```
+
+So when the user presses "Re-add to Home Screen" after converting a checklist to a note:
+1. `onSave()` is called with an `updates` object that lacks `textContent` / `isChecklist`
+2. The native shortcut is re-created using the **old** `shortcut` object (checklist), not the updated content
+3. The home screen shortcut still launches a checklist
+4. The app data may also be stale depending on timing
+
+### Bug 2 — "Re-add to Home Screen" Does Not Delete/Disable the Old Shortcut
+
+When the user presses "Re-add to Home Screen", `handleReAdd` calls:
+1. `onSave(shortcut.id, updates)` — updates the data in localStorage
+2. `onReAddToHomeScreen(updatedShortcut)` — calls `createHomeScreenShortcut()` in Index.tsx
+
+`createHomeScreenShortcut()` calls `ShortcutPlugin.createPinnedShortcut()` which **pins a new shortcut** with the **same ID**. On Android, calling `requestPinShortcut` for an already-pinned ID with the same shortcut ID does **update** the dynamic shortcut entry — but since text shortcuts create a new pinned shortcut intent (not a dynamic one), **both the old icon and any new icon may coexist** unless the old one is explicitly disabled first.
+
+The correct sequence should be:
+1. Save changes to localStorage
+2. **Disable/remove the old pinned shortcut** via `ShortcutPlugin.disablePinnedShortcut({ id })`
+3. **Then** call `createHomeScreenShortcut()` to pin the new one
+
+This matches the pattern already used in `deleteShortcut()` in `useShortcuts.ts`.
+
+---
+
+## Changes Required
+
+### `src/components/ShortcutEditSheet.tsx`
+
+**Fix 1 — Add `textContent` and `isChecklist` to `handleReAdd` updates:**
+
+The `handleReAdd` function's `updates` object (around line 240) must include text fields for text-type shortcuts, mirroring what `handleSave` already does:
+
+```ts
+// Text content - only for text shortcuts
+textContent: shortcut.type === 'text' ? textContent : undefined,
+isChecklist: shortcut.type === 'text' ? isChecklist : undefined,
+```
+
+Also, the `updatedShortcut` object (line 266) must spread the full `updates` (which now includes text fields), so `onReAddToHomeScreen` receives the correct state.
+
+**Fix 2 — Disable old shortcut before re-adding:**
+
+The `handleReAddToHomeScreen` callback in `Index.tsx` (line 175–183) calls `createHomeScreenShortcut` directly. It needs to first call `ShortcutPlugin.disablePinnedShortcut({ id: shortcut.id })` before pinning the new one.
+
+```ts
+const handleReAddToHomeScreen = useCallback(async (shortcut: ShortcutData) => {
+  // Step 1: Disable/remove the old pinned shortcut (same ID, new content)
+  if (Capacitor.isNativePlatform()) {
+    try {
+      await ShortcutPlugin.disablePinnedShortcut({ id: shortcut.id });
+    } catch (e) {
+      console.warn('[Index] Failed to disable old shortcut before re-add:', e);
+    }
+  }
+  // Step 2: Pin the new shortcut
+  const success = await createHomeScreenShortcut(shortcut, {
+    fileData: shortcut.thumbnailData,
+    thumbnailData: shortcut.thumbnailData,
+  });
+  if (success) {
+    toast({ title: t('shortcutAction.addedToHomeScreen', 'Added to home screen') });
+  }
+}, [toast, t]);
+```
+
+---
 
 ## Summary
 
-| What | Before | After |
+| File | Location | Change |
 |---|---|---|
-| Confirmation style | Stock OS `AlertDialog` | Custom premium card matching parent dialog |
-| Theme awareness | None (OS default) | Full dark/light using existing color fields |
-| Button styling | OS default buttons | Ripple + rounded corners, destructive red for Reset |
-| Language | "Are you sure?" style | Confident, direct (per Premium Philosophy) |
-| File changes | — | `TextProxyActivity.java` only |
+| `src/components/ShortcutEditSheet.tsx` | `handleReAdd()` updates object | Add `textContent` and `isChecklist` for text shortcuts |
+| `src/pages/Index.tsx` | `handleReAddToHomeScreen()` | Disable old pinned shortcut before creating new one |
+
+No new dependencies, no database changes, no translation keys needed.
