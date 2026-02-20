@@ -1,184 +1,121 @@
 
-## Audit Results: Hardcoded & Missing i18n Strings in the Text Feature
+## Problem: Access Points Not Opening From "My Access Points" List
 
-Every string used in the text shortcut and reminder feature has been traced across all six components and the en.json locale file. The findings fall into three categories:
+### Root Cause
 
-### Category A — Keys used in code but completely absent from en.json (will fall back to hardcoded literals forever, and will silently break when other languages are enabled)
-
-All nine `textEditor.*` keys called in `TextEditorStep.tsx` and `ShortcutEditSheet.tsx`:
-
-| Key | Fallback shown today |
-|-----|----------------------|
-| `textEditor.title` | "Write your text" |
-| `textEditor.noteMode` | "Note" |
-| `textEditor.checklistMode` | "Checklist" |
-| `textEditor.placeholder` | "Write anything — a note, a routine, a reminder..." |
-| `textEditor.checklistPlaceholder` | "Item" |
-| `textEditor.addItem` | "+ Add item" |
-| `textEditor.namePlaceholder` | "e.g. Daily routine, Shopping list..." |
-| `textEditor.creating` | "Adding..." |
-| `textEditor.addToHomeScreen` | "Add to Home Screen" |
-| `textEditor.editTitle` | "Edit text" |
-| `textEditor.noContent` | "No content" |
-
-Two `scheduledActions.*` keys called from `ScheduledActionCreator.tsx` but absent from `en.json`:
-
-| Key | String |
-|-----|--------|
-| `scheduledActions.scheduling` | "Scheduling..." |
-| `scheduledActions.scheduleAction` | "Schedule Action" |
-
-### Category B — Strings hardcoded directly in JSX (not using t() at all)
-
-In `ScheduledActionCreator.tsx` `handleCreate()` (lines 370–391), three toast messages bypass i18n entirely by using raw string literals:
+The `handleOpen` callback in `src/components/MyShortcutsContent.tsx` (lines 531-543) is incomplete. It only handles 3 of 6 shortcut types:
 
 ```
-'✓ Action scheduled'                          (success title)
-repeats ${timing.recurrence}                  (success description suffix)
-'Could not schedule'                          (error title — scheduledActions.couldNotSchedule key exists but is unused here)
-'Something went wrong'                        (error title)
-'Could not schedule this action.'             (error description)
+link    ✅  window.open(contentUri, '_blank')
+contact ✅  window.open('tel:...', '_self')
+message ✅  window.open('https://wa.me/...', '_blank')
+
+file        ❌  (nothing happens - silent no-op)
+text        ❌  (nothing happens - silent no-op)
+slideshow   ❌  (nothing happens - silent no-op)
 ```
 
-In `getSuggestedName()` (line 158), two contact label strings are fully hardcoded:
+When a user taps "Open" on a file, text, or slideshow access point, `setSelectedShortcut(null)` is called (closing the sheet) but nothing actually opens. This affects the majority of access point types.
+
+### Solution
+
+The fix has two parts:
+
+**1. On native Android** — use `ShortcutPlugin.openWithExternalApp()` for file shortcuts, and route text/slideshow types through the deep link / native intent system via `buildContentIntent()` from `shortcutManager.ts`. The existing `openWithExternalApp` method correctly handles `content://` URIs on Android.
+
+**2. On web (fallback)** — use `window.open()` for files, navigate to `/text/:id` for text shortcuts, and navigate to `/slideshow/:id` for slideshow shortcuts using React Router.
+
+### Files to Change
+
+**`src/components/MyShortcutsContent.tsx`** — Expand `handleOpen`:
+
 ```
-`Message ${dest.contactName}`
-`Call ${dest.contactName}`
-```
+file shortcut (native) → ShortcutPlugin.openWithExternalApp({ uri: contentUri, mimeType })
+file shortcut (web)    → window.open(contentUri, '_blank')
 
-### Category C — Missing type label for text shortcuts in ShortcutActionSheet
+text shortcut          → navigate to /text route or open native TextProxyActivity
+                         (since web has no native activity, use SlideshowViewer/in-app route or window.open)
 
-`getShortcutTypeLabel()` in `ShortcutActionSheet.tsx` has no branch for `shortcut.type === 'text'`, so text shortcuts display the generic "File" label in the action sheet header. The key `shortcutAction.typeText` is missing from `en.json`.
-
----
-
-## Files to Change
-
-### 1. `src/i18n/locales/en.json`
-
-Add a new `textEditor` block and extend two existing blocks:
-
-```json
-// New top-level block to add:
-"textEditor": {
-  "title": "Write your text",
-  "noteMode": "Note",
-  "checklistMode": "Checklist",
-  "placeholder": "Write anything — a note, a routine, a reminder...",
-  "checklistPlaceholder": "Item",
-  "addItem": "Add item",
-  "namePlaceholder": "e.g. Daily routine, Shopping list...",
-  "creating": "Adding...",
-  "addToHomeScreen": "Add to Home Screen",
-  "editTitle": "Edit text",
-  "noContent": "No content"
-}
-
-// Add to "shortcutAction":
-"typeText": "Text"
-
-// Add to "scheduledActions":
-"scheduling": "Scheduling...",
-"scheduleAction": "Schedule Action",
-"scheduledTitle": "Action scheduled",
-"couldNotScheduleDesc": "Could not schedule this action.",
-"messageName": "Message {{name}}",
-"callName_reminder": "Call {{name}}"
+slideshow shortcut     → navigate('/slideshow/:id')
 ```
 
-Note: `scheduledActions.couldNotSchedule` already exists — the error title for the first catch block can reuse it. `errors.somethingWentWrong` and `scheduledActions.tryAgain` also already exist and can be reused in the second catch block.
+Specifically, for native Android:
+- **file**: call `ShortcutPlugin.openWithExternalApp({ uri: shortcut.contentUri, mimeType: shortcut.mimeType })`
+- **text**: use `ShortcutPlugin.openDesktopWebView()` or navigate in-app to a text viewer (the app already has `TextProxyActivity` for home screen but no in-app route; we show the content in-app using navigation state)
+- **slideshow**: navigate to `/slideshow/${shortcut.id}`
 
-### 2. `src/components/TextEditorStep.tsx`
+For web fallback:
+- **file**: `window.open(shortcut.contentUri, '_blank')`
+- **text**: navigate to a route passing the text content as state (or display inline)
+- **slideshow**: `navigate('/slideshow/' + shortcut.id)`
 
-Remove all inline fallback strings from every `t()` call — they are no longer needed once the keys are in `en.json`. No logic changes, only the second argument of each `t()` call is removed.
+### Detailed Technical Plan
 
-Lines to update:
-- Line 226: `t('textEditor.title', 'Write your text')` → `t('textEditor.title')`
-- Line 244: both `t('textEditor.noteMode', 'Note')` and `t('textEditor.checklistMode', 'Checklist')` → no fallback
-- Line 275: `t('textEditor.placeholder', 'Write anything...')` → `t('textEditor.placeholder')`
-- Line 303: `t('textEditor.checklistPlaceholder', 'Item')` → `t('textEditor.checklistPlaceholder')`
-- Line 328: `t('textEditor.addItem', '+ Add item')` → `t('textEditor.addItem')`
-- Line 346: `t('textEditor.namePlaceholder', 'e.g. Daily routine...')` → `t('textEditor.namePlaceholder')`
-- Line 371: `t('textEditor.creating', 'Adding...')` → `t('textEditor.creating')`
-- Line 374: `t('textEditor.addToHomeScreen', 'Add to Home Screen')` → `t('textEditor.addToHomeScreen')`
+#### `src/components/MyShortcutsContent.tsx`
 
-### 3. `src/components/ShortcutEditSheet.tsx`
+Replace the `handleOpen` callback (lines 531–543) with a complete version:
 
-Three `t()` calls need fallbacks removed and one needs the correct key used:
+```typescript
+const handleOpen = useCallback(async (shortcut: ShortcutData) => {
+  incrementUsage(shortcut.id);
+  setSelectedShortcut(null);
 
-- Line 413: `t('textEditor.editTitle', 'Edit text')` → `t('textEditor.editTitle')`
-- Line 426: `t('textEditor.placeholder', 'No content')` — the fallback here means "empty state" while the same key in `TextEditorStep` means "placeholder hint". Split these: use `t('textEditor.noContent')` here instead.
-- Line 431: `t('textEditor.checklistMode', 'Checklist')` → `t('textEditor.checklistMode')`
+  if (shortcut.type === 'link') {
+    window.open(shortcut.contentUri, '_blank');
 
-### 4. `src/components/ShortcutActionSheet.tsx`
+  } else if (shortcut.type === 'contact' && shortcut.phoneNumber) {
+    window.open(`tel:${shortcut.phoneNumber}`, '_self');
 
-Add a `text` type branch to `getShortcutTypeLabel()` before the `switch` on `fileType`:
+  } else if (shortcut.type === 'message' && shortcut.phoneNumber) {
+    const phone = shortcut.phoneNumber.replace(/\D/g, '');
+    window.open(`https://wa.me/${phone}`, '_blank');
 
-```diff
-  if (shortcut.type === 'link') return t('shortcutAction.typeLink');
-+ if (shortcut.type === 'text') return t('shortcutAction.typeText');
-  
-  switch (shortcut.fileType) {
+  } else if (shortcut.type === 'slideshow') {
+    navigate(`/slideshow/${shortcut.id}`);
+
+  } else if (shortcut.type === 'text') {
+    // Navigate to in-app text viewer, passing content as state
+    navigate(`/text/${shortcut.id}`, {
+      state: {
+        textContent: shortcut.textContent || '',
+        isChecklist: shortcut.isChecklist || false,
+        name: shortcut.name,
+      }
+    });
+
+  } else if (shortcut.type === 'file') {
+    if (Capacitor.isNativePlatform() && shortcut.contentUri) {
+      await ShortcutPlugin.openWithExternalApp({
+        uri: shortcut.contentUri,
+        mimeType: shortcut.mimeType,
+      });
+    } else if (shortcut.contentUri) {
+      window.open(shortcut.contentUri, '_blank');
+    }
+  }
+}, [incrementUsage, navigate]);
 ```
 
-### 5. `src/components/ScheduledActionCreator.tsx`
+The `navigate` hook needs to be imported from `react-router-dom` (it's already available in the file via `useNavigate`, but `MyShortcutsContent` doesn't currently import it — we'll add it).
 
-Five changes:
+#### `src/pages/TextViewer.tsx` (new file)
 
-**A — Fix `handleCreate` success toast (lines 369–373):**
-```diff
-- title: '✓ Action scheduled',
-- description: `${name} — ${timeStr}${timing.recurrence !== 'once' ? ` (repeats ${timing.recurrence})` : ''}`,
-+ title: t('scheduledActions.actionScheduled'),
-+ description: `${name} — ${timeStr}`,
-```
+Since there is no in-app text viewer route, we need to create a simple one that renders the text content passed via router state — mirroring what `TextProxyActivity` does natively. It will:
+- Read `textContent`, `isChecklist`, and `name` from `location.state`
+- Render markdown text (using a `<pre>` or simple renderer for web)
+- Render an interactive checklist if `isChecklist` is true
+- Show a back button
 
-**B — Fix `handleCreate` first error toast (lines 376–381):**
-The key `scheduledActions.couldNotSchedule` already exists. Use it:
-```diff
-- title: 'Could not schedule',
-- description: 'Please try again.',
-+ title: t('scheduledActions.couldNotSchedule'),
-+ description: t('scheduledActions.tryAgain'),
-```
+#### `src/App.tsx` — Register the new route
 
-**C — Fix `handleCreate` second error toast (lines 386–391):**
-```diff
-- title: 'Something went wrong',
-- description: 'Could not schedule this action.',
-+ title: t('errors.somethingWentWrong'),
-+ description: t('scheduledActions.couldNotScheduleDesc'),
-```
+Add `/text/:id` route pointing to the new `TextViewer` page.
 
-**D — Fix `getSuggestedName` contact strings (lines 157–158):**
-```diff
-- case 'contact':
--   return dest.isWhatsApp ? `Message ${dest.contactName}` : `Call ${dest.contactName}`;
-+ case 'contact':
-+   return dest.isWhatsApp
-+     ? t('scheduledActions.messageName', { name: dest.contactName })
-+     : t('scheduledActions.callName_reminder', { name: dest.contactName });
-```
+### Summary of Changes
 
-**E — Remove inline fallbacks from `t()` calls already using keys (lines 771–772):**
-```diff
-- label={t('scheduledActions.textTitle', 'Text note')}
-- description={t('scheduledActions.textDesc', 'A note, checklist, or message to display')}
-+ label={t('scheduledActions.textTitle')}
-+ description={t('scheduledActions.textDesc')}
-```
-(Both keys already exist in `en.json`.)
+| File | Change |
+|---|---|
+| `src/components/MyShortcutsContent.tsx` | Expand `handleOpen` to cover `file`, `text`, `slideshow` types; add `useNavigate` |
+| `src/pages/TextViewer.tsx` | New page — in-app text/checklist viewer (used when opening text shortcuts from within the app) |
+| `src/App.tsx` | Register `/text/:id` route |
 
----
-
-## Summary Table
-
-| File | Change type | Count |
-|------|-------------|-------|
-| `en.json` | Add missing keys | 14 new keys |
-| `TextEditorStep.tsx` | Remove fallback strings from t() | 8 lines |
-| `ShortcutEditSheet.tsx` | Fix key reference + remove fallbacks | 3 lines |
-| `ShortcutActionSheet.tsx` | Add missing `text` type label branch | 1 line |
-| `ScheduledActionCreator.tsx` | Replace hardcoded strings + fix t() calls | 5 changes |
-
-No changes are needed to: `ContentSourcePicker.tsx` (all strings correct), `ScheduledActionEditor.tsx` (all strings correct), `MyShortcutsContent.tsx` (uses `shortcuts.filterText` which exists), `AccessFlow.tsx` (no user-facing strings for text flow).
+No backend changes required. No new dependencies required.
