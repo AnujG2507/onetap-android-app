@@ -1,149 +1,159 @@
 
-# Fix: Image Preview Empty in ShortcutCustomizer
+# Fix: Scroll Broken in All Tabs (Landscape and Portrait)
 
-## Root Cause Analysis
+## Investigation Results
 
-The intermittent empty preview is caused by **two related issues** in the image shortcut flow:
+After thorough analysis of the full component hierarchy, there are **three separate root causes** — not one. The proposed `isVerticalLocked` fix addresses only one of them. All three must be fixed together.
 
-### Issue A: `isLoadingThumbnail` initializes as `true` regardless
+---
 
-`ShortcutCustomizer.tsx` line 78:
+## Root Cause 1: Missing `min-h-0` on Tab Wrapper Divs (PRIMARY — causes landscape failure)
+
+In `src/pages/Index.tsx`, all four tab content wrappers use:
 ```tsx
-const [isLoadingThumbnail, setIsLoadingThumbnail] = useState(true);
+<div className="flex-1 flex flex-col ...">
 ```
 
-For image file sources that already have `source.thumbnailData` attached, the component mounts with `isLoadingThumbnail = true` and then fires a `useEffect` that does a dynamic `import()` (async). Until the async import resolves and state is updated, the preview area renders the pulse overlay and the icon preview shows nothing. If the user looks at the screen during this async gap (which on slow devices can be hundreds of milliseconds), they see a blank area.
-
-More critically: the initial icon state is:
+The outer root container is a **flex column** (`flex flex-col`):
 ```tsx
-const [icon, setIcon] = useState<ShortcutIcon>(getInitialIcon);
-```
-`getInitialIcon()` for an image file returns `{ type: 'emoji', value: '🖼️' }` — never `thumbnail`. The `thumbnail` icon type is only set inside the `useEffect`. So on every mount, the icon starts as emoji and the preview section (which only renders the `ImageWithFallback` when `icon.type === 'thumbnail'`) starts empty.
-
-### Issue B: The `isLoadingThumbnail` state is not set to `false` fast enough when `thumbnailData` is already present
-
-The fast path for pre-existing `thumbnailData` (lines 112–126) uses a dynamic `import()`:
-```tsx
-if (source.thumbnailData) {
-  import('@/lib/imageUtils').then(({ normalizeBase64 }) => {
-    const normalized = normalizeBase64(source.thumbnailData);
-    if (normalized) {
-      setThumbnail(normalized);
-      setIcon({ type: 'thumbnail', value: normalized });
-      setIsLoadingThumbnail(false);  // ← delayed by async import
-      return;
-    }
-    fetchThumbnail();
-  });
-  return;
-}
+<div className="h-app-viewport bg-background flex flex-col overflow-hidden">
 ```
 
-The dynamic `import()` is unnecessary — `normalizeBase64` is a pure utility that can be imported statically at the top of the file. Using a dynamic import here adds an async round-trip that delays thumbnail display.
+**The bug**: In CSS flexbox, `flex-1` (which is `flex: 1 1 0`) only guarantees a child can *grow* to fill available space. But the minimum size of a flex child is its intrinsic content size, not zero. Without `min-h-0`, a flex column child will **never shrink below its content height**. This means:
 
-### Issue C: `getInitialIcon` doesn't use `source.thumbnailData` synchronously
+- The tab wrapper div is allowed to be taller than the viewport
+- The `ScrollArea` inside gets more height than it needs and **never actually needs to scroll**
+- The outer `overflow-hidden` on the root silently clips the overflow, making it look like nothing is there to scroll
+- In landscape mode, vertical space is cut nearly in half, so this problem is far more severe
 
-When `source.thumbnailData` is already available on mount, `getInitialIcon()` could immediately return `{ type: 'thumbnail', value: normalizedThumbnail }` instead of `{ type: 'emoji', ... }`. This would make the initial render show the image immediately without any async gap.
-
-## Fix
-
-### File: `src/components/ShortcutCustomizer.tsx`
-
-**Change 1 — Import `normalizeBase64` statically at the top (remove dynamic import):**
+**Fix**: Add `min-h-0` to all four tab wrapper divs in `Index.tsx`.
 
 ```tsx
-// Add to existing import:
-import { buildImageSources, normalizeBase64 } from '@/lib/imageUtils';
+// Before
+<div className="flex-1 flex flex-col ...">
+
+// After  
+<div className="flex-1 min-h-0 flex flex-col ...">
 ```
 
-**Change 2 — Make `getInitialIcon` use `thumbnailData` synchronously:**
+This constrains the tab div to exactly the available space, forcing the `ScrollArea` inside to be the scroll container.
+
+---
+
+## Root Cause 2: `useSwipeNavigation` `onTouchMove` Competes with Native Scroll (causes portrait failure with many items)
+
+The swipe handlers from `useSwipeNavigation` are spread onto the tab wrapper div:
+```tsx
+{...swipeHandlers}
+```
+
+On Android WebView, attaching a React `onTouchMove` listener on a **parent of a `ScrollArea`** can interfere with native scroll gesture recognition. The current handler has no vertical-lock mechanism — it checks for horizontal swipes but doesn't bail out early when the gesture is clearly vertical.
+
+**Fix**: Add an `isVerticalLocked` ref to `useSwipeNavigation.ts`. Once the first `~10px` of movement is more vertical than horizontal, mark the gesture as vertical-locked and stop processing all further touch events for that gesture.
+
+```ts
+const isVerticalLocked = useRef(false);
+
+// In handleTouchStart: reset isVerticalLocked
+// In handleTouchMove: if deltaY > 10 && deltaY >= deltaX → set isVerticalLocked=true, return early
+// In handleTouchEnd: if isVerticalLocked → return early, don't check for swipe
+```
+
+---
+
+## Root Cause 3: `ContentSourcePicker` Scroll Div Missing Height Constraint (Access tab landscape)
+
+In `AccessFlow.tsx` (Access tab, `step === 'source'`):
+```tsx
+<div className="flex-1 min-h-0 overflow-hidden">
+  <ContentSourcePicker ... />
+</div>
+```
+
+Inside `ContentSourcePicker.tsx`:
+```tsx
+<div ref={scrollContainerRef} className="flex-1 h-full overflow-y-auto pb-6">
+```
+
+The `h-full` works correctly when its parent is properly constrained. **This is already correctly set up with `min-h-0` in `AccessFlow`**. However, once Root Cause 1 (missing `min-h-0` on the tab wrapper) is fixed, this chain becomes fully correct. No additional change needed here.
+
+---
+
+## Files to Change
+
+### 1. `src/pages/Index.tsx` — Add `min-h-0` to all four tab wrapper divs
+
+The four tab divs at lines ~565, ~593, ~611, ~628 need `min-h-0` added:
 
 ```tsx
-const getInitialIcon = (): ShortcutIcon => {
-  if (source.type === 'url' || source.type === 'share') {
-    if (detectedPlatform?.icon) {
-      return { type: 'platform', value: detectedPlatform.icon };
-    }
-    return { type: 'emoji', value: getPlatformEmoji(source.uri) };
-  }
-  // For image files with pre-existing thumbnail data, use it immediately
-  if (source.thumbnailData) {
-    const normalized = normalizeBase64(source.thumbnailData);
-    if (normalized) {
-      return { type: 'thumbnail', value: normalized };
-    }
-  }
-  // For files, use file-type specific emoji
-  return { type: 'emoji', value: getFileTypeEmoji(source.mimeType, source.name) };
-};
+// Access tab (line ~565)
+<div key={...} className="flex-1 min-h-0 flex flex-col ...">
+
+// Reminders tab (line ~593)  
+<div key={...} className="flex-1 min-h-0 flex flex-col ...">
+
+// Bookmarks tab (line ~611)
+<div key={...} className="flex-1 min-h-0 flex flex-col ...">
+
+// Profile tab (line ~628)
+<div key={...} className="flex-1 min-h-0 flex flex-col ...">
 ```
 
-**Change 3 — Set initial `isLoadingThumbnail` correctly based on whether thumbnail is already available:**
+### 2. `src/hooks/useSwipeNavigation.ts` — Add `isVerticalLocked` gesture locking
 
-```tsx
-// Before:
-const [isLoadingThumbnail, setIsLoadingThumbnail] = useState(true);
+Add a vertical-lock ref so that as soon as a gesture is detected as primarily vertical, the swipe hook backs off entirely and lets the `ScrollArea` handle the touch:
 
-// After:
-const hasImmediateThumbnail = !!source.thumbnailData && !!normalizeBase64(source.thumbnailData);
-const [isLoadingThumbnail, setIsLoadingThumbnail] = useState(!hasImmediateThumbnail);
+```ts
+const isVerticalLocked = useRef(false);
+
+// handleTouchStart: add isVerticalLocked.current = false;
+// handleTouchMove: 
+//   if (isVerticalLocked.current) return;
+//   if (deltaY > 10 && deltaY >= deltaX) { isVerticalLocked.current = true; return; }
+// handleTouchEnd: 
+//   if (!enabled || isVerticalLocked.current || !isHorizontalSwipe.current) return;
+//   ... after done: isVerticalLocked.current = false;
 ```
 
-This means: if `thumbnailData` is present and normalizable, `isLoadingThumbnail` starts as `false` — no async delay, no blank flash.
+---
 
-**Change 4 — Simplify the `useEffect` to remove the dynamic import:**
+## Technical Details
 
-```tsx
-useEffect(() => {
-  // If we already have thumbnailData from native picker, use it immediately
-  if (source.thumbnailData) {
-    const normalized = normalizeBase64(source.thumbnailData);
-    if (normalized) {
-      setThumbnail(normalized);
-      setIcon({ type: 'thumbnail', value: normalized });
-      setIsLoadingThumbnail(false);
-      return;
-    }
-    // Fall through to generateThumbnail if normalization fails
-  }
-  
-  // Otherwise try to generate thumbnail
-  fetchThumbnail();
-  
-  function fetchThumbnail() {
-    setIsLoadingThumbnail(true);
-    generateThumbnail(source)
-      .then((thumb) => {
-        if (thumb) {
-          setThumbnail(thumb);
-          setIcon({ type: 'thumbnail', value: thumb });
-        }
-      })
-      .finally(() => {
-        setIsLoadingThumbnail(false);
-      });
-  }
-}, [source]);
+```text
+Root container: h-app-viewport, flex-col, overflow-hidden
+│
+├── [Tab wrapper div] flex-1 ← MISSING min-h-0 here
+│   │                         Without it, min-height = content-height
+│   │                         The div can be taller than viewport
+│   │                         ScrollArea never needs to scroll
+│   │
+│   └── [NotificationsPage / BookmarkLibrary / ProfilePage / AccessFlow]
+│           flex-1, flex-col
+│           │
+│           └── ScrollArea (flex-1)
+│                   Viewport: h-full, overflow-y: scroll
+│                   ← Never activates because parent is too tall
+│
+└── BottomNav (fixed, safe-bottom)
 ```
 
-This removes the async `import()` chain, making the fast path fully synchronous.
-
-### Also Fix: `ContentPreview` for image sources
-
-`ContentPreview` currently passes `source.uri` as the second source in `buildImageSources`. For native `content://` URIs, this is correctly filtered out by `isValidImageSource`. But for the web flow, `source.uri` is a blob URL and `source.thumbnailData` is a raw base64 string — both are valid. The component works correctly but can be made more robust by also checking `source.thumbnailData` before deciding to show the image slot:
-
-```tsx
-// No change needed here — ContentPreview already works correctly.
-// The fix is entirely in ShortcutCustomizer's icon initialization.
+After fix:
+```text
+Root container: h-app-viewport, flex-col, overflow-hidden
+│
+├── [Tab wrapper div] flex-1 min-h-0  ← min-h-0 forces it to shrink to fit
+│   │                                   Exactly viewport-height minus BottomNav
+│   │
+│   └── ScrollArea (flex-1, min-h-0)
+│           Viewport: h-full, overflow-y: scroll
+│           ← Activates correctly — content overflows the fixed height
 ```
 
-## Summary of Changes
+---
 
-| File | Change | Reason |
-|------|--------|--------|
-| `src/components/ShortcutCustomizer.tsx` | Add static import of `normalizeBase64` from `@/lib/imageUtils` | Remove unnecessary dynamic import |
-| `src/components/ShortcutCustomizer.tsx` | `getInitialIcon()` — synchronously use `source.thumbnailData` when present | Icon starts as `thumbnail` type immediately, no async gap |
-| `src/components/ShortcutCustomizer.tsx` | `useState(!hasImmediateThumbnail)` for `isLoadingThumbnail` | Skip loading state when thumbnail is already available |
-| `src/components/ShortcutCustomizer.tsx` | Remove `import('@/lib/imageUtils')` dynamic import in `useEffect` | Replace with synchronous `normalizeBase64` call |
+## Summary
 
-The result: when an image shortcut is created and `thumbnailData` is present (all native paths, and small web files), the preview renders **immediately on the first render** with no async gap, no blank flash, and no pulse overlay.
+| # | Root Cause | Symptom | Fix |
+|---|-----------|---------|-----|
+| 1 | Missing `min-h-0` on tab wrapper divs | Landscape scroll completely broken; portrait broken with many items | Add `min-h-0` to 4 tab divs in `Index.tsx` |
+| 2 | `onTouchMove` swipe handler has no vertical lock | Vertical scroll gestures partially intercepted on Android WebView | Add `isVerticalLocked` ref to `useSwipeNavigation.ts` |
