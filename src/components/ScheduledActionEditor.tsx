@@ -16,8 +16,10 @@ import {
   Globe, 
   Bookmark,
   FolderOpen,
-  MessageCircle
+  MessageCircle,
+  AlignLeft
 } from 'lucide-react';
+import { TextEditorStep } from '@/components/TextEditorStep';
 import { cn } from '@/lib/utils';
 import { ScheduledTimingPicker } from './ScheduledTimingPicker';
 import { SavedLinksSheet } from './SavedLinksSheet';
@@ -38,6 +40,7 @@ import type {
 
 type EditorStep = 'main' | 'destination' | 'timing';
 type UrlSubStep = 'choose' | 'input' | null;
+type TextSubStep = 'editor' | null;
 
 interface ScheduledActionEditorProps {
   action: ScheduledAction;
@@ -71,10 +74,20 @@ export function ScheduledActionEditor({
   const [urlInput, setUrlInput] = useState('');
   const [urlError, setUrlError] = useState('');
 
+  // Text sub-flow state
+  const [textSubStep, setTextSubStep] = useState<TextSubStep>(null);
+  const [textContent, setTextContent] = useState(
+    action.destination.type === 'text' ? action.destination.text : ''
+  );
+  const [textIsChecklist, setTextIsChecklist] = useState(
+    action.destination.type === 'text' ? (action.destination.isChecklist ?? false) : false
+  );
+
   // Back button handler for internal step navigation
   // Determine if we should intercept the back button (when not on main step)
   const shouldInterceptBack = 
     urlSubStep !== null || // In URL sub-step
+    textSubStep !== null || // In Text sub-step
     step !== 'main'; // On destination or timing step
 
   const internalHandleBack = useCallback(() => {
@@ -85,12 +98,16 @@ export function ScheduledActionEditor({
       setUrlError('');
       return;
     }
-    
+    // Handle Text sub-step back
+    if (textSubStep) {
+      setTextSubStep(null);
+      return;
+    }
     // Return to main view from any sub-step
     if (step !== 'main') {
       setStep('main');
     }
-  }, [urlSubStep, step]);
+  }, [urlSubStep, textSubStep, step]);
 
   // Register with higher priority (20) than parent sheet (0) to intercept back button
   useSheetBackHandler(
@@ -112,6 +129,9 @@ export function ScheduledActionEditor({
     setUrlSubStep(null);
     setUrlInput('');
     setUrlError('');
+    setTextSubStep(null);
+    setTextContent(action.destination.type === 'text' ? action.destination.text : '');
+    setTextIsChecklist(action.destination.type === 'text' ? (action.destination.isChecklist ?? false) : false);
   }, [action]);
 
   const handleClose = () => {
@@ -192,6 +212,7 @@ export function ScheduledActionEditor({
     setUrlSubStep(null);
     setUrlInput('');
     setUrlError('');
+    setTextSubStep(null);
     setStep('main');
     triggerHaptic('success');
   };
@@ -370,6 +391,33 @@ export function ScheduledActionEditor({
 
   // Render destination step
   if (step === 'destination') {
+    // Text editor sub-step
+    if (textSubStep === 'editor') {
+      return (
+        <Sheet open={isOpen} onOpenChange={(open) => !open && handleClose()}>
+          <SheetContent side="bottom" className="h-[85vh] landscape:h-[95vh] rounded-t-3xl px-0 pb-0">
+            <TextEditorStep
+              showIconPicker={false}
+              isReminder={true}
+              initialText={textContent}
+              initialIsChecklist={textIsChecklist}
+              initialName={name}
+              onBack={() => setTextSubStep(null)}
+              onConfirm={(data) => {
+                const dest: ScheduledActionDestination = {
+                  type: 'text',
+                  text: data.textContent,
+                  name: data.name || data.textContent.split('\n')[0].replace(/^[☐☑]\s*/, '').trim().slice(0, 40) || 'Text',
+                  isChecklist: data.isChecklist,
+                };
+                handleDestinationSelect(dest);
+              }}
+            />
+          </SheetContent>
+        </Sheet>
+      );
+    }
+
     // URL input sub-step
     if (urlSubStep === 'input') {
       return (
@@ -520,6 +568,21 @@ export function ScheduledActionEditor({
                     label={t('scheduledEditor.whatsappMessage')}
                     description={t('scheduledEditor.whatsappMessageDesc')}
                     onClick={() => handleContactSelect(true)}
+                  />
+                  <DestinationOption
+                    icon={<AlignLeft className="h-5 w-5" />}
+                    label={t('scheduledActions.textTitle')}
+                    description={t('scheduledEditor.textDesc')}
+                    onClick={() => {
+                      if (destination.type === 'text') {
+                        setTextContent(destination.text);
+                        setTextIsChecklist(destination.isChecklist ?? false);
+                      } else {
+                        setTextContent('');
+                        setTextIsChecklist(false);
+                      }
+                      setTextSubStep('editor');
+                    }}
                   />
                 </div>
             </div>

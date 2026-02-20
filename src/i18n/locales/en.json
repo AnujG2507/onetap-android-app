@@ -722,7 +722,8 @@
     "linkDesc": "Website or Saved Bookmark",
     "contactDesc": "Call Someone at a Scheduled Time",
     "whatsappMessage": "WhatsApp Message",
-    "whatsappMessageDesc": "Message Someone at a Scheduled Time"
+    "whatsappMessageDesc": "Message Someone at a Scheduled Time",
+    "textDesc": "Note or Checklist"
   },
   "success": {
     "title": "Added to Home Screen",
