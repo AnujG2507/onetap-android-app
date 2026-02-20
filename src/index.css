@@ -147,6 +147,12 @@ All colors MUST be HSL.
     padding-bottom: calc(var(--android-safe-bottom, 0px) + 3.5rem);
   }
 
+  /* Safe area for Drawers/overlays that float above the BottomNav.
+     Clears only the system nav bar, not the app BottomNav. */
+  .safe-bottom-sheet {
+    padding-bottom: max(var(--android-safe-bottom, 0px), 16px);
+  }
+
   @media (orientation: landscape) {
     .safe-bottom-with-nav {
       padding-bottom: calc(var(--android-safe-bottom, 0px) + 2.5rem);
