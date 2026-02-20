@@ -190,7 +190,7 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
-      <header className="flex items-center gap-3 p-4 pt-header-safe-compact landscape:p-3 landscape:pt-2 border-b">
+      <header className="flex items-center gap-3 p-4 pt-header-safe-compact landscape:p-3 border-b">
         <button
           onClick={onBack}
           className="p-2 -ms-2 rounded-full hover:bg-muted active:bg-muted/80"
