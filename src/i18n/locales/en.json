@@ -521,7 +521,12 @@
     "preview": "Preview",
     "access": "Access",
     "adding": "Adding...",
-    "addToHomeScreen": "Add to Home Screen"
+    "addingVideo": "Adding video...",
+    "addToHomeScreen": "Add to Home Screen",
+    "processingFile": "Processing file",
+    "processingVideo": "Processing video",
+    "processingLargeFile": "This may take a moment ({{size}} MB)",
+    "processingLargeVideo": "Generating thumbnail ({{size}} MB)"
   },
   "iconPicker": {
     "icon": "Icon",
@@ -867,6 +872,7 @@
     "coverIcon": "Cover",
     "emojiIcon": "Emoji",
     "autoAdvance": "Auto-advance",
+    "autoAdvanceOff": "Off",
     "addToHomeScreen": "Add to Home Screen",
     "notFound": "Slideshow not found",
     "creatingSlideshow": "Creating a slideshow with {{count}} photos",

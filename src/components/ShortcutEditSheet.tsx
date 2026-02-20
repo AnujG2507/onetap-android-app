@@ -32,12 +32,7 @@ interface ShortcutEditSheetProps {
   onReAddToHomeScreen?: (shortcut: ShortcutData) => void;
 }
 
-const AUTO_ADVANCE_OPTIONS = [
-  { value: 0, label: 'Off' },
-  { value: 3, label: '3s' },
-  { value: 5, label: '5s' },
-  { value: 10, label: '10s' },
-];
+const AUTO_ADVANCE_VALUES = [0, 3, 5, 10];
 
 export function ShortcutEditSheet({ 
   shortcut, 
@@ -477,26 +472,28 @@ export function ShortcutEditSheet({
           {isSlideshowShortcut && (
             <div>
               <label className="text-sm text-muted-foreground mb-2 block">
-                {t('slideshow.autoAdvance', 'Auto-advance')}
+                {t('slideshow.autoAdvance')}
               </label>
               <div className="flex gap-2">
-                {AUTO_ADVANCE_OPTIONS.map(option => (
+                {AUTO_ADVANCE_VALUES.map(value => (
                   <button
-                    key={option.value}
-                    onClick={() => setAutoAdvance(option.value)}
+                    key={value}
+                    onClick={() => setAutoAdvance(value)}
                     className={`flex-1 py-2 px-3 rounded-lg border-2 transition-colors ${
-                      autoAdvance === option.value
+                      autoAdvance === value
                         ? 'border-primary bg-primary/10 text-primary'
                         : 'border-border bg-background'
                     }`}
                   >
                     <div className="flex items-center justify-center gap-1">
-                      {option.value === 0 ? (
+                      {value === 0 ? (
                         <Pause className="h-4 w-4" />
                       ) : (
                         <Play className="h-4 w-4" />
                       )}
-                      <span className="text-sm font-medium">{option.label}</span>
+                      <span className="text-sm font-medium">
+                        {value === 0 ? t('slideshow.autoAdvanceOff') : `${value}s`}
+                      </span>
                     </div>
                   </button>
                 ))}
