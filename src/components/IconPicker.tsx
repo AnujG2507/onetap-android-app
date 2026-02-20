@@ -220,10 +220,6 @@ export function IconPicker({ thumbnail, platformIcon, faviconUrl, selectedIcon, 
         </button>
       )}
 
-      {/* Regular header for non-platform icons */}
-      {!hasAutoDetectedIcon && (
-        <p className="text-sm font-medium text-foreground">{t('iconPicker.icon')}</p>
-      )}
 
       <AnimatePresence>
         {(isExpanded || !hasAutoDetectedIcon) && (
