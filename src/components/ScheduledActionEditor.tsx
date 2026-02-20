@@ -157,7 +157,7 @@ export function ScheduledActionEditor({
     switch (type) {
       case 'file': return t('scheduledEditor.file');
       case 'url': return t('scheduledEditor.link');
-      case 'text': return t('scheduledActions.textTitle', 'Text note');
+      case 'text': return t('scheduledActions.textTitle');
       case 'contact': 
         return dest?.type === 'contact' && dest.isWhatsApp 
           ? t('scheduledEditor.whatsappMessage') 
