@@ -328,7 +328,7 @@ export function ShortcutEditSheet({
   if (showTextEditor && shortcut.type === 'text') {
     return (
       <Drawer open={isOpen} onOpenChange={(open) => !open && onClose()}>
-        <DrawerContent className="max-h-[90vh]">
+        <DrawerContent className="max-h-[90vh] flex flex-col">
           <TextEditorStep
             initialText={textContent}
             initialIsChecklist={isChecklist}

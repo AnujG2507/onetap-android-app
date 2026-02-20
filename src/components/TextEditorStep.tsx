@@ -346,7 +346,7 @@ export function TextEditorStep({
   };
 
   return (
-    <div className="flex flex-col h-full animate-fade-in">
+    <div className="flex flex-col h-full min-h-0 animate-fade-in">
       {/* Header */}
       <div className="flex items-center gap-3 px-5 pt-header-safe pb-4 landscape:px-4 landscape:pt-2 landscape:pb-2 border-b border-border shrink-0">
         <button
@@ -359,7 +359,7 @@ export function TextEditorStep({
       </div>
 
       {/* Scrollable body */}
-      <div className="flex-1 overflow-y-auto px-5 py-4 landscape:px-4 landscape:py-3 space-y-4">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 py-4 landscape:px-4 landscape:py-3 space-y-4">
         {/* Mode segmented control */}
         <div className="flex bg-muted/50 rounded-xl p-1 gap-1">
           {(['note', 'checklist'] as EditorMode[]).map(m => (
