@@ -199,7 +199,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
       await navigator.clipboard.writeText(logText);
       toast.success(t('settingsPage.logsCopied'));
     } catch {
-      toast.error('Failed to copy logs');
+      toast.error(t('settingsPage.failedToCopyLogs'));
     }
   };
 
@@ -210,7 +210,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
       toast.success(t('settingsPage.logsCleared'));
     } catch (error) {
       console.error('Failed to clear logs:', error);
-      toast.error('Failed to clear logs');
+      toast.error(t('settingsPage.failedToClearLogs'));
     }
   };
 
@@ -475,8 +475,8 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
                     {/* Session info */}
                     {crashLogs && (
                       <div className="text-xs text-muted-foreground space-y-1">
-                        <p>Session: {crashLogs.sessionId || 'N/A'}</p>
-                        <p>Duration: {crashLogs.sessionDurationSeconds || 0}s</p>
+                        <p>{t('settingsPage.sessionLabel')}: {crashLogs.sessionId || t('settingsPage.notAvailable')}</p>
+                        <p>{t('settingsPage.durationLabel')}: {crashLogs.sessionDurationSeconds || 0}s</p>
                         {!isNative && (
                           <p className="text-warning">{t('settingsPage.debugLogsNativeOnly')}</p>
                         )}

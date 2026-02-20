@@ -457,7 +457,8 @@
     "signInFailed": "Sign in failed",
     "sessionExpired": "Session expired. Please try signing in again.",
     "couldNotSignIn": "Could not sign in with Google. Please try again.",
-    "tryAgainLater": "Please try again later"
+    "tryAgainLater": "Please try again later",
+    "unknownUser": "User"
   },
   "settings": {
     "title": "Settings",
@@ -512,7 +513,12 @@
     "clearLogs": "Clear",
     "refreshLogs": "Refresh",
     "logsCopied": "Logs copied to clipboard",
-    "logsCleared": "Logs cleared"
+    "logsCleared": "Logs cleared",
+    "failedToCopyLogs": "Failed to copy logs",
+    "failedToClearLogs": "Failed to clear logs",
+    "sessionLabel": "Session",
+    "durationLabel": "Duration",
+    "notAvailable": "N/A"
   },
   "shortcutCustomizer": {
     "setUpAccess": "Set up access",

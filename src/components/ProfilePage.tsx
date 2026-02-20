@@ -56,7 +56,7 @@ export function ProfilePage({}: ProfilePageProps = {}) {
   // Derived user data - must be above conditional returns (Rules of Hooks)
   const userMeta = user?.user_metadata ?? {};
   const rawAvatarUrl = userMeta?.avatar_url || userMeta?.picture || null;
-  const fullName = userMeta?.full_name || userMeta?.name || 'User';
+  const fullName = userMeta?.full_name || userMeta?.name || t('profile.unknownUser');
   const email = user?.email || '';
   const validAvatarUrl = useMemo(() =>
     rawAvatarUrl && isValidImageSource(rawAvatarUrl) ? rawAvatarUrl : null,
