@@ -410,7 +410,7 @@ export function ShortcutEditSheet({
           {shortcut.type === 'text' && (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label>{t('textEditor.editTitle', 'Edit text')}</Label>
+                <Label>{t('textEditor.editTitle')}</Label>
                 <Button
                   variant="outline"
                   size="sm"
@@ -423,12 +423,12 @@ export function ShortcutEditSheet({
               </div>
               <div className="p-3 rounded-xl bg-muted/30 border border-border min-h-[64px]">
                 <p className="text-sm text-muted-foreground line-clamp-3 whitespace-pre-wrap">
-                  {textContent || t('textEditor.placeholder', 'No content')}
+                  {textContent || t('textEditor.noContent')}
                 </p>
               </div>
               {isChecklist && (
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
-                  ✅ {t('textEditor.checklistMode', 'Checklist')}
+                  ✅ {t('textEditor.checklistMode')}
                 </p>
               )}
             </div>

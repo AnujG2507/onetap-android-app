@@ -223,7 +223,7 @@ export function TextEditorStep({
         >
           <ChevronLeft className="h-5 w-5 rtl:rotate-180" />
         </button>
-        <h2 className="text-lg font-semibold flex-1">{t('textEditor.title', 'Write your text')}</h2>
+        <h2 className="text-lg font-semibold flex-1">{t('textEditor.title')}</h2>
       </div>
 
       {/* Scrollable body */}
@@ -241,7 +241,7 @@ export function TextEditorStep({
                   : 'text-muted-foreground hover:text-foreground'
               )}
             >
-              {m === 'note' ? t('textEditor.noteMode', 'Note') : t('textEditor.checklistMode', 'Checklist')}
+              {m === 'note' ? t('textEditor.noteMode') : t('textEditor.checklistMode')}
             </button>
           ))}
         </div>
@@ -272,7 +272,7 @@ export function TextEditorStep({
               ref={textareaRef}
               value={noteText}
               onChange={e => setNoteText(e.target.value)}
-              placeholder={t('textEditor.placeholder', 'Write anything — a note, a routine, a reminder...')}
+              placeholder={t('textEditor.placeholder')}
               maxLength={MAX_CHARS + 100}
               className={cn(
                 'w-full min-h-[160px] rounded-xl border border-input bg-background px-3 py-2.5 text-sm',
@@ -300,7 +300,7 @@ export function TextEditorStep({
                 <Input
                   value={item.text}
                   onChange={e => updateChecklistItem(item.id, e.target.value)}
-                  placeholder={t('textEditor.checklistPlaceholder', 'Item') + ` ${index + 1}`}
+                  placeholder={t('textEditor.checklistPlaceholder') + ` ${index + 1}`}
                   className="flex-1 h-10 rounded-xl"
                   onKeyDown={e => {
                     if (e.key === 'Enter') {
@@ -325,7 +325,7 @@ export function TextEditorStep({
               className="flex items-center gap-2 text-sm text-primary hover:text-primary/80 transition-colors py-1 px-1"
             >
               <Plus className="h-4 w-4" />
-              {t('textEditor.addItem', '+ Add item')}
+              {t('textEditor.addItem')}
             </button>
 
             {isOverLimit && (
@@ -343,7 +343,7 @@ export function TextEditorStep({
             id="text-shortcut-name"
             value={name}
             onChange={e => setName(e.target.value)}
-            placeholder={t('textEditor.namePlaceholder', 'e.g. Daily routine, Shopping list...')}
+            placeholder={t('textEditor.namePlaceholder')}
             className="h-11 rounded-xl"
           />
         </div>
@@ -368,10 +368,10 @@ export function TextEditorStep({
           className="w-full h-12 landscape:h-10 rounded-2xl text-base"
         >
           {isCreating
-            ? t('textEditor.creating', 'Adding...')
+            ? t('textEditor.creating')
             : isReminder
               ? t('common.continue', 'Continue')
-              : t('textEditor.addToHomeScreen', 'Add to Home Screen')
+              : t('textEditor.addToHomeScreen')
           }
         </Button>
       </div>
