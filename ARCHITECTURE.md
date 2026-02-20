@@ -18,6 +18,8 @@
 10. [Project Structure](#10-project-structure)
 11. [Build Pipeline Overview](#11-build-pipeline-overview)
 12. [Failure Scenarios and Recovery](#12-failure-scenarios-and-recovery)
+13. [Home Screen ↔ App Sync Contract](#13-home-screen--app-sync-contract-android-12)
+14. [Landscape Mode Layout System](#14-landscape-mode-layout-system)
 
 ---
 
@@ -725,6 +727,128 @@ Android imposes a **hard limit** on dynamic shortcuts per app (typically 4–15,
 2. **Dynamic shortcut limit exceeded** — Exception thrown but no proactive signal. Must manage pool preemptively.
 3. **Launcher changed** — No broadcast. `isPinned()` may become unreliable. Re-sync on every foreground.
 4. **File permissions revoked** — No signal. Mitigated by copying files to app-internal storage.
+
+---
+
+## 14. Landscape Mode Layout System
+
+When the device is rotated, the layout must do three things simultaneously: shrink vertical chrome (BottomNav, headers), adapt horizontal spacing to clear any side-mounted navigation bar, and collapse content density. The system is built from two layers — a JS hook that drives conditional React classes, and a Tailwind `landscape:` media query variant that handles the rest declaratively in CSS.
+
+### Detection — `useOrientation`
+
+```ts
+// src/hooks/useOrientation.ts
+export function useOrientation() {
+  const [isLandscape, setIsLandscape] = useState(window.innerWidth > window.innerHeight);
+  // Listens to both 'resize' and 'orientationchange' events
+  return { isLandscape, isPortrait: !isLandscape };
+}
+```
+
+`isLandscape` is a reactive boolean derived purely from viewport dimensions. It updates on every `resize` and `orientationchange` event, so components re-render within one paint of the orientation change.
+
+---
+
+### BottomNav — Height and Layout Compaction
+
+`BottomNav` is the most structurally affected component. `useOrientation` drives both its height and internal tab layout:
+
+| Property | Portrait | Landscape |
+|---|---|---|
+| Nav bar height | `h-14` (3.5rem / 56px) | `h-10` (2.5rem / 40px) |
+| Tab flex direction | `flex-col` (icon above label) | `flex-row gap-1.5` (icon beside label) |
+| Icon size | `h-5 w-5` | `h-4 w-4` |
+| Label font size | `text-[10px]` | `text-[9px]` |
+
+**Why this matters for `safe-bottom-with-nav`:** The CSS class `safe-bottom-with-nav` adds the BottomNav height to the system nav bar inset. Its `@media (orientation: landscape)` override mirrors the JS height change:
+
+```css
+.safe-bottom-with-nav {
+  padding-bottom: calc(var(--android-safe-bottom, 0px) + 3.5rem); /* portrait */
+}
+@media (orientation: landscape) {
+  .safe-bottom-with-nav {
+    padding-bottom: calc(var(--android-safe-bottom, 0px) + 2.5rem); /* landscape */
+  }
+}
+```
+
+This CSS-only override fires at exactly the same breakpoint as the JS `h-10` class, so the two layers stay in sync without any JS coordination.
+
+---
+
+### Header Compaction — `pt-header-safe-compact`
+
+```css
+.pt-header-safe-compact {
+  padding-top: calc(var(--android-safe-top, 0px) + 0.75rem); /* portrait */
+}
+@media (orientation: landscape) {
+  .pt-header-safe-compact {
+    padding-top: calc(var(--android-safe-top, 0px) + 0.5rem); /* landscape */
+  }
+}
+```
+
+Standard `pt-header-safe` (1rem base) does **not** shrink in landscape — it is reserved for primary page headers where full breathing room is required regardless of orientation.
+
+---
+
+### MyShortcutsButton — Hidden in Landscape
+
+The floating `MyShortcutsButton` fixed to the bottom of `AccessFlow` is **entirely hidden** in landscape:
+
+```tsx
+{!isInlinePickerOpen && !isLandscape && (
+  <div className="fixed bottom-[calc(3.5rem+var(--android-safe-bottom,0px)+0.75rem)] left-0 right-0 px-5 z-10">
+    <MyShortcutsButton />
+  </div>
+)}
+```
+
+Rationale: landscape viewport height is too constrained to show a floating button above the source picker without obscuring content. Users can still reach My Shortcuts via the dedicated tab.
+
+---
+
+### Components with `landscape:` Tailwind Variants
+
+The following components carry `landscape:` modifier classes. Each entry describes the category of adaptation applied:
+
+| Component | Landscape Adaptations |
+|---|---|
+| `BottomNav` | Height (`h-10`), tab flex direction (`flex-row`), icon size (`h-4 w-4`), label size (`text-[9px]`) — driven by `isLandscape` JS |
+| `AccessFlow` | `MyShortcutsButton` hidden; offline banner shown at reduced padding; header uses `pt-header-safe` |
+| `SharedUrlActionSheet` | Card width (`max-w-lg`), all sections reduce padding (`px-3`, `py-2`/`py-3`), text sizes step down, aspect ratio of video thumbnail changes to `2/1`, edit form becomes 2-column grid |
+| `SharedFileActionSheet` | Card width (`max-w-lg`), padding reduced, button height (`h-9`), text sizes step down |
+| `ScheduledActionActionSheet` | Max height raised to `95vh` (`landscape:max-h-[95vh]`) to use available screen width |
+| `EditFolderDialog` | Spacing reduced, form becomes 2-column grid, button height `h-9`, icon picker inline |
+| `ContentSourcePicker` | Grid layout and icon sizing adapt (check component for specifics) |
+| `ShortcutCustomizer` | Form fields, spacing, and section heights adapt for reduced vertical space |
+| `ScheduledTimingPicker` | Compact spacing throughout |
+| `BatteryOptimizationHelp` | Sheet height (`h-[85vh]`) and content spacing reduced |
+| `NotificationsPage` | List item padding and section headers compacted |
+| `ProfilePage` | Card spacing and button sizes reduced |
+
+---
+
+### Pattern Summary
+
+Two patterns are used throughout the codebase:
+
+**Pattern 1 — Tailwind `landscape:` variant (preferred)**
+Used when the adaptation is purely visual (spacing, font size, element size, layout direction). Requires no JS and reacts to the CSS media query directly:
+```tsx
+<div className="px-4 landscape:px-3 py-4 landscape:py-2 text-sm landscape:text-xs">
+```
+
+**Pattern 2 — `isLandscape` JS boolean**
+Used when an element must be **conditionally rendered** (mounted/unmounted) or when the adaptation affects layout structure in a way that `landscape:` variants cannot express (e.g. changing a flex column to a flex row on a container that contains dynamic children):
+```tsx
+const { isLandscape } = useOrientation();
+<div className={cn("flex", isLandscape ? "flex-row h-10" : "flex-col h-14")}>
+```
+
+> **Rule of thumb:** Prefer `landscape:` Tailwind variants for all cosmetic changes. Reserve `isLandscape` for conditional rendering and structural layout changes that affect multiple children simultaneously.
 
 ---
 
