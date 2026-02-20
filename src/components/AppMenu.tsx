@@ -146,7 +146,7 @@ export function AppMenu({ onOpenTrash, onOpenSettings }: AppMenuProps) {
       </SheetTrigger>
       <SheetContent 
         side={menuSide as "left" | "right"}
-        className="w-72 flex flex-col"
+        className="w-4/5 max-w-xs flex flex-col"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
