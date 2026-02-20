@@ -62,17 +62,20 @@ interface ChecklistItem {
 }
 
 function generateChecklistText(items: ChecklistItem[]): string {
-  return items.map(item => `☐ ${item.text}`).join('\n');
+  return items.map(item => `- [ ] ${item.text}`).join('\n');
 }
 
 function parseChecklistItems(text: string): ChecklistItem[] {
   if (!text.trim()) return [];
   return text.split('\n')
     .filter(line => line.trim())
-    .map((line, i) => ({
-      id: `item-${i}`,
-      text: line.replace(/^[☐☑]\s?/, '').trim(),
-    }));
+    .map((line, i) => {
+      // New standard markdown format: - [ ] text or - [x] text
+      const mdMatch = line.match(/^- \[[ xX]\] (.*)/);
+      if (mdMatch) return { id: `item-${i}`, text: mdMatch[1].trim() };
+      // Legacy Unicode format: ☐ text or ☑ text (backward compat)
+      return { id: `item-${i}`, text: line.replace(/^[☐☑]\s?/, '').trim() };
+    });
 }
 
 // ── Sortable checklist item ────────────────────────────────────────────────
