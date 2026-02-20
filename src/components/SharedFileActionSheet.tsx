@@ -103,7 +103,7 @@ export function SharedFileActionSheet({
   const fileSubtitle = displaySubtitle || info.sublabel;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center p-4 pb-8 bg-black/50 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-end justify-center p-4 bg-black/50 safe-bottom-with-nav animate-in fade-in duration-200">
       <div
         className={cn(
           "w-full max-w-sm landscape:max-w-lg bg-card rounded-2xl shadow-xl border border-border overflow-hidden",

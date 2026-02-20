@@ -168,7 +168,7 @@ export function ScheduledActionActionSheet({
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent 
           side="bottom" 
-          className="rounded-t-3xl px-0 pb-6 landscape:pb-4 landscape:max-h-[95vh]"
+          className="rounded-t-3xl px-0 landscape:max-h-[95vh]"
         >
           {/* Grab handle */}
           <div 
