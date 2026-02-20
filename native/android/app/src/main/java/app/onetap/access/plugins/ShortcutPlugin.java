@@ -4263,6 +4263,44 @@ public class ShortcutPlugin extends Plugin {
         }
     }
 
+    /**
+     * Clears all local checklist check states for a given shortcut.
+     * Called by JS layer when the user reorders checklist items during editing,
+     * since state keys are index-based and reordering invalidates them.
+     * SharedPreferences("checklist_state") is NOT synced to cloud.
+     */
+    @PluginMethod
+    public void clearChecklistState(PluginCall call) {
+        String shortcutId = call.getString("id");
+        if (shortcutId == null || shortcutId.isEmpty()) {
+            JSObject result = new JSObject();
+            result.put("success", false);
+            result.put("error", "Missing shortcut id");
+            call.resolve(result);
+            return;
+        }
+        try {
+            Context context = getContext();
+            SharedPreferences prefs = context.getSharedPreferences("checklist_state", Context.MODE_PRIVATE);
+            SharedPreferences.Editor editor = prefs.edit();
+            String prefix = "chk_" + shortcutId + "_";
+            for (String key : new java.util.HashSet<>(prefs.getAll().keySet())) {
+                if (key.startsWith(prefix)) editor.remove(key);
+            }
+            editor.apply();
+            android.util.Log.d("ShortcutPlugin", "Cleared checklist state for: " + shortcutId);
+            JSObject result = new JSObject();
+            result.put("success", true);
+            call.resolve(result);
+        } catch (Exception e) {
+            android.util.Log.e("ShortcutPlugin", "clearChecklistState error: " + e.getMessage());
+            JSObject result = new JSObject();
+            result.put("success", false);
+            result.put("error", e.getMessage());
+            call.resolve(result);
+        }
+    }
+
     // ========== Shortcut Edit ==========
 
     /**

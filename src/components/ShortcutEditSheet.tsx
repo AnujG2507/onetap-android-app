@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { X, Home, Save, Play, Pause, FolderOpen, AlignLeft } from 'lucide-react';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerFooter } from '@/components/ui/drawer';
@@ -12,6 +12,7 @@ import { SlideshowPhotosEditor } from '@/components/SlideshowPhotosEditor';
 import { TextEditorStep } from '@/components/TextEditorStep';
 import { useSheetRegistry } from '@/contexts/SheetRegistryContext';
 import { useToast } from '@/hooks/use-toast';
+import ShortcutPlugin from '@/plugins/ShortcutPlugin';
 import { Capacitor } from '@capacitor/core';
 import { generateGridIcon } from '@/lib/slideshowIconGenerator';
 import type { ShortcutData, ShortcutIcon } from '@/types/shortcut';
@@ -66,6 +67,8 @@ export function ShortcutEditSheet({
   const [textContent, setTextContent] = useState('');
   const [isChecklist, setIsChecklist] = useState(false);
   const [showTextEditor, setShowTextEditor] = useState(false);
+  // Tracks whether the user reordered checklist items — triggers clearChecklistState on save
+  const checklistOrderChangedRef = useRef(false);
 
   // Initialize form when shortcut changes
   useEffect(() => {
@@ -101,6 +104,8 @@ export function ShortcutEditSheet({
         setIsChecklist(false);
       }
       setShowTextEditor(false);
+      // Reset order-changed flag whenever a new shortcut is loaded
+      checklistOrderChangedRef.current = false;
     }
   }, [shortcut]);
 
@@ -181,9 +186,24 @@ export function ShortcutEditSheet({
     
     const result = await onSave(shortcut.id, updates);
 
+    // Clear native checklist state if item order was changed during editing
+    if (shortcut.type === 'text' && checklistOrderChangedRef.current) {
+      try {
+        if (Capacitor.isNativePlatform()) {
+          await ShortcutPlugin.clearChecklistState({ id: shortcut.id });
+          console.log('[ShortcutEditSheet] Cleared checklist state after reorder');
+        } else {
+          // Also clear on web (localStorage fallback)
+          ShortcutPlugin.clearChecklistState({ id: shortcut.id });
+        }
+      } catch (e) {
+        console.warn('[ShortcutEditSheet] Failed to clear checklist state:', e);
+      }
+      checklistOrderChangedRef.current = false;
+    }
+
     // Smart feedback based on native update result
     if (Capacitor.isNativePlatform() && result?.nativeUpdateFailed && onReAddToHomeScreen) {
-      // Native update failed - prompt user to re-add
       const updatedShortcut: ShortcutData = {
         ...shortcut,
         ...updates,
@@ -202,10 +222,9 @@ export function ShortcutEditSheet({
             {t('shortcutEdit.reAdd')}
           </Button>
         ),
-        duration: 8000, // Longer duration to give user time to act
+        duration: 8000,
       });
     } else {
-      // Success or not on native - simple toast
       toast({
         title: t('shortcutEdit.saved'),
       });
@@ -316,6 +335,7 @@ export function ShortcutEditSheet({
             onConfirm={(data) => {
               setTextContent(data.textContent);
               setIsChecklist(data.isChecklist);
+              if (data.orderChanged) checklistOrderChangedRef.current = true;
               setShowTextEditor(false);
             }}
           />

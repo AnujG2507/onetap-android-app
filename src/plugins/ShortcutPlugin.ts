@@ -258,6 +258,10 @@ export interface ShortcutPluginInterface {
     error?: string;
   }>;
 
+  // Clear local checklist check state for a shortcut (SharedPreferences).
+  // Called when checklist item order changes to prevent stale index-keyed state.
+  clearChecklistState(options: { id: string }): Promise<{ success: boolean; error?: string }>;
+
   // Open a text shortcut natively via TextProxyActivity (slides up from bottom).
   // Bypasses the Capacitor WebView entirely — instant, lightweight.
   openTextShortcut(options: {

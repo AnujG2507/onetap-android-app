@@ -810,7 +810,8 @@
     "creating": "Adding...",
     "addToHomeScreen": "Add to Home Screen",
     "editTitle": "Edit text",
-    "noContent": "No content"
+    "noContent": "No content",
+    "reorderWarning": "Reordering items will reset all checked states when saved"
   },
   "shortcutEdit": {
     "title": "Edit Access",
