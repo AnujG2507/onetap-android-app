@@ -266,7 +266,7 @@ export function IconPicker({ thumbnail, platformIcon, faviconUrl, selectedIcon, 
           </div>
           
           {/* Icon preview - for platform, favicon, thumbnail, and text types */}
-          {selectedIcon.type !== 'emoji' && (
+          {selectedIcon.type !== 'emoji' && selectedIcon.type !== 'text' && (
             <div 
               key={`preview-${selectedIcon.type}`}
               className="flex justify-center py-4 landscape:py-2 animate-fade-in"
@@ -274,11 +274,8 @@ export function IconPicker({ thumbnail, platformIcon, faviconUrl, selectedIcon, 
               <div
                 className={cn(
                   "h-16 w-16 landscape:h-12 landscape:w-12 rounded-2xl landscape:rounded-xl flex items-center justify-center elevation-2 overflow-hidden",
-                  selectedIcon.type === 'thumbnail' ? 'p-0' : '',
-                  // Favicon gets white/neutral background for transparency handling
-                  selectedIcon.type === 'favicon' && 'bg-white dark:bg-gray-100 shadow-sm',
-                  // Thumbnail and text get bg-primary
-                  (selectedIcon.type === 'thumbnail' || selectedIcon.type === 'text') && 'bg-primary'
+                  selectedIcon.type === 'thumbnail' ? 'p-0 bg-primary' : '',
+                  selectedIcon.type === 'favicon' ? 'bg-white dark:bg-gray-100 shadow-sm' : '',
                 )}
               >
                 {selectedIcon.type === 'platform' && platformInfo && (
@@ -304,11 +301,6 @@ export function IconPicker({ thumbnail, platformIcon, faviconUrl, selectedIcon, 
                 )}
                 {selectedIcon.type === 'thumbnail' && thumbnailSources.length === 0 && (
                   <ImageOff className="h-6 w-6 text-primary-foreground/50" />
-                )}
-                {selectedIcon.type === 'text' && (
-                  <span className="text-2xl font-bold text-primary-foreground">
-                    {selectedIcon.value.slice(0, 2).toUpperCase()}
-                  </span>
                 )}
               </div>
             </div>
