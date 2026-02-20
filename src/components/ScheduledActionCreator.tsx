@@ -155,7 +155,7 @@ export function ScheduledActionCreator({
       case 'url':
         return dest.name || 'Open link';
       case 'contact':
-        return dest.isWhatsApp ? `Message ${dest.contactName}` : `Call ${dest.contactName}`;
+        return dest.isWhatsApp ? t('scheduledActions.messageName', { name: dest.contactName }) : t('scheduledActions.callName_reminder', { name: dest.contactName });
       case 'text': {
         const firstLine = dest.text.split('\n')[0].replace(/^[☐☑]\s*/, '').trim();
         return firstLine.slice(0, 40) || t('scheduledActions.textTitle', 'Text note');
@@ -367,16 +367,16 @@ export function ScheduledActionCreator({
         });
         
         toast({
-          title: '✓ Action scheduled',
-          description: `${name.trim() || getSuggestedName(destination)} — ${timeStr}${timing.recurrence !== 'once' ? ` (repeats ${timing.recurrence})` : ''}`,
+          title: t('scheduledActions.actionScheduled'),
+          description: `${name.trim() || getSuggestedName(destination)} — ${timeStr}`,
         });
         
         onComplete();
       } else {
         triggerHaptic('warning');
         toast({
-          title: 'Could not schedule',
-          description: 'Please try again.',
+          title: t('scheduledActions.couldNotSchedule'),
+          description: t('scheduledActions.tryAgain'),
           variant: 'destructive',
         });
         setIsCreating(false);
@@ -385,8 +385,8 @@ export function ScheduledActionCreator({
       console.error('Error creating scheduled action:', error);
       triggerHaptic('warning');
       toast({
-        title: 'Something went wrong',
-        description: 'Could not schedule this action.',
+        title: t('errors.somethingWentWrong'),
+        description: t('scheduledActions.couldNotScheduleDesc'),
         variant: 'destructive',
       });
       setIsCreating(false);
@@ -768,8 +768,8 @@ export function ScheduledActionCreator({
             />
             <DestinationOption
               icon={<AlignLeft className="h-5 w-5" />}
-              label={t('scheduledActions.textTitle', 'Text note')}
-              description={t('scheduledActions.textDesc', 'A note, checklist, or message to display')}
+              label={t('scheduledActions.textTitle')}
+              description={t('scheduledActions.textDesc')}
               onClick={() => setTextSubStep('editor')}
             />
           </div>

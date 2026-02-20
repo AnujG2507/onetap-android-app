@@ -118,6 +118,7 @@ export function ShortcutActionSheet({
     if (shortcut.type === 'contact') return t('shortcutAction.typeContact');
     if (shortcut.type === 'message') return t('shortcutAction.typeWhatsApp');
     if (shortcut.type === 'link') return t('shortcutAction.typeLink');
+    if (shortcut.type === 'text') return t('shortcutAction.typeText');
     
     switch (shortcut.fileType) {
       case 'image': return t('shortcutAction.typeImage');
