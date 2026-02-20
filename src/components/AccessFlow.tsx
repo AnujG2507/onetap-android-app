@@ -6,6 +6,7 @@ import { UrlInput } from '@/components/UrlInput';
 import { ShortcutCustomizer } from '@/components/ShortcutCustomizer';
 import { ContactShortcutCustomizer } from '@/components/ContactShortcutCustomizer';
 import { SlideshowCustomizer } from '@/components/SlideshowCustomizer';
+import { TextEditorStep } from '@/components/TextEditorStep';
 import { SuccessScreen } from '@/components/SuccessScreen';
 import { ClipboardSuggestion } from '@/components/ClipboardSuggestion';
 import { AppMenu } from '@/components/AppMenu';
@@ -27,7 +28,7 @@ import { createHomeScreenShortcut } from '@/lib/shortcutManager';
 import type { ContentSource, ShortcutIcon, MessageApp, MultiFileSource } from '@/types/shortcut';
 import type { ScheduledActionDestination } from '@/types/scheduledAction';
 
-export type AccessStep = 'source' | 'url' | 'customize' | 'slideshow-customize' | 'contact' | 'success';
+export type AccessStep = 'source' | 'url' | 'customize' | 'slideshow-customize' | 'contact' | 'text-editor' | 'success';
 export type ContentSourceType = 'url' | 'file' | null;
 
 interface ContactData {
@@ -94,7 +95,7 @@ export function AccessFlow({
   const processedInitialUrlRef = useRef<string | null>(null);
 
   const { t } = useTranslation();
-  const { createShortcut, createContactShortcut, createSlideshowShortcut } = useShortcuts();
+  const { createShortcut, createContactShortcut, createSlideshowShortcut, createTextShortcut } = useShortcuts();
   const { toast } = useToast();
   const { settings } = useSettings();
   const { isOnline } = useNetworkStatus();
@@ -145,6 +146,10 @@ export function AccessFlow({
         setContentSource(null);
         setPendingActionMode('shortcut');
         break;
+      case 'text-editor':
+        setStep('source');
+        setPendingActionMode('shortcut');
+        break;
       case 'success':
         handleReset();
         break;
@@ -162,6 +167,7 @@ export function AccessFlow({
   useSheetBackHandler('access-customize-step', step === 'customize', handleGoBack, 10);
   useSheetBackHandler('access-slideshow-step', step === 'slideshow-customize', handleGoBack, 10);
   useSheetBackHandler('access-contact-step', step === 'contact', handleGoBack, 10);
+  useSheetBackHandler('access-text-editor-step', step === 'text-editor', handleGoBack, 10);
   useSheetBackHandler('access-success-step', step === 'success', handleReset, 10);
 
   // Notify parent of step changes
@@ -380,6 +386,47 @@ export function AccessFlow({
         setContentSource(file);
         setStep('customize');
       }
+    }
+  };
+
+  const handleSelectText = (actionMode: ActionMode) => {
+    setPendingActionMode(actionMode);
+    if (actionMode === 'reminder') {
+      // For reminders, navigate to scheduled action creator with text type
+      // We open the text editor step which will collect text then call onCreateReminder
+    }
+    setStep('text-editor');
+  };
+
+  const handleTextConfirm = async (data: {
+    textContent: string;
+    isChecklist: boolean;
+    name: string;
+    icon: import('@/types/shortcut').ShortcutIcon;
+  }) => {
+    if (pendingActionMode === 'reminder') {
+      const destination: ScheduledActionDestination = {
+        type: 'text',
+        text: data.textContent,
+        name: data.name,
+        isChecklist: data.isChecklist,
+      };
+      onCreateReminder?.(destination);
+      handleReset();
+      return;
+    }
+
+    try {
+      const shortcut = createTextShortcut(data.textContent, data.isChecklist, data.name, data.icon);
+      const success = await createHomeScreenShortcut(shortcut);
+      if (success) {
+        setLastCreatedName(data.name);
+        setStep('success');
+      } else {
+        toast({ title: 'Something went wrong', description: 'Could not add to home screen.', variant: 'destructive' });
+      }
+    } catch (error) {
+      toast({ title: 'Unable to add', description: error instanceof Error ? error.message : 'Could not create shortcut.', variant: 'destructive' });
     }
   };
 

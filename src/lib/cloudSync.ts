@@ -741,7 +741,7 @@ async function uploadShortcutsInternal(): Promise<{ success: boolean; uploaded: 
           type: shortcut.type,
           name: shortcut.name,
           // Privacy: only store content_uri for links, null for file-based
-          content_uri: isFileDependentType(shortcut.type) ? null : shortcut.contentUri || null,
+          content_uri: isFileDependentType(shortcut.type) ? null : (shortcut.type === 'text' ? null : shortcut.contentUri || null),
           file_type: shortcut.fileType || null,
           mime_type: shortcut.mimeType || null,
           phone_number: shortcut.phoneNumber || null,
@@ -755,6 +755,9 @@ async function uploadShortcutsInternal(): Promise<{ success: boolean; uploaded: 
           icon_value: iconValue,
           usage_count: shortcut.usageCount,
           original_created_at: shortcut.createdAt,
+          // Text shortcut content
+          text_content: shortcut.type === 'text' ? (shortcut.textContent || null) : null,
+          is_checklist: shortcut.type === 'text' ? (shortcut.isChecklist ?? false) : null,
         }, {
           onConflict: 'user_id,entity_id',
           ignoreDuplicates: false,
@@ -1031,7 +1034,7 @@ async function registerAlarmsForDownloadedActions(actions: ScheduledAction[]): P
           id: action.id,
           name: action.name,
           description: action.description || '',
-          destinationType: action.destination.type,
+          destinationType: action.destination.type as 'file' | 'url' | 'contact',
           destinationData: JSON.stringify(action.destination),
           triggerTime: action.triggerTime,
           recurrence: action.recurrence,

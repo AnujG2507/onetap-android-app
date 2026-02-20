@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Image, Video, FileText, Bookmark, Music, Phone, Link, FolderOpen, MessageCircle, X, Home, Bell } from 'lucide-react';
+import { Image, Video, FileText, Bookmark, Music, Phone, Link, FolderOpen, MessageCircle, X, Home, Bell, AlignLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import type { FileTypeFilter } from '@/lib/contentResolver';
@@ -12,11 +12,12 @@ interface ContentSourcePickerProps {
   onSelectContact?: (mode: ContactMode, actionMode: ActionMode) => void;
   onSelectFromLibrary?: (actionMode: ActionMode) => void;
   onEnterUrl?: (actionMode: ActionMode) => void;
+  onSelectText?: (actionMode: ActionMode) => void;
   /** Called when the inline picker is opened or closed */
   onPickerOpenChange?: (isOpen: boolean) => void;
 }
 
-type ActivePicker = 'photo' | 'video' | 'audio' | 'document' | 'contact' | 'link' | null;
+type ActivePicker = 'photo' | 'video' | 'audio' | 'document' | 'contact' | 'link' | 'text' | null;
 type ActiveSecondaryPicker = 'browse' | 'library' | null;
 
 export function ContentSourcePicker({ 
@@ -24,6 +25,7 @@ export function ContentSourcePicker({
   onSelectContact, 
   onSelectFromLibrary, 
   onEnterUrl,
+  onSelectText,
   onPickerOpenChange,
 }: ContentSourcePickerProps) {
   const { t } = useTranslation();
@@ -67,6 +69,8 @@ export function ContentSourcePicker({
       onSelectContact?.(contactMode, action);
     } else if (picker === 'link') {
       onEnterUrl?.(action);
+    } else if (picker === 'text') {
+      onSelectText?.(action);
     } else if (picker === 'photo') {
       onSelectFile('image', action);
     } else if (picker === 'video') {
@@ -142,10 +146,10 @@ export function ContentSourcePicker({
               {t('access.createShortcut')}
             </h2>
             
-            {/* Primary Grid: 3x2 layout (6 cols in landscape) - hide non-selected when picker is active */}
+            {/* Primary Grid: 4+3 layout (portrait), 7 cols in landscape */}
             <div id="tutorial-content-grid" className={cn(
               "grid gap-3 transition-all duration-200",
-              activePicker ? "grid-cols-1" : "grid-cols-3 landscape:grid-cols-6"
+              activePicker ? "grid-cols-1" : "grid-cols-4 landscape:grid-cols-7"
             )}>
               {(!activePicker || activePicker === 'photo') && (
                 <GridButton
@@ -194,6 +198,14 @@ export function ContentSourcePicker({
                   label={t('access.link')}
                   onClick={() => handleGridButtonClick('link')}
                   isActive={activePicker === 'link'}
+                />
+              )}
+              {(!activePicker || activePicker === 'text') && (
+                <GridButton
+                  icon={<AlignLeft className="h-5 w-5" />}
+                  label={t('access.text', 'Text')}
+                  onClick={() => handleGridButtonClick('text')}
+                  isActive={activePicker === 'text'}
                 />
               )}
             </div>

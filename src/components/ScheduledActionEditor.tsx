@@ -119,10 +119,11 @@ export function ScheduledActionEditor({
     onClose();
   };
 
-  const getDestinationIcon = (type: 'file' | 'url' | 'contact', dest?: ScheduledActionDestination) => {
+  const getDestinationIcon = (type: 'file' | 'url' | 'contact' | 'text', dest?: ScheduledActionDestination) => {
     switch (type) {
       case 'file': return <FileText className="h-5 w-5" />;
       case 'url': return <Link className="h-5 w-5" />;
+      case 'text': return <span className="text-lg">📝</span>;
       case 'contact': 
         // Contact avatar handles its own background
         const cName = dest?.type === 'contact' ? dest.contactName : undefined;
@@ -148,13 +149,15 @@ export function ScheduledActionEditor({
       case 'file': return dest.name;
       case 'url': return dest.uri;
       case 'contact': return dest.contactName;
+      case 'text': return dest.name;
     }
   };
 
-  const getDestinationTypeLabel = (type: 'file' | 'url' | 'contact', dest?: ScheduledActionDestination): string => {
+  const getDestinationTypeLabel = (type: 'file' | 'url' | 'contact' | 'text', dest?: ScheduledActionDestination): string => {
     switch (type) {
       case 'file': return t('scheduledEditor.file');
       case 'url': return t('scheduledEditor.link');
+      case 'text': return t('scheduledActions.textTitle', 'Text note');
       case 'contact': 
         return dest?.type === 'contact' && dest.isWhatsApp 
           ? t('scheduledEditor.whatsappMessage') 
