@@ -60,18 +60,21 @@ export function ImageWithFallback({
   }, [sources]);
 
   // Track current source index and loading state
+  // base64 data: URLs are already in memory and load synchronously — skip the loading state
+  const firstSourceIsBase64 = validSources[0]?.startsWith('data:') ?? false;
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
-  const [hasSucceeded, setHasSucceeded] = useState(false);
+  const [isLoading, setIsLoading] = useState(!firstSourceIsBase64);
+  const [hasSucceeded, setHasSucceeded] = useState(firstSourceIsBase64);
 
   // Create a stable key from sources to detect changes
   const sourcesKey = validSources.join('|');
 
   // Reset state when sources change
   useEffect(() => {
+    const isBase64 = validSources[0]?.startsWith('data:') ?? false;
     setCurrentIndex(0);
-    setIsLoading(true);
-    setHasSucceeded(false);
+    setIsLoading(!isBase64);
+    setHasSucceeded(isBase64);
   }, [sourcesKey]);
 
   // Current source to try
