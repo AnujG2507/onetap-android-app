@@ -1,80 +1,155 @@
 
-# Fix: ShortcutCustomizer Footer Hidden by Android Navigation Bar
+# Fix: Three Issues in ShortcutCustomizer Video Journey
 
-## Root Cause
+## Issue 1: Redundant "Video File" Info Card
 
-The layout chain from `Index.tsx` through `AccessFlow.tsx` to `ShortcutCustomizer.tsx` has a subtle height resolution bug:
+### Root Cause
+`ShortcutCustomizer.tsx` lines 210–223 render a dedicated card for video files:
+
+```tsx
+{isVideo && fileSizeMB && (
+  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50 border border-border/50">
+    <span className="text-lg">🎬</span>
+    <div className="flex-1">
+      <p className="text-sm font-medium text-foreground">
+        {t('shortcutCustomizer.videoFile')}       // ← missing translation key
+      </p>
+      <p className="text-xs text-muted-foreground">
+        {fileSizeMB} MB {Number(fileSizeMB) > 50 ? `• ${t('shortcutCustomizer.largeFileWarning')}` : ''}
+                                                   // ← missing translation key
+      </p>
+    </div>
+  </div>
+)}
+```
+
+This card appears directly below `<ContentPreview source={source} />`. But `ContentPreview` already displays the file name (e.g. `myvideo.mp4`) as its label, and `Video • 24.3 MB` as its sublabel — using `formatContentInfo()` in `contentResolver.ts` which returns `{ label: source.name, sublabel: 'Video • X MB' }`.
+
+Additionally, the translation keys `shortcutCustomizer.videoFile` and `shortcutCustomizer.largeFileWarning` do not exist in `en.json`, so they render as raw translation key strings (e.g. "shortcutCustomizer.videoFile"), making the card look broken and doubly redundant.
+
+**Fix:** Remove the entire video info card block (lines 210–223). The file size and type information is already provided by `ContentPreview`.
+
+---
+
+## Issue 2: Header Hidden Under the Status Bar
+
+### Root Cause
+
+This is a **double safe-top padding** bug. Here is the full height chain:
 
 ```text
-Index.tsx
-  <div class="min-h-app-viewport flex flex-col">       ← height: --app-available-height
-    <div class="flex-1 flex flex-col">                 ← Access tab wrapper (height from flex-1)
-      <AccessFlow /> ← returns a <>Fragment</>
-        ShortcutCustomizer                             ← direct flex child of Access tab wrapper
-          <div class="flex flex-col h-full">           ← ❌ h-full resolves incorrectly here
+index.css:
+  --app-available-height = calc(100dvh - --android-safe-top - --android-safe-bottom)
+  min-h-app-viewport     = min-height: var(--app-available-height)
+
+Index.tsx (line 554):
+  <div className="min-h-app-viewport bg-background flex flex-col overflow-hidden">
+
+The content renders starting at the very TOP of 100dvh,
+but the --app-available-height only starts AFTER safe-top.
 ```
 
-**The problem with `h-full` on a flex child:**
-`h-full` = `height: 100%`. For percentage height to resolve in CSS, the parent must have an **explicit height value** set — not merely a flex-allocated height. When `flex-1` gives a div its height via the flexbox algorithm (rather than an explicit `height` property), `h-full` on a child of that div can fail to resolve on some Android WebView versions, causing the child to size itself to its content rather than filling the flex space. This means `ShortcutCustomizer` grows taller than the viewport, pushing the footer button below the visible area and behind the Android navigation bar.
+Wait — `min-h-app-viewport` = `min-height: calc(100dvh - safe-top - safe-bottom)`. The container starts at `top: 0` (the very top of the screen including the status bar area). But its min-height is the viewport minus both system bars. This means the **bottom** of the container sits at `100dvh - safe-bottom`, which is correct. But **the top of the container is still at `top: 0`**, so content rendered at the top of the container (without top padding) appears behind the status bar.
 
-**Evidence:** `UrlInput` and all other sub-screens in `AccessFlow` that work correctly use `flex-1 flex flex-col` as their root — not `h-full`. `ShortcutCustomizer` is the only sub-screen using `h-full`, which explains why it alone has the reported issue.
+The `body::before` pseudo-element paints a tinted strip over the status bar area (`height: var(--android-safe-top)`, `z-index: 9999`, `pointer-events: none`) so users see the colored bar. But the app content behind it is hidden.
 
-**Comparison:**
-- `UrlInput.tsx` line 145: `<div className="flex flex-col h-full">` — same issue, but UrlInput has a single short scrollable area so content doesn't overflow in practice
-- `ShortcutCustomizer.tsx` line 192: `<div className="flex flex-col h-full">` — longer content, more likely to overflow
+`pt-header-safe-compact` = `calc(var(--android-safe-top, 0px) + 0.75rem)` — this adds the safe top inset plus 0.75rem of visual padding. This is the **correct** class for sub-screens that need to push their header below the status bar. So the class itself is correct.
 
-The correct pattern (used by `SlideshowCustomizer`, `ContactShortcutCustomizer` after the previous fix) is `flex-1 flex flex-col` as the root, which makes the component itself a flex item that grows to fill the parent without relying on percentage height resolution.
+**However**, the session replay shows the header is still hidden. The actual problem is that on sub-screens within `AccessFlow`, the parent `AccessFlow` renders inside a `flex-1 flex flex-col` div that is itself a flex child of `min-h-app-viewport`. In some Android WebViews, when `min-h-app-viewport` does not create a definite height (it's `min-height`, not `height`), the flex children cannot correctly `flex-1` to fill the space — which is the same root cause as Issue 3.
 
-## Changes Required
+When the layout overflows (Issue 3), the header naturally ends up partially below its expected top position as the content column grows taller than the viewport and the browser scrolls or clips it unpredictably.
 
-### File 1: `src/components/ShortcutCustomizer.tsx`
+**Fix:** Change `min-h-app-viewport` to `h-app-viewport` on the Index.tsx root container. `h-app-viewport` = `height: var(--app-available-height)` creates a **definite height**, which:
+1. Allows `flex-1` children to correctly fill exactly the available space
+2. Ensures the flex column never overflows the safe-area-bounded viewport
+3. Resolves both the header and button overflow issues together
 
-**Line 192** — Change root class from `h-full` pattern to `flex-1`:
+This is the correct fix for the root cause. The `pt-header-safe-compact` class on the header is correct and should be kept.
 
-```tsx
-// Before:
-<div className="flex flex-col h-full">
+---
 
-// After:
-<div className="flex-1 flex flex-col min-h-0">
+## Issue 3: Add to Home Screen Button Cut Off by Navigation Bar
+
+### Root Cause
+
+This is the same root cause as Issue 2 — `min-h-app-viewport` on the Index root does not create a **definite height**. In the CSS flex model:
+
+- `min-height` tells the browser "this box must be at least this tall" but does **not** give children a resolved height to compute `flex-1` against
+- `height` tells the browser "this box is exactly this tall" and gives children a definite height to compute `flex-1` against
+
+The chain is:
+```
+Index root: min-h-app-viewport (min-height only) ← problem
+  └── flex-1 flex flex-col (Access tab wrapper)
+        └── flex-1 flex flex-col min-h-0 (ShortcutCustomizer)
+              ├── header
+              ├── flex-1 overflow-auto min-h-0 (scroll body)
+              └── p-4 safe-bottom-action (footer with button)
 ```
 
-`min-h-0` is needed because flex children have `min-height: auto` by default, which can prevent them from shrinking smaller than their content. Adding `min-h-0` allows the scroll container inside to work correctly.
+With `min-height` on the root, the flex children cannot correctly resolve their heights. The root container grows to fit its content (the full ShortcutCustomizer) rather than being constrained to the safe-area viewport height. The footer button ends up below the visible area and behind the Android navigation bar.
 
-**Line 203** — The scrollable body needs `min-h-0` to allow proper shrinking within the flex column:
+**Fix (same as Issue 2):** Change `min-h-app-viewport` to `h-app-viewport` on the Index root in `Index.tsx` line 554. Also add `overflow-hidden` to ensure the height constraint is enforced (this is already present but important to keep).
 
-```tsx
-// Before:
-<div className="flex-1 p-4 landscape:p-3 overflow-auto animate-fade-in">
+---
 
-// After:
-<div className="flex-1 p-4 landscape:p-3 overflow-auto animate-fade-in min-h-0">
-```
-
-### File 2: `src/components/UrlInput.tsx`
-
-`UrlInput` has the same `h-full` root pattern. While it hasn't been reported as broken (its content is short), it has the same structural issue and should be fixed for consistency:
-
-**Find the root div** — Change `h-full` to `flex-1 min-h-0`:
-
-```tsx
-// Before:
-<div className="flex flex-col h-full">
-
-// After:
-<div className="flex-1 flex flex-col min-h-0">
-```
-
-## Why `safe-bottom-action` Is Still Correct
-
-Once the height chain is fixed, the footer div with `safe-bottom-action` will correctly sit at the bottom of the available space. Since `showBottomNav` is `false` during the customize step (confirmed in `Index.tsx` line 483: `const showBottomNav = accessStep === 'source' || activeTab !== 'access'`), there is no BottomNav rendered — so `safe-bottom-action` = `calc(var(--android-safe-bottom) + 16px)` is the right amount of clearance.
-
-No change to the padding values is needed — only the root height class needs fixing.
-
-## Summary Table
+## Summary of All Changes
 
 | File | Line | Change | Reason |
 |------|------|--------|--------|
-| `ShortcutCustomizer.tsx` | 192 | `flex flex-col h-full` → `flex-1 flex flex-col min-h-0` | Fix height resolution so footer stays in viewport |
-| `ShortcutCustomizer.tsx` | 203 | Add `min-h-0` to scrollable body | Allow scroll area to shrink within flex column |
-| `UrlInput.tsx` | 145 (approx) | `flex flex-col h-full` → `flex-1 flex flex-col min-h-0` | Same structural fix for consistency |
+| `src/components/ShortcutCustomizer.tsx` | 210–223 | Remove the entire `isVideo && fileSizeMB` card block | Redundant with ContentPreview; uses missing translation keys |
+| `src/pages/Index.tsx` | 554 | Change `min-h-app-viewport` → `h-app-viewport` | Creates definite height for flex children to resolve correctly in Android WebView |
+
+### File 1: `src/components/ShortcutCustomizer.tsx`
+
+Remove lines 210–223 — the redundant "video file" info card. The content preview above it already shows all this information.
+
+```tsx
+// REMOVE this entire block (lines 210-223):
+{isVideo && fileSizeMB && (
+  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50 border border-border/50">
+    <span className="text-lg">🎬</span>
+    <div className="flex-1">
+      <p className="text-sm font-medium text-foreground">
+        {t('shortcutCustomizer.videoFile')}
+      </p>
+      <p className="text-xs text-muted-foreground">
+        {fileSizeMB} MB {Number(fileSizeMB) > 50 ? `• ${t('shortcutCustomizer.largeFileWarning')}` : ''}
+      </p>
+    </div>
+  </div>
+)}
+```
+
+### File 2: `src/pages/Index.tsx`
+
+Line 554 — change `min-h-app-viewport` to `h-app-viewport`:
+
+```tsx
+// Before:
+<div className="min-h-app-viewport bg-background flex flex-col overflow-hidden">
+
+// After:
+<div className="h-app-viewport bg-background flex flex-col overflow-hidden">
+```
+
+The `h-app-viewport` utility class is already defined in `src/index.css` line 262:
+```css
+.h-app-viewport {
+  height: var(--app-available-height, 100vh);
+}
+```
+
+This gives the root container a definite height (`height:`, not `min-height:`) equal to the safe-area-bounded viewport. All `flex-1` children can now resolve their heights correctly, which:
+- Keeps the header fully below the status bar
+- Keeps the footer button fully above the navigation bar
+- Prevents any content from rendering behind system bars
+
+## No Other Files Need Changes
+
+- `pt-header-safe-compact` on the header — **correct**, no change needed
+- `safe-bottom-action` on the footer — **correct**, no change needed  
+- `flex-1 flex flex-col min-h-0` on ShortcutCustomizer root — **correct**, no change needed
+- `flex-1 overflow-auto min-h-0` on scroll body — **correct**, no change needed
+
+All layout classes are already correct. The single root fix in `Index.tsx` resolves both the header and footer safe-area issues throughout the entire app (all tabs and sub-screens benefit).
