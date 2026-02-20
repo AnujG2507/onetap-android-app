@@ -1952,12 +1952,8 @@ public class ShortcutPlugin extends Plugin {
             // Fetch favicon image from URL
             java.net.URL url = new java.net.URL(faviconUrl);
             java.net.HttpURLConnection connection = (java.net.HttpURLConnection) url.openConnection();
-            // Bug 5 fix: reduce timeouts from 5000ms to 2000ms.
-            // A 5s block on the background thread before the Binder call to ShortcutManager
-            // can cause TransactionTooLargeException / ANR-adjacent hangs on some devices,
-            // causing requestPinShortcut to throw and returning { success: false } silently.
-            connection.setConnectTimeout(2000);
-            connection.setReadTimeout(2000);
+            connection.setConnectTimeout(5000);
+            connection.setReadTimeout(5000);
             connection.setRequestProperty("User-Agent", "Mozilla/5.0 (compatible; OneTapBot/1.0)");
             
             InputStream inputStream = connection.getInputStream();
