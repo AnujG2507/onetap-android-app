@@ -29,7 +29,7 @@ interface ShortcutEditSheetProps {
   shortcut: ShortcutData | null;
   isOpen: boolean;
   onClose: () => void;
-  onSave: (id: string, updates: Partial<Pick<ShortcutData, 'name' | 'icon' | 'quickMessages' | 'resumeEnabled' | 'imageUris' | 'imageThumbnails' | 'autoAdvanceInterval' | 'contentUri' | 'syncState' | 'mimeType' | 'fileSize' | 'thumbnailData' | 'textContent' | 'isChecklist'>>) => Promise<{ success: boolean; nativeUpdateFailed?: boolean }>;
+  onSave: (id: string, updates: Partial<Pick<ShortcutData, 'name' | 'icon' | 'quickMessages' | 'resumeEnabled' | 'imageUris' | 'imageThumbnails' | 'autoAdvanceInterval' | 'contentUri' | 'syncState' | 'mimeType' | 'fileSize' | 'thumbnailData' | 'textContent' | 'isChecklist'>> & { skipNativeUpdate?: boolean }) => Promise<{ success: boolean; nativeUpdateFailed?: boolean }>;
   onReAddToHomeScreen?: (shortcut: ShortcutData) => void;
 }
 
@@ -271,8 +271,10 @@ export function ShortcutEditSheet({
       ...updates,
     };
     
-    // Await save before re-adding to ensure native state is updated
-    await onSave(shortcut.id, updates);
+    // Save to localStorage only — skip updatePinnedShortcut so the old shortcut
+    // remains untouched. The re-add flow (disablePinnedShortcut + createPinnedShortcut)
+    // will handle the native state cleanly without Android's rate-limit guard blocking it.
+    await onSave(shortcut.id, { ...updates, skipNativeUpdate: true });
     
     // Then trigger re-add to home screen with fresh data
     onReAddToHomeScreen(updatedShortcut);

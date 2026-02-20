@@ -386,17 +386,20 @@ export function useShortcuts() {
 
   const updateShortcut = useCallback(async (
     id: string,
-    updates: Partial<Pick<ShortcutData, 'name' | 'icon' | 'quickMessages' | 'phoneNumber' | 'resumeEnabled' | 'imageUris' | 'imageThumbnails' | 'autoAdvanceInterval' | 'contentUri' | 'syncState' | 'mimeType' | 'fileSize' | 'thumbnailData' | 'originalPath' | 'textContent' | 'isChecklist'>>
+    updates: Partial<Pick<ShortcutData, 'name' | 'icon' | 'quickMessages' | 'phoneNumber' | 'resumeEnabled' | 'imageUris' | 'imageThumbnails' | 'autoAdvanceInterval' | 'contentUri' | 'syncState' | 'mimeType' | 'fileSize' | 'thumbnailData' | 'originalPath' | 'textContent' | 'isChecklist'>> & { skipNativeUpdate?: boolean }
   ): Promise<{ success: boolean; nativeUpdateFailed?: boolean }> => {
+    // Strip the transient flag before saving to localStorage
+    const { skipNativeUpdate, ...storageUpdates } = updates;
+
     // Update localStorage first
     const updated = shortcuts.map(s => 
-      s.id === id ? { ...s, ...updates } : s
+      s.id === id ? { ...s, ...storageUpdates } : s
     );
     saveShortcuts(updated);
 
     // Update home screen shortcut on native platform
-    // This handles: name, icon, quick messages, phone number, resume enabled
-    if (Capacitor.isNativePlatform()) {
+    // Skip if caller will handle re-pinning itself (e.g. handleReAdd in ShortcutEditSheet)
+    if (Capacitor.isNativePlatform() && !skipNativeUpdate) {
       try {
         const shortcut = updated.find(s => s.id === id);
         if (shortcut) {
