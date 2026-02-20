@@ -1,85 +1,105 @@
 
-## Problem
+## Documentation Update Plan
 
-The primary content grid uses a single CSS grid with `grid-cols-4` in portrait. With 7 tiles (4 + 3), the second row of 3 tiles each occupies one `1/4`-width column slot and leaves the 4th slot empty. The 3 tiles do not stretch to fill the remaining horizontal space.
+### What Changed Since the Docs Were Last Accurate
 
-## Root Cause
+Since the documentation was authored, the following features have been fully implemented and merged but are not yet reflected anywhere in the docs:
 
-CSS grid places items into columns strictly based on the `grid-cols-N` value. Items in an incomplete last row are left-aligned and sized to `1/4` width — they do not auto-expand. There is no native CSS grid option to make the last row's items fill the full width without changing the grid definition.
+1. **Text shortcut type** — a new 7th tile in `ContentSourcePicker` (alongside Photo, Video, Audio, Document, Contact, Link). Supports two modes: Note (Markdown) and Checklist.
+2. **`TextEditorStep` component** — full-screen inline editor with Markdown toolbar (Bold, Italic, H1, H2, Divider), Checklist mode with add/remove items, name field, icon picker.
+3. **`TextProxyActivity.java`** — new native Android Activity that renders text shortcuts. Uses an embedded WebView, loads `marked.js` for Markdown rendering, and persists checklist checkbox state in both `localStorage` (WebView) and `SharedPreferences` (Android backup).
+4. **`ShortcutPlugin.java` update** — handles the new `app.onetap.OPEN_TEXT` intent action; routes home-screen taps to `TextProxyActivity` with `text_content` and `is_checklist` extras.
+5. **`cloud_shortcuts` schema extension** — two new nullable columns: `text_content TEXT` and `is_checklist BOOLEAN DEFAULT false`.
+6. **Content picker layout restructure** — the grid is now explicitly 4+3 (portrait) using `grid-cols-4` / `grid-cols-3` sub-rows, dissolving to `landscape:grid-cols-7` in landscape via `display:contents`.
+7. **Type system expansion** — `ShortcutType` now includes `'text'`; `ScheduledActionDestinationType` includes `'text'`; new `TextDestination` interface; new fields `textContent?: string` and `isChecklist?: boolean` on `ShortcutData`.
 
-## Solution: Two Separate Rows Instead of One Grid
+---
 
-Replace the single 7-item `grid-cols-4` grid with two explicitly separate rows:
+### Files to Update
 
-- **Row 1**: `grid grid-cols-4 gap-3` — Photo, Video, Audio, Document (4 tiles, each 1/4 width)
-- **Row 2**: `grid grid-cols-3 gap-3` — Contact, Link, Text (3 tiles, each 1/3 width — exactly fills the same total width)
+**1. `APP_SUMMARY.md`**
 
-Since both rows share the same `gap-3` and are the same width container, the 3 tiles in row 2 will be visually equal in width to the 4 tiles in row 1's proportional span, and will fill the full horizontal width.
+- Section "Core Features → 1. One Tap Access" — add `'text'` as a supported shortcut type.
+- Section "Data Model → Cloud Schema" — add `text_content` and `is_checklist` columns to the `cloud_shortcuts` block.
+- Section "Technical Architecture → Native Android Layer" — add `TextProxyActivity.java` to the list of key classes.
 
-In landscape, both rows merge into a single `grid-cols-7` row (all 7 tiles side-by-side) — this is handled by wrapping the two-row structure in a `landscape:` override that switches to a flex or 7-column grid.
+**2. `ARCHITECTURE.md`**
 
-## Exact Layout Plan
+- Section 3 "Native Android Layer" — add `TextProxyActivity` to the Proxy Activities table with the description "Renders markdown or checklist text shortcuts in a full-screen WebView".
+- Section 5 "How Data Flows → Data Ownership" — note `text_content` and `is_checklist` as synced fields on `cloud_shortcuts`.
+- Section 5 "Dormant Access Points" — add a note that `text` type shortcuts are **never dormant** (self-contained, no local file dependency), citing `isFileDependentType()`.
+- Section 9 "Navigation Structure" — no tab change, but note the `TextEditorStep` inline sub-flow triggered from the Access tab.
+- Section 10 "Project Structure" — `TextEditorStep.tsx` already lives in `src/components/`, no structural change needed; just clarify it in the key components list if helpful.
+- Section 13 "Home Screen ↔ App Sync Contract" — `OPEN_TEXT` intent is now a recognized intent action in `ShortcutPlugin.java`; mention it alongside the existing proxy routing.
+
+**3. `SUPABASE.md`**
+
+- Section 4 "Database Tables — `cloud_shortcuts`" — add two rows to the column table:
+  - `text_content | TEXT | Raw markdown or checklist text for text shortcuts | No`
+  - `is_checklist | BOOLEAN | Whether text is rendered as interactive checklist (default: false) | No (default: false)`
+- Section 4, Privacy Boundaries table — note that `text_content` **is** synced (unlike binary data) because it is self-contained text.
+
+**4. `ARCHITECTURE.md` Section 5 — Intent Action Table** (inline in the proxy section)
+
+Add `TextProxyActivity` row: intent `app.onetap.OPEN_TEXT`, extras `text_content` (String), `is_checklist` (boolean), `shortcut_id` (String for usage tracking + checklist state key).
+
+**5. `RELEASE_PROCESS.md` — Pre-Release Checklist**
+
+- Section 4 "Testing on Physical Android Device" — add two checklist items:
+  - `[ ] Text note shortcuts render markdown correctly`
+  - `[ ] Text checklist shortcuts toggle checkboxes and persist state`
+
+**6. `PRODUCT_IDEOLOGY.md`**
+
+- Section 6 "Offline-First" table — add a row:
+  - `Text shortcuts | ✅ Yes | Rendered locally in WebView; checklist state stored on device`
+- No ideology changes are needed — text shortcuts are fully local-first, offline-capable, and self-contained.
+
+---
+
+### Technical Details to Capture
+
+**Text shortcut intent contract (for ARCHITECTURE.md Section 3):**
 
 ```text
-Portrait:
-┌──────┬──────┬──────┬──────┐
-│Photo │Video │Audio │ Doc  │   ← grid-cols-4
-├──────┴──┬───┴──┬───┴──────┤
-│Contact  │ Link │   Text   │   ← grid-cols-3 (fills full width)
-└─────────┴──────┴──────────┘
-
-Landscape:
-┌──┬──┬──┬──┬──┬──┬──┐
-│Ph│Vi│Au│Do│Co│Li│Tx│   ← grid-cols-7 (unchanged)
-└──┴──┴──┴──┴──┴──┴──┘
+Intent action:  app.onetap.OPEN_TEXT
+Activity:       TextProxyActivity
+Extras:
+  shortcut_id   String   — usage tracking + checklist state key
+  text_content  String   — raw markdown or checklist source text (max 2000 chars)
+  is_checklist  Boolean  — true → render as interactive checklist; false → render as Markdown
 ```
 
-## Implementation
+**Checklist state persistence model (for ARCHITECTURE.md):**
 
-### File: `src/components/ContentSourcePicker.tsx`
+Checkbox state is stored in two places simultaneously:
+- **WebView localStorage** — keyed as `chk_<shortcut_id>_<line_index>`, survives soft closes
+- **Android SharedPreferences** (`checklist_state`) — backup via the `ChecklistBridge` JS interface, survives WebView cache clears
 
-**Change**: Replace the single `<div id="tutorial-content-grid" className="grid gap-3 ... grid-cols-4 landscape:grid-cols-7">` containing all 7 `GridButton`s with a wrapper div that holds two sub-grids in portrait but collapses to a 7-column grid in landscape.
+**Grid layout change note (minor, no doc needed in .md files):**
 
-The approach:
+The `ContentSourcePicker` layout refactor is a pure CSS change (4+3 portrait rows via `display:contents` trick). No user-facing behavior changed; no documentation update required beyond the already-accurate component list.
 
-```jsx
-{/* Portrait: two rows. Landscape: single 7-col row */}
-<div id="tutorial-content-grid" className={cn(
-  "transition-all duration-200",
-  activePicker
-    ? "grid grid-cols-1 gap-3"
-    : "flex flex-col gap-3 landscape:grid landscape:grid-cols-7 landscape:gap-3"
-)}>
-  {/* Row 1 (portrait) — 4 tiles */}
-  <div className={cn(
-    "grid grid-cols-4 gap-3",
-    "landscape:contents"  /* dissolve into parent 7-col grid in landscape */
-  )}>
-    {/* Photo, Video, Audio, Document */}
-  </div>
+**`isFileDependentType` guard:**
 
-  {/* Row 2 (portrait) — 3 tiles, fills full width */}
-  <div className={cn(
-    "grid grid-cols-3 gap-3",
-    "landscape:contents"  /* dissolve into parent 7-col grid in landscape */
-  )}>
-    {/* Contact, Link, Text */}
-  </div>
-</div>
-```
+`src/types/shortcut.ts` already documents: `// text is self-contained (inline), never dormant`. This should be echoed in ARCHITECTURE.md's "Dormant Access Points" section for clarity.
 
-The key insight is `landscape:contents` on the sub-divs. `display: contents` makes an element "disappear" from the layout — its children are treated as direct children of the parent grid, so in landscape mode they all flow into the 7-column parent grid.
+---
 
-When `activePicker` is set, the outer wrapper switches to `grid-cols-1` and the sub-divs also switch to `grid-cols-1` (each tiles only shows the active one anyway via the conditional rendering).
+### Implementation Order
 
-### Handling the `activePicker` single-column collapse
+1. Update `APP_SUMMARY.md` (smallest, highest-level)
+2. Update `SUPABASE.md` Section 4 (database schema accuracy)
+3. Update `ARCHITECTURE.md` Sections 3, 5, 13 (technical reference)
+4. Update `RELEASE_PROCESS.md` Section 4 (pre-release checklist)
+5. Update `PRODUCT_IDEOLOGY.md` Section 6 (offline-first table)
 
-When an `activePicker` is active, only one tile is rendered (the active one). The two-row structure still works because only one item total renders. The outer `grid-cols-1` collapse is unchanged.
+---
 
-### Conditional rendering with `onSelectContact` / `onEnterUrl`
+### What Is NOT Changing
 
-The Contact tile only renders if `onSelectContact` is passed. The Link tile only renders if `onEnterUrl` is passed. If neither prop is passed, row 2 could have 1-2 tiles. For the standard `AccessFlow` usage both props are always present (7 tiles), so the layout is always the full 4+3 split. This matches existing behaviour.
-
-## No Other Files Affected
-
-This is a pure layout change in one component. No type changes, no logic changes, no i18n changes needed.
+- `DEPLOYMENT.md` — build pipeline is unchanged; no new edge functions; no new secrets.
+- `ANDROID_SETUP.md` — no new SDK or tool dependencies.
+- `PRODUCT_IDEOLOGY.md` core principles — text shortcuts are fully consistent with all existing ideology.
+- `SUPABASE.md` Sections 5–10 — RLS, OAuth, edge functions, and migration process are unchanged.
+- `RELEASE_PROCESS.md` Sections 1–3, 5–11 — branching and versioning process unchanged.
