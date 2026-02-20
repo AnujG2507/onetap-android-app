@@ -279,42 +279,16 @@ public class TextProxyActivity extends Activity {
         // onPageFinished and the onContentHeight bridge.
         final int maxWebHeightPx = maxDialogHeight;
 
+        // Height measurement is done via Android.onContentHeight JS bridge after
+        // requestAnimationFrame+setTimeout(0) — which guarantees layout reflow has completed.
+        // evaluateJavascript in onPageFinished races with layout reflow and reads offsetHeight=0
+        // because the script-injected innerHTML hasn't been painted yet when onPageFinished fires.
         webView.setWebViewClient(new WebViewClient() {
-            @Override
-            public void onPageFinished(WebView view, String url) {
-                // Measure #content div's offsetHeight — NOT body.scrollHeight.
-                // body.scrollHeight returns the WebView viewport height when the WebView
-                // is initialized to a fixed height (body expands to fill container).
-                // #content.offsetHeight returns the true rendered content height.
-                view.evaluateJavascript(
-                    "(function(){ var el=document.getElementById('content'); return el ? el.offsetHeight : document.body.scrollHeight; })()",
-                    value -> {
-                        try {
-                            int contentPx = Integer.parseInt(value.trim());
-                            // Add body padding: 16px top + 24px bottom = 40dp
-                            int finalHeight = Math.min(contentPx + dpToPx(40), maxWebHeightPx);
-                            runOnUiThread(() -> {
-                                ViewGroup.LayoutParams lp = webView.getLayoutParams();
-                                lp.height = finalHeight;
-                                webView.setLayoutParams(lp);
-                                // Use fixed height for dialog window — WRAP_CONTENT fights the
-                                // Theme.Material.Light.Dialog windowMaxHeight and produces unreliable results.
-                                // Setting a fixed pixel height is the only reliable approach for
-                                // floating AlertDialogs with windowIsFloating=true.
-                                if (dialog != null && dialog.getWindow() != null) {
-                                    dialog.getWindow().setLayout(
-                                        ViewGroup.LayoutParams.MATCH_PARENT,
-                                        ViewGroup.LayoutParams.WRAP_CONTENT
-                                    );
-                                }
-                            });
-                        } catch (Exception ignored) {
-                            Log.w(TAG, "Could not parse content height from JS: " + value);
-                        }
-                    }
-                );
-            }
+            // Intentionally empty — height is reported via JS bridge after requestAnimationFrame.
         });
+
+        // Floor: ensure at least 7 checklist rows are always visible (7 × 48dp = 336dp + 40dp padding)
+        webView.setMinimumHeight(dpToPx(376));
 
         // Load saved checklist state from SharedPreferences (sole source of truth)
         java.util.Map<String, Boolean> savedState = new java.util.HashMap<>();
@@ -834,11 +808,19 @@ public class TextProxyActivity extends Activity {
             // Fallback height bridge for older WebView versions
             // Use #content.offsetHeight — NOT body.scrollHeight. When the WebView is initialized
             // to a fixed height, body expands to fill it so scrollHeight = container height, not content.
-            + "window.addEventListener('load',function(){"
-            + "  if(window.Android&&Android.onContentHeight){"
-            + "    var el=document.getElementById('content');"
-            + "    Android.onContentHeight(el?el.offsetHeight:document.body.scrollHeight);"
-            + "  }"
+            // Use requestAnimationFrame+setTimeout(0) inside DOMContentLoaded to measure after
+            // layout reflow. 'load' fires too early on Android WebView — offsetHeight may still
+            // be 0 before the first paint. The double-buffer guarantees layout has completed.
+            + "document.addEventListener('DOMContentLoaded',function(){"
+            + "  requestAnimationFrame(function(){"
+            + "    setTimeout(function(){"
+            + "      if(window.Android&&Android.onContentHeight){"
+            + "        var el=document.getElementById('content');"
+            + "        var h=el?el.offsetHeight:document.body.scrollHeight;"
+            + "        Android.onContentHeight(h);"
+            + "      }"
+            + "    },0);"
+            + "  });"
             + "});"
             + "</script>"
             + "</body></html>";
@@ -865,7 +847,9 @@ public class TextProxyActivity extends Activity {
         @JavascriptInterface
         public void onContentHeight(int height) {
             int maxPx = (int)(dm.heightPixels * 0.75f);
-            int finalH = Math.min(height + dpToPx(40), maxPx);
+            // Floor: at least 7 checklist rows (7 × 48dp = 336dp) + 40dp body padding = 376dp
+            int minH = dpToPx(376);
+            int finalH = Math.max(Math.min(height + dpToPx(40), maxPx), minH);
             runOnUiThread(() -> {
                 if (webView != null) {
                     ViewGroup.LayoutParams lp = webView.getLayoutParams();
