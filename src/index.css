@@ -161,6 +161,12 @@ All colors MUST be HSL.
     padding-top: calc(var(--android-safe-top, 0px) + 0.75rem);
   }
 
+  @media (orientation: landscape) {
+    .pt-header-safe-compact {
+      padding-top: calc(var(--android-safe-top, 0px) + 0.5rem);
+    }
+  }
+
   /* Sticky header with scroll shadow */
   .header-sticky {
     position: sticky;
