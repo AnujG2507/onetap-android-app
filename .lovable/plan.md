@@ -1,183 +1,167 @@
 
-## Redesign TextProxyActivity: WhatsApp-Style Centered Floating Dialog
+## Add Edit and Share Buttons to TextProxyActivity Header
 
-### What Needs to Change
+### Goal
 
-The current TextProxyActivity is a bottom sheet (Gravity.BOTTOM, 100% width, slide-up). The user wants the same experience as the WhatsApp quick message dialog — a centered, floating premium card that appears over the dimmed screen, matching `WhatsAppProxyActivity` exactly.
+Replace the current centered title-only header with a three-part header row:
+- **Title** (left-aligned, shortcut name)
+- **Edit icon button** (opens the app, navigates to My Access Points, and opens the edit sheet for this shortcut)
+- **Share icon button** (opens the native Android share sheet with the plain text content)
 
-Three additional issues are fixed simultaneously:
-1. **Theme key mismatch bug** — `TextProxyActivity` reads `"resolved_theme"` but `WhatsAppProxyActivity` (the correct reference) reads `"resolvedTheme"` (camelCase). This means the text dialog always falls through to its hardcoded light fallback, completely ignoring the app's dark mode setting.
-2. **System theme fallback missing** — WhatsApp's `initializeThemeColors()` has a proper fallback to the system night mode when no preference is stored; TextProxyActivity does not.
-3. **Color palette divergence** — TextProxyActivity uses its own hardcoded color set. It should use the same carefully tuned palette as WhatsApp (dark: `#1A1A1A` bg, `#252525` surface, `#F5F5F5` text; light: `#FFFFFF` bg, `#FAFAFA` surface, `#1A1A1A` text).
+### How Each Button Works
 
-### Files to Change: Only `TextProxyActivity.java`
+**Edit button**
 
-No manifest or styles.xml changes are needed. The dialog builder style is switched to `R.style.MessageChooserDialog` (already in `styles.xml`) programmatically via the constructor, and the window gravity/layout are changed. The `TextSheetDialog` and `TextSheetAnimation` styles in styles.xml can remain (they are harmless).
+`ShortcutEditProxyActivity` already solves this perfectly — it stores the `shortcut_id` into SharedPreferences under `"onetap"` prefs key `"pending_edit_shortcut_id"`, then launches `MainActivity`. The JS hook `usePendingShortcutEdit` in the app detects this on launch and opens the edit sheet automatically.
 
-### Detailed Changes in `TextProxyActivity.java`
+The edit button in `TextProxyActivity` will replicate exactly that flow inline (no need to redirect through `ShortcutEditProxyActivity` as a second Activity):
+1. Write `shortcut_id` to `SharedPreferences("onetap").pending_edit_shortcut_id`
+2. Launch `MainActivity` with `FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_CLEAR_TOP`
+3. Dismiss and finish `TextProxyActivity`
 
-**1. Theme initialization — mirror WhatsAppProxyActivity exactly**
+**Share button**
 
-Replace the simple `isDarkTheme()` single-method approach with the same `initializeThemeColors()` pattern used in WhatsApp:
-
+Standard Android share sheet using `Intent.ACTION_SEND`:
 ```java
-// Read from "resolvedTheme" (camelCase) — same key ShortcutPlugin.syncTheme writes
-SharedPreferences prefs = getSharedPreferences("app_settings", Context.MODE_PRIVATE);
-String resolvedTheme = prefs.getString("resolvedTheme", null);
+Intent shareIntent = new Intent(Intent.ACTION_SEND);
+shareIntent.setType("text/plain");
+shareIntent.putExtra(Intent.EXTRA_TEXT, textContent);
+shareIntent.putExtra(Intent.EXTRA_SUBJECT, shortcutName); // pre-fills subject in email clients
+startActivity(Intent.createChooser(shareIntent, "Share via"));
+dismissDialog();
+finish();
+```
 
-if (resolvedTheme == null) {
-    // System fallback
-    int nightModeFlags = getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
-    isDarkTheme = (nightModeFlags == Configuration.UI_MODE_NIGHT_YES);
-} else {
-    isDarkTheme = "dark".equals(resolvedTheme);
+The raw `textContent` (markdown/checklist syntax) is shared as-is — it's the most portable plain text form, and most apps (Notes, Messages, WhatsApp) render it readably as plain text.
+
+### Layout Change: Header Row
+
+The current header is:
+```
+[        Title (centered)        ]
+[      Subtitle (centered)       ]
+```
+
+The new header will be:
+```
+[ Title (left-flex) ] [ ✎ ] [ ↑ ]
+[   Subtitle (centered)          ]
+```
+
+Specifically, a horizontal `LinearLayout` containing:
+- `TextView` for the shortcut name — `layout_weight=1`, left-aligned, 17sp bold
+- `TextView` edit button — pencil icon character `✎` (U+270E) or the text `"Edit"` — 32×32dp touchable, centered, indigo text
+- `TextView` share button — share icon character `⬆` or text `"Share"` — 32×32dp touchable, centered, muted text
+
+Since this is programmatic Android UI without a drawable library, the icons will be Unicode characters styled as icon buttons with circular ripple backgrounds:
+- Edit: `✎` (U+270E pencil) or use text `"Edit"` if rendering is inconsistent
+- Share: `⬆` or a cleaner approach — small labeled text buttons `"Edit"` and `"Share"` in caption style, indigo and muted respectively
+
+Actually, for maximum clarity and premium feel: use small text labels styled as pill buttons, matching the pattern used in `addDoneButton()` but compact and side-by-side.
+
+**Final header layout:**
+```
+┌────────────────────────────────┐
+│████████ indigo bar ████████████│ ← 4dp
+├────────────────────────────────┤
+│  Shortcut Name         [✎][↑] │ ← title row (16dp v-padding)
+│         Note / Checklist       │ ← subtitle (centered, muted)
+├────────────────────────────────┤ ← divider
+│         WebView content        │
+├────────────────────────────────┤
+│              Done              │
+└────────────────────────────────┘
+```
+
+The `✎` (edit) and `↑` (share) icon buttons are 40×40dp touchable areas with `RippleDrawable` circular backgrounds, placed to the right of the title. They use Unicode symbols that render cleanly on all Android API levels (21+):
+- Edit: `✏` (U+270F pencil, widely supported)
+- Share: `⤴` or better — use the text symbols `•••` is too small. The cleanest approach for programmatic Android without vector drawables in the dialog context is to use the **material symbol font fallback characters**, but since we can't guarantee Noto Color Emoji, the most reliable is to use **short text labels** as secondary action buttons.
+
+**Revised approach — text action buttons in header:**
+
+```
+[ Shortcut Name (flex)  ] [Edit] [Share]
+```
+
+Both `[Edit]` and `[Share]` are compact `TextView` buttons (no background box, just text):
+- `"Edit"` in indigo (`#6366f1`), 13sp, semibold
+- `"Share"` in muted color, 13sp
+- Each has a `RippleDrawable` circular/rounded touch area padding of 8dp all sides
+
+This matches the iOS-style subtle inline action buttons pattern that looks premium and is universally readable.
+
+### Only One File Changes
+
+**`TextProxyActivity.java`** — only changes:
+1. Store `textContent` as an instance field (needed for share action)
+2. Store `shortcutName` as an instance field (needed for share subject)
+3. New `addHeaderRow()` method replacing the old separate title + subtitle adds
+4. New `openEditInApp()` method (mirrors `ShortcutEditProxyActivity.onCreate()` logic)
+5. New `shareText()` method using `Intent.ACTION_SEND`
+6. Add two new imports: nothing new needed beyond what's already imported (`Intent`, `SharedPreferences` already present)
+
+No changes to `AndroidManifest.xml`, `styles.xml`, `ShortcutPlugin.java`, or any JS/TS files — the `usePendingShortcutEdit` hook already handles the pending edit detection.
+
+### Technical Details
+
+**New imports needed:**
+```java
+import android.content.Intent;  // already implicitly available via Activity context
+```
+`Intent` is already used in `ShortcutEditProxyActivity` and `MainActivity`. In `TextProxyActivity` it's not yet imported — this needs to be added.
+
+**`openEditInApp()` method:**
+```java
+private void openEditInApp() {
+    if (shortcutId == null) return;
+    // Store pending edit (same pattern as ShortcutEditProxyActivity)
+    getSharedPreferences("onetap", MODE_PRIVATE)
+        .edit()
+        .putString("pending_edit_shortcut_id", shortcutId)
+        .apply();
+    // Launch main app
+    Intent intent = new Intent(this, MainActivity.class);
+    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+    startActivity(intent);
+    dismissDialog();
 }
 ```
 
-**Color palette** (matching WhatsApp's):
+**`shareText()` method:**
 ```java
-// Dark theme
-colorBg       = Color.parseColor("#1A1A1A");
-colorSurface  = Color.parseColor("#252525");
-colorBorder   = Color.parseColor("#3A3A3A");
-colorText     = Color.parseColor("#F5F5F5");
-colorTextMuted= Color.parseColor("#9CA3AF");
-colorDivider  = Color.parseColor("#3A3A3A");
-colorCodeBg   = Color.parseColor("#2C2C2E");
-colorAccent   = Color.parseColor("#6366f1"); // app accent (same both themes)
-
-// Light theme
-colorBg       = Color.parseColor("#FFFFFF");
-colorSurface  = Color.parseColor("#FAFAFA");
-colorBorder   = Color.parseColor("#E5E5E5");
-colorText     = Color.parseColor("#1A1A1A");
-colorTextMuted= Color.parseColor("#6B7280");
-colorDivider  = Color.parseColor("#E0E0E0");
-colorCodeBg   = Color.parseColor("#F4F4F4");
-colorAccent   = Color.parseColor("#6366f1");
+private void shareText() {
+    Intent shareIntent = new Intent(Intent.ACTION_SEND);
+    shareIntent.setType("text/plain");
+    shareIntent.putExtra(Intent.EXTRA_TEXT, textContent);
+    shareIntent.putExtra(Intent.EXTRA_SUBJECT, shortcutName);
+    startActivity(Intent.createChooser(shareIntent, null));
+    dismissDialog();
+}
 ```
 
-**2. Dialog structure — switch from bottom-sheet to centered card**
-
-Replace the current `showBottomSheet()` method with `showPremiumDialog()`:
-
-```text
-ScrollView (fills dialog, background = colorBg)
-  └── LinearLayout (vertical)
-        ├── View (accent bar — 4dp tall, indigo #6366f1, full width)
-        ├── LinearLayout (content, padding 20dp)
-        │     ├── TextView (shortcut name, 20sp bold, centered)
-        │     ├── TextView (type label: "Checklist" or "Note", 14sp muted, centered)
-        │     ├── View (1dp divider)
-        │     └── WebView (markdown/checklist content, max 60% screen height)
-        └── TextView (Done/Close button — centered, muted, with ripple)
-```
-
-The dialog is built with `R.style.MessageChooserDialog` which already gives:
-- 90% min width
-- 20dp rounded corners via `dialog_rounded_bg` drawable
-- `backgroundDimAmount=0.6`
-- Fade in/out animation
-
-The background drawable is then overridden in `setOnShowListener` (same pattern as WhatsApp) to respect the dark/light `colorBg` and `colorBorder`:
+**`addHeaderRow()` replacing the old title+subtitle section:**
 ```java
-dialog.setOnShowListener(d -> {
-    if (dialog.getWindow() != null) {
-        GradientDrawable bg = new GradientDrawable();
-        bg.setColor(colorBg);
-        bg.setCornerRadius(dpToPx(20));
-        bg.setStroke(dpToPx(1), colorBorder);
-        dialog.getWindow().setBackgroundDrawable(bg);
-    }
-});
+// Horizontal row: [Title (flex)] [Edit btn] [Share btn]
+LinearLayout headerRow = new LinearLayout(this);
+headerRow.setOrientation(LinearLayout.HORIZONTAL);
+headerRow.setGravity(Gravity.CENTER_VERTICAL);
+
+TextView title = new TextView(...);  // weight=1, 17sp bold, left-aligned
+
+TextView editBtn = new TextView(...); // "Edit", 13sp, indigo #6366f1, ripple touch target
+editBtn.setOnClickListener(v -> openEditInApp());
+
+TextView shareBtn = new TextView(...); // "Share", 13sp, muted, ripple touch target
+shareBtn.setOnClickListener(v -> shareText());
+
+// Subtitle stays centered below the row (unchanged)
 ```
 
-**3. The indigo accent bar at the top**
+### What Does Not Change
 
-Matching the WhatsApp green bar, but using the app's `#6366f1` indigo:
-```java
-View accentBar = new View(this);
-accentBar.setBackgroundColor(Color.parseColor("#6366f1"));
-accentBar.setLayoutParams(new LinearLayout.LayoutParams(MATCH_PARENT, dpToPx(4)));
-```
-
-**4. Header section**
-
-```java
-// Title: shortcut name, 20sp bold, centered
-// Subtitle: "Checklist" or "Note", 14sp muted, centered, 20dp bottom margin
-```
-
-**5. WebView — same HTML engine, new container**
-
-The WebView is embedded with a `maxHeight` of `60%` of screen height. The `buildHtml()` method is updated to use the matched color variables instead of its own hardcoded color strings, so dark/light renders correctly:
-- `bg` → `colorBg` hex
-- `fg` → `colorText` hex
-- `codeBg` → `colorCodeBg` hex
-- `hrColor` → `colorDivider` hex
-- `accent` → `#6366f1` (unchanged)
-
-**6. Close button at bottom (matching WhatsApp's Cancel button)**
-
-```java
-// "Done" button — centered, muted text, subtle ripple, 16dp padding
-// Same RippleDrawable pattern as WhatsApp's addCancelButton()
-```
-
-**7. Gravity: centered (not bottom)**
-
-Remove `window.setGravity(Gravity.BOTTOM)` and `window.setLayout(MATCH_PARENT, WRAP_CONTENT)`. The `MessageChooserDialog` style handles centering natively.
-
-### New Class Structure
-
-```text
-TextProxyActivity
-  Fields:
-    - isDarkTheme: boolean
-    - colorBg, colorSurface, colorBorder, colorText, colorTextMuted,
-      colorDivider, colorCodeBg, colorAccent: int
-    - webView: WebView
-    - dialog: AlertDialog
-    - shortcutId: String
-
-  Methods:
-    + onCreate()                         — reads extras, calls initThemeColors(), showDialog()
-    + initThemeColors()                  — reads "resolvedTheme" from SharedPreferences, system fallback
-    + showPremiumDialog(name, content, isChecklist)
-    + buildHtml(text, isChecklist, sid)  — now uses instance color fields
-    + dismissDialog()
-    + onBackPressed()
-    + onDestroy()
-    + dpToPx(int)
-    + ChecklistBridge (inner class)      — unchanged
-```
-
-### What Stays the Same (No Risk)
-
-- `ChecklistBridge` JS interface — completely unchanged
-- `buildHtml()` logic (markdown renderer, checklist renderer, toggle function) — logic unchanged, only color variables updated to use instance fields
-- `NativeUsageTracker.recordTap()` — unchanged
-- AndroidManifest.xml — unchanged (already `Theme.Translucent.NoTitleBar` which is correct)
-- `styles.xml` — unchanged (MessageChooserDialog already exists)
-
-### Visual Result
-
-```text
-                ┌────────────────────┐
-                │████ indigo bar ████│ ← 4dp #6366f1 accent
-                ├────────────────────┤
-                │   My Grocery List  │ ← 20sp bold, centered
-                │       Note         │ ← 14sp muted, centered
-                ├────────────────────┤ ← 1dp divider
-                │                    │
-                │  - [ ] Milk        │
-                │  - [x] Eggs        │ ← WebView (max 60% height)
-                │  - [ ] Bread       │
-                │                    │
-                ├────────────────────┤
-                │        Done        │ ← muted, ripple, centered
-                └────────────────────┘
-                  Dimmed background (0.6 opacity)
-```
-
-Theme-aware: dark mode shows `#1A1A1A` card bg, `#F5F5F5` text — synced from the app's actual theme setting, not the system theme (unless no preference is stored).
+- `buildHtml()` — completely unchanged
+- `ChecklistBridge` — completely unchanged
+- `addDoneButton()` — completely unchanged
+- `dismissDialog()`, `onBackPressed()`, `onDestroy()` — completely unchanged
+- `initializeThemeColors()` — completely unchanged
+- All styles, manifest entries, JS hooks — unchanged
