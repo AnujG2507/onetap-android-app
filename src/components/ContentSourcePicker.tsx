@@ -219,7 +219,7 @@ export function ContentSourcePicker({
                 {(!activePicker || activePicker === 'text') && (
                   <GridButton
                     icon={<AlignLeft className="h-5 w-5" />}
-                    label={t('access.text', 'Text')}
+                    label={t('access.text')}
                     onClick={() => handleGridButtonClick('text')}
                     isActive={activePicker === 'text'}
                   />
