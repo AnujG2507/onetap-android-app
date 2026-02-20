@@ -1,4 +1,5 @@
 import { useRef, useCallback, useState, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Globe, GripVertical, ChevronDown, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -58,6 +59,7 @@ export function BookmarkItem({
   isDragDisabled,
   isSelectionMode = false,
 }: BookmarkItemProps) {
+  const { t } = useTranslation();
   const { isRTL, isDeleteSwipe, getSwipeTransform } = useRTL();
   const faviconUrl = extractFaviconUrl(link.url);
   const platform = useMemo(() => detectPlatform(link.url), [link.url]);
@@ -274,7 +276,7 @@ export function BookmarkItem({
               </button>
             </TooltipTrigger>
             <TooltipContent side={isRTL ? "right" : "left"} className="text-xs">
-              Drag to reorder
+              {t('bookmarkItem.dragToReorder')}
             </TooltipContent>
           </Tooltip>
         )}
@@ -384,15 +386,15 @@ export function BookmarkItem({
       <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Create Shortcut?</AlertDialogTitle>
+            <AlertDialogTitle>{t('bookmarkItem.createShortcutTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Create a home screen shortcut for "{link.title}"?
+              {t('bookmarkItem.createShortcutDesc', { title: link.title })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmCreateShortcut}>
-              Create
+              {t('common.create')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -402,24 +404,24 @@ export function BookmarkItem({
       <AlertDialog open={showDeleteConfirmDialog} onOpenChange={setShowDeleteConfirmDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete bookmark?</AlertDialogTitle>
+            <AlertDialogTitle>{t('bookmarkAction.deleteConfirm')}</AlertDialogTitle>
             <AlertDialogDescription>
-              "{link.title}" will be moved to trash. Items in trash are automatically deleted after {getSettings().trashRetentionDays} days.
+              {t('bookmarkAction.deleteConfirmDesc', { title: link.title, days: getSettings().trashRetentionDays })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-col sm:flex-row gap-2">
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction 
               onClick={handleMoveToTrash}
               className="border border-warning/40 bg-warning/10 text-warning-foreground hover:bg-warning/20"
             >
-              Move to Trash
+              {t('bookmarkAction.moveToTrash')}
             </AlertDialogAction>
             <AlertDialogAction 
               onClick={handlePermanentDeleteAction}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Delete Permanently
+              {t('bookmarkAction.deletePermanently')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
