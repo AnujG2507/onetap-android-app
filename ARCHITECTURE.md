@@ -110,6 +110,7 @@ Capacitor is the bridge between web and native. It lets your React code call Jav
 | `NativeVideoPlayerActivity.java` | Video player with picture-in-picture support |
 | `QuickCreateWidget.java` | Home screen widget for quick shortcut creation |
 | `CrashLogger.java` | Simple crash logging (no external SDK needed) |
+| `TextProxyActivity.java` | Renders text shortcuts (Markdown or checklist) in a floating dialog; blue `#0080FF` accent; footer has Reset + Done (checklist) or Done only (note) |
 
 **Proxy Activities:** Each shortcut type has a "proxy activity" — a lightweight Java class that receives the shortcut tap and performs the action:
 
@@ -123,7 +124,7 @@ Capacitor is the bridge between web and native. It lets your React code call Jav
 | `VideoProxyActivity` | `app.onetap.OPEN_VIDEO` | Opens the native video player |
 | `FileProxyActivity` | `app.onetap.OPEN_FILE` | Opens a file with the system file handler |
 | `SlideshowProxyActivity` | `app.onetap.OPEN_SLIDESHOW` | Opens a photo slideshow |
-| `TextProxyActivity` | `app.onetap.OPEN_TEXT` | Renders markdown or checklist text shortcuts in a full-screen WebView |
+| `TextProxyActivity` | `app.onetap.OPEN_TEXT` | Renders markdown or checklist text in a floating premium dialog. Header: Edit (blue tint), Copy, Share icons. Footer: checklist mode has Reset (left, blue) + Done (right, muted) split by a vertical divider; note mode has Done only. Accent colour: `#0080FF` (app primary blue). |
 | `ShortcutEditProxyActivity` | `app.onetap.EDIT_SHORTCUT` | Opens the edit screen for an existing shortcut |
 
 **Text shortcut intent contract:**
@@ -140,6 +141,8 @@ Extras:
 **Checklist state persistence:** Checkbox state is stored in two places simultaneously:
 - **WebView `localStorage`** — keyed as `chk_<shortcut_id>_<line_index>`, survives soft closes
 - **Android `SharedPreferences`** (`checklist_state`) — backup via the `ChecklistBridge` JS interface (exposed as `window.Android`), survives WebView cache clears
+
+**Checklist state clearing (reorder):** State keys are index-based (`chk_{id}_{lineIndex}`). If the user reorders checklist items in `TextEditorStep`, saved states for old indices would map to the wrong items. When a reorder is saved, `ShortcutPlugin.clearChecklistState({ id })` clears all keys with the prefix `chk_{id}_` from `SharedPreferences("checklist_state")`. The same clearing is performed by the native Reset button in the viewer footer.
 
 ---
 
@@ -529,7 +532,7 @@ Recognized intent actions dispatched by `ShortcutPlugin.java`:
 | `app.onetap.OPEN_VIDEO` | `VideoProxyActivity` |
 | `app.onetap.OPEN_FILE` | `FileProxyActivity` |
 | `app.onetap.OPEN_SLIDESHOW` | `SlideshowProxyActivity` |
-| `app.onetap.OPEN_TEXT` | `TextProxyActivity` — passes `text_content` (String) and `is_checklist` (boolean) as intent extras |
+| `app.onetap.OPEN_TEXT` | `TextProxyActivity` — passes `shortcut_name` (String, dialog title), `text_content` (String), and `is_checklist` (boolean) as intent extras |
 | `app.onetap.EDIT_SHORTCUT` | `ShortcutEditProxyActivity` |
 
 ### Three-Source Reconciliation Model

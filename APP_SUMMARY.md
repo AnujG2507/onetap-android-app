@@ -14,7 +14,7 @@ A local-first Android app that lets users create home screen shortcuts for quick
 - Shortcut types: `link`, `contact`, `message`, `file`, `slideshow`, `text`
 - Custom icons: emoji, uploaded images, contact photos, or auto-generated initials
 - Native Android implementation via Capacitor plugin (`ShortcutPlugin.java`)
-- **Text shortcuts**: inline Markdown note or interactive checklist; rendered in a full-screen WebView via `TextProxyActivity`; checklist state persists on-device
+- **Text shortcuts**: inline Markdown note or interactive checklist; rendered in a floating dialog via `TextProxyActivity` (blue `#0080FF` accent, Edit / Copy / Share header icons); checklist state persists on-device (SharedPreferences + WebView localStorage); footer has Reset (left, blue) and Done (right, muted) for checklists, Done only for notes; reordering checklist items in the editor clears saved check state on save
 
 ### 2. Bookmark Library
 - Save URLs with metadata (title, description, folder/tag)
@@ -59,7 +59,7 @@ A local-first Android app that lets users create home screen shortcuts for quick
 - **Auth**: Google OAuth with implicit flow + custom URL scheme (`onetap://auth-callback`) deep link
 
 ### Native Android Layer
-- `ShortcutPlugin.java`: Home screen shortcut creation; routes `app.onetap.OPEN_TEXT` to `TextProxyActivity`
+- `ShortcutPlugin.java`: Home screen shortcut creation; routes `app.onetap.OPEN_TEXT` to `TextProxyActivity`; `clearChecklistState` clears `SharedPreferences("checklist_state")` prefix for a shortcut when item order changes
 - `TextProxyActivity.java`: Renders text shortcuts (Markdown or checklist) in an embedded WebView
 - `NotificationHelper.java`: Scheduled notifications
 - `ScheduledActionReceiver.java`: Alarm handling
@@ -199,6 +199,7 @@ markSyncCompleted(trigger, success)
 ### Native Bridge
 - `src/plugins/ShortcutPlugin.ts` - Capacitor interface
 - `native/android/app/.../ShortcutPlugin.java` - Native implementation
+- `src/components/TextEditorStep.tsx` — Checklist/note editor with `@dnd-kit` drag-to-reorder; emits `orderChanged` flag on confirm
 
 ### Auth
 - `src/hooks/useAuth.ts` - Auth state + Google OAuth
