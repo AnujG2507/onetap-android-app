@@ -198,7 +198,7 @@
     "alreadySaved": "Already saved",
     "alreadySavedDesc": "This link is already in your bookmarks",
     "selectionCleared": "Selection cleared",
-    "bulkDeleted": "{{count}} bookmark(s) moved to trash",
+    "bulkDeleted": "{{count}} bookmark(s) moved to Bookmark Trash",
     "bulkDeletedPermanent": "{{count}} bookmark(s) permanently deleted",
     "bulkMoved": "{{count}} bookmark(s) moved",
     "creatingShortcuts": "Setting up {{count}} access point(s)...",
