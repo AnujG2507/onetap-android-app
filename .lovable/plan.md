@@ -1,135 +1,183 @@
 
-## Redesigning the Native Text Viewer as a Premium Bottom Sheet Dialog
+## Redesign TextProxyActivity: WhatsApp-Style Centered Floating Dialog
 
-### Current Problem
+### What Needs to Change
 
-`TextProxyActivity` is a full-screen Activity that slides up occupying 100% of the screen. This feels like navigating to a new screen rather than a lightweight, dismissible viewer. By contrast, `WhatsAppProxyActivity` presents as a floating, dimmed-background dialog with rounded corners and a polished card layout — it feels premium precisely because it sits *over* the current context without replacing it.
+The current TextProxyActivity is a bottom sheet (Gravity.BOTTOM, 100% width, slide-up). The user wants the same experience as the WhatsApp quick message dialog — a centered, floating premium card that appears over the dimmed screen, matching `WhatsAppProxyActivity` exactly.
 
-### Design Goal
+Three additional issues are fixed simultaneously:
+1. **Theme key mismatch bug** — `TextProxyActivity` reads `"resolved_theme"` but `WhatsAppProxyActivity` (the correct reference) reads `"resolvedTheme"` (camelCase). This means the text dialog always falls through to its hardcoded light fallback, completely ignoring the app's dark mode setting.
+2. **System theme fallback missing** — WhatsApp's `initializeThemeColors()` has a proper fallback to the system night mode when no preference is stored; TextProxyActivity does not.
+3. **Color palette divergence** — TextProxyActivity uses its own hardcoded color set. It should use the same carefully tuned palette as WhatsApp (dark: `#1A1A1A` bg, `#252525` surface, `#F5F5F5` text; light: `#FFFFFF` bg, `#FAFAFA` surface, `#1A1A1A` text).
 
-Transform the text viewer into an `AlertDialog`-based bottom sheet, matching the WhatsApp chooser pattern:
-- Floats over the blurred/dimmed home screen — no full-screen takeover
-- Rounded top corners (20dp radius)
-- A drag handle indicator at the top (the "pill" bar — universal Android sheet affordance)
-- Shortcut name as a bold title
-- The WebView (markdown/checklist content) embedded inside the dialog, capped at ~65% of screen height with scrolling
-- A close/dismiss affordance at bottom (or via back-tap on dim area)
-- Accent color treatment matching the app's `#6366f1` indigo palette
+### Files to Change: Only `TextProxyActivity.java`
 
-### Architecture: Dialog instead of Full-Screen Activity
+No manifest or styles.xml changes are needed. The dialog builder style is switched to `R.style.MessageChooserDialog` (already in `styles.xml`) programmatically via the constructor, and the window gravity/layout are changed. The `TextSheetDialog` and `TextSheetAnimation` styles in styles.xml can remain (they are harmless).
 
-The WhatsApp pattern uses `AlertDialog.Builder` with a custom view. The text viewer will adopt the same:
+### Detailed Changes in `TextProxyActivity.java`
+
+**1. Theme initialization — mirror WhatsAppProxyActivity exactly**
+
+Replace the simple `isDarkTheme()` single-method approach with the same `initializeThemeColors()` pattern used in WhatsApp:
+
+```java
+// Read from "resolvedTheme" (camelCase) — same key ShortcutPlugin.syncTheme writes
+SharedPreferences prefs = getSharedPreferences("app_settings", Context.MODE_PRIVATE);
+String resolvedTheme = prefs.getString("resolvedTheme", null);
+
+if (resolvedTheme == null) {
+    // System fallback
+    int nightModeFlags = getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
+    isDarkTheme = (nightModeFlags == Configuration.UI_MODE_NIGHT_YES);
+} else {
+    isDarkTheme = "dark".equals(resolvedTheme);
+}
+```
+
+**Color palette** (matching WhatsApp's):
+```java
+// Dark theme
+colorBg       = Color.parseColor("#1A1A1A");
+colorSurface  = Color.parseColor("#252525");
+colorBorder   = Color.parseColor("#3A3A3A");
+colorText     = Color.parseColor("#F5F5F5");
+colorTextMuted= Color.parseColor("#9CA3AF");
+colorDivider  = Color.parseColor("#3A3A3A");
+colorCodeBg   = Color.parseColor("#2C2C2E");
+colorAccent   = Color.parseColor("#6366f1"); // app accent (same both themes)
+
+// Light theme
+colorBg       = Color.parseColor("#FFFFFF");
+colorSurface  = Color.parseColor("#FAFAFA");
+colorBorder   = Color.parseColor("#E5E5E5");
+colorText     = Color.parseColor("#1A1A1A");
+colorTextMuted= Color.parseColor("#6B7280");
+colorDivider  = Color.parseColor("#E0E0E0");
+colorCodeBg   = Color.parseColor("#F4F4F4");
+colorAccent   = Color.parseColor("#6366f1");
+```
+
+**2. Dialog structure — switch from bottom-sheet to centered card**
+
+Replace the current `showBottomSheet()` method with `showPremiumDialog()`:
 
 ```text
-TextProxyActivity (transparent Activity, no full-screen theme)
-  └── AlertDialog (windowIsFloating=true, dim background)
-        └── rounded container
-              ├── drag handle pill (top)
-              ├── title bar (shortcut name + close button)
-              ├── divider
-              └── WebView (max 65% screen height, scrollable)
+ScrollView (fills dialog, background = colorBg)
+  └── LinearLayout (vertical)
+        ├── View (accent bar — 4dp tall, indigo #6366f1, full width)
+        ├── LinearLayout (content, padding 20dp)
+        │     ├── TextView (shortcut name, 20sp bold, centered)
+        │     ├── TextView (type label: "Checklist" or "Note", 14sp muted, centered)
+        │     ├── View (1dp divider)
+        │     └── WebView (markdown/checklist content, max 60% screen height)
+        └── TextView (Done/Close button — centered, muted, with ripple)
 ```
 
-### Files to Change
+The dialog is built with `R.style.MessageChooserDialog` which already gives:
+- 90% min width
+- 20dp rounded corners via `dialog_rounded_bg` drawable
+- `backgroundDimAmount=0.6`
+- Fade in/out animation
 
-| File | Change |
-|---|---|
-| `TextProxyActivity.java` | Full redesign: remove full-screen layout, add AlertDialog with rounded sheet UI containing the WebView |
-| `styles.xml` | Add `TextSheetDialog` style (floating, transparent window, dim background, slide-up animation) |
-| `AndroidManifest.xml` | Change `TextProxyActivity` theme from `@style/TextViewerTheme` to `@android:style/Theme.Translucent.NoTitleBar` so the Activity window itself is transparent and the dialog floats above everything |
-
-### Detailed Changes
-
-**1. `styles.xml` — Add a new TextSheetDialog style**
-
-Add a `TextSheetDialog` style next to the existing `MessageChooserDialog`. It inherits from `Theme.Material.Light.Dialog` and uses the same slide-up animation already in the project:
-
-```xml
-<style name="TextSheetDialog" parent="@android:style/Theme.Material.Light.Dialog">
-    <item name="android:windowBackground">@android:color/transparent</item>
-    <item name="android:windowIsFloating">true</item>
-    <item name="android:windowNoTitle">true</item>
-    <item name="android:backgroundDimEnabled">true</item>
-    <item name="android:backgroundDimAmount">0.55</item>
-    <item name="android:windowMinWidthMajor">100%</item>
-    <item name="android:windowMinWidthMinor">100%</item>
-    <item name="android:windowAnimationStyle">@style/TextSheetAnimation</item>
-    <item name="android:windowElevation">24dp</item>
-</style>
-
-<style name="TextSheetAnimation">
-    <item name="android:windowEnterAnimation">@anim/slide_up</item>
-    <item name="android:windowExitAnimation">@anim/slide_down</item>
-</style>
+The background drawable is then overridden in `setOnShowListener` (same pattern as WhatsApp) to respect the dark/light `colorBg` and `colorBorder`:
+```java
+dialog.setOnShowListener(d -> {
+    if (dialog.getWindow() != null) {
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(colorBg);
+        bg.setCornerRadius(dpToPx(20));
+        bg.setStroke(dpToPx(1), colorBorder);
+        dialog.getWindow().setBackgroundDrawable(bg);
+    }
+});
 ```
 
-**2. `AndroidManifest.xml` — Change TextProxyActivity theme**
+**3. The indigo accent bar at the top**
 
-```xml
-<!-- Before -->
-android:theme="@style/TextViewerTheme"
-
-<!-- After -->
-android:theme="@android:style/Theme.Translucent.NoTitleBar"
+Matching the WhatsApp green bar, but using the app's `#6366f1` indigo:
+```java
+View accentBar = new View(this);
+accentBar.setBackgroundColor(Color.parseColor("#6366f1"));
+accentBar.setLayoutParams(new LinearLayout.LayoutParams(MATCH_PARENT, dpToPx(4)));
 ```
 
-This makes the Activity itself transparent so the dialog floats cleanly over the home screen with the dim layer behind it.
+**4. Header section**
 
-**3. `TextProxyActivity.java` — Full redesign**
+```java
+// Title: shortcut name, 20sp bold, centered
+// Subtitle: "Checklist" or "Note", 14sp muted, centered, 20dp bottom margin
+```
 
-Replace the full-screen `LinearLayout + setContentView` approach with an `AlertDialog` containing a premium sheet layout:
+**5. WebView — same HTML engine, new container**
 
-The new sheet structure (all built programmatically, matching WhatsApp's pattern):
+The WebView is embedded with a `maxHeight` of `60%` of screen height. The `buildHtml()` method is updated to use the matched color variables instead of its own hardcoded color strings, so dark/light renders correctly:
+- `bg` → `colorBg` hex
+- `fg` → `colorText` hex
+- `codeBg` → `colorCodeBg` hex
+- `hrColor` → `colorDivider` hex
+- `accent` → `#6366f1` (unchanged)
+
+**6. Close button at bottom (matching WhatsApp's Cancel button)**
+
+```java
+// "Done" button — centered, muted text, subtle ripple, 16dp padding
+// Same RippleDrawable pattern as WhatsApp's addCancelButton()
+```
+
+**7. Gravity: centered (not bottom)**
+
+Remove `window.setGravity(Gravity.BOTTOM)` and `window.setLayout(MATCH_PARENT, WRAP_CONTENT)`. The `MessageChooserDialog` style handles centering natively.
+
+### New Class Structure
 
 ```text
-GradientDrawable (rounded top corners only — 20dp top, 0dp bottom)
-  ├── [drag handle pill — centered, 40×4dp, muted color, 12dp margin top]
-  ├── LinearLayout (title row, 16dp h-padding, 12dp v-padding)
-  │     ├── TextView (shortcut name, bold, 17sp)
-  │     └── TextView ("✕" close button, right-aligned, 20sp)
-  ├── View (1px divider)
-  └── WebView (maxHeight = 65% screen height, scrollable)
-        └── [markdown/checklist HTML — same as today]
+TextProxyActivity
+  Fields:
+    - isDarkTheme: boolean
+    - colorBg, colorSurface, colorBorder, colorText, colorTextMuted,
+      colorDivider, colorCodeBg, colorAccent: int
+    - webView: WebView
+    - dialog: AlertDialog
+    - shortcutId: String
+
+  Methods:
+    + onCreate()                         — reads extras, calls initThemeColors(), showDialog()
+    + initThemeColors()                  — reads "resolvedTheme" from SharedPreferences, system fallback
+    + showPremiumDialog(name, content, isChecklist)
+    + buildHtml(text, isChecklist, sid)  — now uses instance color fields
+    + dismissDialog()
+    + onBackPressed()
+    + onDestroy()
+    + dpToPx(int)
+    + ChecklistBridge (inner class)      — unchanged
 ```
 
-Key implementation details:
-- The `AlertDialog` is anchored to the **bottom** of the screen using `window.setGravity(Gravity.BOTTOM)` and `window.setLayout(MATCH_PARENT, WRAP_CONTENT)`, which is how the WhatsApp dialog achieves its bottom sheet positioning within a full-width dialog.
-- The background drawable uses **top-only rounded corners**: `cornerRadii = {20dp, 20dp, 0, 0, 0, 0, 0, 0}` (only top-left and top-right rounded).
-- The WebView height is capped: measured as `(int)(displayMetrics.heightPixels * 0.65)` and set as `maxHeight` via a `ConstraintLayout` or by computing a fixed `LayoutParams` height — simpler to set a fixed pixel height based on the percentage.
-- Theme colors are carried over from the existing `isDarkTheme()` logic — no change needed.
-- The `ChecklistBridge` JS interface and all HTML rendering remain identical.
-- `onBackPressed()` calls `dismissDialog()` then `finish()`.
-- `setOnCancelListener` calls `finish()` so tapping the dim area closes the activity cleanly.
+### What Stays the Same (No Risk)
 
-The drag handle pill adds a universal Android bottom-sheet affordance that immediately signals to users that this is swipe-dismissible content, not a new screen.
+- `ChecklistBridge` JS interface — completely unchanged
+- `buildHtml()` logic (markdown renderer, checklist renderer, toggle function) — logic unchanged, only color variables updated to use instance fields
+- `NativeUsageTracker.recordTap()` — unchanged
+- AndroidManifest.xml — unchanged (already `Theme.Translucent.NoTitleBar` which is correct)
+- `styles.xml` — unchanged (MessageChooserDialog already exists)
 
-### Visual Comparison
+### Visual Result
 
 ```text
-BEFORE (full-screen):              AFTER (bottom sheet dialog):
-┌─────────────────────┐            ┌─────────────────────┐
-│ [surfaceColor bar]  │            │                     │ ← dimmed home screen
-│  ✕  Shortcut Name   │            │                     │
-├─────────────────────┤            │                     │
-│                     │            ├─────────────────────┤ ← rounded top
-│                     │            │    ─────            │ ← drag pill
-│  [full screen       │            │  ✕  Shortcut Name   │
-│   markdown          │            ├─────────────────────┤
-│   content]          │            │  [markdown content  │
-│                     │            │   max 65% height    │
-│                     │            │   scrollable]       │
-│                     │            └─────────────────────┘ ← screen bottom
-└─────────────────────┘
+                ┌────────────────────┐
+                │████ indigo bar ████│ ← 4dp #6366f1 accent
+                ├────────────────────┤
+                │   My Grocery List  │ ← 20sp bold, centered
+                │       Note         │ ← 14sp muted, centered
+                ├────────────────────┤ ← 1dp divider
+                │                    │
+                │  - [ ] Milk        │
+                │  - [x] Eggs        │ ← WebView (max 60% height)
+                │  - [ ] Bread       │
+                │                    │
+                ├────────────────────┤
+                │        Done        │ ← muted, ripple, centered
+                └────────────────────┘
+                  Dimmed background (0.6 opacity)
 ```
 
-### No Impact On
-
-- The checklist persistence logic (SharedPreferences + localStorage) — unchanged
-- The HTML/CSS/JS rendering pipeline — unchanged
-- Usage tracking via `NativeUsageTracker` — unchanged
-- The `ShortcutPlugin.openTextShortcut()` method that launches the intent — unchanged
-- Any other proxy activities
-
-### Priority: High
-
-This is a pure UI change with no logic impact and no risk to the checklist state machine. The three files are small and self-contained.
+Theme-aware: dark mode shows `#1A1A1A` card bg, `#F5F5F5` text — synced from the app's actual theme setting, not the system theme (unless no preference is stored).
