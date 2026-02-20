@@ -945,7 +945,7 @@ export function NotificationsPage({
         <div className="fixed bottom-[calc(3.5rem+var(--android-safe-bottom,0px)+1rem)] inset-x-0 px-5 z-10">
           <div className="bg-card border rounded-2xl shadow-lg p-3 flex items-center gap-2">
             <span className="text-sm font-medium text-foreground me-2">
-              {selectedIds.size} {t('library.selectedLabel')}
+              {t('notificationsPage.selected', { count: selectedIds.size })}
             </span>
             <div className="h-5 w-px bg-border" />
             <TooltipProvider delayDuration={0}>
