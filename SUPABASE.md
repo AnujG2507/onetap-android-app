@@ -170,7 +170,7 @@ This table backs up the *intent metadata* of user-created shortcuts (access poin
 | `id` | UUID | Auto-generated cloud row ID | Auto |
 | `entity_id` | TEXT | The shortcut's local ID | Yes |
 | `user_id` | UUID | The user who owns this shortcut | Yes |
-| `type` | TEXT | Shortcut type: "link", "file", "contact", "message", "slideshow" | Yes |
+| `type` | TEXT | Shortcut type: "link", "file", "contact", "message", "slideshow", **"text"** | Yes |
 | `name` | TEXT | Display name | Yes |
 | `content_uri` | TEXT | URL for link shortcuts; NULL for file-dependent types | No |
 | `file_type` | TEXT | File type: "image", "video", "pdf", "audio", "document" | No |
@@ -184,6 +184,8 @@ This table backs up the *intent metadata* of user-created shortcuts (access poin
 | `image_count` | INT | Number of images in slideshow | No |
 | `icon_type` | TEXT | Icon type: "emoji", "text", "platform", "favicon" | No |
 | `icon_value` | TEXT | Icon value (emoji character, text, platform key) | No |
+| `text_content` | TEXT | Raw markdown or checklist text for text shortcuts | No |
+| `is_checklist` | BOOLEAN | Whether text is rendered as interactive checklist (default: false) | No (default: false) |
 | `usage_count` | INT | How many times the shortcut has been used | Yes (default: 0) |
 | `original_created_at` | BIGINT | Local creation timestamp | Yes |
 | `created_at` | TIMESTAMP | Cloud row creation time | Auto |
@@ -199,7 +201,9 @@ This table backs up the *intent metadata* of user-created shortcuts (access poin
 | `imageUris` / `imageThumbnails` | Slideshow image data — local file references and binary data |
 | `originalPath` / `fileData` | Raw file paths and binary content |
 
-**Dormant access points:** When file-dependent shortcuts (type = `file` or `slideshow`) are downloaded to a new device, they arrive without the underlying file. The app marks them as `syncState: 'dormant'` — they appear in the list with a file-type emoji icon and a "Re-attach file" prompt, but cannot be launched until the user provides the local file again. Link, contact, and message shortcuts restore fully because their intent data (URL, phone number) is self-contained.
+> **Note on `text_content`:** Unlike the binary data excluded above, `text_content` **is** synced. It is self-contained plain text (up to 2000 chars) with no device-specific references, making it safe and practical to store in the cloud. Checklist checkbox state is **not** synced — it is stored locally (WebView `localStorage` + Android `SharedPreferences`) and is considered per-device interaction state.
+
+**Dormant access points:** When file-dependent shortcuts (type = `file` or `slideshow`) are downloaded to a new device, they arrive without the underlying file. The app marks them as `syncState: 'dormant'` — they appear in the list with a file-type emoji icon and a "Re-attach file" prompt, but cannot be launched until the user provides the local file again. Link, contact, message, and **text** shortcuts restore fully because their intent data (URL, phone number, or `text_content`) is self-contained. Text shortcuts are **never dormant** — `isFileDependentType()` explicitly excludes `'text'` from the file-dependent type set.
 
 ### `cloud_deleted_entities` — Deletion Reconciliation Ledger
 

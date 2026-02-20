@@ -10,9 +10,11 @@ A local-first Android app that lets users create home screen shortcuts for quick
 ## Core Features
 
 ### 1. One Tap Access (Shortcuts)
-- Create Android home screen shortcuts for URLs, contacts (call/message), or apps
+- Create Android home screen shortcuts for URLs, contacts (call/message), apps, files, slideshows, or **text notes/checklists**
+- Shortcut types: `link`, `contact`, `message`, `file`, `slideshow`, `text`
 - Custom icons: emoji, uploaded images, contact photos, or auto-generated initials
 - Native Android implementation via Capacitor plugin (`ShortcutPlugin.java`)
+- **Text shortcuts**: inline Markdown note or interactive checklist; rendered in a full-screen WebView via `TextProxyActivity`; checklist state persists on-device
 
 ### 2. Bookmark Library
 - Save URLs with metadata (title, description, folder/tag)
@@ -57,7 +59,8 @@ A local-first Android app that lets users create home screen shortcuts for quick
 - **Auth**: Google OAuth with implicit flow + custom URL scheme (`onetap://auth-callback`) deep link
 
 ### Native Android Layer
-- `ShortcutPlugin.java`: Home screen shortcut creation
+- `ShortcutPlugin.java`: Home screen shortcut creation; routes `app.onetap.OPEN_TEXT` to `TextProxyActivity`
+- `TextProxyActivity.java`: Renders text shortcuts (Markdown or checklist) in an embedded WebView
 - `NotificationHelper.java`: Scheduled notifications
 - `ScheduledActionReceiver.java`: Alarm handling
 - `BootReceiver.java`: Reschedule after reboot
@@ -100,6 +103,13 @@ cloud_bookmarks (
   created_at TIMESTAMPTZ
 )
 -- RLS: Users can only access their own data
+
+cloud_shortcuts (
+  -- intent metadata for all shortcut types
+  text_content    TEXT,              -- Raw markdown or checklist source (text shortcuts only)
+  is_checklist    BOOLEAN DEFAULT false  -- true → render as interactive checklist
+  -- ... other columns: type, name, content_uri, phone_number, etc.
+)
 ```
 
 ---

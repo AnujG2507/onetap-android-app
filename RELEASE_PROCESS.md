@@ -116,6 +116,8 @@ Go through this list before every release. Do not skip items.
   - [ ] Video shortcuts play correctly
   - [ ] File shortcuts open files
   - [ ] Slideshow shortcuts work
+  - [ ] Text note shortcuts render Markdown correctly
+  - [ ] Text checklist shortcuts toggle checkboxes and persist state across opens
 - [ ] Tested scheduled reminders (create, wait for it to fire, check recurrence)
 - [ ] Tested cloud sync (sign in, sync, verify data appears)
 - [ ] Tested offline behavior (airplane mode — app should work normally)
