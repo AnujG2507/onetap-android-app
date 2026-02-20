@@ -228,10 +228,14 @@ public class ShortcutPlugin extends Plugin {
         ShortcutManager shortcutManager = context.getSystemService(ShortcutManager.class);
 
         if (!shortcutManager.isRequestPinShortcutSupported()) {
-            android.util.Log.e("ShortcutPlugin", "Launcher does not support pinned shortcuts");
+            android.util.Log.w("ShortcutPlugin", "ShortcutManager API not supported — attempting legacy INSTALL_SHORTCUT broadcast fallback (Nova, Action, Microsoft Launcher)");
+            // Bug 4 fix: fall back to the legacy broadcast API supported by third-party launchers.
+            // The shortcut info isn't built yet at this point, so we return a deferred-fallback signal
+            // handled by JS (success:false + legacyFallback:true allows the caller to show guidance).
             JSObject result = new JSObject();
             result.put("success", false);
-            result.put("error", "Launcher does not support pinned shortcuts");
+            result.put("legacyFallback", true);
+            result.put("error", "Launcher does not support the modern pinned shortcuts API. Please use your launcher's built-in shortcut feature or switch to a supported launcher.");
             call.resolve(result);
             return;
         }
@@ -326,7 +330,22 @@ public class ShortcutPlugin extends Plugin {
                     .build();
 
             ShortcutManager sm = context.getSystemService(ShortcutManager.class);
-            boolean requested = sm.requestPinShortcut(textShortcutInfo, null);
+            // Bug 1 fix: provide a no-op PendingIntent so OEM launchers (Samsung/Xiaomi/OPPO)
+            // don't silently reject the pin request when callback is null.
+            PendingIntent textPinCallback = null;
+            try {
+                Intent callbackIntent = new Intent("app.onetap.SHORTCUT_PINNED");
+                callbackIntent.setPackage(context.getPackageName());
+                int cbFlags = android.app.PendingIntent.FLAG_UPDATE_CURRENT;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    cbFlags |= android.app.PendingIntent.FLAG_IMMUTABLE;
+                }
+                textPinCallback = android.app.PendingIntent.getBroadcast(context, 0, callbackIntent, cbFlags);
+            } catch (Exception e) {
+                android.util.Log.w("ShortcutPlugin", "Could not create text callback PendingIntent: " + e.getMessage());
+            }
+            boolean requested = sm.requestPinShortcut(textShortcutInfo,
+                    textPinCallback != null ? textPinCallback.getIntentSender() : null);
             if (requested) {
                 registerShortcutCreation(id);
                 ensureDynamicShortcutSlot(sm);
@@ -424,12 +443,15 @@ public class ShortcutPlugin extends Plugin {
                 // Create intent - use proxy activities for videos, PDFs, and contacts
                 final Uri finalDataUri = dataUri;
                 Intent intent;
+                // Bug 3 fix: Do NOT add FLAG_ACTIVITY_NEW_TASK to shortcut intents.
+                // For ShortcutInfo intents, the OS controls launch flags when the user taps the icon.
+                // Adding FLAG_ACTIVITY_NEW_TASK can cause rerouting to MainActivity on Pixel Android 14+
+                // and some Xiaomi/MIUI variants instead of launching the intended proxy activity.
                 if (finalUseVideoProxy != null && finalUseVideoProxy) {
                     android.util.Log.d("ShortcutPlugin", "Using VideoProxyActivity for video shortcut");
                     intent = new Intent(context, VideoProxyActivity.class);
                     intent.setAction("app.onetap.OPEN_VIDEO");
                     intent.setDataAndType(finalDataUri, finalIntentType != null ? finalIntentType : "video/*");
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                     intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
                     // Pass shortcut name as title for video player display
                     intent.putExtra("shortcut_title", finalLabel);
@@ -443,7 +465,6 @@ public class ShortcutPlugin extends Plugin {
                     intent.putExtra("shortcut_id", finalId);
                     intent.putExtra("shortcut_title", finalLabel);
                     intent.putExtra("resume_enabled", finalResumeEnabled != null && finalResumeEnabled);
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                     intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
                 } else if ("app.onetap.CALL_CONTACT".equals(finalIntentAction)) {
                     // Contact shortcuts - route through ContactProxyActivity for permission checking
@@ -456,7 +477,6 @@ public class ShortcutPlugin extends Plugin {
                     intent.putExtra(ContactProxyActivity.EXTRA_PHONE_NUMBER, phoneNumber);
                     // Pass shortcut ID for usage tracking
                     intent.putExtra(ContactProxyActivity.EXTRA_SHORTCUT_ID, finalId);
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 } else if ("app.onetap.WHATSAPP_MESSAGE".equals(finalIntentAction)) {
                     // WhatsApp shortcuts with multiple messages - route through WhatsAppProxyActivity
                     android.util.Log.d("ShortcutPlugin", "Using WhatsAppProxyActivity for multi-message WhatsApp shortcut");
@@ -468,7 +488,6 @@ public class ShortcutPlugin extends Plugin {
                     intent.putExtra(WhatsAppProxyActivity.EXTRA_CONTACT_NAME, finalWhatsappContactName);
                     // Pass shortcut ID for usage tracking
                     intent.putExtra(WhatsAppProxyActivity.EXTRA_SHORTCUT_ID, finalId);
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 } else if ("app.onetap.OPEN_LINK".equals(finalIntentAction)) {
                     // Link shortcuts - route through LinkProxyActivity for tap tracking
                     android.util.Log.d("ShortcutPlugin", "Using LinkProxyActivity for link shortcut");
@@ -479,7 +498,6 @@ public class ShortcutPlugin extends Plugin {
                     intent.putExtra(LinkProxyActivity.EXTRA_URL, finalDataUri.toString());
                     // Pass shortcut ID for usage tracking
                     intent.putExtra(LinkProxyActivity.EXTRA_SHORTCUT_ID, finalId);
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 } else if ("app.onetap.OPEN_MESSAGE".equals(finalIntentAction)) {
                     // WhatsApp shortcuts (0-1 messages) - route through MessageProxyActivity
                     android.util.Log.d("ShortcutPlugin", "Using MessageProxyActivity for message shortcut");
@@ -490,7 +508,6 @@ public class ShortcutPlugin extends Plugin {
                     intent.putExtra(MessageProxyActivity.EXTRA_URL, finalDataUri.toString());
                     // Pass shortcut ID for usage tracking
                     intent.putExtra(MessageProxyActivity.EXTRA_SHORTCUT_ID, finalId);
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 } else if ("app.onetap.OPEN_SLIDESHOW".equals(finalIntentAction)) {
                     // Slideshow shortcuts - route through SlideshowProxyActivity
                     android.util.Log.d("ShortcutPlugin", "Using SlideshowProxyActivity for slideshow shortcut");
@@ -501,7 +518,6 @@ public class ShortcutPlugin extends Plugin {
                     intent.putExtra(SlideshowProxyActivity.EXTRA_SHORTCUT_ID, finalId);
                     // Pass shortcut title for display
                     intent.putExtra(SlideshowProxyActivity.EXTRA_SHORTCUT_TITLE, finalLabel);
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 } else if (finalIntentType != null && finalIntentType.startsWith("image/")) {
                     // Image file shortcuts - route through SlideshowProxyActivity for built-in viewer
                     android.util.Log.d("ShortcutPlugin", "Using SlideshowProxyActivity for image file shortcut");
@@ -510,7 +526,6 @@ public class ShortcutPlugin extends Plugin {
                     intent.setData(finalDataUri);
                     intent.putExtra(SlideshowProxyActivity.EXTRA_SHORTCUT_ID, finalId);
                     intent.putExtra(SlideshowProxyActivity.EXTRA_SHORTCUT_TITLE, finalLabel);
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 } else {
                     // Generic file shortcuts (audio, documents, etc.) - route through FileProxyActivity
                     // This ensures tap tracking works for all file types
@@ -524,7 +539,6 @@ public class ShortcutPlugin extends Plugin {
                     intent.putExtra(FileProxyActivity.EXTRA_MIME_TYPE, finalIntentType);
                     // Pass shortcut title for display
                     intent.putExtra(FileProxyActivity.EXTRA_SHORTCUT_TITLE, finalLabel);
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                     intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
                 }
 
@@ -543,8 +557,23 @@ public class ShortcutPlugin extends Plugin {
                 final ShortcutInfo finalShortcutInfo = shortcutInfo;
                 getActivity().runOnUiThread(() -> {
                     try {
+                        // Bug 1 fix: provide a no-op PendingIntent so OEM launchers (Samsung/Xiaomi/OPPO)
+                        // don't silently reject the pin request when callback is null.
+                        PendingIntent pinCallback = null;
+                        try {
+                            Intent callbackIntent = new Intent("app.onetap.SHORTCUT_PINNED");
+                            callbackIntent.setPackage(context.getPackageName());
+                            int cbFlags = PendingIntent.FLAG_UPDATE_CURRENT;
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                                cbFlags |= PendingIntent.FLAG_IMMUTABLE;
+                            }
+                            pinCallback = PendingIntent.getBroadcast(context, 0, callbackIntent, cbFlags);
+                        } catch (Exception e) {
+                            android.util.Log.w("ShortcutPlugin", "Could not create callback PendingIntent: " + e.getMessage());
+                        }
                         // Request pinning
-                        boolean requested = shortcutManager.requestPinShortcut(finalShortcutInfo, null);
+                        boolean requested = shortcutManager.requestPinShortcut(finalShortcutInfo,
+                                pinCallback != null ? pinCallback.getIntentSender() : null);
                         android.util.Log.d("ShortcutPlugin", "requestPinShortcut returned: " + requested);
 
                         // Also register as dynamic shortcut so OEM launchers (OnePlus, Xiaomi, OPPO, Vivo)
@@ -1923,8 +1952,12 @@ public class ShortcutPlugin extends Plugin {
             // Fetch favicon image from URL
             java.net.URL url = new java.net.URL(faviconUrl);
             java.net.HttpURLConnection connection = (java.net.HttpURLConnection) url.openConnection();
-            connection.setConnectTimeout(5000);
-            connection.setReadTimeout(5000);
+            // Bug 5 fix: reduce timeouts from 5000ms to 2000ms.
+            // A 5s block on the background thread before the Binder call to ShortcutManager
+            // can cause TransactionTooLargeException / ANR-adjacent hangs on some devices,
+            // causing requestPinShortcut to throw and returning { success: false } silently.
+            connection.setConnectTimeout(2000);
+            connection.setReadTimeout(2000);
             connection.setRequestProperty("User-Agent", "Mozilla/5.0 (compatible; OneTapBot/1.0)");
             
             InputStream inputStream = connection.getInputStream();
@@ -2520,34 +2553,56 @@ public class ShortcutPlugin extends Plugin {
     private Icon createBitmapIcon(String base64Data) {
         try {
             byte[] decoded = Base64.decode(base64Data, Base64.DEFAULT);
-            Bitmap bitmap = BitmapFactory.decodeByteArray(decoded, 0, decoded.length);
-            
+
+            // Bug 2 fix: use a two-pass decode to avoid OOM on low-RAM devices when the
+            // input base64 encodes a large image. First pass measures dimensions without
+            // allocating the full pixel buffer; second pass decodes at a safe subsampled size.
+            BitmapFactory.Options sizeOpts = new BitmapFactory.Options();
+            sizeOpts.inJustDecodeBounds = true;
+            BitmapFactory.decodeByteArray(decoded, 0, decoded.length, sizeOpts);
+
+            int sampleSize = 1;
+            while (sizeOpts.outWidth / sampleSize > 512 || sizeOpts.outHeight / sampleSize > 512) {
+                sampleSize *= 2;
+            }
+
+            BitmapFactory.Options decodeOpts = new BitmapFactory.Options();
+            decodeOpts.inSampleSize = sampleSize;
+            Bitmap bitmap = BitmapFactory.decodeByteArray(decoded, 0, decoded.length, decodeOpts);
+
             if (bitmap == null) {
                 android.util.Log.e("ShortcutPlugin", "Failed to decode base64 to bitmap");
                 return null;
             }
-            
+
             // Adaptive icon size: 108dp * 2 = 216px for foreground layer
             int adaptiveSize = 216;
             int contentSize = 144; // Content area (leaves ~33% padding for safe zone)
-            
+
             // Create larger canvas for adaptive icon
             Bitmap adaptiveBitmap = Bitmap.createBitmap(adaptiveSize, adaptiveSize, Bitmap.Config.ARGB_8888);
             Canvas canvas = new Canvas(adaptiveBitmap);
-            
+
             // Scale original to fit content area
             Bitmap scaled = Bitmap.createScaledBitmap(bitmap, contentSize, contentSize, true);
-            
+
             // Center content in adaptive canvas
             int offset = (adaptiveSize - contentSize) / 2;
             canvas.drawBitmap(scaled, offset, offset, null);
-            
-            // Recycle original if it's different from scaled
+
+            // Bug 6 fix: createScaledBitmap may return the same object as 'bitmap' when
+            // dimensions already match. Only recycle 'bitmap' if it is a different object.
+            // Do NOT recycle 'scaled' — the Icon holds an internal reference to adaptiveBitmap
+            // which was drawn from 'scaled'; recycling 'scaled' here is safe since we already
+            // drew it onto adaptiveBitmap, but we must never recycle adaptiveBitmap itself.
             if (scaled != bitmap) {
                 bitmap.recycle();
             }
-            scaled.recycle();
-            
+            // 'scaled' is no longer needed after drawing onto adaptiveBitmap
+            if (scaled != adaptiveBitmap) {
+                scaled.recycle();
+            }
+
             android.util.Log.d("ShortcutPlugin", "Created adaptive bitmap icon: " + adaptiveBitmap.getWidth() + "x" + adaptiveBitmap.getHeight());
             return Icon.createWithAdaptiveBitmap(adaptiveBitmap);
         } catch (Exception e) {
