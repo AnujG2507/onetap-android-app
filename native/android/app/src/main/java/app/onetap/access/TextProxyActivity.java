@@ -2,6 +2,8 @@ package app.onetap.access;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -27,6 +29,7 @@ import android.webkit.WebViewClient;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 /**
  * TextProxyActivity
@@ -198,6 +201,23 @@ public class TextProxyActivity extends Activity {
         editBtn.setOnClickListener(v -> openEditInApp());
         headerRow.addView(editBtn);
 
+        // Copy button — muted text, ripple touch target
+        TextView copyBtn = new TextView(this);
+        copyBtn.setText("Copy");
+        copyBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        copyBtn.setTextColor(colorTextMuted);
+        copyBtn.setGravity(Gravity.CENTER);
+        copyBtn.setPadding(btnPad, btnPad, btnPad, btnPad);
+        GradientDrawable copyContent = new GradientDrawable();
+        copyContent.setColor(android.graphics.Color.TRANSPARENT);
+        copyContent.setCornerRadius(dpToPx(8));
+        android.content.res.ColorStateList copyRipple = android.content.res.ColorStateList.valueOf(colorRipple);
+        copyBtn.setBackground(new android.graphics.drawable.RippleDrawable(copyRipple, copyContent, copyContent));
+        copyBtn.setClickable(true);
+        copyBtn.setFocusable(true);
+        copyBtn.setOnClickListener(v -> copyText());
+        headerRow.addView(copyBtn);
+
         // Share button — muted text, ripple touch target
         TextView shareBtn = new TextView(this);
         shareBtn.setText("Share");
@@ -354,6 +374,19 @@ public class TextProxyActivity extends Activity {
         shareIntent.putExtra(Intent.EXTRA_SUBJECT, shortcutName);
         startActivity(Intent.createChooser(shareIntent, null));
         dismissDialog();
+    }
+
+    /**
+     * Copies the raw text content to the system clipboard and shows a Toast confirmation.
+     * Does NOT dismiss the dialog so the user can continue reading after copying.
+     */
+    private void copyText() {
+        ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+        if (clipboard != null) {
+            ClipData clip = ClipData.newPlainText(shortcutName, textContent);
+            clipboard.setPrimaryClip(clip);
+        }
+        Toast.makeText(this, "Copied to clipboard", Toast.LENGTH_SHORT).show();
     }
 
     private void dismissDialog() {
