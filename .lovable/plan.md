@@ -1,161 +1,157 @@
 
-# Fix: Native Checklist Viewer — Checkboxes Still Non-Interactive + Height Too Small
+# Fix: Native Checklist Viewer — Checkboxes & Height (Final Thorough Fix)
 
-## Root Cause Deep-Dive (After Full Code Review)
+## Exact Bugs Found (After Full Code Read)
 
-After reading the complete `TextProxyActivity.java` the previous fix removed the outer `ScrollView` (correct), but three new/remaining bugs keep the checkboxes broken and the dialog too small.
+### Bug 1 — Double-Toggle from Conflicting Click Handlers (Checkboxes Appear Unresponsive)
 
----
-
-### Bug A — `WRAP_CONTENT` WebView Collapses to Minimum Height; Dialog Never Resizes
-
-Setting `WebView` to `WRAP_CONTENT` inside a `LinearLayout` inside an `AlertDialog` is a known Android platform limitation: the WebView measures to 0px or the minimum height before content loads. The dialog window is already committed to a specific height by the time `onPageFinished` fires.
-
-When `setLayoutParams` is later called from `onPageFinished`, it changes the WebView's layout params, but **the dialog window does not re-measure** unless `dialog.getWindow().setLayout(...)` is explicitly called again. This is why the WebView appears stuck at the `setMinimumHeight(120dp)` fallback.
-
-**Fix:** Give the WebView a proper starting height of `(int)(dm.heightPixels * 0.72f)` (72% of screen) so the dialog lays out correctly on first pass. After `onPageFinished`, shrink it to content size if content is shorter. Also call `dialog.getWindow().setLayout(MATCH_PARENT, WRAP_CONTENT)` in the `onShowListener` so the dialog window respects the inner layout's actual measured height.
-
----
-
-### Bug B — `onchange` on `<input type="checkbox">` Is Unreliable Inside an AlertDialog WebView
-
-In a WebView hosted inside an `AlertDialog` (which is not a full `Activity` window), `input[type=checkbox]` `onchange` events frequently fail to fire on Android Chrome WebView versions 85–120. The reason: the WebView receives the touch `DOWN`, passes it to the checkbox, but the `AlertDialog`'s window touch interceptor re-evaluates whether to dismiss the dialog on `UP`, causing some WebView versions to see a cancelled touch sequence — the checkbox value changes visually but `onchange` never fires.
-
-The reliable fix (used by all major Android WebView checklist implementations) is:
-- **Remove `onchange` from the `<input>` element entirely**
-- **Handle the tap on the `.ci` container div using `onclick`**
-- **Manually toggle `cb.checked` in JS** and call the save bridge from the click handler
-
-This avoids the browser's native checkbox change detection entirely and relies only on a JS click event on the parent container, which is far more reliable inside embedded WebViews.
-
----
-
-### Bug C — Dialog Window Does Not Expand to Fill Measured Content
-
-The `AlertDialog` with `MessageChooserDialog` style has `windowIsFloating=true`. For a floating dialog, Android sizes the window once at `show()` time. Any `setLayoutParams` changes on child views after that point won't propagate unless the window itself is told to re-measure with `window.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)`.
-
----
-
-## Changes Required — Single File
-
-### `native/android/app/src/main/java/app/onetap/access/TextProxyActivity.java`
-
-**Fix 1 — Give WebView a real starting height; add window re-layout after resize**
-
-Replace:
-```java
-LinearLayout.LayoutParams webParams = new LinearLayout.LayoutParams(
-    LinearLayout.LayoutParams.MATCH_PARENT,
-    LinearLayout.LayoutParams.WRAP_CONTENT
-);
-webView.setMinimumHeight(dpToPx(120));
-```
-
-With:
-```java
-// Start at 72% screen height — dialog lays out properly on first pass.
-// onPageFinished will shrink this to exact content height if content is shorter.
-int initialWebHeight = (int)(dm.heightPixels * 0.72f);
-LinearLayout.LayoutParams webParams = new LinearLayout.LayoutParams(
-    LinearLayout.LayoutParams.MATCH_PARENT,
-    initialWebHeight
-);
-```
-
-And update `onPageFinished` to call `window.setLayout` after resizing:
-```java
-runOnUiThread(() -> {
-    ViewGroup.LayoutParams lp = webView.getLayoutParams();
-    lp.height = finalHeight;
-    webView.setLayoutParams(lp);
-    // Force dialog window to re-measure after inner height change
-    if (dialog != null && dialog.getWindow() != null) {
-        dialog.getWindow().setLayout(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT
-        );
-    }
-});
-```
-
-Also apply the same `window.setLayout` call in the `onShowListener` so the initial dialog window doesn't get clamped:
-```java
-dialog.setOnShowListener(d -> {
-    if (dialog.getWindow() != null) {
-        // Rounded card background
-        GradientDrawable bg = ...;
-        dialog.getWindow().setBackgroundDrawable(bg);
-        // Allow dialog to grow/shrink to its measured content height
-        dialog.getWindow().setLayout(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT
-        );
-    }
-});
-```
-
-**Fix 2 — Replace `onchange` with reliable `onclick` on container div**
-
-In `buildHtml`, the checklist renderer currently generates:
+In the current HTML generated by `buildHtml`, the checkbox input has:
 ```html
-<input type="checkbox" id="cb0" checked onchange="onCheck(0,this.checked)">
-<label for="cb0">Item text</label>
+<input type="checkbox" ... onclick="event.stopPropagation()">
 ```
-
-Replace with a pattern that removes `onchange` from the input and instead handles taps on the `.ci` div:
-```js
-// OLD — unreliable inside AlertDialog WebView
-html += '<input type="checkbox" id="cb'+i+'"'+(checked?' checked':'')+' onchange="onCheck('+i+',this.checked)">';
-
-// NEW — reliable: onclick on container, manual toggle
-html += '<input type="checkbox" id="cb'+i+'"'+(checked?' checked':'')+' onclick="event.stopPropagation()">';
-// Container div has onclick that manually toggles state:
-```
-
-And change the container div from:
+And the parent `.ci` div has:
 ```html
-<div class="ci done" id="ci0">
-```
-To one that has a click handler on the div itself:
-```js
-html += '<div class="ci'+(checked?' done':'\')+'" id="ci'+i+'" onclick="onCheck('+i+')">';
+<div class="ci" id="ci0" onclick="onCheck(0)">
 ```
 
-And update `onCheck` to toggle rather than accept a boolean:
+When the user taps anywhere on the row:
+1. The `.ci` div's `onclick` fires → `onCheck(i)` → `cb.checked = !cb.checked` (now `true`)
+2. The native `<input>` also receives the same tap and fires its own click → `event.stopPropagation()` → but the browser already toggled `cb.checked` back to `false` **natively before JS ran**
+
+Net result: the checkbox visually flickers but ends at the same state. This is why checkboxes appear completely unresponsive.
+
+**Fix:** Set `pointer-events: none` directly in CSS on the input (already partially done in CSS but `onclick` still fires), AND remove `onclick="event.stopPropagation()"` from the input entirely. The input must be a pure visual element with zero JS and zero pointer events. Only the div's `onclick` must run.
+
+Additionally, wrap `onCheck` with a debounce flag to prevent any race between touch events:
 ```js
+var _checking = false;
 function onCheck(i) {
-  var cb = document.getElementById('cb'+i);
-  var item = document.getElementById('ci'+i);
-  if(!cb || !item) return;
-  cb.checked = !cb.checked;
-  var checked = cb.checked;
-  var key = 'chk_<sid>_'+i;
-  savedState[key] = checked;
-  item.className = 'ci' + (checked ? ' done' : '');
-  if(window.Android && Android.saveCheckboxState) Android.saveCheckboxState(key, checked);
+  if (_checking) return;
+  _checking = true;
+  // ... toggle logic ...
+  setTimeout(function(){ _checking = false; }, 300);
 }
 ```
 
-This removes all dependency on the native browser `onchange` event and handles everything through a JS `onclick` on the parent container, which is fully reliable in embedded Android WebViews.
+### Bug 2 — `document.body.scrollHeight` Returns Container Height, Not Content Height
 
-**Fix 3 — CSS: make `.ci` touch target larger and remove pointer-events interference**
+When the WebView is initialized with `height = 72% of screen`, `document.body.scrollHeight` returns the **body's scroll height which equals the WebView viewport height** (not the actual content height), because the `body` expands to fill the container. The `#content` div's actual rendered height is what we need.
 
-The current CSS sets `cursor:pointer` which is fine on desktop but on Android touch, the small 22px checkbox is the only real interactive target if `onchange` is used. With the new `onclick` on the div container, the entire row is tappable. Add `min-height:44px` and `align-items:center` to ensure the touch target meets Android's 48dp recommendation:
-```css
-.ci { display:flex; align-items:center; gap:12px; margin:6px 0; min-height:44px; padding:4px 0; }
-.ci input[type=checkbox] { pointer-events:none; width:22px; height:22px; margin:0; accent-color:#0080FF; flex-shrink:0; }
+**Fix:** Measure the `#content` div's `offsetHeight` instead:
+```js
+"(function(){ return document.getElementById('content').offsetHeight; })()"
 ```
+This returns the true rendered height of the content div regardless of the WebView container size.
 
-Setting `pointer-events:none` on the checkbox itself (since the div now handles clicks) prevents any double-toggle issues.
+### Bug 3 — Dialog Height Cap at 72% for Both Initial and Final Heights
+
+The initial height of `72% * dm.heightPixels` is given to the WebView so the dialog has a starting size. But `onPageFinished` then measures "content height" and caps it at `72%` again — so if content is taller than 72%, it stays at 72% with no internal scroll. If content is shorter, it *should* shrink, but Bug 2 above means it never detects the true content height.
+
+The correct flow must be:
+1. Start WebView at `75%` of screen (max allowed per the user's requirement)
+2. After `onPageFinished`, measure `#content div's offsetHeight`
+3. Set final WebView height = `min(contentHeight + padding, 75% of screen)`
+4. Call `dialog.getWindow().setLayout(MATCH_PARENT, WRAP_CONTENT)` to force re-measure
+
+### Bug 4 — `MessageChooserDialog` Style Has No `windowMaxHeight` Override
+
+The parent `Theme.Material.Light.Dialog` internally constrains dialog height. While `setLayout(MATCH_PARENT, WRAP_CONTENT)` is called, the style's implicit `windowMaxHeight` (typically 80% or less of screen) can still clamp the content. We need to set `android:windowMaxHeight` explicitly in the style, or better: switch the dialog to `MATCH_PARENT` height and use the WebView's measured height as the scroll container height.
+
+**Best fix for height:** Instead of relying on `WRAP_CONTENT` window layout (which fights with the theme), give the dialog a **fixed height of 75% of screen** using `setLayout(MATCH_PARENT, fixedHeight)` where `fixedHeight = 75% of dm.heightPixels`. Then inside, the WebView scrolls internally. This is reliable and predictable.
 
 ---
 
-## Summary Table
+## Solution
 
-| # | Bug | Fix |
-|---|---|---|
-| A | `WRAP_CONTENT` WebView collapses; dialog not resized after `setLayoutParams` | Start at 72% height; call `window.setLayout(MATCH_PARENT, WRAP_CONTENT)` in both `onShowListener` and after `onPageFinished` resize |
-| B | `onchange` on `<input type=checkbox>` unreliable inside `AlertDialog` WebView | Move handler to `onclick` on parent `.ci` div; manually toggle `cb.checked` in JS; set `pointer-events:none` on input |
-| C | Dialog window clamps content height | Call `dialog.getWindow().setLayout(MATCH_PARENT, WRAP_CONTENT)` explicitly |
+### File: `native/android/app/src/main/java/app/onetap/access/TextProxyActivity.java`
+
+**Change 1 — Fix WebView initial height and onPageFinished logic:**
+
+- Set initial height to `75%` of screen height (matching user requirement)
+- In `onPageFinished`, query `#content` div's `offsetHeight` (not `body.scrollHeight`)
+- Apply final height = `min(contentHeight + topPadding + bottomPadding, 75% screen)`
+- Set `dialog.getWindow().setLayout(MATCH_PARENT, fixedDialogHeight)` where `fixedDialogHeight` is the pre-calculated 75% of screen minus header/footer heights
+
+**Change 2 — Fix the checkbox double-toggle:**
+
+Remove `onclick="event.stopPropagation()"` from the `<input>` element. The input already has `pointer-events:none` in CSS — that's the correct way to block input interaction. The `onclick` attribute on the input creates a second event handler that fights with the div's handler.
+
+Updated input HTML (no onclick attribute at all):
+```java
+html += '<input type="checkbox" id="cb'+i+'"'+(checked?' checked':'')+'>'; 
+// No onclick — pointer-events:none in CSS already blocks all input interaction
+```
+
+**Change 3 — Add debounce guard to `onCheck`:**
+
+```js
+var _busy = false;
+function onCheck(i) {
+  if(_busy) return;
+  _busy = true;
+  var cb = document.getElementById('cb'+i);
+  var item = document.getElementById('ci'+i);
+  if(!cb || !item){ _busy=false; return; }
+  cb.checked = !cb.checked;
+  var checked = cb.checked;
+  var key = 'chk_<sid>_' + i;
+  savedState[key] = checked;
+  item.className = 'ci' + (checked ? ' done' : '');
+  if(window.Android && Android.saveCheckboxState) Android.saveCheckboxState(key, checked);
+  setTimeout(function(){ _busy = false; }, 250);
+}
+```
+
+**Change 4 — Fix height measurement to use `#content` offsetHeight:**
+
+```java
+view.evaluateJavascript(
+    "(function(){ var el=document.getElementById('content'); return el ? el.offsetHeight : document.body.scrollHeight; })()",
+    value -> {
+        try {
+            int contentPx = Integer.parseInt(value.trim());
+            int maxPx = (int)(dm.heightPixels * 0.75f);
+            // Add body padding (16px top + 24px bottom = 40px = ~40dp)
+            int finalHeight = Math.min(contentPx + dpToPx(40), maxPx);
+            runOnUiThread(() -> {
+                ViewGroup.LayoutParams lp = webView.getLayoutParams();
+                lp.height = finalHeight;
+                webView.setLayoutParams(lp);
+                if (dialog != null && dialog.getWindow() != null) {
+                    dialog.getWindow().setLayout(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                    );
+                }
+            });
+        } catch (Exception e) {
+            Log.w(TAG, "scrollHeight parse failed: " + value);
+        }
+    }
+);
+```
+
+**Change 5 — Fix the `onContentHeight` bridge fallback too** (same `#content` measurement issue):
+
+Update the `window.addEventListener('load', ...)` in the HTML to use `#content` offsetHeight:
+```js
+window.addEventListener('load', function(){
+  if(window.Android && Android.onContentHeight){
+    var el = document.getElementById('content');
+    Android.onContentHeight(el ? el.offsetHeight : document.body.scrollHeight);
+  }
+});
+```
+
+---
+
+## Summary of All Changes
+
+| # | Bug | Root Cause | Fix |
+|---|---|---|---|
+| 1 | Checkboxes don't toggle | `onclick="event.stopPropagation()"` on input double-fires, cancelling toggle | Remove `onclick` from input; rely on CSS `pointer-events:none` only |
+| 2 | Only 2 of 4 items visible | `body.scrollHeight` = container height not content height | Measure `#content div.offsetHeight` instead |
+| 3 | Dialog height too small | 72% initial height not adjusting down + wrong measurement | Use `#content.offsetHeight`, cap at 75%, add body padding to measurement |
+| 4 | Height never shrinks for short content | Same measurement bug | Fixed by using `offsetHeight` of content div |
 
 **File changed:** `native/android/app/src/main/java/app/onetap/access/TextProxyActivity.java` only.
