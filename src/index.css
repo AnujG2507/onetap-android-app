@@ -47,6 +47,8 @@ All colors MUST be HSL.
        native Java code overrides these with OS-reported values when ready */
     --android-safe-top: env(safe-area-inset-top, 0px);
     --android-safe-bottom: env(safe-area-inset-bottom, 0px);
+    --android-safe-left: env(safe-area-inset-left, 0px);
+    --android-safe-right: env(safe-area-inset-right, 0px);
 
     /* Surface elevation levels (Material Design) */
     --surface-0: 0 0% 100%;
@@ -162,6 +164,18 @@ All colors MUST be HSL.
   /* Safe area for Android status bar */
   .safe-top {
     padding-top: var(--android-safe-top, 0px);
+  }
+
+  /* Safe area for horizontal navigation bar (landscape mode) */
+  .safe-left {
+    padding-inline-start: var(--android-safe-left, 0px);
+  }
+  .safe-right {
+    padding-inline-end: var(--android-safe-right, 0px);
+  }
+  .safe-x {
+    padding-inline-start: var(--android-safe-left, 0px);
+    padding-inline-end: var(--android-safe-right, 0px);
   }
 
   /* Safe area for action buttons — includes safe bottom + visual margin */

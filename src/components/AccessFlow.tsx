@@ -568,7 +568,7 @@ export function AccessFlow({
   return (
     <>
       {step === 'source' && (
-        <div className="flex-1 flex flex-col min-h-0">
+        <div className="flex-1 flex flex-col min-h-0 safe-x">
           {/* Offline indicator banner */}
           {!isOnline && (
             <div className="bg-muted/80 border-b border-border ps-5 pe-5 py-2 flex items-center gap-2 shrink-0">

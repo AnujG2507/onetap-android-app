@@ -23,6 +23,8 @@ public class MainActivity extends BridgeActivity {
     // Last known inset values (in dp) for re-injection on resume
     private float lastSafeTop = 0f;
     private float lastSafeBottom = 0f;
+    private float lastSafeLeft = 0f;
+    private float lastSafeRight = 0f;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -202,9 +204,13 @@ public class MainActivity extends BridgeActivity {
 
             ViewCompat.setOnApplyWindowInsetsListener(webView, (view, insets) -> {
                 int navBottom = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom;
+                int navLeft = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).left;
+                int navRight = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).right;
                 int statusTop = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top;
 
                 lastSafeBottom = navBottom / density;
+                lastSafeLeft = navLeft / density;
+                lastSafeRight = navRight / density;
                 lastSafeTop = statusTop / density;
 
                 injectInsetsIntoWebView(webView);
@@ -220,10 +226,14 @@ public class MainActivity extends BridgeActivity {
         String js = "document.documentElement.style.setProperty('--android-safe-bottom', '"
             + lastSafeBottom + "px');"
             + "document.documentElement.style.setProperty('--android-safe-top', '"
-            + lastSafeTop + "px');";
+            + lastSafeTop + "px');"
+            + "document.documentElement.style.setProperty('--android-safe-left', '"
+            + lastSafeLeft + "px');"
+            + "document.documentElement.style.setProperty('--android-safe-right', '"
+            + lastSafeRight + "px');";
 
         webView.evaluateJavascript(js, null);
-        Log.d(TAG, "Insets injected -- bottom: " + lastSafeBottom + "px, top: " + lastSafeTop + "px");
+        Log.d(TAG, "Insets injected -- bottom: " + lastSafeBottom + "px, top: " + lastSafeTop + "px, left: " + lastSafeLeft + "px, right: " + lastSafeRight + "px");
     }
     
     private void logIntent(Intent intent) {
