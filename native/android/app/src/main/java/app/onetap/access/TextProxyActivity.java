@@ -2,9 +2,16 @@ package app.onetap.access;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.Context;
 import android.content.SharedPreferences;
+import android.content.res.ColorStateList;
+import android.content.res.Configuration;
 import android.graphics.Color;
+import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.RippleDrawable;
+import android.graphics.drawable.ShapeDrawable;
+import android.graphics.drawable.shapes.RoundRectShape;
 import android.os.Bundle;
 import android.util.DisplayMetrics;
 import android.util.Log;
@@ -12,26 +19,24 @@ import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.Window;
-import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-import android.widget.FrameLayout;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 
 /**
  * TextProxyActivity
  *
- * Premium bottom-sheet dialog that renders markdown or checklist text shortcuts.
- * Opens via ShortcutPlugin.openTextShortcut() — slides up from bottom as a floating
- * AlertDialog over the dimmed home screen, matching the WhatsApp chooser aesthetic.
+ * Premium centered floating dialog that renders markdown or checklist text shortcuts.
+ * Matches the WhatsApp chooser aesthetic — centered card over dimmed home screen,
+ * indigo accent bar, theme-aware colors synced from app settings.
  *
  * Intent extras:
  *   shortcut_id   - string, used for usage tracking + checklist state key
- *   shortcut_name - string, displayed in the top navigation bar
+ *   shortcut_name - string, displayed as the dialog title
  *   text_content  - string, raw markdown or checklist text
  *   is_checklist  - boolean, whether to render as interactive checklist
  */
@@ -39,7 +44,20 @@ public class TextProxyActivity extends Activity {
 
     private static final String TAG = "TextProxyActivity";
     private static final String PREFS_CHECKLIST = "checklist_state";
-    private static final String PREFS_SETTINGS = "app_settings";
+
+    // App accent — indigo, matches the app's primary color
+    private static final int COLOR_ACCENT = Color.parseColor("#6366f1");
+
+    // Theme-aware colors (set in initializeThemeColors based on resolvedTheme)
+    private int colorBg;
+    private int colorSurface;
+    private int colorBorder;
+    private int colorText;
+    private int colorTextMuted;
+    private int colorDivider;
+    private int colorCodeBg;
+    private int colorRipple;
+    private boolean isDarkTheme;
 
     private WebView webView;
     private AlertDialog dialog;
@@ -49,8 +67,8 @@ public class TextProxyActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Transparent activity window — the dialog provides all the UI
-        setContentView(new View(this));
+        // Initialize theme-aware colors (mirrors WhatsAppProxyActivity.initializeThemeColors)
+        initializeThemeColors();
 
         shortcutId = getIntent().getStringExtra("shortcut_id");
         String shortcutName = getIntent().getStringExtra("shortcut_name");
@@ -65,110 +83,120 @@ public class TextProxyActivity extends Activity {
             NativeUsageTracker.recordTap(this, shortcutId);
         }
 
-        boolean isDark = isDarkTheme();
-        showBottomSheet(shortcutName, textContent, isChecklist, isDark);
+        showPremiumDialog(shortcutName, textContent, isChecklist);
     }
 
-    private void showBottomSheet(String shortcutName, String textContent, boolean isChecklist, boolean isDark) {
-        // ── Colors ──────────────────────────────────────────────────────────
-        int bgColor      = isDark ? Color.parseColor("#1C1C1E") : Color.WHITE;
-        int textColor    = isDark ? Color.parseColor("#E0E0E0") : Color.parseColor("#1A1A1A");
-        int mutedColor   = isDark ? Color.parseColor("#555555") : Color.parseColor("#CCCCCC");
-        int dividerColor = isDark ? Color.parseColor("#2C2C2E") : Color.parseColor("#E8E8E8");
-        int pillColor    = isDark ? Color.parseColor("#3A3A3C") : Color.parseColor("#DEDEDE");
-        int accentColor  = Color.parseColor("#6366f1");
+    /**
+     * Initialize colors based on app theme setting.
+     * Reads "resolvedTheme" (camelCase) — same key ShortcutPlugin.syncTheme writes.
+     * Falls back to system night mode if no preference is stored.
+     */
+    private void initializeThemeColors() {
+        SharedPreferences prefs = getSharedPreferences("app_settings", Context.MODE_PRIVATE);
+        String resolvedTheme = prefs.getString("resolvedTheme", null);
 
-        // ── Screen height cap ────────────────────────────────────────────────
+        if (resolvedTheme == null) {
+            // System fallback
+            int nightModeFlags = getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
+            isDarkTheme = (nightModeFlags == Configuration.UI_MODE_NIGHT_YES);
+        } else {
+            isDarkTheme = "dark".equals(resolvedTheme);
+        }
+
+        Log.d(TAG, "Using theme: " + (isDarkTheme ? "dark" : "light"));
+
+        if (isDarkTheme) {
+            colorBg       = Color.parseColor("#1A1A1A");
+            colorSurface  = Color.parseColor("#252525");
+            colorBorder   = Color.parseColor("#3A3A3A");
+            colorText     = Color.parseColor("#F5F5F5");
+            colorTextMuted= Color.parseColor("#9CA3AF");
+            colorDivider  = Color.parseColor("#3A3A3A");
+            colorCodeBg   = Color.parseColor("#2C2C2E");
+            colorRipple   = Color.parseColor("#30FFFFFF");
+        } else {
+            colorBg       = Color.parseColor("#FFFFFF");
+            colorSurface  = Color.parseColor("#FAFAFA");
+            colorBorder   = Color.parseColor("#E5E5E5");
+            colorText     = Color.parseColor("#1A1A1A");
+            colorTextMuted= Color.parseColor("#6B7280");
+            colorDivider  = Color.parseColor("#E0E0E0");
+            colorCodeBg   = Color.parseColor("#F4F4F4");
+            colorRipple   = Color.parseColor("#20000000");
+        }
+    }
+
+    private void showPremiumDialog(String shortcutName, String textContent, boolean isChecklist) {
+        // ── Screen height cap for WebView ─────────────────────────────────────
         DisplayMetrics dm = new DisplayMetrics();
         getWindowManager().getDefaultDisplay().getMetrics(dm);
-        int maxWebViewHeight = (int) (dm.heightPixels * 0.65f);
+        int maxWebViewHeight = (int) (dm.heightPixels * 0.60f);
 
-        // ── Rounded top-corner background drawable ──────────────────────────
-        float r = dp(20);
-        GradientDrawable sheetBg = new GradientDrawable();
-        sheetBg.setColor(bgColor);
-        sheetBg.setCornerRadii(new float[]{r, r, r, r, 0, 0, 0, 0});
+        // ── Outer ScrollView ──────────────────────────────────────────────────
+        ScrollView scrollView = new ScrollView(this);
+        scrollView.setFillViewport(true);
+        scrollView.setBackgroundColor(colorBg);
 
-        // ── Root sheet container ─────────────────────────────────────────────
-        LinearLayout sheet = new LinearLayout(this);
-        sheet.setOrientation(LinearLayout.VERTICAL);
-        sheet.setBackground(sheetBg);
-        sheet.setLayoutParams(new ViewGroup.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT
-        ));
+        LinearLayout mainLayout = new LinearLayout(this);
+        mainLayout.setOrientation(LinearLayout.VERTICAL);
+        mainLayout.setBackgroundColor(colorBg);
 
-        // ── Drag handle pill ─────────────────────────────────────────────────
-        FrameLayout pillWrapper = new FrameLayout(this);
-        LinearLayout.LayoutParams pillWrapperParams = new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        );
-        pillWrapperParams.topMargin = dp(12);
-        pillWrapperParams.bottomMargin = dp(4);
-        pillWrapper.setLayoutParams(pillWrapperParams);
+        // ── Indigo accent bar at top (matching WhatsApp's green bar) ──────────
+        View accentBar = new View(this);
+        accentBar.setBackgroundColor(COLOR_ACCENT);
+        LinearLayout.LayoutParams accentParams = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, dpToPx(4));
+        accentBar.setLayoutParams(accentParams);
+        mainLayout.addView(accentBar);
 
-        View pill = new View(this);
-        GradientDrawable pillDrawable = new GradientDrawable();
-        pillDrawable.setColor(pillColor);
-        pillDrawable.setCornerRadius(dp(2));
-        pill.setBackground(pillDrawable);
-        FrameLayout.LayoutParams pillParams = new FrameLayout.LayoutParams(dp(40), dp(4));
-        pillParams.gravity = Gravity.CENTER_HORIZONTAL;
-        pill.setLayoutParams(pillParams);
-        pillWrapper.addView(pill);
-        sheet.addView(pillWrapper, pillWrapperParams);
+        // ── Content container with padding ────────────────────────────────────
+        LinearLayout contentLayout = new LinearLayout(this);
+        contentLayout.setOrientation(LinearLayout.VERTICAL);
+        int padding = dpToPx(20);
+        contentLayout.setPadding(padding, dpToPx(16), padding, 0);
 
-        // ── Title row ────────────────────────────────────────────────────────
-        LinearLayout titleRow = new LinearLayout(this);
-        titleRow.setOrientation(LinearLayout.HORIZONTAL);
-        titleRow.setGravity(Gravity.CENTER_VERTICAL);
-        titleRow.setPadding(dp(20), dp(14), dp(16), dp(14));
-        LinearLayout.LayoutParams titleRowParams = new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        );
-        titleRow.setLayoutParams(titleRowParams);
+        // ── Header: title (shortcut name) ────────────────────────────────────
+        TextView title = new TextView(this);
+        title.setText(shortcutName);
+        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20);
+        title.setTextColor(colorText);
+        title.setTypeface(null, Typeface.BOLD);
+        title.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        titleParams.bottomMargin = dpToPx(4);
+        title.setLayoutParams(titleParams);
+        contentLayout.addView(title);
 
-        // Shortcut name
-        TextView titleView = new TextView(this);
-        titleView.setText(shortcutName);
-        titleView.setTextColor(textColor);
-        titleView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17);
-        titleView.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
-        titleView.setSingleLine(true);
-        titleView.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        titleView.setLayoutParams(titleParams);
+        // ── Subtitle: type label ──────────────────────────────────────────────
+        TextView subtitle = new TextView(this);
+        subtitle.setText(isChecklist ? "Checklist" : "Note");
+        subtitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+        subtitle.setTextColor(colorTextMuted);
+        subtitle.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams subtitleParams = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        subtitleParams.bottomMargin = dpToPx(16);
+        subtitle.setLayoutParams(subtitleParams);
+        contentLayout.addView(subtitle);
 
-        // Close button
-        TextView closeBtn = new TextView(this);
-        closeBtn.setText("✕");
-        closeBtn.setTextColor(mutedColor);
-        closeBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20);
-        closeBtn.setPadding(dp(8), dp(4), dp(4), dp(4));
-        closeBtn.setOnClickListener(v -> dismissSheet());
-
-        titleRow.addView(titleView);
-        titleRow.addView(closeBtn);
-        sheet.addView(titleRow, titleRowParams);
-
-        // ── Divider ──────────────────────────────────────────────────────────
+        // ── Divider ───────────────────────────────────────────────────────────
         View divider = new View(this);
-        divider.setBackgroundColor(dividerColor);
+        divider.setBackgroundColor(colorDivider);
         LinearLayout.LayoutParams dividerParams = new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, dp(1)
-        );
-        sheet.addView(divider, dividerParams);
+            ViewGroup.LayoutParams.MATCH_PARENT, dpToPx(1));
+        dividerParams.bottomMargin = 0;
+        divider.setLayoutParams(dividerParams);
+        contentLayout.addView(divider);
 
-        // ── WebView (capped height) ───────────────────────────────────────────
+        // ── WebView (capped at 60% screen height) ─────────────────────────────
         webView = new WebView(this);
         LinearLayout.LayoutParams webParams = new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             maxWebViewHeight
         );
         webView.setLayoutParams(webParams);
-        webView.setBackgroundColor(bgColor);
+        webView.setBackgroundColor(colorBg);
 
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
@@ -176,37 +204,81 @@ public class TextProxyActivity extends Activity {
         webView.setWebViewClient(new WebViewClient());
         webView.addJavascriptInterface(new ChecklistBridge(), "Android");
 
-        String html = buildHtml(textContent, isChecklist, shortcutId, isDark);
+        String html = buildHtml(textContent, isChecklist, shortcutId);
         webView.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null);
-        sheet.addView(webView, webParams);
+        contentLayout.addView(webView, webParams);
 
-        // ── Build AlertDialog ────────────────────────────────────────────────
-        dialog = new AlertDialog.Builder(this, android.R.style.Theme_Material_Light_Dialog)
-            .setView(sheet)
-            .setOnCancelListener(d -> finish())
-            .create();
+        mainLayout.addView(contentLayout);
 
-        Window w = dialog.getWindow();
-        if (w != null) {
-            w.setBackgroundDrawableResource(android.R.color.transparent);
-            w.setGravity(Gravity.BOTTOM);
-            w.getAttributes().windowAnimations = getTextSheetAnimStyle();
-            w.setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.WRAP_CONTENT);
-            w.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
-            WindowManager.LayoutParams lp = w.getAttributes();
-            lp.dimAmount = 0.55f;
-            w.setAttributes(lp);
-        }
+        // ── Done button (matching WhatsApp's Cancel button pattern) ──────────
+        addDoneButton(mainLayout);
+
+        scrollView.addView(mainLayout);
+
+        // ── Build AlertDialog using the shared MessageChooserDialog style ─────
+        AlertDialog.Builder builder = new AlertDialog.Builder(this, R.style.MessageChooserDialog);
+        builder.setView(scrollView);
+        builder.setOnCancelListener(d -> finish());
+        builder.setOnDismissListener(d -> {
+            if (!isFinishing()) {
+                finish();
+            }
+        });
+
+        dialog = builder.create();
+
+        // Override background to respect dark/light colorBg and colorBorder
+        dialog.setOnShowListener(d -> {
+            if (dialog.getWindow() != null) {
+                GradientDrawable bg = new GradientDrawable();
+                bg.setColor(colorBg);
+                bg.setCornerRadius(dpToPx(20));
+                bg.setStroke(dpToPx(1), colorBorder);
+                dialog.getWindow().setBackgroundDrawable(bg);
+            }
+        });
 
         dialog.show();
     }
 
-    /** Returns the resource ID of the TextSheetAnimation style for window animations. */
-    private int getTextSheetAnimStyle() {
-        return getResources().getIdentifier("TextSheetAnimation", "style", getPackageName());
+    /**
+     * Adds a "Done" close button at the bottom of the dialog,
+     * matching WhatsApp's addCancelButton() pattern.
+     */
+    private void addDoneButton(LinearLayout parent) {
+        // Divider above button
+        View divider = new View(this);
+        divider.setBackgroundColor(colorDivider);
+        LinearLayout.LayoutParams dividerParams = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, dpToPx(1));
+        parent.addView(divider, dividerParams);
+
+        TextView doneBtn = new TextView(this);
+        doneBtn.setText("Done");
+        doneBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        doneBtn.setTextColor(colorTextMuted);
+        doneBtn.setGravity(Gravity.CENTER);
+        doneBtn.setPadding(dpToPx(20), dpToPx(16), dpToPx(20), dpToPx(16));
+
+        // Ripple background
+        float[] radii = new float[]{0, 0, 0, 0, dpToPx(20), dpToPx(20), dpToPx(20), dpToPx(20)};
+        ShapeDrawable mask = new ShapeDrawable(new RoundRectShape(radii, null, null));
+        mask.getPaint().setColor(Color.WHITE);
+        GradientDrawable content = new GradientDrawable();
+        content.setColor(colorBg);
+        RippleDrawable ripple = new RippleDrawable(
+            ColorStateList.valueOf(colorRipple), content, mask);
+        doneBtn.setBackground(ripple);
+        doneBtn.setClickable(true);
+        doneBtn.setFocusable(true);
+        doneBtn.setOnClickListener(v -> dismissDialog());
+
+        LinearLayout.LayoutParams btnParams = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        parent.addView(doneBtn, btnParams);
     }
 
-    private void dismissSheet() {
+    private void dismissDialog() {
         if (dialog != null && dialog.isShowing()) {
             dialog.dismiss();
         }
@@ -218,7 +290,7 @@ public class TextProxyActivity extends Activity {
         if (webView != null && webView.canGoBack()) {
             webView.goBack();
         } else {
-            dismissSheet();
+            dismissDialog();
         }
     }
 
@@ -230,32 +302,30 @@ public class TextProxyActivity extends Activity {
         super.onDestroy();
     }
 
-    /** Returns true if the app is currently using dark theme. */
-    private boolean isDarkTheme() {
-        SharedPreferences prefs = getSharedPreferences(PREFS_SETTINGS, MODE_PRIVATE);
-        String resolvedTheme = prefs.getString("resolved_theme", "light");
-        return "dark".equals(resolvedTheme);
-    }
-
-    private int dp(int value) {
+    private int dpToPx(int value) {
         return Math.round(TypedValue.applyDimension(
             TypedValue.COMPLEX_UNIT_DIP, value,
             getResources().getDisplayMetrics()
         ));
     }
 
-    private String buildHtml(String text, boolean isChecklist, String sid, boolean isDark) {
+    /**
+     * Builds the self-contained HTML for markdown or checklist rendering.
+     * Uses instance color fields so dark/light mode is correctly reflected in the WebView.
+     */
+    private String buildHtml(String text, boolean isChecklist, String sid) {
         // Escape text for JS template-literal embedding
         String escaped = text
                 .replace("\\", "\\\\")
                 .replace("`", "\\`")
                 .replace("$", "\\$");
 
-        String bg       = isDark ? "#1C1C1E" : "#FFFFFF";
-        String fg       = isDark ? "#E0E0E0" : "#1A1A1A";
-        String codeBg   = isDark ? "#2C2C2E" : "#F4F4F4";
-        String accent   = "#6366f1";
-        String hrColor  = isDark ? "#2C2C2E" : "#E8E8E8";
+        // Convert int colors to hex strings for CSS
+        String bg      = colorToHex(colorBg);
+        String fg      = colorToHex(colorText);
+        String codeBg  = colorToHex(colorCodeBg);
+        String hrColor = colorToHex(colorDivider);
+        String accent  = "#6366f1";
 
         // Inline, self-contained markdown renderer — no CDN dependency.
         String inlineMarkdown = ""
@@ -356,6 +426,11 @@ public class TextProxyActivity extends Activity {
             + renderCall
             + "</script>"
             + "</body></html>";
+    }
+
+    /** Converts an int color to a CSS hex string (e.g. #1A1A1A) */
+    private String colorToHex(int color) {
+        return String.format("#%06X", (0xFFFFFF & color));
     }
 
     /** JS interface for checklist state persistence (SharedPreferences backup) */
