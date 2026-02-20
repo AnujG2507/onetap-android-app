@@ -220,7 +220,7 @@ public class NotificationClickActivity extends Activity {
                 case "text":
                     String textContent = data.optString("text", "");
                     boolean isChecklist = data.optBoolean("isChecklist", false);
-                    String actionId2 = intent.getStringExtra(EXTRA_ACTION_ID);
+                    String actionId2 = getIntent().getStringExtra(EXTRA_ACTION_ID);
                     Intent textIntent = new Intent(this, TextProxyActivity.class);
                     textIntent.putExtra("shortcut_id", actionId2 != null ? actionId2 : "reminder");
                     textIntent.putExtra("text_content", textContent);

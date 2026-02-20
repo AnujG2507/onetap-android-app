@@ -40,7 +40,7 @@ public class TextProxyActivity extends Activity {
 
         // Track usage
         if (shortcutId != null) {
-            NativeUsageTracker.recordTap(this, shortcutId, System.currentTimeMillis());
+            NativeUsageTracker.recordTap(this, shortcutId);
         }
 
         webView = new WebView(this);
