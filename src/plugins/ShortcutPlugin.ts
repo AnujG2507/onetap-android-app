@@ -258,6 +258,15 @@ export interface ShortcutPluginInterface {
     error?: string;
   }>;
 
+  // Open a text shortcut natively via TextProxyActivity (slides up from bottom).
+  // Bypasses the Capacitor WebView entirely — instant, lightweight.
+  openTextShortcut(options: {
+    shortcutId: string;
+    textContent: string;
+    isChecklist: boolean;
+    name: string;
+  }): Promise<{ success: boolean; error?: string }>;
+
   // ========== Shortcut Edit ==========
 
   // Get pending edit shortcut ID (from home screen long-press edit action)

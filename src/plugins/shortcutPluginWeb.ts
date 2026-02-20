@@ -424,6 +424,16 @@ export class ShortcutPluginWeb implements ShortcutPluginInterface {
     return { success: true };
   }
 
+  async openTextShortcut(_options: {
+    shortcutId: string;
+    textContent: string;
+    isChecklist: boolean;
+    name: string;
+  }): Promise<{ success: boolean; error?: string }> {
+    // Web: caller falls back to React Router navigate()
+    return { success: false, error: 'Not supported on web' };
+  }
+
   async openWhatsApp(options: {
     phoneNumber: string;
     message?: string;

@@ -4175,6 +4175,42 @@ public class ShortcutPlugin extends Plugin {
         }
     }
 
+    /**
+     * Open a text shortcut natively via TextProxyActivity.
+     * The activity slides up from the bottom instantly — no Capacitor WebView reload.
+     * Mirrors the openWhatsApp pattern exactly.
+     */
+    @PluginMethod
+    public void openTextShortcut(PluginCall call) {
+        android.util.Log.d("ShortcutPlugin", "openTextShortcut called");
+
+        String shortcutId   = call.getString("shortcutId");
+        String textContent  = call.getString("textContent", "");
+        boolean isChecklist = Boolean.TRUE.equals(call.getBoolean("isChecklist", false));
+        String name         = call.getString("name", "");
+
+        try {
+            Context context = getContext();
+            Intent intent = new Intent(context, TextProxyActivity.class);
+            intent.putExtra("shortcut_id",   shortcutId);
+            intent.putExtra("text_content",  textContent);
+            intent.putExtra("is_checklist",  isChecklist);
+            intent.putExtra("shortcut_name", name);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            context.startActivity(intent);
+
+            JSObject result = new JSObject();
+            result.put("success", true);
+            call.resolve(result);
+        } catch (Exception e) {
+            android.util.Log.e("ShortcutPlugin", "Error opening TextProxyActivity: " + e.getMessage());
+            JSObject result = new JSObject();
+            result.put("success", false);
+            result.put("error", e.getMessage());
+            call.resolve(result);
+        }
+    }
+
     // ========== Shortcut Edit ==========
 
     /**
