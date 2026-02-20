@@ -511,6 +511,51 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for the full guide.
 | **OAuth stops working** | Users can't sign in. App still works for everything except sync. | Check `onetap://auth-callback` is in Supabase redirect URLs, verify `flowType: 'implicit'` in supabaseClient.ts. See Section 6 above. |
 | **Lost signing keystore** | Cannot publish updates to the same Play Store listing. | **Unrecoverable.** You must create a new app listing. Always back up your keystore. |
 | **Sync guard blocks sync** | Sync silently does nothing. | Check console logs for `SyncGuardViolation` (dev) or warning (prod). Likely a timing issue. |
+| **Checklist state clear fails on save** | See below. | See below. |
+
+### TextProxyActivity — Checklist State Clear Failure Scenarios
+
+Checklist state is cleared in two distinct situations: (a) the **Reset button** inside the viewer dialog, and (b) **`ShortcutPlugin.clearChecklistState()`** called from JS when a reordered or edited checklist is saved. Both write via `SharedPreferences.Editor.apply()` (asynchronous, fire-and-forget). The scenarios below document what can go wrong in each path.
+
+#### Path A — Reset button (`clearChecklistState()` in `TextProxyActivity`)
+
+`clearChecklistState()` shows a confirmation `AlertDialog`, then on confirm:
+1. Opens `SharedPreferences("checklist_state", MODE_PRIVATE)`.
+2. Iterates all keys with prefix `chk_{shortcutId}_` and calls `editor.remove(key)`.
+3. Calls `editor.apply()` — schedules the write asynchronously.
+4. Calls `webView.evaluateJavascript("resetAllItems()", null)` to uncheck DOM checkboxes.
+5. Shows "Checklist reset" `Toast`.
+
+**Failure: `apply()` silently fails (e.g. disk full, I/O error)**
+- The `Toast` shows and the WebView DOM is reset — the user sees all items unchecked.
+- On next open, `TextProxyActivity` re-reads `SharedPreferences`. If `apply()` failed, the old checked states are still there, so items will re-render as checked despite appearing reset in the previous session.
+- **Net effect:** Ghost state. The UI and SharedPreferences are out of sync until the user resets again or the disk error clears.
+- **Recovery:** No automatic retry. The user must tap Reset again. There is no error indicator because `apply()` does not surface failures to the caller.
+
+**Failure: WebView `evaluateJavascript("resetAllItems()")` fails (WebView detached or page not loaded)**
+- `evaluateJavascript` silently no-ops if the WebView is in a bad state.
+- SharedPreferences clear still succeeds (assuming `apply()` flushed).
+- **Net effect:** DOM shows old checked state in the current session; next open renders correctly from now-cleared SharedPreferences.
+- **Recovery:** Dismiss and reopen the shortcut — next open rebuilds the DOM from (now empty) SharedPreferences.
+
+#### Path B — Save-time clear (`ShortcutPlugin.clearChecklistState()` from JS)
+
+Called by `useShortcuts.ts` after a reordered or edited checklist is saved. Delegates to `ShortcutPlugin.java` which writes to `SharedPreferences("checklist_state")` via `apply()`.
+
+**Failure: `apply()` silently fails**
+- The shortcut content is updated (new item order written to localStorage/home screen intent).
+- Old index-based state keys survive in SharedPreferences (e.g. `chk_{id}_2` may now map to a different item).
+- **Net effect:** Stale state cross-contamination. On next open, a checkbox that was previously checked will appear checked against the wrong item in the reordered list.
+- **Recovery:** User taps Reset inside the viewer to manually clear state. No automatic recovery path. The bug is visually obvious (wrong items appear checked) so users typically notice and reset.
+
+**Failure: `clearChecklistState()` is called before `shortcutId` is available (null guard)**
+- Both `TextProxyActivity.clearChecklistState()` and `ShortcutPlugin.clearChecklistState()` guard on `shortcutId != null` and return early.
+- **Net effect:** Clear is silently skipped. Behaviorally identical to the `apply()` failure case above.
+- **Recovery:** Same — manual Reset in viewer.
+
+#### Design Note
+
+`apply()` is used over `commit()` intentionally — `commit()` blocks the main thread and could freeze the dialog UI on slow storage. The trade-off is that failures are invisible. A future improvement could use `commit()` inside a background thread with a retry on failure, or listen for `SharedPreferences.OnSharedPreferenceChangeListener` to verify the write landed.
 
 ---
 
