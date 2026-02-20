@@ -27,6 +27,7 @@ export function useSwipeNavigation({
   const startTime = useRef(0);
   const currentX = useRef(0);
   const isHorizontalSwipe = useRef(false);
+  const isVerticalLocked = useRef(false);
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if (!enabled) return;
@@ -37,18 +38,24 @@ export function useSwipeNavigation({
     currentX.current = touch.clientX;
     startTime.current = Date.now();
     isHorizontalSwipe.current = false;
+    isVerticalLocked.current = false;
   }, [enabled]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!enabled) return;
+    if (!enabled || isVerticalLocked.current) return;
     
     const touch = e.touches[0];
     currentX.current = touch.clientX;
     
-    // Determine if this is a horizontal swipe (after some movement)
     const deltaX = Math.abs(touch.clientX - startX.current);
     const deltaY = Math.abs(touch.clientY - startY.current);
     
+    // Lock as vertical scroll — bail out entirely so ScrollArea can handle it
+    if (deltaY > 10 && deltaY >= deltaX) {
+      isVerticalLocked.current = true;
+      return;
+    }
+
     // If horizontal movement is greater than vertical, it's a horizontal swipe
     if (deltaX > 10 && deltaX > deltaY * 1.5) {
       isHorizontalSwipe.current = true;
@@ -56,7 +63,7 @@ export function useSwipeNavigation({
   }, [enabled]);
 
   const handleTouchEnd = useCallback(() => {
-    if (!enabled || !isHorizontalSwipe.current) return;
+    if (!enabled || isVerticalLocked.current || !isHorizontalSwipe.current) return;
     
     const deltaX = currentX.current - startX.current;
     const deltaTime = Date.now() - startTime.current;
@@ -68,11 +75,9 @@ export function useSwipeNavigation({
     
     if (meetsDistanceThreshold || meetsVelocityThreshold) {
       if (deltaX < 0 && onSwipeLeft) {
-        // Swipe left -> go to next tab
         triggerHaptic('light');
         onSwipeLeft();
       } else if (deltaX > 0 && onSwipeRight) {
-        // Swipe right -> go to previous tab
         triggerHaptic('light');
         onSwipeRight();
       }
@@ -80,6 +85,7 @@ export function useSwipeNavigation({
     
     // Reset
     isHorizontalSwipe.current = false;
+    isVerticalLocked.current = false;
   }, [enabled, threshold, velocityThreshold, onSwipeLeft, onSwipeRight]);
 
   return {

@@ -564,7 +564,7 @@ const Index = () => {
       {activeTab === 'access' && (
         <div 
           key={`access-${slideDirection}`}
-          className={`flex-1 flex flex-col ${getSlideAnimation()}`}
+          className={`flex-1 min-h-0 flex flex-col ${getSlideAnimation()}`}
           {...(accessStep === 'source' ? swipeHandlers : {})}
         >
           <AccessFlow
@@ -592,7 +592,7 @@ const Index = () => {
       {activeTab === 'reminders' && (
         <div 
           key={`reminders-${slideDirection}`}
-          className={`flex-1 flex flex-col ${getSlideAnimation()}`}
+          className={`flex-1 min-h-0 flex flex-col ${getSlideAnimation()}`}
           {...swipeHandlers}
         >
           <NotificationsPage
@@ -610,7 +610,7 @@ const Index = () => {
       {activeTab === 'bookmarks' && (
         <div 
           key={`bookmarks-${slideDirection}`}
-          className={`flex-1 flex flex-col ${getSlideAnimation()}`}
+          className={`flex-1 min-h-0 flex flex-col ${getSlideAnimation()}`}
           {...swipeHandlers}
         >
           <BookmarkLibrary
@@ -627,7 +627,7 @@ const Index = () => {
       {activeTab === 'profile' && (
         <div 
           key={`profile-${slideDirection}`}
-          className={`flex-1 flex flex-col ${getSlideAnimation()}`}
+          className={`flex-1 min-h-0 flex flex-col ${getSlideAnimation()}`}
           {...swipeHandlers}
         >
           <ProfilePage />
