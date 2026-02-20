@@ -942,7 +942,7 @@ export function NotificationsPage({
 
       {/* Floating bulk action bar (when selection mode active) */}
       {isSelectionMode && selectedIds.size > 0 && (
-        <div className="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom)+1rem)] inset-x-0 px-5 z-10">
+        <div className="fixed bottom-[calc(3.5rem+var(--android-safe-bottom,0px)+1rem)] inset-x-0 px-5 z-10">
           <div className="bg-card border rounded-2xl shadow-lg p-3 flex items-center gap-2">
             <span className="text-sm font-medium text-foreground me-2">
               {selectedIds.size} {t('library.selectedLabel')}
