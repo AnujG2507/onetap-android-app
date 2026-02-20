@@ -116,9 +116,9 @@ public class TextProxyActivity extends Activity {
         Log.d(TAG, "Using theme: " + (isDarkTheme ? "dark" : "light"));
 
         if (isDarkTheme) {
-            colorBg       = Color.parseColor("#1A1A1A");
-            colorSurface  = Color.parseColor("#252525");
-            colorBorder   = Color.parseColor("#3A3A3A");
+            colorBg       = Color.parseColor("#121212");
+            colorSurface  = Color.parseColor("#1E1E1E");
+            colorBorder   = Color.parseColor("#2E2E2E");
             colorText     = Color.parseColor("#F5F5F5");
             colorTextMuted= Color.parseColor("#9CA3AF");
             colorDivider  = Color.parseColor("#3A3A3A");
