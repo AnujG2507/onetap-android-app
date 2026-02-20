@@ -1,148 +1,106 @@
 
-## Landscape Navigation Bar Safe Area — Full Fix
+## Fix: Checklist Check/Uncheck in TextViewer (Web Path)
 
 ### Root Cause
 
-Android places the navigation bar on the **right side** when the device is rotated 90° anti-clockwise (landscape), and on the **left side** for 90° clockwise. The current implementation has two gaps:
+The `TextViewer.tsx` web rendering path has a double-toggle bug in its checklist implementation. There are two layers that both respond to the same user interaction:
 
-1. **`MainActivity.java` only reads vertical insets.** The `setupNavBarInsetInjection` method only reads `navigationBars().bottom` and `statusBars().top`. The horizontal insets (`navigationBars().left` and `navigationBars().right`) are never read and never injected into the WebView. This means `--android-safe-left` and `--android-safe-right` CSS variables do not exist.
+1. The `<label>` element has `onClick={() => toggleItem(i)}` directly attached.
+2. The `<Checkbox>` inside that label also has `onCheckedChange={() => toggleItem(i)}`.
 
-2. **No horizontal safe area CSS is defined.** The design system has `safe-top`, `safe-bottom`, `safe-bottom-with-nav`, etc., but nothing for `safe-left` / `safe-right`. Every fixed element that spans the full width (BottomNav, fixed overlays) or is anchored to a horizontal edge (header buttons) is unprotected.
+Because the `<Checkbox>` is a child of the `<label>`, a single tap on either the checkbox OR the label text fires **both** handlers — the item checks then immediately unchecks, making it appear completely broken.
 
-### Affected Elements
+There is also a structural issue: the `<label>` element is used as the interactive row container but has its own `onClick`, which conflicts with the native click propagation from the checkbox through the label.
 
-| Element | Problem |
-|---|---|
-| `BottomNav` (`inset-x-0`) | Right edge extends under right-side nav bar; Profile tab button hidden |
-| `AccessFlow` header (`pe-5`) | Menu (AppMenu) button at right edge hidden under right-side nav bar |
-| `AccessFlow` offline banner (`ps-5 pe-5`) | Clipped at both edges depending on rotation |
-| `AccessFlow` header (`ps-5`) | Logo/title clipped at left edge in 90° clockwise rotation |
-| `SheetContent side="left"` / `side="right"` (AppMenu) | Slides in from the side that may have a nav bar — content width does not account for nav bar thickness |
-| Fixed `MyShortcutsButton` (`left-0 right-0`) | Same as BottomNav — right edge clips under nav bar |
-| `SharedUrlActionSheet` / `SharedFileActionSheet` (custom overlays with `p-4`) | Inner card not horizontally padded away from nav bar side |
+The native Android path (`TextProxyActivity.java`) uses raw `<input type="checkbox">` with `onchange` and is unaffected — it works correctly.
 
-### Solution Overview
+### Fix
 
-Three layers of change are needed:
+**File: `src/pages/TextViewer.tsx`**
 
-1. **Java (native):** Expand inset injection to include left and right nav bar insets as `--android-safe-left` and `--android-safe-right`.
-2. **CSS (`index.css`):** Add `--android-safe-left` / `--android-safe-right` CSS variables and utility classes `safe-left`, `safe-right`, `safe-x` (both sides).
-3. **Components:** Apply safe-area horizontal padding/margin to all affected elements.
+Restructure each checklist row so that only **one** interaction path fires `toggleItem`:
 
----
+- Remove `onClick` from the `<label>` wrapper entirely.
+- Remove `onCheckedChange` from the `<Checkbox>` entirely.
+- Instead, use the `<label>`'s natural `htmlFor` + the Radix `<Checkbox>` `id` prop so that clicking anywhere on the row (label text or checkbox) only triggers the checkbox's `checked` state change via `onCheckedChange` on the Checkbox — with no duplicated outer handler.
 
-### File-by-File Changes
-
-#### 1. `native/android/app/src/main/java/app/onetap/access/MainActivity.java`
-
-Expand `setupNavBarInsetInjection` to also read left/right nav bar insets and expand `injectInsetsIntoWebView` to inject `--android-safe-left` and `--android-safe-right`:
-
-```java
-// In setupNavBarInsetInjection — also read left/right:
-int navLeft = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).left;
-int navRight = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).right;
-lastSafeLeft = navLeft / density;
-lastSafeRight = navRight / density;
-
-// In injectInsetsIntoWebView — append the new vars:
-+ "document.documentElement.style.setProperty('--android-safe-left', '" + lastSafeLeft + "px');"
-+ "document.documentElement.style.setProperty('--android-safe-right', '" + lastSafeRight + "px');"
-```
-
-Two new fields are added: `private float lastSafeLeft = 0f;` and `private float lastSafeRight = 0f;`.
-
-#### 2. `src/index.css`
-
-Add CSS variables with `env()` fallbacks (works in browser preview even without native injection) and utility classes:
-
-```css
-/* In :root — add alongside existing safe top/bottom vars */
---android-safe-left: env(safe-area-inset-left, 0px);
---android-safe-right: env(safe-area-inset-right, 0px);
-
-/* Utility classes — added alongside safe-top / safe-bottom */
-.safe-left {
-  padding-inline-start: var(--android-safe-left, 0px);
-}
-.safe-right {
-  padding-inline-end: var(--android-safe-right, 0px);
-}
-.safe-x {
-  padding-inline-start: var(--android-safe-left, 0px);
-  padding-inline-end: var(--android-safe-right, 0px);
-}
-```
-
-Also update `--app-available-height` is fine (it measures between status bar top and nav bottom — on landscape Android the height is the full screen height minus nothing on left/right, so no change needed there).
-
-#### 3. `src/components/BottomNav.tsx`
-
-The `<nav>` currently uses `inset-x-0` which pins it hard against both screen edges. In landscape with a right-side nav bar, the nav bar sits on top of the rightmost portion. Fix: add horizontal padding that equals the safe area on each side.
+The cleanest approach that avoids all double-fire is:
 
 ```tsx
-// Before:
-<nav className="fixed bottom-0 inset-x-0 bg-background border-t border-border safe-bottom z-50">
-
-// After:
-<nav className="fixed bottom-0 inset-x-0 bg-background border-t border-border safe-bottom z-50 safe-x">
+// Each row becomes:
+<div
+  key={i}
+  className="flex items-start gap-3 cursor-pointer"
+  onClick={() => toggleItem(i)}   // ← single handler on wrapper div
+>
+  <Checkbox
+    id={`item-${i}`}
+    checked={item.checked}
+    onClick={(e) => e.stopPropagation()} // ← prevent bubbling up to div
+    onCheckedChange={() => toggleItem(i)}
+    className="mt-0.5 shrink-0"
+  />
+  <label
+    htmlFor={`item-${i}`}
+    className={cn(
+      'text-base leading-relaxed select-none cursor-pointer flex-1',
+      item.checked && 'line-through text-muted-foreground'
+    )}
+    onClick={(e) => e.stopPropagation()} // ← label click handled by checkbox via htmlFor
+  >
+    {item.text}
+  </label>
+</div>
 ```
 
-`safe-x` adds `padding-inline-start: var(--android-safe-left)` and `padding-inline-end: var(--android-safe-right)`. The tab buttons inside already use `flex-1` so they rebalance to fill the remaining space naturally.
+Wait — this creates the same problem. The cleanest, zero-double-fire pattern is:
 
-#### 4. `src/components/AccessFlow.tsx`
+- **Remove the outer click handler entirely.**
+- Let the `<label htmlFor>` + `<Checkbox id>` pairing handle all interaction natively. The Radix checkbox receives the click through the label's `for` association and fires `onCheckedChange` exactly once.
+- The `<label>` must NOT have its own `onClick`.
 
-The header row at line 582 uses `ps-5 pe-5`. In landscape with a right-side nav bar, the AppMenu button (rightmost element) is hidden. Fix: replace the fixed `ps-5 pe-5` with `safe-x` padding combined with a reduced fallback, so that when a horizontal nav bar inset is present it adds to the base padding.
-
-The cleanest approach: keep `ps-5 pe-5` as a base and add `safe-x` to the header element. Since `safe-x` sets `padding-inline-start/end` using CSS variables that default to `0px`, they stack additively when using `padding-inline` (they don't conflict with Tailwind's `ps-5/pe-5` which use the same logical properties). 
-
-Actually, `ps-5` and `safe-x` both set `padding-inline-start` — the latter wins. Better approach: use CSS `calc()` directly in a style prop, or add a wrapper that adds the horizontal safe inset as `margin`.
-
-The simplest correct approach: add `safe-x` to the **root container div** of the `source` step screen (the full-screen flex column), not to the header alone. This way the entire step is inset from the nav bar side, which is correct — all content (header, source picker, etc.) is safely inset.
-
-The source step root is:
+Final clean structure per row:
 ```tsx
-// Line 561 area — the wrapping div when step === 'source'
-<div className="flex flex-col h-full ...">
+<div key={i} className="flex items-start gap-3 py-0.5">
+  <Checkbox
+    id={`chk-${i}`}
+    checked={item.checked}
+    onCheckedChange={() => toggleItem(i)}
+    className="mt-0.5 shrink-0"
+  />
+  <label
+    htmlFor={`chk-${i}`}
+    className={cn(
+      'text-base leading-relaxed select-none cursor-pointer flex-1',
+      item.checked && 'line-through text-muted-foreground'
+    )}
+  >
+    {item.text}
+  </label>
+</div>
 ```
 
-Read AccessFlow more carefully: the full source step has a wrapping element that we add `safe-x` to. This shifts all content inward on both sides, which is the correct approach — on the right-nav-bar rotation side, all content clears the nav bar.
+This is the correct HTML pattern: clicking the label text sends the click event to the associated checkbox input (via `for`/`id`), which fires `onCheckedChange` exactly once. No double-fire.
 
-#### 5. `src/components/ui/sheet.tsx`
+### Additional Improvements in the Same Change
 
-The `left` and `right` side variants don't account for horizontal insets. When the menu sheet is on the right side and the nav bar is also on the right, the sheet's content needs start-side padding. Fix:
+1. **Touch target size** — wrap items in a slightly larger touch area (`py-2`) so the row is easy to tap on mobile without needing pixel-perfect aim on the checkbox.
 
-```tsx
-left:  "... safe-top safe-bottom safe-right ...",
-right: "... safe-top safe-bottom safe-left  ...",
-```
+2. **Checked item visual** — already present (`line-through text-muted-foreground`), keep as-is.
 
-Wait — `safe-right` on a `left`-side sheet makes sense because the nav bar on the right (far edge of a left sheet) doesn't affect a left sheet's content. Actually for side sheets, what matters is:
-- `left` sheet: content abuts the left edge of the screen — in 90° clockwise, nav bar is on the left, so the sheet needs `safe-left` (padding-inline-start from left nav bar)
-- `right` sheet: content abuts the right edge of the screen — in 90° anti-clockwise, nav bar is on the right, so the sheet needs `safe-right` (padding-inline-end from right nav bar)
+3. **Checklist persistence** — `toggleItem` already writes to `localStorage` with the correct `STORAGE_KEY` pattern. No change needed there.
 
-Since the sheet already starts at `inset-y-0 left-0` (left sheet) or `inset-y-0 right-0` (right sheet), we just need to add the appropriate padding:
+4. **Empty state** — if `items` is empty (all lines were blank after filtering), show a graceful "No items" message rather than a blank scroll area.
 
-```tsx
-left:  "inset-y-0 left-0 h-full w-3/4 border-r safe-top safe-bottom safe-left overflow-x-hidden ...",
-right: "inset-y-0 right-0 h-full w-3/4 border-l safe-top safe-bottom safe-right overflow-x-hidden ...",
-```
+### Technical Summary
 
-#### 6. `src/components/SharedFileActionSheet.tsx` and `src/components/SharedUrlActionSheet.tsx`
+| What | Before | After |
+|---|---|---|
+| Click handler | `<label onClick>` + `<Checkbox onCheckedChange>` (double fire) | `<Checkbox onCheckedChange>` only, triggered via `<label htmlFor>` |
+| Touch target | Entire label row | Entire label row (same, but via correct `for`/`id` wiring) |
+| State persistence | `localStorage` via `toggleItem` | Unchanged |
+| Double-toggle bug | Present — item always bounces back | Fixed — exactly one state change per tap |
 
-These fixed overlays have `p-4` padding on the card wrapper. In landscape with a horizontal nav bar, the card is pushed against the nav bar side. Fix: add `safe-x` to the outer container div (which already uses `flex items-end justify-center`). The `safe-x` padding on a flex column container that `justify-center`s an inner card will push the card inward from the nav bar side.
+### File Changed
 
----
-
-### Summary of All Changes
-
-| File | Change |
-|---|---|
-| `MainActivity.java` | Read `navLeft`/`navRight` insets; add `lastSafeLeft`/`lastSafeRight` fields; inject `--android-safe-left` and `--android-safe-right` CSS vars |
-| `src/index.css` | Add `--android-safe-left`/`--android-safe-right` CSS variables (with `env()` fallbacks) and `.safe-left`, `.safe-right`, `.safe-x` utility classes |
-| `src/components/BottomNav.tsx` | Add `safe-x` to the `<nav>` element |
-| `src/components/AccessFlow.tsx` | Add `safe-x` to the source step root container so header (AppMenu), offline banner, and all content are inset from the nav bar |
-| `src/components/ui/sheet.tsx` | Add `safe-left` to `left` variant and `safe-right` to `right` variant |
-| `src/components/SharedFileActionSheet.tsx` | Add `safe-x` to the outer container div |
-| `src/components/SharedUrlActionSheet.tsx` | Add `safe-x` to the outer container div |
-
-These 7 targeted changes establish a complete, zero-hardcoded-pixel landscape horizontal safe area system, identical in philosophy to the existing vertical safe area approach.
+- `src/pages/TextViewer.tsx` — restructure checklist row rendering to eliminate double-toggle
