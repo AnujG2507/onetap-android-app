@@ -164,14 +164,14 @@ export function AppMenu({ onOpenTrash, onOpenSettings }: AppMenuProps) {
                 className="w-full justify-start h-12 ps-3 pe-3"
                 onClick={() => handleMenuItem(() => navigate('/my-shortcuts'))}
               >
-                <div className="flex items-center gap-3 flex-1">
-                  <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
                     <Zap className="h-4 w-4 text-primary" />
                   </div>
-                  <span className="font-medium">{t('menu.shortcuts')}</span>
+                  <span className="font-medium truncate">{t('menu.shortcuts')}</span>
                 </div>
                 {shortcutsCount > 0 && (
-                  <span className="h-5 min-w-5 px-1.5 rounded-full bg-primary text-[11px] font-semibold text-primary-foreground flex items-center justify-center">
+                  <span className="h-5 min-w-5 px-1.5 rounded-full bg-primary text-[11px] font-semibold text-primary-foreground flex items-center justify-center flex-shrink-0">
                     {shortcutsCount > 99 ? '99+' : shortcutsCount}
                   </span>
                 )}
@@ -183,14 +183,14 @@ export function AppMenu({ onOpenTrash, onOpenSettings }: AppMenuProps) {
                 className="w-full justify-start h-12 ps-3 pe-3"
                 onClick={() => handleMenuItem(onOpenTrash)}
               >
-                <div className="flex items-center gap-3 flex-1">
-                  <div className="h-9 w-9 rounded-lg bg-destructive/10 flex items-center justify-center">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <div className="h-9 w-9 rounded-lg bg-destructive/10 flex items-center justify-center flex-shrink-0">
                     <Trash2 className="h-4 w-4 text-destructive" />
                   </div>
-                  <span className="font-medium">{t('menu.trash', 'Trash')}</span>
+                  <span className="font-medium truncate">{t('menu.trash', 'Trash')}</span>
                 </div>
                 {trashCount > 0 && (
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
                     {expiringCount > 0 && (
                       <span className="h-5 min-w-5 px-1.5 rounded-full bg-warning text-[11px] font-semibold text-white flex items-center justify-center gap-0.5">
                         <AlertTriangle className="h-3 w-3" />
@@ -210,13 +210,13 @@ export function AppMenu({ onOpenTrash, onOpenSettings }: AppMenuProps) {
                 className="w-full justify-start h-12 ps-3 pe-3"
                 onClick={() => handleMenuItem(onOpenSettings)}
               >
-                <div className="flex items-center gap-3 flex-1">
-                  <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
                     <Settings className="h-4 w-4 text-muted-foreground" />
                   </div>
-                  <span className="font-medium">{t('settings.title')}</span>
+                  <span className="font-medium truncate">{t('settings.title')}</span>
                 </div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground rtl:rotate-180" />
+                <ChevronRight className="h-4 w-4 text-muted-foreground rtl:rotate-180 flex-shrink-0" />
               </Button>
 
               {/* Cloud Backup Section */}
@@ -246,7 +246,7 @@ export function AppMenu({ onOpenTrash, onOpenSettings }: AppMenuProps) {
                       onClick={() => setTheme(option.value)}
                     >
                       {option.icon}
-                      <span className="text-xs">{option.label}</span>
+                      <span className="text-xs truncate overflow-hidden">{option.label}</span>
                     </Button>
                   ))}
                 </div>

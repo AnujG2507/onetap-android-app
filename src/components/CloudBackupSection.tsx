@@ -120,13 +120,13 @@ export function CloudBackupSection() {
           className="w-full justify-start h-12 px-3"
           onClick={handleSignIn}
         >
-          <div className="flex items-center gap-3 flex-1">
-            <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
               <Cloud className="h-4 w-4 text-primary" />
             </div>
-            <div className="text-left">
-              <span className="font-medium block">{t('cloudBackup.signInWithGoogle')}</span>
-              <span className="text-xs text-muted-foreground">{t('cloudBackup.syncDescription')}</span>
+            <div className="text-left min-w-0">
+              <span className="font-medium block truncate">{t('cloudBackup.signInWithGoogle')}</span>
+              <span className="text-xs text-muted-foreground truncate block">{t('cloudBackup.syncDescription')}</span>
             </div>
           </div>
         </Button>
