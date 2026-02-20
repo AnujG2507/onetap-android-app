@@ -95,6 +95,52 @@ Capacitor is the bridge between web and native. It lets your React code call Jav
 
 Capacitor 8 forces the WebView into edge-to-edge mode — content renders behind the system status bar and navigation bar. `MainActivity.java` reads real OS insets via `ViewCompat.setOnApplyWindowInsetsListener` on every layout pass (including orientation changes) and injects them as CSS custom properties on `<html>`. `env()` fallbacks ensure values are available in the browser preview before native injection fires.
 
+```mermaid
+flowchart TD
+    OS["Android OS\n(WindowInsets API)"]
+
+    subgraph Native["Native Layer — MainActivity.java"]
+        LISTENER["ViewCompat.setOnApplyWindowInsetsListener\nfires on every layout pass\n& orientation change"]
+        READ["Read insets\nstatusBars().top → lastSafeTop\nnavigationBars().bottom → lastSafeBottom\nnavigationBars().left → lastSafeLeft\nnavigationBars().right → lastSafeRight"]
+        JS["evaluateJavascript()\nsetProperty('--android-safe-top', ...)\nsetProperty('--android-safe-bottom', ...)\nsetProperty('--android-safe-left', ...)\nsetProperty('--android-safe-right', ...)"]
+    end
+
+    subgraph WebView["WebView — document root"]
+        ROOT["&lt;html&gt; style attribute\n--android-safe-top: Xpx\n--android-safe-bottom: Xpx\n--android-safe-left: Xpx\n--android-safe-right: Xpx"]
+        ENV["env() fallback (active in browser preview)\nenv(safe-area-inset-top)\nenv(safe-area-inset-left) etc."]
+    end
+
+    subgraph CSS["CSS Layer — src/index.css"]
+        VARS[":root CSS variables\ninherit from html style attr"]
+        UTILS["Utility classes\n.safe-top  .safe-bottom\n.safe-left  .safe-right  .safe-x\n.safe-bottom-with-nav  .safe-bottom-sheet\n.pt-header-safe  .pt-header-safe-compact"]
+        MEDIA["@media (orientation: landscape)\n.safe-bottom-with-nav → +2.5rem\n.pt-header-safe-compact → +0.5rem"]
+    end
+
+    subgraph UI["UI Components"]
+        BOTTOM["BottomNav\n.safe-bottom .safe-x"]
+        SHEETS["SheetContent side=bottom\n.safe-bottom-with-nav"]
+        DRAWERS["DrawerContent (Vaul)\n.safe-bottom-sheet"]
+        SIDESHEETS["SheetContent side=left/right\n.safe-left / .safe-right"]
+        OVERLAYS["SharedUrlActionSheet\nSharedFileActionSheet\n.safe-bottom-with-nav .safe-x"]
+        HEADERS["AccessFlow header\n.pt-header-safe .safe-x"]
+    end
+
+    OS --> LISTENER
+    LISTENER --> READ
+    READ --> JS
+    JS --> ROOT
+    ENV -.->|"browser preview only\n(no native injection yet)"| ROOT
+    ROOT --> VARS
+    VARS --> UTILS
+    UTILS --> MEDIA
+    UTILS --> BOTTOM
+    UTILS --> SHEETS
+    UTILS --> DRAWERS
+    UTILS --> SIDESHEETS
+    UTILS --> OVERLAYS
+    UTILS --> HEADERS
+```
+
 **CSS Variables (defined in `src/index.css` `:root`)**
 
 | Variable | Source | Description |
