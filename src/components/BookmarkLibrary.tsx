@@ -377,7 +377,7 @@ export function BookmarkLibrary({
           moveToFolder(linkId, targetFolder);
           refreshLinks();
           toast({
-            title: `Moved to ${targetFolder || 'Uncategorized'}`,
+            title: t('library.movedTo', { folder: targetFolder || t('library.uncategorized') }),
           });
           triggerHaptic('success');
         }
@@ -424,8 +424,8 @@ export function BookmarkLibrary({
     refreshLinks();
     setFolderRefreshKey(k => k + 1);
     toast({
-      title: 'Folder deleted',
-      description: 'Bookmarks moved to Uncategorized',
+      title: t('folders.folderDeleted'),
+      description: t('folders.folderDeletedDesc'),
     });
     triggerHaptic('warning');
   };
@@ -480,7 +480,7 @@ export function BookmarkLibrary({
     updateSavedLink(id, updates);
     refreshLinks();
     toast({
-      title: 'Bookmark updated',
+      title: t('library.bookmarkUpdated'),
     });
   };
 
@@ -490,25 +490,25 @@ export function BookmarkLibrary({
     
     if (deletedLink) {
       toast({
-        title: 'Moved to trash',
+        title: t('library.movedToTrash'),
         description: deletedLink.title,
         duration: 5000,
         action: (
           <ToastAction 
-            altText="Undo delete"
+            altText={t('library.undo')}
             onClick={() => {
               restoreSavedLink(deletedLink);
               refreshLinks();
               triggerHaptic('success');
             }}
           >
-            Undo
+            {t('library.undo')}
           </ToastAction>
         ),
       });
     } else {
       toast({
-        title: 'Moved to trash',
+        title: t('library.movedToTrash'),
       });
     }
   };
@@ -520,7 +520,7 @@ export function BookmarkLibrary({
     permanentlyDelete(id);
     refreshLinks();
     toast({
-      title: 'Bookmark permanently deleted',
+      title: t('library.bookmarkDeleted'),
     });
     triggerHaptic('warning');
   };
@@ -531,13 +531,13 @@ export function BookmarkLibrary({
       refreshLinks();
       setShowAddForm(false);
       toast({
-        title: 'Bookmark saved',
+        title: t('library.bookmarkSaved'),
       });
       triggerHaptic('success');
     } else if (result.status === 'duplicate') {
       toast({
-        title: 'Already saved',
-        description: 'This link is already in your bookmarks',
+        title: t('library.alreadySaved'),
+        description: t('library.alreadySavedDesc'),
       });
     }
   };
@@ -546,7 +546,7 @@ export function BookmarkLibrary({
     clearAllShortlist();
     refreshLinks();
     toast({
-      title: 'Selection cleared',
+      title: t('library.selectionCleared'),
     });
     triggerHaptic('warning');
   };
@@ -578,7 +578,7 @@ export function BookmarkLibrary({
       onCreateShortcut(link.url);
     });
     toast({
-      title: `Creating ${shortlistedLinks.length} shortcut${shortlistedLinks.length > 1 ? 's' : ''}...`,
+      title: t('library.creatingShortcuts', { count: shortlistedLinks.length }),
     });
     triggerHaptic('success');
   };
@@ -591,8 +591,8 @@ export function BookmarkLibrary({
     refreshLinks();
     clearAllShortlist();
     toast({
-      title: `${count} bookmark${count > 1 ? 's' : ''} moved`,
-      description: `Moved to ${folderName || 'Uncategorized'}`,
+      title: t('library.bulkMoved', { count }),
+      description: t('library.movedTo', { folder: folderName || t('library.uncategorized') }),
     });
     triggerHaptic('success');
   };
