@@ -142,7 +142,7 @@ export function UrlInput({ onSubmit, onBack, initialUrl }: UrlInputProps) {
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex-1 flex flex-col min-h-0">
       <header className="flex items-center gap-3 p-4 pt-header-safe-compact landscape:p-3 landscape:pt-2 border-b">
         <button
           onClick={onBack}
