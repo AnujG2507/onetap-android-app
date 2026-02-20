@@ -4248,6 +4248,9 @@ public class ShortcutPlugin extends Plugin {
             intent.putExtra("text_content",  textContent);
             intent.putExtra("is_checklist",  isChecklist);
             intent.putExtra("shortcut_name", name);
+            // Opened from inside the app — JS has already called incrementUsage().
+            // Skip native NativeUsageTracker.recordTap() to prevent double-counting.
+            intent.putExtra("skip_usage_tracking", true);
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             context.startActivity(intent);
 

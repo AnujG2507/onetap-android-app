@@ -88,8 +88,10 @@ public class TextProxyActivity extends Activity {
         if (textContent == null) textContent = "";
         if (shortcutName == null) shortcutName = "";
 
-        // Track usage
-        if (shortcutId != null) {
+        // Track usage — skip if the intent came from inside the app (JS already called
+        // incrementUsage), to prevent double-counting the tap in usageHistoryManager.
+        boolean skipUsageTracking = getIntent().getBooleanExtra("skip_usage_tracking", false);
+        if (shortcutId != null && !skipUsageTracking) {
             NativeUsageTracker.recordTap(this, shortcutId);
         }
 
