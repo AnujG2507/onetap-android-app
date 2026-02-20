@@ -305,7 +305,7 @@ export interface ShortcutPluginInterface {
     iconText?: string;
     iconData?: string;
     // Intent-affecting properties (for WhatsApp, Contact, PDF, Slideshow shortcuts)
-    shortcutType?: 'file' | 'link' | 'contact' | 'message' | 'slideshow';
+    shortcutType?: 'file' | 'link' | 'contact' | 'message' | 'slideshow' | 'text';
     phoneNumber?: string;
     quickMessages?: string[];  // WhatsApp quick messages
     messageApp?: string;       // 'whatsapp' only
@@ -313,6 +313,8 @@ export interface ShortcutPluginInterface {
     contentUri?: string;       // For file/link shortcuts
     mimeType?: string;
     contactName?: string;      // Contact display name for WhatsApp
+    textContent?: string;      // Text shortcut content (markdown or checklist)
+    isChecklist?: boolean;     // Whether text shortcut is a checklist
   }): Promise<{ success: boolean; error?: string }>;
 
   // ========== Slideshow Deep Link ==========

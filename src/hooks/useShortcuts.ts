@@ -386,7 +386,7 @@ export function useShortcuts() {
 
   const updateShortcut = useCallback(async (
     id: string,
-    updates: Partial<Pick<ShortcutData, 'name' | 'icon' | 'quickMessages' | 'phoneNumber' | 'resumeEnabled' | 'imageUris' | 'imageThumbnails' | 'autoAdvanceInterval' | 'contentUri' | 'syncState' | 'mimeType' | 'fileSize' | 'thumbnailData' | 'originalPath'>>
+    updates: Partial<Pick<ShortcutData, 'name' | 'icon' | 'quickMessages' | 'phoneNumber' | 'resumeEnabled' | 'imageUris' | 'imageThumbnails' | 'autoAdvanceInterval' | 'contentUri' | 'syncState' | 'mimeType' | 'fileSize' | 'thumbnailData' | 'originalPath' | 'textContent' | 'isChecklist'>>
   ): Promise<{ success: boolean; nativeUpdateFailed?: boolean }> => {
     // Update localStorage first
     const updated = shortcuts.map(s => 
@@ -409,7 +409,7 @@ export function useShortcuts() {
             iconText: shortcut.icon.type === 'text' ? shortcut.icon.value : undefined,
             iconData: shortcut.icon.type === 'thumbnail' ? shortcut.icon.value : undefined,
             // Intent-affecting data for all shortcut types
-            shortcutType: shortcut.type as 'contact' | 'file' | 'link' | 'message' | 'slideshow',
+            shortcutType: shortcut.type as 'contact' | 'file' | 'link' | 'message' | 'slideshow' | 'text',
             phoneNumber: shortcut.phoneNumber,
             quickMessages: shortcut.quickMessages,
             messageApp: shortcut.messageApp,
@@ -417,6 +417,8 @@ export function useShortcuts() {
             contentUri: shortcut.contentUri,
             mimeType: shortcut.mimeType,
             contactName: shortcut.contactName || shortcut.name,
+            textContent: shortcut.textContent,
+            isChecklist: shortcut.isChecklist,
           });
           if (result.success) {
             console.log('[useShortcuts] Updated pinned shortcut on home screen:', id);

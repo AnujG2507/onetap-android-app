@@ -128,7 +128,7 @@ export function ShortcutEditSheet({
     const textChanged = shortcut.type === 'text' && (textContent !== (shortcut.textContent || '') || isChecklist !== (shortcut.isChecklist || false));
     
     setHasChanges(nameChanged || iconChanged || messagesChanged || resumeChanged || imagesChanged || autoAdvanceChanged || fileReconnected || textChanged);
-    setHasIconOrNameChanged(nameChanged || iconChanged || imagesChanged);
+    setHasIconOrNameChanged(nameChanged || iconChanged || imagesChanged || textChanged);
   }, [name, icon, quickMessages, resumeEnabled, slideshowImages, autoAdvance, shortcut, reconnectedFile, textContent, isChecklist]);
 
   // Register with sheet registry for back button handling
