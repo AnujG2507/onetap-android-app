@@ -620,7 +620,14 @@
     "clearTitle": "Clear title",
     "clearText": "Clear text",
     "add": "Add",
-    "remove": "Remove"
+    "remove": "Remove",
+    "create": "Create",
+    "undo": "Undo"
+  },
+  "bookmarkItem": {
+    "dragToReorder": "Drag to reorder",
+    "createShortcutTitle": "Create Shortcut?",
+    "createShortcutDesc": "Create a home screen shortcut for \"{{title}}\"?"
   },
   "pagination": {
     "previous": "Previous",
