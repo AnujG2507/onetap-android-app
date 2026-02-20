@@ -271,4 +271,4 @@ markSyncCompleted(trigger, success)
 
 ---
 
-*Last updated: February 2026*
+*Last updated: February 20, 2026 — reflects text shortcut type (v1.1.0+)*
