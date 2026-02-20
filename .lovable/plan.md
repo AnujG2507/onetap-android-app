@@ -1,78 +1,80 @@
 
-## Fix: Enter Key Navigates to New Checklist Item
+## Scope: Native Viewer Only — CSS Fixes for Text Wrapping & Multi-line Alignment
 
-### Root Cause
+### What the User Wants
 
-`SortableChecklistItem` is a child component that calls `onAddNext()` when Enter is pressed. `onAddNext` calls `addChecklistItem` in the parent which appends a new `ChecklistItem` to state. However:
+Check/uncheck should work **only** in the native viewer (`TextProxyActivity`), not in the creation editor. The editor is for writing items; the native dialog (opened by tapping the home screen shortcut) is where users check/uncheck items.
 
-1. The parent has no ref to the new item's `<Input>` DOM element — it can't focus it
-2. The new item's input doesn't exist in the DOM yet when `addChecklistItem` runs — focus must happen after React re-renders and the new input mounts
+### Current State Assessment
 
-### Solution
+**Creation editor (`TextEditorStep.tsx`):**
+- The `☐` next to each input is a static, non-interactive `<span>` — this is correct and intentional. No changes needed here.
+- `generateChecklistText` always emits `☐ text` (all unchecked) — correct, since editing resets checked state to unchecked for all items.
 
-**Three coordinated changes to `src/components/TextEditorStep.tsx`:**
+**Native viewer (`TextProxyActivity.java`) — check/uncheck already works:**
+- Tapping a row toggles `cb.checked`, applies/removes the `done` CSS class, persists to `SharedPreferences` via the `Android.saveCheckboxState` JS bridge.
+- Strikethrough is already implemented: `.ci.done span { text-decoration: line-through; opacity: 0.45 }` — correct.
+- Reset button clears all state and reloads unchecked items.
 
----
+**Two genuine CSS bugs in the native viewer that need fixing:**
 
-#### Change 1 — Ref map in parent to track each input
+### Bug 1 — Long Text Overflows Horizontally
 
-Add a `useRef<Map<string, HTMLInputElement>>` that maps item ID → its `<input>` DOM node:
-
-```ts
-const inputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
+Current CSS for the text span inside a checklist item:
+```css
+.ci span { line-height:1.5; flex:1; font-size:1em }
 ```
 
----
+There is **no `word-break` or `overflow-wrap`**. A long unbroken word (e.g. a URL like `https://example.com/very/long/path`) will overflow the dialog's right edge on narrow screens.
 
-#### Change 2 — Pass a ref-setter into `SortableChecklistItem`
+**Fix:** Add `word-break:break-word; overflow-wrap:anywhere;` to `.ci span`.
 
-Add an `inputRef` prop of type `(el: HTMLInputElement | null) => void` to `SortableChecklistItemProps`. Each item calls this on mount/unmount:
+### Bug 2 — Checkbox Misaligns With Multi-line Text
 
-```tsx
-<Input
-  ref={el => {
-    if (el) inputRefs.current.set(item.id, el);
-    else inputRefs.current.delete(item.id);
-  }}
-  ...
-/>
+Current CSS for the row container:
+```css
+.ci { display:flex; align-items:center; gap:12px; ... }
 ```
 
+`align-items:center` centres all children (including the checkbox) vertically against the **full height** of the row. For a 3-line item, the checkbox floats to the vertical middle of the text block instead of aligning with the first line — which looks wrong.
+
+**Fix:** Change `.ci` to `align-items:flex-start` and add `margin-top:3px` to the checkbox so it optically aligns with the first text baseline.
+
 ---
 
-#### Change 3 — After adding a new item, focus its input in the next frame
+### Changes Required
 
-Change `addChecklistItem` to return the new item's id and schedule a focus call after React commits the new input to the DOM:
+**File:** `native/android/app/src/main/java/app/onetap/access/TextProxyActivity.java`
+**Method:** `buildHtml(...)` — specifically the `<style>` block inside the returned HTML string
 
-```ts
-const addChecklistItem = useCallback((focusNewItem = true) => {
-  const newId = `item-${Date.now()}`;
-  setChecklistItems(prev => [...prev, { id: newId, text: '' }]);
-  if (focusNewItem) {
-    // Wait for React to render + mount the new input before focusing
-    requestAnimationFrame(() => {
-      inputRefs.current.get(newId)?.focus();
-    });
-  }
-}, []);
+**Line ~795 — change `.ci` alignment:**
+
+From:
+```java
++ ".ci{display:flex;align-items:center;gap:12px;margin:6px 0;min-height:48px;padding:4px 0;cursor:pointer}"
++ ".ci input[type=checkbox]{pointer-events:none;width:22px;height:22px;margin:0;accent-color:" + accent + ";flex-shrink:0}"
++ ".ci span{line-height:1.5;flex:1;font-size:1em}"
 ```
 
+To:
+```java
++ ".ci{display:flex;align-items:flex-start;gap:12px;margin:6px 0;min-height:48px;padding:4px 0;cursor:pointer}"
++ ".ci input[type=checkbox]{pointer-events:none;width:22px;height:22px;margin-top:3px;accent-color:" + accent + ";flex-shrink:0}"
++ ".ci span{line-height:1.5;flex:1;font-size:1em;word-break:break-word;overflow-wrap:anywhere}"
+```
+
+No other files are changed.
+
 ---
 
-#### Change 4 — Update the `SortableChecklistItem` interface
+### Summary Table
 
-Add `inputRef: (el: HTMLInputElement | null) => void` to `SortableChecklistItemProps` and wire it to the `<Input>` element's `ref` prop. The `Input` component from shadcn/ui already forwards refs via `React.forwardRef`, so this works directly.
-
----
-
-### Files Changed
-
-- `src/components/TextEditorStep.tsx` only
-
-### Before / After
-
-| | Before | After |
+| Area | Issue | Fix |
 |---|---|---|
-| Enter key | Appends new item; focus stays on current input | Appends new item; keyboard moves to new item's input |
-| Ref tracking | None | `Map<string, HTMLInputElement>` registered on mount/unmount |
-| Focus timing | N/A | `requestAnimationFrame` after state commit |
+| Editor (`TextEditorStep.tsx`) | Interactive checkboxes during creation | None — static `☐` span is correct; no changes |
+| Native viewer — check/uncheck | Already works | No changes needed |
+| Native viewer — strikethrough | Already works via `.ci.done span` | No changes needed |
+| Native viewer — long text overflow | No `word-break` on `.ci span` | Add `word-break:break-word;overflow-wrap:anywhere` |
+| Native viewer — multi-line checkbox alignment | `align-items:center` centres checkbox mid-text | Change to `align-items:flex-start` + `margin-top:3px` on checkbox |
+
+**Only one file changes:** `native/android/app/src/main/java/app/onetap/access/TextProxyActivity.java`
