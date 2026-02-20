@@ -255,7 +255,7 @@ export function ContentSourcePicker({
             </AnimatePresence>
             
             {/* Secondary Actions Section */}
-            <div className="mt-4 -mx-4 -mb-4 px-4 pb-4 pt-3 bg-muted/20 rounded-b-2xl border-t border-border/50">
+            <div className="mt-4 -mx-4 -mb-4 px-4 pb-4 pt-3 bg-muted/60 dark:bg-muted/40 rounded-b-2xl border-t border-border">
               <div className={cn(
                 "grid gap-3 transition-all duration-200",
                 activeSecondaryPicker ? "grid-cols-1" : "grid-cols-2 landscape:grid-cols-4"
