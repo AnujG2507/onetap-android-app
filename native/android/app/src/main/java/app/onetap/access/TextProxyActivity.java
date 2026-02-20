@@ -210,6 +210,19 @@ public class TextProxyActivity extends Activity {
         copyBtn.setOnClickListener(v -> copyText());
         headerRow.addView(copyBtn);
 
+        // Reset button — only shown for checklists; circular refresh icon
+        if (isChecklist) {
+            ImageButton resetBtn = new ImageButton(this);
+            resetBtn.setImageResource(R.drawable.ic_checklist_reset);
+            resetBtn.setBackgroundResource(rippleRes);
+            resetBtn.setColorFilter(colorTextMuted);
+            resetBtn.setScaleType(ImageView.ScaleType.CENTER);
+            resetBtn.setContentDescription("Reset checklist");
+            resetBtn.setLayoutParams(new LinearLayout.LayoutParams(iconBtnSize, iconBtnSize));
+            resetBtn.setOnClickListener(v -> clearChecklistState());
+            headerRow.addView(resetBtn);
+        }
+
         // Share button — muted tinted share icon (reuses existing ic_share drawable)
         ImageButton shareBtn = new ImageButton(this);
         shareBtn.setImageResource(R.drawable.ic_share);
@@ -259,7 +272,18 @@ public class TextProxyActivity extends Activity {
         webView.setWebViewClient(new WebViewClient());
         webView.addJavascriptInterface(new ChecklistBridge(), "Android");
 
-        String html = buildHtml(textContent, isChecklist, shortcutId);
+        // Load saved checklist state from SharedPreferences (sole source of truth)
+        java.util.Map<String, Boolean> savedState = new java.util.HashMap<>();
+        if (isChecklist && shortcutId != null) {
+            SharedPreferences checkPrefs = getSharedPreferences(PREFS_CHECKLIST, MODE_PRIVATE);
+            String prefix = "chk_" + shortcutId + "_";
+            for (java.util.Map.Entry<String, ?> entry : checkPrefs.getAll().entrySet()) {
+                if (entry.getKey().startsWith(prefix) && entry.getValue() instanceof Boolean) {
+                    savedState.put(entry.getKey(), (Boolean) entry.getValue());
+                }
+            }
+        }
+        String html = buildHtml(textContent, isChecklist, shortcutId, savedState);
         webView.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null);
         contentLayout.addView(webView, webParams);
 
@@ -375,6 +399,32 @@ public class TextProxyActivity extends Activity {
         Toast.makeText(this, "Copied to clipboard", Toast.LENGTH_SHORT).show();
     }
 
+    /**
+     * Shows a confirm dialog then clears all checked states for this shortcut
+     * from SharedPreferences and resets the WebView DOM.
+     */
+    private void clearChecklistState() {
+        if (shortcutId == null) return;
+        new AlertDialog.Builder(this)
+            .setTitle("Reset checklist?")
+            .setMessage("All checked items will be unchecked. This cannot be undone.")
+            .setPositiveButton("Reset", (d, w) -> {
+                SharedPreferences prefs = getSharedPreferences(PREFS_CHECKLIST, MODE_PRIVATE);
+                SharedPreferences.Editor editor = prefs.edit();
+                String prefix = "chk_" + shortcutId + "_";
+                for (String key : new java.util.HashSet<>(prefs.getAll().keySet())) {
+                    if (key.startsWith(prefix)) editor.remove(key);
+                }
+                editor.apply();
+                if (webView != null) {
+                    webView.evaluateJavascript("resetAllItems()", null);
+                }
+                Toast.makeText(this, "Checklist reset", Toast.LENGTH_SHORT).show();
+            })
+            .setNegativeButton("Cancel", null)
+            .show();
+    }
+
     private void dismissDialog() {
         if (dialog != null && dialog.isShowing()) {
             dialog.dismiss();
@@ -410,7 +460,7 @@ public class TextProxyActivity extends Activity {
      * Builds the self-contained HTML for markdown or checklist rendering.
      * Uses instance color fields so dark/light mode is correctly reflected in the WebView.
      */
-    private String buildHtml(String text, boolean isChecklist, String sid) {
+    private String buildHtml(String text, boolean isChecklist, String sid, java.util.Map<String, Boolean> savedState) {
         // Escape text for JS template-literal embedding
         String escaped = text
                 .replace("\\", "\\\\")
@@ -457,16 +507,24 @@ public class TextProxyActivity extends Activity {
             + "  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');"
             + "}";
 
-        // Checklist renderer: supports - [ ] and - [x] format
+        // Build savedState JSON from Java SharedPreferences — sole source of truth
+        StringBuilder savedJson = new StringBuilder("{");
+        for (java.util.Map.Entry<String, Boolean> e : savedState.entrySet()) {
+            savedJson.append("\"").append(e.getKey()).append("\":").append(e.getValue()).append(",");
+        }
+        if (savedJson.length() > 1) savedJson.setLength(savedJson.length() - 1);
+        savedJson.append("}");
+
+        // Checklist renderer: supports - [ ] and - [x] format; reads from savedState (no localStorage)
         String checklistRenderer = ""
+            + "var savedState=" + savedJson + ";"
             + "function renderChecklist(text, sid){"
             + "  var lines=text.split('\\n'),html='';"
             + "  lines.forEach(function(line,i){"
             + "    var m=line.match(/^- \\[( |x)\\] (.*)/i);"
             + "    if(m){"
-            + "      var savedKey='chk_'+sid+'_'+i;"
-            + "      var saved=localStorage.getItem(savedKey);"
-            + "      var checked=(saved!==null)?(saved==='1'):(m[1].toLowerCase()==='x');"
+            + "      var key='chk_'+sid+'_'+i;"
+            + "      var checked=(savedState[key]!==undefined)?savedState[key]:(m[1].toLowerCase()==='x');"
             + "      html+='<div class=\"ci'+(checked?' done':'')+'\" id=\"ci'+i+'\" onclick=\"toggle('+i+')\">';"
             + "      html+='<input type=\"checkbox\" id=\"cb'+i+'\"'+(checked?' checked':'')+'>';"
             + "      html+='<label for=\"cb'+i+'\">'+escHtml(m[2])+'</label></div>';"
@@ -484,9 +542,17 @@ public class TextProxyActivity extends Activity {
             + "  if(!item||!cb)return;"
             + "  cb.checked=!cb.checked;"
             + "  var key='chk_'+" + (sid != null ? "'" + sid.replace("'", "\\'") + "'" : "''") + "+'_'+i;"
-            + "  localStorage.setItem(key,cb.checked?'1':'0');"
+            + "  savedState[key]=cb.checked;"
             + "  item.className='ci'+(cb.checked?' done':'');"
             + "  if(window.Android&&Android.saveCheckboxState)Android.saveCheckboxState(key,cb.checked);"
+            + "}"
+            + "function resetAllItems(){"
+            + "  var items=document.querySelectorAll('.ci');"
+            + "  items.forEach(function(item){"
+            + "    item.classList.remove('done');"
+            + "    var cb=item.querySelector('input[type=checkbox]');"
+            + "    if(cb)cb.checked=false;"
+            + "  });"
             + "}";
 
         String renderCall = isChecklist
