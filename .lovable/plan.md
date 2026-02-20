@@ -1,80 +1,123 @@
 
-## Scope: Native Viewer Only — CSS Fixes for Text Wrapping & Multi-line Alignment
+## Root Cause: Format Mismatch Between Editor and Native Renderer
 
-### What the User Wants
+### The Problem
 
-Check/uncheck should work **only** in the native viewer (`TextProxyActivity`), not in the creation editor. The editor is for writing items; the native dialog (opened by tapping the home screen shortcut) is where users check/uncheck items.
+The editor and the native viewer speak completely different formats. This is why checkboxes never appear and check/uncheck never works:
 
-### Current State Assessment
-
-**Creation editor (`TextEditorStep.tsx`):**
-- The `☐` next to each input is a static, non-interactive `<span>` — this is correct and intentional. No changes needed here.
-- `generateChecklistText` always emits `☐ text` (all unchecked) — correct, since editing resets checked state to unchecked for all items.
-
-**Native viewer (`TextProxyActivity.java`) — check/uncheck already works:**
-- Tapping a row toggles `cb.checked`, applies/removes the `done` CSS class, persists to `SharedPreferences` via the `Android.saveCheckboxState` JS bridge.
-- Strikethrough is already implemented: `.ci.done span { text-decoration: line-through; opacity: 0.45 }` — correct.
-- Reset button clears all state and reloads unchecked items.
-
-**Two genuine CSS bugs in the native viewer that need fixing:**
-
-### Bug 1 — Long Text Overflows Horizontally
-
-Current CSS for the text span inside a checklist item:
-```css
-.ci span { line-height:1.5; flex:1; font-size:1em }
+**Editor output** (`generateChecklistText` in `TextEditorStep.tsx`):
+```
+☐ Buy milk
+☐ Call the dentist
+☐ Submit report
 ```
 
-There is **no `word-break` or `overflow-wrap`**. A long unbroken word (e.g. a URL like `https://example.com/very/long/path`) will overflow the dialog's right edge on narrow screens.
-
-**Fix:** Add `word-break:break-word; overflow-wrap:anywhere;` to `.ci span`.
-
-### Bug 2 — Checkbox Misaligns With Multi-line Text
-
-Current CSS for the row container:
-```css
-.ci { display:flex; align-items:center; gap:12px; ... }
+**Native renderer regex** (`buildHtml` in `TextProxyActivity.java`):
+```javascript
+line.match(/^- \[( |x)\] (.*)/i)
 ```
 
-`align-items:center` centres all children (including the checkbox) vertically against the **full height** of the row. For a 3-line item, the checkbox floats to the vertical middle of the text block instead of aligning with the first line — which looks wrong.
+This regex looks for `- [ ] text` or `- [x] text`. It **never matches** `☐ text`. Every line falls through to the `else if(line.trim()!=='')` branch and is rendered as a plain `<p>` tag — not as a `.ci` checkbox row. No `.ci` divs are ever created, so `onCheck()` is never triggered and no strikethrough can ever appear.
 
-**Fix:** Change `.ci` to `align-items:flex-start` and add `margin-top:3px` to the checkbox so it optically aligns with the first text baseline.
+The CSS fixes from the previous change are correct and already in place. The only thing broken is this format mismatch.
 
 ---
 
-### Changes Required
+### The Fix — Two Files
 
-**File:** `native/android/app/src/main/java/app/onetap/access/TextProxyActivity.java`
-**Method:** `buildHtml(...)` — specifically the `<style>` block inside the returned HTML string
+#### File 1: `src/components/TextEditorStep.tsx`
 
-**Line ~795 — change `.ci` alignment:**
+**A. Change `generateChecklistText`** to emit standard markdown format:
 
-From:
-```java
-+ ".ci{display:flex;align-items:center;gap:12px;margin:6px 0;min-height:48px;padding:4px 0;cursor:pointer}"
-+ ".ci input[type=checkbox]{pointer-events:none;width:22px;height:22px;margin:0;accent-color:" + accent + ";flex-shrink:0}"
-+ ".ci span{line-height:1.5;flex:1;font-size:1em}"
+```typescript
+// Before
+function generateChecklistText(items: ChecklistItem[]): string {
+  return items.map(item => `☐ ${item.text}`).join('\n');
+}
+
+// After
+function generateChecklistText(items: ChecklistItem[]): string {
+  return items.map(item => `- [ ] ${item.text}`).join('\n');
+}
 ```
 
-To:
-```java
-+ ".ci{display:flex;align-items:flex-start;gap:12px;margin:6px 0;min-height:48px;padding:4px 0;cursor:pointer}"
-+ ".ci input[type=checkbox]{pointer-events:none;width:22px;height:22px;margin-top:3px;accent-color:" + accent + ";flex-shrink:0}"
-+ ".ci span{line-height:1.5;flex:1;font-size:1em;word-break:break-word;overflow-wrap:anywhere}"
+All new and edited checklists will now save in `- [ ] text` format, which the native renderer's existing regex matches perfectly.
+
+**B. Update `parseChecklistItems`** to handle both formats — the new `- [ ]` format and the old `☐`/`☑` format (for backward compatibility with any shortcuts that were already saved in the old format):
+
+```typescript
+// Before
+function parseChecklistItems(text: string): ChecklistItem[] {
+  if (!text.trim()) return [];
+  return text.split('\n')
+    .filter(line => line.trim())
+    .map((line, i) => ({
+      id: `item-${i}`,
+      text: line.replace(/^[☐☑]\s?/, '').trim(),
+    }));
+}
+
+// After
+function parseChecklistItems(text: string): ChecklistItem[] {
+  if (!text.trim()) return [];
+  return text.split('\n')
+    .filter(line => line.trim())
+    .map((line, i) => {
+      // New standard markdown format: - [ ] text or - [x] text
+      const mdMatch = line.match(/^- \[[ xX]\] (.*)/);
+      if (mdMatch) return { id: `item-${i}`, text: mdMatch[1].trim() };
+      // Legacy Unicode format: ☐ text or ☑ text (backward compat)
+      return { id: `item-${i}`, text: line.replace(/^[☐☑]\s?/, '').trim() };
+    });
+}
 ```
 
-No other files are changed.
+#### File 2: `native/android/app/src/main/java/app/onetap/access/TextProxyActivity.java`
+
+The native renderer's existing regex `^- \[( |x)\] (.*)` already matches the new format. **No change needed** to the Java file for the core fix.
+
+However, for backward compatibility with any shortcuts saved in the old `☐`/`☑` format before this fix, we should also update the native renderer's regex to match both formats:
+
+```javascript
+// Before (only matches markdown format)
+var m = line.match(/^- \[( |x)\] (.*)/i);
+
+// After (also matches legacy ☐/☑ format)
+var m = line.match(/^- \[( |x)\] (.*)/i) || line.match(/^([☐☑]) (.*)/);
+if (m) {
+  var checked = ...
+  // For the old format, m[1] is '☑' or '☐' (not ' ' or 'x')
+  // Handle both: m[1].toLowerCase() === 'x' OR m[1] === '☑'
+}
+```
+
+This requires refactoring the renderer JS slightly to handle the two regex shapes. The cleaner approach is to normalise in a small helper before matching:
+
+Update the `renderChecklist` JS function in `buildHtml()` so the line-matching handles both old and new formats:
+
+```java
++ "  lines.forEach(function(line,i){"
++ "    var m=line.match(/^- \\[( |x)\\] (.*)/i);"
++ "    var isChecked=false,itemText=null;"
++ "    if(m){isChecked=m[1].toLowerCase()==='x';itemText=m[2];}"
++ "    else{var m2=line.match(/^([☐☑]) (.*)/);if(m2){isChecked=m2[1]==='☑';itemText=m2[2];}}"
++ "    if(itemText!==null){"
+// ... rest of row rendering using isChecked and itemText
+```
 
 ---
 
-### Summary Table
+### Summary
 
-| Area | Issue | Fix |
+| What | Before | After |
 |---|---|---|
-| Editor (`TextEditorStep.tsx`) | Interactive checkboxes during creation | None — static `☐` span is correct; no changes |
-| Native viewer — check/uncheck | Already works | No changes needed |
-| Native viewer — strikethrough | Already works via `.ci.done span` | No changes needed |
-| Native viewer — long text overflow | No `word-break` on `.ci span` | Add `word-break:break-word;overflow-wrap:anywhere` |
-| Native viewer — multi-line checkbox alignment | `align-items:center` centres checkbox mid-text | Change to `align-items:flex-start` + `margin-top:3px` on checkbox |
+| Editor saves format | `☐ item text` | `- [ ] item text` |
+| Parser reads format | `☐` and `☑` only | Both `- [ ]` and `☐`/`☑` (backward compat) |
+| Native renderer matches | `- [ ] text` only | Both `- [ ]` and `☐`/`☑` (backward compat) |
+| Check/uncheck in viewer | Never works (wrong format) | Works |
+| Strikethrough | Never appears | Appears on checked items |
+| Existing saved shortcuts | Broken (old format) | Still work (backward compat parser) |
 
-**Only one file changes:** `native/android/app/src/main/java/app/onetap/access/TextProxyActivity.java`
+### Files Changed
+- `src/components/TextEditorStep.tsx` — `generateChecklistText` and `parseChecklistItems`
+- `native/android/app/src/main/java/app/onetap/access/TextProxyActivity.java` — `renderChecklist` JS inside `buildHtml()`
