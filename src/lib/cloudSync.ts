@@ -841,6 +841,9 @@ async function downloadShortcutsInternal(deletedSet?: Map<string, Set<string>>):
         autoAdvanceInterval: cloud.auto_advance_interval ?? undefined,
         // Dormant state for file-dependent shortcuts
         syncState: isFileDependent ? 'dormant' : undefined,
+        // Text shortcut content (type === 'text' is never dormant)
+        textContent: type === 'text' ? (cloud.text_content || undefined) : undefined,
+        isChecklist: type === 'text' ? (cloud.is_checklist ?? false) : undefined,
       };
 
       newShortcuts.push(shortcut);

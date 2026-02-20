@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
-import { Zap, ChevronRight, ChevronDown, RefreshCw, Search, X, Link2, FileIcon, MessageCircle, Phone, BarChart3, Clock, ArrowDownAZ, CloudOff, Home, Globe } from 'lucide-react';
+import { Zap, ChevronRight, ChevronDown, RefreshCw, Search, X, Link2, FileIcon, MessageCircle, Phone, BarChart3, Clock, ArrowDownAZ, CloudOff, Home, Globe, AlignLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { generateGridIcon } from '@/lib/slideshowIconGenerator';
 import { cn } from '@/lib/utils';
@@ -30,7 +30,7 @@ export interface MyShortcutsContentProps {
   isSyncing?: boolean;
 }
 
-type TypeFilter = 'all' | 'link' | 'file' | 'whatsapp' | 'contact';
+type TypeFilter = 'all' | 'link' | 'file' | 'whatsapp' | 'contact' | 'text';
 type SortMode = 'usage' | 'newest' | 'alphabetical';
 
 const SORT_MODE_KEY = 'shortcuts_sort_mode';
@@ -45,6 +45,9 @@ function getShortcutTypeLabel(shortcut: ShortcutData, t: (key: string) => string
   }
   if (shortcut.type === 'link') {
     return t('access.link');
+  }
+  if (shortcut.type === 'text') {
+    return t('shortcuts.filterText');
   }
   if (shortcut.fileType === 'image') {
     return t('access.photo');
@@ -166,6 +169,18 @@ function ShortcutIcon({ shortcut }: { shortcut: ShortcutData }) {
     );
   }
   
+  // Text shortcut fallback: 📝 emoji
+  if (shortcut.type === 'text') {
+    return (
+      <div className="relative">
+        <div className={cn("h-12 w-12 rounded-xl bg-muted flex items-center justify-center text-2xl", dormant && "opacity-40 grayscale")}>
+          📝
+        </div>
+        {dormant && <DormantBadge />}
+      </div>
+    );
+  }
+
   // Default fallback
   return fallbackIcon;
 }
@@ -399,6 +414,7 @@ export function MyShortcutsContent({ onCreateReminder, onRefresh, isSyncing: ext
       file: activeShortcuts.filter(s => s.type === 'file').length,
       whatsapp: activeShortcuts.filter(s => s.type === 'message' && s.messageApp === 'whatsapp').length,
       contact: activeShortcuts.filter(s => s.type === 'contact').length,
+      text: activeShortcuts.filter(s => s.type === 'text').length,
     };
   }, [activeShortcuts]);
   
@@ -414,6 +430,7 @@ export function MyShortcutsContent({ onCreateReminder, onRefresh, isSyncing: ext
         if (typeFilter === 'contact') return s.type === 'contact';
         if (typeFilter === 'link') return s.type === 'link';
         if (typeFilter === 'file') return s.type === 'file';
+        if (typeFilter === 'text') return s.type === 'text';
         return true;
       });
     }
@@ -625,6 +642,7 @@ export function MyShortcutsContent({ onCreateReminder, onRefresh, isSyncing: ext
     { value: 'file', labelKey: 'shortcuts.filterFiles', icon: <FileIcon className="h-3.5 w-3.5" /> },
     { value: 'whatsapp', labelKey: 'shortcuts.filterWhatsApp', icon: <MessageCircle className="h-3.5 w-3.5" /> },
     { value: 'contact', labelKey: 'shortcuts.filterContacts', icon: <Phone className="h-3.5 w-3.5" /> },
+    { value: 'text', labelKey: 'shortcuts.filterText', icon: <AlignLeft className="h-3.5 w-3.5" /> },
   ];
   
   return (
