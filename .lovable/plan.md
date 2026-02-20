@@ -1,152 +1,104 @@
 
-## End-to-End Test: Text Tile Flow — Findings & Fix Plan
+## Summary
 
-### What Was Tested
-
-A complete code trace of the two text tile paths:
-1. Access tab → Text tile → "One Tap Access" → shortcut creation
-2. Access tab → Text tile → "Reminder" → reminder creation
-3. Notifications tab → "+" → Text tile → reminder creation
+The `ShortcutEditSheet` is already fully implemented for text editing — the UI, state, and `onSave` prop type all include `textContent` and `isChecklist`. The only blocking gap is in `useShortcuts.ts` where `updateShortcut`'s `Partial<Pick<...>>` type does not include those two fields, causing a TypeScript type error at the call site. Two secondary gaps also need fixing.
 
 ---
 
-### Critical Bug Found: Text Tile Is Wired Broken in AccessFlow
+## What Needs to Change
 
-Two bugs exist in `src/components/AccessFlow.tsx` that completely break the text shortcut creation path:
+### 1. `src/hooks/useShortcuts.ts` — Three changes
 
-**Bug 1 — `onSelectText` prop is never passed to `ContentSourcePicker`**
-
-`AccessFlow` defines `handleSelectText` (line 392) but the `ContentSourcePicker` instantiation (lines 596–605) does not include `onSelectText={handleSelectText}`. The Text tile renders because `ContentSourcePicker` shows it unconditionally, but tapping either "One Tap Access" or "Reminder" in the action picker dropdown does nothing — the callback is `undefined` and `handleActionSelect` silently returns without routing.
-
-**Bug 2 — The `text-editor` step is never rendered**
-
-`AccessFlow` sets `step = 'text-editor'` inside `handleSelectText` (line 398), and registers a back handler for it (line 170), but there is no corresponding render branch in the JSX. The file renders: `source`, `url`, `customize`, `slideshow-customize`, `contact`, `success` — but `text-editor` is completely absent. Tapping "Text" with `onSelectText` wired would set the step but show a blank screen.
-
-The Notifications tab path (`ScheduledActionCreator`) is **working correctly** — the text sub-step, `TextEditorStep` sub-flow, and destination wiring are all present and correct.
-
----
-
-### What Is Working Correctly (Do Not Change)
-
-- `ContentSourcePicker.tsx` — Text tile renders in correct 4+3 portrait grid, action picker dropdown works, `onSelectText?.('shortcut')` and `onSelectText?.('reminder')` calls are correct.
-- `TextEditorStep.tsx` — Note/Checklist editor, Markdown toolbar, name field, icon picker, all props work correctly.
-- `ScheduledActionCreator.tsx` — Text tile flow for reminders is fully functional: `textSubStep === 'editor'` renders `TextEditorStep`, back handler resets state, `handleDestinationSelect` wires the text destination.
-- `useShortcuts.createTextShortcut` — Correctly creates a `ShortcutData` with `type: 'text'`, `textContent`, `isChecklist`.
-- `shortcutManager.buildContentIntent` — Correctly builds the `app.onetap.OPEN_TEXT` intent with `text_content` and `is_checklist` extras.
-- `MyShortcutsContent.tsx` — Correctly renders the 📝 emoji for text shortcuts, shows "Text" type label, supports the `'text'` filter chip.
-- `types/shortcut.ts` — `ShortcutType` includes `'text'`, `textContent?` and `isChecklist?` fields are present.
-- `types/scheduledAction.ts` — `TextDestination` interface is complete and correct.
-
----
-
-### Fix Plan: Two Changes to `src/components/AccessFlow.tsx`
-
-**Change 1 — Pass `onSelectText` to `ContentSourcePicker` (lines 596–605)**
-
-Add `onSelectText={handleSelectText}` to the `ContentSourcePicker` props:
+**Change A — Add `textContent` and `isChecklist` to the `Partial<Pick<...>>` type (line 389)**
 
 ```diff
-  <ContentSourcePicker
-    onSelectFile={handleSelectFile}
-    onSelectContact={handleSelectContact}
-    onSelectFromLibrary={handleSelectFromLibrary}
-    onEnterUrl={handleEnterUrl}
-+   onSelectText={handleSelectText}
-    onPickerOpenChange={(isOpen) => {
-      setIsInlinePickerOpen(isOpen);
-      onPickerOpenChange?.(isOpen);
-    }}
-  />
+- updates: Partial<Pick<ShortcutData, 'name' | 'icon' | 'quickMessages' | 'phoneNumber' | 'resumeEnabled' | 'imageUris' | 'imageThumbnails' | 'autoAdvanceInterval' | 'contentUri' | 'syncState' | 'mimeType' | 'fileSize' | 'thumbnailData' | 'originalPath'>>
++ updates: Partial<Pick<ShortcutData, 'name' | 'icon' | 'quickMessages' | 'phoneNumber' | 'resumeEnabled' | 'imageUris' | 'imageThumbnails' | 'autoAdvanceInterval' | 'contentUri' | 'syncState' | 'mimeType' | 'fileSize' | 'thumbnailData' | 'originalPath' | 'textContent' | 'isChecklist'>>
 ```
 
-**Change 2 — Add the missing `text-editor` render branch (after the `contact` step block)**
+**Change B — Add `'text'` to the `shortcutType` cast in the native update call (line 412)**
 
-Insert a render branch between the `contact` step and `success` step blocks:
+The `updatePinnedShortcut` call hard-casts `shortcut.type` to exclude `'text'`. This needs to include `'text'` so the TypeScript type is correct:
 
 ```diff
-+ {step === 'text-editor' && (
-+   <TextEditorStep
-+     showIconPicker={pendingActionMode !== 'reminder'}
-+     isReminder={pendingActionMode === 'reminder'}
-+     onBack={handleGoBack}
-+     onConfirm={handleTextConfirm}
-+   />
-+ )}
+- shortcutType: shortcut.type as 'contact' | 'file' | 'link' | 'message' | 'slideshow',
++ shortcutType: shortcut.type as 'contact' | 'file' | 'link' | 'message' | 'slideshow' | 'text',
+```
 
-  {step === 'success' && (
-    <SuccessScreen
-      shortcutName={lastCreatedName}
-      onDone={handleReset}
-    />
-  )}
+**Change C — Pass `textContent` and `isChecklist` to the native update call**
+
+When updating a text shortcut, the new content must be sent to the native layer so the home screen shortcut's intent extras are rebuilt with the updated text. This is added alongside the existing extras in the native call:
+
+```diff
+  const result = await ShortcutPlugin.updatePinnedShortcut({
+    id,
+    label: shortcut.name,
+    iconEmoji: shortcut.icon.type === 'emoji' ? shortcut.icon.value : undefined,
+    iconText: shortcut.icon.type === 'text' ? shortcut.icon.value : undefined,
+    iconData: shortcut.icon.type === 'thumbnail' ? shortcut.icon.value : undefined,
+    shortcutType: shortcut.type as 'contact' | 'file' | 'link' | 'message' | 'slideshow' | 'text',
+    phoneNumber: shortcut.phoneNumber,
+    quickMessages: shortcut.quickMessages,
+    messageApp: shortcut.messageApp,
+    resumeEnabled: shortcut.resumeEnabled,
+    contentUri: shortcut.contentUri,
+    mimeType: shortcut.mimeType,
+    contactName: shortcut.contactName || shortcut.name,
++   textContent: shortcut.textContent,
++   isChecklist: shortcut.isChecklist,
+  });
+```
+
+### 2. `src/plugins/ShortcutPlugin.ts` — Two changes
+
+**Change A — Add `'text'` to the `shortcutType` union (line 308)**
+
+```diff
+- shortcutType?: 'file' | 'link' | 'contact' | 'message' | 'slideshow';
++ shortcutType?: 'file' | 'link' | 'contact' | 'message' | 'slideshow' | 'text';
+```
+
+**Change B — Add `textContent` and `isChecklist` params to the `updatePinnedShortcut` interface**
+
+```diff
+  contactName?: string;
++ textContent?: string;
++ isChecklist?: boolean;
 ```
 
 ---
 
-### Complete Expected Flow After Fix
+## What Is Already Correct — Do Not Touch
 
-```text
-ACCESS TAB — SHORTCUT PATH
-─────────────────────────────────────────────────────────────────────
-1. Tap "Text" tile → ActionModePicker expands
-2. Tap "One Tap Access"
-   → handleSelectText('shortcut') called
-   → pendingActionMode = 'shortcut', step = 'text-editor'
-3. TextEditorStep renders (showIconPicker=true, isReminder=false)
-4. Write markdown note or checklist, set name, choose icon → "Add to Home Screen"
-   → handleTextConfirm() called
-   → createTextShortcut() → ShortcutData{type:'text', textContent, isChecklist}
-   → createHomeScreenShortcut() → intent app.onetap.OPEN_TEXT → ShortcutPlugin
-   → step = 'success' → SuccessScreen renders
-5. Shortcut appears in My Access Points with 📝 icon (or chosen emoji)
-6. Tapping home screen icon → TextProxyActivity renders Markdown or Checklist
+- `ShortcutEditSheet.tsx` line 31 — `onSave` prop type already includes `textContent` and `isChecklist`. No change needed.
+- `ShortcutEditSheet.tsx` lines 146–154 — `handleSave` already builds the updates object with `textContent` and `isChecklist`. No change needed.
+- `ShortcutEditSheet.tsx` lines 311–330 — Text editor overlay already works correctly. No change needed.
+- `MyShortcutsContent.tsx` line 545 — `handleSaveEdit` delegates to `updateShortcut` via `Parameters<typeof updateShortcut>[1]` — the type will automatically widen once `useShortcuts` is fixed. No change needed.
 
-ACCESS TAB — REMINDER PATH
-─────────────────────────────────────────────────────────────────────
-1. Tap "Text" tile → ActionModePicker expands
-2. Tap "Reminder"
-   → handleSelectText('reminder') called
-   → pendingActionMode = 'reminder', step = 'text-editor'
-3. TextEditorStep renders (showIconPicker=false, isReminder=true, button says "Continue")
-4. Write content, set name → "Continue"
-   → handleTextConfirm() called → pendingActionMode is 'reminder'
-   → TextDestination created → onCreateReminder(destination)
-   → tab switches to Notifications, ScheduledActionCreator opens pre-filled
-5. User sets time and recurrence → scheduled action created with text destination
+---
 
-NOTIFICATIONS TAB — REMINDER PATH (already working)
-─────────────────────────────────────────────────────────────────────
-1. Tap "+" → ScheduledActionCreator opens at destination step
-2. Tap "Text" tile → ActionModePicker expands → tap "Reminder"
-   → textSubStep = 'editor'
-3. TextEditorStep renders (showIconPicker=false, isReminder=true)
-4. Write content, set name → "Continue"
-   → TextDestination created → handleDestinationSelect() → step = 'timing'
-5. Set time → step = 'confirm' → handleCreate() → scheduled action saved
+## Native Java Note (Out of Scope — No Change Now)
+
+`buildIntentForUpdate` in `ShortcutPlugin.java` has no `"text".equals(shortcutType)` branch. This means after save, the home screen shortcut will retain its original `text_content` intent extra (the old text). The user would need to re-add the shortcut to home screen to pick up new content.
+
+This is a native build concern, not a TypeScript fix. For now:
+- The JS-side fix ensures data is stored correctly in `localStorage` and cloud sync (the source of truth).
+- The native intent will be stale until re-add. This is the same existing behaviour as other content changes (e.g. file reconnect → "Re-add to Home Screen" prompt).
+- The `ShortcutEditSheet` already shows the "Re-add to Home Screen" button when `hasIconOrNameChanged` — however text content changes don't set `hasIconOrNameChanged`. A minor addition: text content changes should also trigger the re-add button visibility.
+
+**Additional change in `ShortcutEditSheet.tsx`** — update `hasIconOrNameChanged` to also trigger on text content changes so the "Re-add to Home Screen" button appears when text is edited:
+
+```diff
+- setHasIconOrNameChanged(nameChanged || iconChanged || imagesChanged);
++ setHasIconOrNameChanged(nameChanged || iconChanged || imagesChanged || textChanged);
 ```
 
----
-
-### Technical Implementation Details
-
-**File:** `src/components/AccessFlow.tsx`
-
-- **Line 596–605**: Add `onSelectText={handleSelectText}` to `ContentSourcePicker` props. This is a one-line addition.
-
-- **After line 671** (after the `{step === 'contact' && ...}` block closes): Insert the `text-editor` step render branch using `TextEditorStep` with `showIconPicker={pendingActionMode !== 'reminder'}` and `isReminder={pendingActionMode === 'reminder'}`.
-
-**No other files need changes.** The bug is entirely contained in `AccessFlow.tsx`.
+This ensures users are prompted to re-add when text content changes, updating the intent on the home screen.
 
 ---
 
-### Post-Fix Manual Test Checklist (Physical Android Device Required)
+## Files Changed
 
-- [ ] Text tile visible in second row of Access tab, fills full width equally with Contact and Link tiles
-- [ ] Tapping Text tile shows "One Tap Access" and "Reminder" action buttons
-- [ ] **Shortcut path**: Tap "One Tap Access" → TextEditorStep opens with icon picker visible → write markdown → tap "Add to Home Screen" → SuccessScreen appears → shortcut appears in My Access Points with chosen icon → tapping home screen icon opens TextProxyActivity → Markdown renders correctly
-- [ ] **Checklist path**: Same as above but switch to Checklist mode → create items → add to home screen → tap home screen icon → checkboxes appear → toggle checkbox → close and reopen → state persists (localStorage + SharedPreferences)
-- [ ] **Back navigation from note editor**: Back button returns to source screen without creating shortcut
-- [ ] **Reminder path from Access tab**: Tap Text → "Reminder" → editor shows "Continue" (no icon picker) → Continue → Notifications tab opens with timing picker pre-filled with text destination
-- [ ] **Reminder path from Notifications tab**: "+" → Text tile → Reminder → editor → Continue → timing → confirm → reminder appears in list with 📝 icon and text content preview
-- [ ] Text filter chip in My Access Points correctly shows only text shortcuts
-- [ ] Text shortcuts are never marked dormant (no cloud-off badge)
+1. `src/hooks/useShortcuts.ts` — Add `textContent` and `isChecklist` to the `Partial<Pick>` type; add `'text'` to the type cast; pass the two new fields to `updatePinnedShortcut`.
+2. `src/plugins/ShortcutPlugin.ts` — Add `'text'` to the `shortcutType` union; add `textContent` and `isChecklist` params.
+3. `src/components/ShortcutEditSheet.tsx` — Set `hasIconOrNameChanged = true` when text content changes so the Re-add button surfaces.
