@@ -725,19 +725,20 @@ public class TextProxyActivity extends Activity {
             + "function renderChecklist(text, sid){"
             + "  var lines=text.split('\\n'),html='';"
             + "  lines.forEach(function(line,i){"
+            // Try new markdown format: - [ ] text  or  - [x] text
             + "    var m=line.match(/^- \\[( |x)\\] (.*)/i);"
-            + "    if(m){"
+            + "    var isChecked=false,itemText=null;"
+            + "    if(m){isChecked=m[1].toLowerCase()==='x';itemText=m[2];}"
+            // Fallback: legacy Unicode format  ☐ text  or  ☑ text
+            + "    else{var m2=line.match(/^([\\u2610\\u2611]) (.*)/);if(m2){isChecked=m2[1]==='\\u2611';itemText=m2[2];}}"
+            + "    if(itemText!==null){"
             + "      var key='chk_'+sid+'_'+i;"
-            + "      var checked=(savedState[key]!==undefined)?savedState[key]:(m[1].toLowerCase()==='x');"
+            + "      var checked=(savedState[key]!==undefined)?savedState[key]:isChecked;"
             // onclick on div — reliable in AlertDialog WebView; onchange on input is not
             + "      html+='<div class=\"ci'+(checked?' done':'')+'\" id=\"ci'+i+'\" onclick=\"onCheck('+i+')\">';"
             // NO onclick on input — pointer-events:none in CSS already blocks all input interaction.
-            // Adding onclick="event.stopPropagation()" here causes a double-toggle:
-            // 1. div onclick fires → onCheck(i) → cb.checked = !cb.checked (now true)
-            // 2. input onclick fires → browser already natively toggled cb.checked back to false before JS ran
-            // Net result: checkbox flickers but stays at same state (appears unresponsive).
             + "      html+='<input type=\"checkbox\" id=\"cb'+i+'\"'+(checked?' checked':'')+' tabindex=\"-1\">';"
-            + "      html+='<span>'+escHtml(m[2])+'</span></div>';"
+            + "      html+='<span>'+escHtml(itemText)+'</span></div>';"
             + "    } else if(line.trim()!==''){"
             + "      html+='<p>'+escHtml(line)+'</p>';"
             + "    } else {"
