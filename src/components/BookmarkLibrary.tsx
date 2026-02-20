@@ -1163,8 +1163,9 @@ export function BookmarkLibrary({
 
       {/* Floating Action Bar */}
       <div
+        style={{ bottom: 'calc(var(--android-safe-bottom, 0px) + 3.5rem + 0.75rem)' }}
         className={cn(
-          "fixed bottom-20 start-1/2 -translate-x-1/2 z-50",
+          "fixed start-1/2 -translate-x-1/2 z-50",
           "[html[dir=rtl]_&]:translate-x-1/2",
           "flex items-center gap-2 px-4 py-3 rounded-2xl",
           "bg-card border border-border shadow-lg",
