@@ -51,8 +51,8 @@ public class TextProxyActivity extends Activity {
     private static final String TAG = "TextProxyActivity";
     private static final String PREFS_CHECKLIST = "checklist_state";
 
-    // App accent — indigo, matches the app's primary color
-    private static final int COLOR_ACCENT = Color.parseColor("#6366f1");
+    // App accent — primary blue (#0080FF), matches the app's design system primary color
+    private static final int COLOR_ACCENT = Color.parseColor("#0080FF");
 
     // Theme-aware colors (set in initializeThemeColors based on resolvedTheme)
     private int colorBg;
@@ -210,18 +210,6 @@ public class TextProxyActivity extends Activity {
         copyBtn.setOnClickListener(v -> copyText());
         headerRow.addView(copyBtn);
 
-        // Reset button — only shown for checklists; circular refresh icon
-        if (isChecklist) {
-            ImageButton resetBtn = new ImageButton(this);
-            resetBtn.setImageResource(R.drawable.ic_checklist_reset);
-            resetBtn.setBackgroundResource(rippleRes);
-            resetBtn.setColorFilter(colorTextMuted);
-            resetBtn.setScaleType(ImageView.ScaleType.CENTER);
-            resetBtn.setContentDescription("Reset checklist");
-            resetBtn.setLayoutParams(new LinearLayout.LayoutParams(iconBtnSize, iconBtnSize));
-            resetBtn.setOnClickListener(v -> clearChecklistState());
-            headerRow.addView(resetBtn);
-        }
 
         // Share button — muted tinted share icon (reuses existing ic_share drawable)
         ImageButton shareBtn = new ImageButton(this);
@@ -290,7 +278,7 @@ public class TextProxyActivity extends Activity {
         mainLayout.addView(contentLayout);
 
         // ── Done button (matching WhatsApp's Cancel button pattern) ──────────
-        addDoneButton(mainLayout);
+        addDoneButton(mainLayout, isChecklist);
 
         scrollView.addView(mainLayout);
 
@@ -324,37 +312,97 @@ public class TextProxyActivity extends Activity {
      * Adds a "Done" close button at the bottom of the dialog,
      * matching WhatsApp's addCancelButton() pattern.
      */
-    private void addDoneButton(LinearLayout parent) {
-        // Divider above button
+    private void addDoneButton(LinearLayout parent, boolean isChecklist) {
+        // Divider above button row
         View divider = new View(this);
         divider.setBackgroundColor(colorDivider);
         LinearLayout.LayoutParams dividerParams = new LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, dpToPx(1));
         parent.addView(divider, dividerParams);
 
-        TextView doneBtn = new TextView(this);
-        doneBtn.setText("Done");
-        doneBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
-        doneBtn.setTextColor(colorTextMuted);
-        doneBtn.setGravity(Gravity.CENTER);
-        doneBtn.setPadding(dpToPx(20), dpToPx(16), dpToPx(20), dpToPx(16));
+        if (isChecklist) {
+            // Two-column footer: [Reset] | [Done]
+            LinearLayout footerRow = new LinearLayout(this);
+            footerRow.setOrientation(LinearLayout.HORIZONTAL);
 
-        // Ripple background
-        float[] radii = new float[]{0, 0, 0, 0, dpToPx(20), dpToPx(20), dpToPx(20), dpToPx(20)};
-        ShapeDrawable mask = new ShapeDrawable(new RoundRectShape(radii, null, null));
-        mask.getPaint().setColor(Color.WHITE);
-        GradientDrawable content = new GradientDrawable();
-        content.setColor(colorBg);
-        RippleDrawable ripple = new RippleDrawable(
-            ColorStateList.valueOf(colorRipple), content, mask);
-        doneBtn.setBackground(ripple);
-        doneBtn.setClickable(true);
-        doneBtn.setFocusable(true);
-        doneBtn.setOnClickListener(v -> dismissDialog());
+            // Reset button (left, accent blue)
+            TextView resetBtn = new TextView(this);
+            resetBtn.setText("Reset");
+            resetBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+            resetBtn.setTextColor(COLOR_ACCENT);
+            resetBtn.setGravity(Gravity.CENTER);
+            resetBtn.setPadding(dpToPx(20), dpToPx(16), dpToPx(20), dpToPx(16));
+            // Ripple — rounded bottom-left only
+            float[] resetRadii = new float[]{0, 0, 0, 0, 0, 0, dpToPx(20), dpToPx(20)};
+            ShapeDrawable resetMask = new ShapeDrawable(new RoundRectShape(resetRadii, null, null));
+            resetMask.getPaint().setColor(Color.WHITE);
+            GradientDrawable resetContent = new GradientDrawable();
+            resetContent.setColor(colorBg);
+            RippleDrawable resetRipple = new RippleDrawable(
+                ColorStateList.valueOf(colorRipple), resetContent, resetMask);
+            resetBtn.setBackground(resetRipple);
+            resetBtn.setClickable(true);
+            resetBtn.setFocusable(true);
+            resetBtn.setOnClickListener(v -> clearChecklistState());
+            LinearLayout.LayoutParams resetParams = new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+            footerRow.addView(resetBtn, resetParams);
 
-        LinearLayout.LayoutParams btnParams = new LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        parent.addView(doneBtn, btnParams);
+            // Vertical divider between buttons
+            View vDivider = new View(this);
+            vDivider.setBackgroundColor(colorDivider);
+            LinearLayout.LayoutParams vDividerParams = new LinearLayout.LayoutParams(
+                dpToPx(1), ViewGroup.LayoutParams.MATCH_PARENT);
+            footerRow.addView(vDivider, vDividerParams);
+
+            // Done button (right, muted)
+            TextView doneBtn = new TextView(this);
+            doneBtn.setText("Done");
+            doneBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+            doneBtn.setTextColor(colorTextMuted);
+            doneBtn.setGravity(Gravity.CENTER);
+            doneBtn.setPadding(dpToPx(20), dpToPx(16), dpToPx(20), dpToPx(16));
+            // Ripple — rounded bottom-right only
+            float[] doneRadii = new float[]{0, 0, 0, 0, dpToPx(20), dpToPx(20), 0, 0};
+            ShapeDrawable doneMask = new ShapeDrawable(new RoundRectShape(doneRadii, null, null));
+            doneMask.getPaint().setColor(Color.WHITE);
+            GradientDrawable doneContent = new GradientDrawable();
+            doneContent.setColor(colorBg);
+            RippleDrawable doneRipple = new RippleDrawable(
+                ColorStateList.valueOf(colorRipple), doneContent, doneMask);
+            doneBtn.setBackground(doneRipple);
+            doneBtn.setClickable(true);
+            doneBtn.setFocusable(true);
+            doneBtn.setOnClickListener(v -> dismissDialog());
+            LinearLayout.LayoutParams doneParams = new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+            footerRow.addView(doneBtn, doneParams);
+
+            parent.addView(footerRow, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        } else {
+            // Note mode — single full-width Done button
+            TextView doneBtn = new TextView(this);
+            doneBtn.setText("Done");
+            doneBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+            doneBtn.setTextColor(colorTextMuted);
+            doneBtn.setGravity(Gravity.CENTER);
+            doneBtn.setPadding(dpToPx(20), dpToPx(16), dpToPx(20), dpToPx(16));
+            float[] radii = new float[]{0, 0, 0, 0, dpToPx(20), dpToPx(20), dpToPx(20), dpToPx(20)};
+            ShapeDrawable mask = new ShapeDrawable(new RoundRectShape(radii, null, null));
+            mask.getPaint().setColor(Color.WHITE);
+            GradientDrawable content = new GradientDrawable();
+            content.setColor(colorBg);
+            RippleDrawable ripple = new RippleDrawable(
+                ColorStateList.valueOf(colorRipple), content, mask);
+            doneBtn.setBackground(ripple);
+            doneBtn.setClickable(true);
+            doneBtn.setFocusable(true);
+            doneBtn.setOnClickListener(v -> dismissDialog());
+            parent.addView(doneBtn, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        }
     }
 
     /**
@@ -472,7 +520,7 @@ public class TextProxyActivity extends Activity {
         String fg      = colorToHex(colorText);
         String codeBg  = colorToHex(colorCodeBg);
         String hrColor = colorToHex(colorDivider);
-        String accent  = "#6366f1";
+        String accent  = "#0080FF";
 
         // Inline, self-contained markdown renderer — no CDN dependency.
         String inlineMarkdown = ""
