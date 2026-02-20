@@ -448,29 +448,144 @@ public class TextProxyActivity extends Activity {
     }
 
     /**
-     * Shows a confirm dialog then clears all checked states for this shortcut
+     * Shows a premium custom confirmation dialog then clears all checked states for this shortcut
      * from SharedPreferences and resets the WebView DOM.
+     * Uses the same programmatic card style as showPremiumDialog() — no stock OS alert.
      */
     private void clearChecklistState() {
         if (shortcutId == null) return;
-        new AlertDialog.Builder(this)
-            .setTitle("Reset checklist?")
-            .setMessage("All checked items will be unchecked. This cannot be undone.")
-            .setPositiveButton("Reset", (d, w) -> {
-                SharedPreferences prefs = getSharedPreferences(PREFS_CHECKLIST, MODE_PRIVATE);
-                SharedPreferences.Editor editor = prefs.edit();
-                String prefix = "chk_" + shortcutId + "_";
-                for (String key : new java.util.HashSet<>(prefs.getAll().keySet())) {
-                    if (key.startsWith(prefix)) editor.remove(key);
-                }
-                editor.apply();
-                if (webView != null) {
-                    webView.evaluateJavascript("resetAllItems()", null);
-                }
-                Toast.makeText(this, "Checklist reset", Toast.LENGTH_SHORT).show();
-            })
-            .setNegativeButton("Cancel", null)
-            .show();
+
+        // ── Root card layout ──────────────────────────────────────────────────
+        LinearLayout cardLayout = new LinearLayout(this);
+        cardLayout.setOrientation(LinearLayout.VERTICAL);
+        cardLayout.setBackgroundColor(colorBg);
+
+        // ── Indigo accent bar at top (matches parent dialog) ──────────────────
+        View accentBar = new View(this);
+        accentBar.setBackgroundColor(COLOR_ACCENT);
+        cardLayout.addView(accentBar, new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, dpToPx(4)));
+
+        // ── Content area: title + message ─────────────────────────────────────
+        LinearLayout contentArea = new LinearLayout(this);
+        contentArea.setOrientation(LinearLayout.VERTICAL);
+        int hp = dpToPx(20);
+        contentArea.setPadding(hp, dpToPx(20), hp, dpToPx(20));
+
+        TextView confirmTitle = new TextView(this);
+        confirmTitle.setText("Reset checklist");
+        confirmTitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17);
+        confirmTitle.setTextColor(colorText);
+        confirmTitle.setTypeface(null, Typeface.BOLD);
+        LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        titleParams.bottomMargin = dpToPx(8);
+        contentArea.addView(confirmTitle, titleParams);
+
+        TextView confirmMsg = new TextView(this);
+        confirmMsg.setText("All checked items will be unchecked");
+        confirmMsg.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+        confirmMsg.setTextColor(colorTextMuted);
+        confirmMsg.setLineSpacing(dpToPx(2), 1f);
+        contentArea.addView(confirmMsg, new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        cardLayout.addView(contentArea, new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        // ── Horizontal divider above footer ───────────────────────────────────
+        View divider = new View(this);
+        divider.setBackgroundColor(colorDivider);
+        cardLayout.addView(divider, new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, dpToPx(1)));
+
+        // ── Footer: [Cancel] | [Reset] ────────────────────────────────────────
+        LinearLayout footerRow = new LinearLayout(this);
+        footerRow.setOrientation(LinearLayout.HORIZONTAL);
+
+        // Cancel button (left, muted — matches Done button style)
+        TextView cancelBtn = new TextView(this);
+        cancelBtn.setText("Cancel");
+        cancelBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        cancelBtn.setTextColor(colorTextMuted);
+        cancelBtn.setGravity(Gravity.CENTER);
+        cancelBtn.setPadding(dpToPx(20), dpToPx(16), dpToPx(20), dpToPx(16));
+        float[] cancelRadii = new float[]{0, 0, 0, 0, 0, 0, dpToPx(20), dpToPx(20)};
+        ShapeDrawable cancelMask = new ShapeDrawable(new RoundRectShape(cancelRadii, null, null));
+        cancelMask.getPaint().setColor(Color.WHITE);
+        GradientDrawable cancelContent = new GradientDrawable();
+        cancelContent.setColor(colorBg);
+        RippleDrawable cancelRipple = new RippleDrawable(
+            ColorStateList.valueOf(colorRipple), cancelContent, cancelMask);
+        cancelBtn.setBackground(cancelRipple);
+        cancelBtn.setClickable(true);
+        cancelBtn.setFocusable(true);
+        footerRow.addView(cancelBtn, new LinearLayout.LayoutParams(
+            0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+
+        // Vertical divider between buttons
+        View vDivider = new View(this);
+        vDivider.setBackgroundColor(colorDivider);
+        footerRow.addView(vDivider, new LinearLayout.LayoutParams(
+            dpToPx(1), ViewGroup.LayoutParams.MATCH_PARENT));
+
+        // Reset button (right, destructive red — signals danger)
+        TextView resetConfirmBtn = new TextView(this);
+        resetConfirmBtn.setText("Reset");
+        resetConfirmBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        resetConfirmBtn.setTextColor(Color.parseColor("#EF4444"));
+        resetConfirmBtn.setGravity(Gravity.CENTER);
+        resetConfirmBtn.setPadding(dpToPx(20), dpToPx(16), dpToPx(20), dpToPx(16));
+        float[] resetRadii = new float[]{0, 0, 0, 0, dpToPx(20), dpToPx(20), 0, 0};
+        ShapeDrawable resetMask = new ShapeDrawable(new RoundRectShape(resetRadii, null, null));
+        resetMask.getPaint().setColor(Color.WHITE);
+        GradientDrawable resetContent = new GradientDrawable();
+        resetContent.setColor(colorBg);
+        RippleDrawable resetRipple = new RippleDrawable(
+            ColorStateList.valueOf(colorRipple), resetContent, resetMask);
+        resetConfirmBtn.setBackground(resetRipple);
+        resetConfirmBtn.setClickable(true);
+        resetConfirmBtn.setFocusable(true);
+        footerRow.addView(resetConfirmBtn, new LinearLayout.LayoutParams(
+            0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+
+        cardLayout.addView(footerRow, new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        // ── Build and show the premium dialog ─────────────────────────────────
+        AlertDialog.Builder builder = new AlertDialog.Builder(this, R.style.MessageChooserDialog);
+        builder.setView(cardLayout);
+        AlertDialog confirmDialog = builder.create();
+
+        // Wire up buttons now that confirmDialog reference exists
+        cancelBtn.setOnClickListener(v -> confirmDialog.dismiss());
+        resetConfirmBtn.setOnClickListener(v -> {
+            SharedPreferences prefs = getSharedPreferences(PREFS_CHECKLIST, MODE_PRIVATE);
+            SharedPreferences.Editor editor = prefs.edit();
+            String prefix = "chk_" + shortcutId + "_";
+            for (String key : new java.util.HashSet<>(prefs.getAll().keySet())) {
+                if (key.startsWith(prefix)) editor.remove(key);
+            }
+            editor.apply();
+            if (webView != null) {
+                webView.evaluateJavascript("resetAllItems()", null);
+            }
+            confirmDialog.dismiss();
+            Toast.makeText(this, "Checklist reset", Toast.LENGTH_SHORT).show();
+        });
+
+        // Override window background to match parent dialog's premium card style
+        confirmDialog.setOnShowListener(d -> {
+            if (confirmDialog.getWindow() != null) {
+                GradientDrawable bg = new GradientDrawable();
+                bg.setColor(colorBg);
+                bg.setCornerRadius(dpToPx(20));
+                bg.setStroke(dpToPx(1), colorBorder);
+                confirmDialog.getWindow().setBackgroundDrawable(bg);
+            }
+        });
+
+        confirmDialog.show();
     }
 
     private void dismissDialog() {
