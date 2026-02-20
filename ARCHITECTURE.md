@@ -113,17 +113,33 @@ Capacitor is the bridge between web and native. It lets your React code call Jav
 
 **Proxy Activities:** Each shortcut type has a "proxy activity" — a lightweight Java class that receives the shortcut tap and performs the action:
 
-| Proxy | Action |
-|-------|--------|
-| `LinkProxyActivity` | Opens a URL in the browser |
-| `ContactProxyActivity` | Initiates a phone call |
-| `MessageProxyActivity` | Opens the messaging app |
-| `WhatsAppProxyActivity` | Opens WhatsApp to a specific contact |
-| `PDFProxyActivity` | Opens the native PDF viewer |
-| `VideoProxyActivity` | Opens the native video player |
-| `FileProxyActivity` | Opens a file with the system file handler |
-| `SlideshowProxyActivity` | Opens a photo slideshow |
-| `ShortcutEditProxyActivity` | Opens the edit screen for an existing shortcut |
+| Proxy | Intent Action | Action |
+|-------|--------------|--------|
+| `LinkProxyActivity` | `app.onetap.OPEN_LINK` | Opens a URL in the browser |
+| `ContactProxyActivity` | `app.onetap.OPEN_CONTACT` | Initiates a phone call |
+| `MessageProxyActivity` | `app.onetap.OPEN_MESSAGE` | Opens the messaging app |
+| `WhatsAppProxyActivity` | `app.onetap.OPEN_WHATSAPP` | Opens WhatsApp to a specific contact |
+| `PDFProxyActivity` | `app.onetap.OPEN_PDF` | Opens the native PDF viewer |
+| `VideoProxyActivity` | `app.onetap.OPEN_VIDEO` | Opens the native video player |
+| `FileProxyActivity` | `app.onetap.OPEN_FILE` | Opens a file with the system file handler |
+| `SlideshowProxyActivity` | `app.onetap.OPEN_SLIDESHOW` | Opens a photo slideshow |
+| `TextProxyActivity` | `app.onetap.OPEN_TEXT` | Renders markdown or checklist text shortcuts in a full-screen WebView |
+| `ShortcutEditProxyActivity` | `app.onetap.EDIT_SHORTCUT` | Opens the edit screen for an existing shortcut |
+
+**Text shortcut intent contract:**
+
+```
+Intent action:  app.onetap.OPEN_TEXT
+Activity:       TextProxyActivity
+Extras:
+  shortcut_id   String   — usage tracking + checklist state key (SharedPreferences key prefix)
+  text_content  String   — raw markdown or checklist source text (max 2000 chars)
+  is_checklist  Boolean  — true → render as interactive checklist; false → render as Markdown
+```
+
+**Checklist state persistence:** Checkbox state is stored in two places simultaneously:
+- **WebView `localStorage`** — keyed as `chk_<shortcut_id>_<line_index>`, survives soft closes
+- **Android `SharedPreferences`** (`checklist_state`) — backup via the `ChecklistBridge` JS interface (exposed as `window.Android`), survives WebView cache clears
 
 ---
 
@@ -232,7 +248,7 @@ File-dependent shortcuts (type = `file` or `slideshow`) cannot fully restore fro
 3. It appears in the list with a file-type emoji icon (🖼️, 🎬, 📄, etc.)
 4. The user sees a "Re-attach file" prompt and must provide the local file to reactivate
 
-Link, contact, and message shortcuts restore fully because their data (URL, phone number) is self-contained and device-independent.
+Link, contact, message, and **text** shortcuts restore fully because their data (URL, phone number, or `text_content`) is self-contained and device-independent. **Text shortcuts are never dormant** — `isFileDependentType()` in `src/types/shortcut.ts` explicitly excludes `'text'` from the file-dependent type set, and `text_content` is synced as a plain-text cloud column (up to 2000 chars). Checkbox interaction state is per-device and is not synced.
 
 ---
 
@@ -352,7 +368,7 @@ The app has four bottom tabs:
 
 | Tab | Component | Purpose |
 |-----|-----------|---------|
-| Access | `AccessFlow.tsx` | Create new shortcuts |
+| Access | `AccessFlow.tsx` | Create new shortcuts; tapping the **Text** tile triggers the inline `TextEditorStep` sub-flow (full-screen Markdown / checklist editor with toolbar, name field, and icon picker — no separate route) |
 | Reminders | `NotificationsPage.tsx` | View and create scheduled reminders |
 | Bookmarks | `BookmarkLibrary.tsx` | Browse and organize saved links |
 | Profile | `ProfilePage.tsx` | Settings, cloud sync, account |
@@ -499,7 +515,22 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for the full guide.
 
 ### Overview
 
-The app maintains a bidirectional sync between Android home screen shortcuts (via `ShortcutManager`) and the in-app "My Access Points" list (localStorage). This sync is **type-agnostic** — it works identically for all shortcut types (file, link, contact, message, slideshow).
+The app maintains a bidirectional sync between Android home screen shortcuts (via `ShortcutManager`) and the in-app "My Access Points" list (localStorage). This sync is **type-agnostic** — it works identically for all shortcut types (file, link, contact, message, slideshow, **text**).
+
+Recognized intent actions dispatched by `ShortcutPlugin.java`:
+
+| Intent Action | Handled By |
+|--------------|------------|
+| `app.onetap.OPEN_LINK` | `LinkProxyActivity` |
+| `app.onetap.OPEN_CONTACT` | `ContactProxyActivity` |
+| `app.onetap.OPEN_MESSAGE` | `MessageProxyActivity` |
+| `app.onetap.OPEN_WHATSAPP` | `WhatsAppProxyActivity` |
+| `app.onetap.OPEN_PDF` | `PDFProxyActivity` |
+| `app.onetap.OPEN_VIDEO` | `VideoProxyActivity` |
+| `app.onetap.OPEN_FILE` | `FileProxyActivity` |
+| `app.onetap.OPEN_SLIDESHOW` | `SlideshowProxyActivity` |
+| `app.onetap.OPEN_TEXT` | `TextProxyActivity` — passes `text_content` (String) and `is_checklist` (boolean) as intent extras |
+| `app.onetap.EDIT_SHORTCUT` | `ShortcutEditProxyActivity` |
 
 ### Three-Source Reconciliation Model
 
