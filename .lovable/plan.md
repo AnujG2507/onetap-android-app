@@ -1,159 +1,119 @@
 
-# Fix: Scroll Broken in All Tabs (Landscape and Portrait)
+# Fix: Bottom Sheets Hidden Behind BottomNav on Native Button Navigation
 
-## Investigation Results
+## Root Cause Analysis
 
-After thorough analysis of the full component hierarchy, there are **three separate root causes** — not one. The proposed `isVerticalLocked` fix addresses only one of them. All three must be fixed together.
+The BottomNav component is `fixed bottom-0 z-50` with a portrait height of `h-14` (56px) and landscape height of `h-10` (40px). It also uses `safe-bottom` which adds `padding-bottom: var(--android-safe-bottom)`.
 
----
+All bottom `SheetContent` panels are also `fixed bottom-0 z-50` and use the `safe-bottom` class. This `safe-bottom` utility is defined as:
 
-## Root Cause 1: Missing `min-h-0` on Tab Wrapper Divs (PRIMARY — causes landscape failure)
-
-In `src/pages/Index.tsx`, all four tab content wrappers use:
-```tsx
-<div className="flex-1 flex flex-col ...">
+```css
+.safe-bottom {
+  padding-bottom: var(--android-safe-bottom, 16px);
+}
 ```
 
-The outer root container is a **flex column** (`flex flex-col`):
-```tsx
-<div className="h-app-viewport bg-background flex flex-col overflow-hidden">
+`--android-safe-bottom` is the Android system navigation bar height (injected from `MainActivity.java` via `WindowInsetsCompat`). In **gesture navigation mode** this is ~0px. In **native button navigation mode** it is ~48dp.
+
+The problem is that `safe-bottom` only accounts for the system nav bar — not the BottomNav component itself. So when the sheet renders `fixed bottom-0`, it sits flush with the system nav bar bottom edge, and the BottomNav (56px tall in portrait) overlaps the top of the sheet, hiding action buttons behind it.
+
+The `SharedUrlActionSheet` uses a custom `fixed inset-0 flex items-end pb-8` wrapper — `pb-8` (32px) is a hardcoded guess that doesn't account for either the BottomNav height or the system nav bar in button navigation mode.
+
+## Correct Fix
+
+Add a new CSS utility `safe-bottom-with-nav` to `src/index.css` that accounts for **both** the Android system nav bar and the BottomNav component height:
+
+- Portrait BottomNav height: `3.5rem` (= `h-14` = 56px)
+- Landscape BottomNav height: `2.5rem` (= `h-10` = 40px)
+- System nav bar: `var(--android-safe-bottom, 0px)`
+
+```css
+/* Portrait: system nav bar + 56px BottomNav */
+.safe-bottom-with-nav {
+  padding-bottom: calc(var(--android-safe-bottom, 0px) + 3.5rem);
+}
+
+/* Landscape: system nav bar + 40px BottomNav */
+@media (orientation: landscape) {
+  .safe-bottom-with-nav {
+    padding-bottom: calc(var(--android-safe-bottom, 0px) + 2.5rem);
+  }
+}
 ```
 
-**The bug**: In CSS flexbox, `flex-1` (which is `flex: 1 1 0`) only guarantees a child can *grow* to fill available space. But the minimum size of a flex child is its intrinsic content size, not zero. Without `min-h-0`, a flex column child will **never shrink below its content height**. This means:
+Then apply this utility in two places:
 
-- The tab wrapper div is allowed to be taller than the viewport
-- The `ScrollArea` inside gets more height than it needs and **never actually needs to scroll**
-- The outer `overflow-hidden` on the root silently clips the overflow, making it look like nothing is there to scroll
-- In landscape mode, vertical space is cut nearly in half, so this problem is far more severe
+### 1. `src/components/ui/sheet.tsx` — `side="bottom"` variant
 
-**Fix**: Add `min-h-0` to all four tab wrapper divs in `Index.tsx`.
+The `sheetVariants` CVA for `side: bottom` currently includes `safe-bottom`. Replace it with `safe-bottom-with-nav`:
+
+```ts
+// Before
+bottom: "inset-x-0 bottom-0 border-t w-full max-w-full overflow-x-hidden safe-bottom ..."
+
+// After
+bottom: "inset-x-0 bottom-0 border-t w-full max-w-full overflow-x-hidden safe-bottom-with-nav ..."
+```
+
+This fixes all Sheet-based bottom panels at once:
+- `BookmarkActionSheet`
+- `ScheduledActionActionSheet`
+- `ScheduledActionEditor`
+- `TrashSheet`
+- `BatteryOptimizationHelp`
+- `SavedLinksSheet`
+- `MessageChooserSheet`
+- `LanguagePicker`
+- `SettingsPage` language sheet
+
+### 2. `src/components/SharedUrlActionSheet.tsx` — custom fixed panel
+
+This component uses a custom fixed overlay instead of `Sheet`. Its outer wrapper has `pb-8` hardcoded. Replace with an inline style using `calc`:
 
 ```tsx
 // Before
-<div className="flex-1 flex flex-col ...">
+<div className="fixed inset-0 z-50 flex items-end justify-center p-4 pb-8 bg-black/50 ...">
 
-// After  
-<div className="flex-1 min-h-0 flex flex-col ...">
+// After
+<div className="fixed inset-0 z-50 flex items-end justify-center p-4 bg-black/50 safe-bottom-with-nav ...">
 ```
 
-This constrains the tab div to exactly the available space, forcing the `ScrollArea` inside to be the scroll container.
+## Files Changed
 
----
+| File | Change |
+|------|--------|
+| `src/index.css` | Add `.safe-bottom-with-nav` utility with portrait and landscape variants |
+| `src/components/ui/sheet.tsx` | Replace `safe-bottom` with `safe-bottom-with-nav` in the bottom sheet variant |
+| `src/components/SharedUrlActionSheet.tsx` | Replace `pb-8` with `safe-bottom-with-nav` on the outer wrapper |
 
-## Root Cause 2: `useSwipeNavigation` `onTouchMove` Competes with Native Scroll (causes portrait failure with many items)
+## Why Not Just Increase `pb-*` on Each Sheet?
 
-The swipe handlers from `useSwipeNavigation` are spread onto the tab wrapper div:
-```tsx
-{...swipeHandlers}
-```
+Each Sheet already has its own bottom `pb-6` / `pb-4` for content padding (e.g. `pb-6 landscape:pb-4`). That padding is for the content's visual breathing room. The positioning issue is structural — the sheet itself is anchored to `bottom: 0`, so the entire sheet must be pushed up by the BottomNav height. This is most cleanly solved with a dedicated utility that can be applied at the CVA level.
 
-On Android WebView, attaching a React `onTouchMove` listener on a **parent of a `ScrollArea`** can interfere with native scroll gesture recognition. The current handler has no vertical-lock mechanism — it checks for horizontal swipes but doesn't bail out early when the gesture is clearly vertical.
-
-**Fix**: Add an `isVerticalLocked` ref to `useSwipeNavigation.ts`. Once the first `~10px` of movement is more vertical than horizontal, mark the gesture as vertical-locked and stop processing all further touch events for that gesture.
-
-```ts
-const isVerticalLocked = useRef(false);
-
-// In handleTouchStart: reset isVerticalLocked
-// In handleTouchMove: if deltaY > 10 && deltaY >= deltaX → set isVerticalLocked=true, return early
-// In handleTouchEnd: if isVerticalLocked → return early, don't check for swipe
-```
-
----
-
-## Root Cause 3: `ContentSourcePicker` Scroll Div Missing Height Constraint (Access tab landscape)
-
-In `AccessFlow.tsx` (Access tab, `step === 'source'`):
-```tsx
-<div className="flex-1 min-h-0 overflow-hidden">
-  <ContentSourcePicker ... />
-</div>
-```
-
-Inside `ContentSourcePicker.tsx`:
-```tsx
-<div ref={scrollContainerRef} className="flex-1 h-full overflow-y-auto pb-6">
-```
-
-The `h-full` works correctly when its parent is properly constrained. **This is already correctly set up with `min-h-0` in `AccessFlow`**. However, once Root Cause 1 (missing `min-h-0` on the tab wrapper) is fixed, this chain becomes fully correct. No additional change needed here.
-
----
-
-## Files to Change
-
-### 1. `src/pages/Index.tsx` — Add `min-h-0` to all four tab wrapper divs
-
-The four tab divs at lines ~565, ~593, ~611, ~628 need `min-h-0` added:
-
-```tsx
-// Access tab (line ~565)
-<div key={...} className="flex-1 min-h-0 flex flex-col ...">
-
-// Reminders tab (line ~593)  
-<div key={...} className="flex-1 min-h-0 flex flex-col ...">
-
-// Bookmarks tab (line ~611)
-<div key={...} className="flex-1 min-h-0 flex flex-col ...">
-
-// Profile tab (line ~628)
-<div key={...} className="flex-1 min-h-0 flex flex-col ...">
-```
-
-### 2. `src/hooks/useSwipeNavigation.ts` — Add `isVerticalLocked` gesture locking
-
-Add a vertical-lock ref so that as soon as a gesture is detected as primarily vertical, the swipe hook backs off entirely and lets the `ScrollArea` handle the touch:
-
-```ts
-const isVerticalLocked = useRef(false);
-
-// handleTouchStart: add isVerticalLocked.current = false;
-// handleTouchMove: 
-//   if (isVerticalLocked.current) return;
-//   if (deltaY > 10 && deltaY >= deltaX) { isVerticalLocked.current = true; return; }
-// handleTouchEnd: 
-//   if (!enabled || isVerticalLocked.current || !isHorizontalSwipe.current) return;
-//   ... after done: isVerticalLocked.current = false;
-```
-
----
-
-## Technical Details
+## Visual Before/After
 
 ```text
-Root container: h-app-viewport, flex-col, overflow-hidden
-│
-├── [Tab wrapper div] flex-1 ← MISSING min-h-0 here
-│   │                         Without it, min-height = content-height
-│   │                         The div can be taller than viewport
-│   │                         ScrollArea never needs to scroll
-│   │
-│   └── [NotificationsPage / BookmarkLibrary / ProfilePage / AccessFlow]
-│           flex-1, flex-col
-│           │
-│           └── ScrollArea (flex-1)
-│                   Viewport: h-full, overflow-y: scroll
-│                   ← Never activates because parent is too tall
-│
-└── BottomNav (fixed, safe-bottom)
+BEFORE (button navigation mode):
+┌─────────────────────────────────┐  ← top of sheet
+│  Swipe handle                   │
+│  "Open in browser"              │
+│  "Create shortcut"              │
+│  "Create reminder"              │
+│  "Edit"        ← partially vis. │
+├═════════════════════════════════╡  ← BottomNav top (overlaps sheet)
+│ [Access] [Remind] [Books] [Prof]│  ← BottomNav (56px + safe-bottom)
+└─────────────────────────────────┘  ← bottom of screen
+
+AFTER (button navigation mode):
+┌─────────────────────────────────┐  ← top of sheet (higher up)
+│  Swipe handle                   │
+│  "Open in browser"              │
+│  "Create shortcut"              │
+│  "Create reminder"              │
+│  "Edit"        ← fully visible  │
+│  "Move to Trash"                │
+│  [safe-bottom-with-nav padding] │  ← 56px gap = BottomNav height
+├═════════════════════════════════╡  ← BottomNav top
+│ [Access] [Remind] [Books] [Prof]│
+└─────────────────────────────────┘
 ```
-
-After fix:
-```text
-Root container: h-app-viewport, flex-col, overflow-hidden
-│
-├── [Tab wrapper div] flex-1 min-h-0  ← min-h-0 forces it to shrink to fit
-│   │                                   Exactly viewport-height minus BottomNav
-│   │
-│   └── ScrollArea (flex-1, min-h-0)
-│           Viewport: h-full, overflow-y: scroll
-│           ← Activates correctly — content overflows the fixed height
-```
-
----
-
-## Summary
-
-| # | Root Cause | Symptom | Fix |
-|---|-----------|---------|-----|
-| 1 | Missing `min-h-0` on tab wrapper divs | Landscape scroll completely broken; portrait broken with many items | Add `min-h-0` to 4 tab divs in `Index.tsx` |
-| 2 | `onTouchMove` swipe handler has no vertical lock | Vertical scroll gestures partially intercepted on Android WebView | Add `isVerticalLocked` ref to `useSwipeNavigation.ts` |
