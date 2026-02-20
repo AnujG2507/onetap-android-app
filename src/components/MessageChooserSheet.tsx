@@ -53,8 +53,8 @@ export function MessageChooserSheet({
           <SheetTitle className="flex items-center gap-2">
             <MessageCircle className="h-5 w-5 landscape:h-4 landscape:w-4 text-primary" />
             {contactName 
-              ? t('whatsapp.chooseMessageFor', 'Message for {{name}}', { name: contactName })
-              : t('whatsapp.chooseMessage', 'Choose message')
+              ? t('whatsapp.chooseMessageFor', { name: contactName })
+              : t('whatsapp.chooseMessage')
             }
           </SheetTitle>
         </SheetHeader>
@@ -71,10 +71,10 @@ export function MessageChooserSheet({
             </div>
             <div className="flex-1 min-w-0">
               <p className="font-medium text-foreground landscape:text-sm">
-                {t('whatsapp.openChatOnly', 'Open chat')}
+                {t('whatsapp.openChatOnly')}
               </p>
               <p className="text-sm landscape:text-xs text-muted-foreground truncate">
-                {t('whatsapp.openChatOnlyDesc', 'Start fresh, type your own message')}
+                {t('whatsapp.openChatOnlyDesc')}
               </p>
             </div>
           </button>
@@ -84,7 +84,7 @@ export function MessageChooserSheet({
             <div className="flex items-center gap-3 py-2 landscape:hidden">
               <div className="flex-1 h-px bg-border" />
               <span className="text-xs text-muted-foreground">
-                {t('whatsapp.orUseQuickMessage', 'or use a quick message')}
+                {t('whatsapp.orUseQuickMessage')}
               </span>
               <div className="flex-1 h-px bg-border" />
             </div>
@@ -116,7 +116,7 @@ export function MessageChooserSheet({
           onClick={() => onOpenChange(false)}
           className="w-full landscape:h-9"
         >
-          {t('common.cancel', 'Cancel')}
+          {t('common.cancel')}
         </Button>
       </SheetContent>
     </Sheet>

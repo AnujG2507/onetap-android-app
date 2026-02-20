@@ -55,15 +55,15 @@ export function QuickMessagesEditor({
     <div className="space-y-3 landscape:space-y-2">
       <div className="flex items-center justify-between">
         <Label className="text-sm landscape:text-xs font-medium text-foreground">
-          {t('whatsapp.quickMessages', 'Quick messages')}
+          {t('whatsapp.quickMessages')}
         </Label>
         <span className="text-xs landscape:text-[10px] text-muted-foreground">
-          {t('whatsapp.optional', 'Optional')}
+          {t('whatsapp.optional')}
         </span>
       </div>
       
       <p className="text-xs landscape:text-[10px] text-muted-foreground">
-        {t('whatsapp.quickMessagesHint', 'Messages open as drafts for you to review and send.')}
+        {t('whatsapp.quickMessagesHint')}
       </p>
 
       {/* Existing messages */}
@@ -80,14 +80,14 @@ export function QuickMessagesEditor({
                   value={message}
                   onChange={(e) => handleUpdateMessage(index, e.target.value)}
                   className="min-h-[60px] landscape:min-h-[40px] text-sm landscape:text-xs resize-none bg-transparent border-0 p-0 focus-visible:ring-0"
-                  placeholder={t('whatsapp.messagePlaceholder', 'Type a message...')}
+                  placeholder={t('whatsapp.messagePlaceholder')}
                 />
               </div>
               <button
                 type="button"
                 onClick={() => handleRemoveMessage(index)}
                 className="p-1 rounded-full hover:bg-destructive/10 transition-colors text-muted-foreground hover:text-destructive shrink-0"
-                aria-label={t('common.remove', 'Remove')}
+                aria-label={t('common.remove')}
               >
                 <X className="h-4 w-4 landscape:h-3.5 landscape:w-3.5" />
               </button>
@@ -103,7 +103,7 @@ export function QuickMessagesEditor({
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             className="min-h-[80px] landscape:min-h-[50px] text-sm landscape:text-xs resize-none"
-            placeholder={t('whatsapp.messagePlaceholder', 'Type a message...')}
+            placeholder={t('whatsapp.messagePlaceholder')}
             autoFocus
           />
           <div className="flex gap-2 landscape:gap-1.5 justify-end">
@@ -117,7 +117,7 @@ export function QuickMessagesEditor({
                 setNewMessage('');
               }}
             >
-              {t('common.cancel', 'Cancel')}
+              {t('common.cancel')}
             </Button>
             <Button
               type="button"
@@ -126,7 +126,7 @@ export function QuickMessagesEditor({
               onClick={handleAddMessage}
               disabled={!newMessage.trim()}
             >
-              {t('common.add', 'Add')}
+              {t('common.add')}
             </Button>
           </div>
         </div>
@@ -137,7 +137,7 @@ export function QuickMessagesEditor({
           className="w-full flex items-center justify-center gap-2 landscape:gap-1.5 p-3 landscape:p-2 rounded-lg border border-dashed border-muted-foreground/30 hover:border-primary/50 hover:bg-primary/5 transition-colors text-muted-foreground hover:text-primary"
         >
           <Plus className="h-4 w-4 landscape:h-3.5 landscape:w-3.5" />
-          <span className="text-sm landscape:text-xs">{t('whatsapp.addMessage', 'Add quick message')}</span>
+          <span className="text-sm landscape:text-xs">{t('whatsapp.addMessage')}</span>
         </button>
       ) : null}
 
@@ -145,9 +145,9 @@ export function QuickMessagesEditor({
       <div className="flex items-start gap-2 landscape:gap-1.5 p-2 landscape:p-1.5 rounded-lg bg-muted/20">
         <MessageCircle className="h-4 w-4 landscape:h-3.5 landscape:w-3.5 mt-0.5 text-muted-foreground shrink-0" />
         <p className="text-xs landscape:text-[10px] text-muted-foreground">
-          {messages.length === 0 && t('whatsapp.behaviorNoMessages', 'Opens WhatsApp chat directly.')}
-          {messages.length === 1 && t('whatsapp.behaviorOneMessage', 'Opens chat with message pre-filled.')}
-          {messages.length > 1 && t('whatsapp.behaviorMultipleMessages', 'Shows a chooser, then opens chat with selected message.')}
+          {messages.length === 0 && t('whatsapp.behaviorNoMessages')}
+          {messages.length === 1 && t('whatsapp.behaviorOneMessage')}
+          {messages.length > 1 && t('whatsapp.behaviorMultipleMessages')}
         </p>
       </div>
     </div>
