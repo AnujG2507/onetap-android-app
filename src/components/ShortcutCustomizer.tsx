@@ -207,21 +207,6 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
             {/* Content Preview */}
             <ContentPreview source={source} />
         
-        {/* File size indicator for videos */}
-        {isVideo && fileSizeMB && (
-          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50 border border-border/50">
-            <span className="text-lg">🎬</span>
-            <div className="flex-1">
-              <p className="text-sm font-medium text-foreground">
-                {t('shortcutCustomizer.videoFile')}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {fileSizeMB} MB {Number(fileSizeMB) > 50 ? `• ${t('shortcutCustomizer.largeFileWarning')}` : ''}
-              </p>
-            </div>
-          </div>
-        )}
-
         {/* Name input */}
         <div className="space-y-2">
           <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
