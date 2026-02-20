@@ -291,6 +291,28 @@ export function useShortcuts() {
     saveShortcuts(updated);
     return shortcut;
   }, [shortcuts, saveShortcuts]);
+
+  const createTextShortcut = useCallback((
+    textContent: string,
+    isChecklist: boolean,
+    name: string,
+    icon: ShortcutIcon
+  ): ShortcutData => {
+    const shortcut: ShortcutData = {
+      id: crypto.randomUUID(),
+      name,
+      type: 'text',
+      contentUri: '',
+      icon,
+      createdAt: Date.now(),
+      usageCount: 0,
+      textContent,
+      isChecklist,
+    };
+    const updated = [...shortcuts, shortcut];
+    saveShortcuts(updated);
+    return shortcut;
+  }, [shortcuts, saveShortcuts]);
   
   // Helper to detect file type from MIME type (robust detection)
   function detectFileTypeFromMime(mimeType?: string, filename?: string): 'image' | 'video' | 'pdf' | 'document' | undefined {
@@ -387,7 +409,7 @@ export function useShortcuts() {
             iconText: shortcut.icon.type === 'text' ? shortcut.icon.value : undefined,
             iconData: shortcut.icon.type === 'thumbnail' ? shortcut.icon.value : undefined,
             // Intent-affecting data for all shortcut types
-            shortcutType: shortcut.type,
+            shortcutType: shortcut.type as 'contact' | 'file' | 'link' | 'message' | 'slideshow',
             phoneNumber: shortcut.phoneNumber,
             quickMessages: shortcut.quickMessages,
             messageApp: shortcut.messageApp,
@@ -434,6 +456,7 @@ export function useShortcuts() {
     createShortcut,
     createContactShortcut,
     createSlideshowShortcut,
+    createTextShortcut,
     deleteShortcut,
     incrementUsage,
     updateShortcut,

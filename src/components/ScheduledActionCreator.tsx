@@ -417,10 +417,11 @@ export function ScheduledActionCreator({
     }
   };
 
-  const getDestinationIcon = (type: 'file' | 'url' | 'contact', dest?: ScheduledActionDestination) => {
+  const getDestinationIcon = (type: 'file' | 'url' | 'contact' | 'text', dest?: ScheduledActionDestination) => {
     switch (type) {
       case 'file': return <FileText className="h-5 w-5" />;
       case 'url': return <Link className="h-5 w-5" />;
+      case 'text': return <span className="text-lg">📝</span>;
       case 'contact': 
         // Contact avatar handles its own background
         const cName = dest?.type === 'contact' ? dest.contactName : undefined;

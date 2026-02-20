@@ -12,6 +12,19 @@ export interface ShortcutIntent {
 
 // Build intent for opening content
 export function buildContentIntent(shortcut: ShortcutData): ShortcutIntent {
+  // Text shortcut - opens in TextProxyActivity
+  if (shortcut.type === 'text') {
+    return {
+      action: 'app.onetap.OPEN_TEXT',
+      data: `onetap://text/${shortcut.id}`,
+      extras: {
+        shortcut_id: shortcut.id,
+        text_content: shortcut.textContent || '',
+        is_checklist: shortcut.isChecklist ? 'true' : 'false',
+      },
+    };
+  }
+
   // Slideshow shortcut - opens in-app viewer
   if (shortcut.type === 'slideshow') {
     return {

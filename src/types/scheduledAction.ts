@@ -1,7 +1,7 @@
 // Scheduled Action Types
 // A Scheduled Action is a time-based trigger that delivers one exact destination
 
-export type ScheduledActionDestinationType = 'file' | 'url' | 'contact';
+export type ScheduledActionDestinationType = 'file' | 'url' | 'contact' | 'text';
 
 export interface FileDestination {
   type: 'file';
@@ -29,10 +29,18 @@ export interface ContactDestination {
   isWhatsApp?: boolean;
 }
 
+export interface TextDestination {
+  type: 'text';
+  text: string;               // Markdown or checklist source
+  name: string;               // Display name
+  isChecklist?: boolean;
+}
+
 export type ScheduledActionDestination = 
   | FileDestination 
   | UrlDestination 
-  | ContactDestination;
+  | ContactDestination
+  | TextDestination;
 
 export type RecurrenceType = 'once' | 'daily' | 'weekly' | 'yearly';
 

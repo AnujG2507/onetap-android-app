@@ -1,4 +1,4 @@
-export type ShortcutType = 'file' | 'link' | 'contact' | 'message' | 'slideshow';
+export type ShortcutType = 'file' | 'link' | 'contact' | 'message' | 'slideshow' | 'text';
 
 export type FileType = 'image' | 'video' | 'pdf' | 'document' | 'audio';
 
@@ -45,6 +45,9 @@ export interface ShortcutData {
   imageUris?: string[];          // Array of image content:// URIs
   imageThumbnails?: string[];    // Array of base64 thumbnails (for icon generation & preview)
   autoAdvanceInterval?: number;  // Auto-advance seconds (0 = off, 3, 5, 10)
+  // Text shortcut fields
+  textContent?: string;          // Raw markdown or checklist text (up to 2000 chars)
+  isChecklist?: boolean;         // Whether content is rendered as interactive checklist
 }
 
 export interface ContentSource {
@@ -87,6 +90,7 @@ export const MAX_SLIDESHOW_IMAGES = 20;
 
 // Helper: is this shortcut type dependent on a local file?
 export function isFileDependentType(type: ShortcutType): boolean {
+  // text is self-contained (inline), never dormant
   return type === 'file' || type === 'slideshow';
 }
 
