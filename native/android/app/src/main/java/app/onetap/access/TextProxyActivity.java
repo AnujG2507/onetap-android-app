@@ -26,6 +26,8 @@ import android.webkit.JavascriptInterface;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -182,56 +184,40 @@ public class TextProxyActivity extends Activity {
         title.setLayoutParams(titleParams);
         headerRow.addView(title);
 
-        // Edit button — indigo text, ripple touch target
-        TextView editBtn = new TextView(this);
-        editBtn.setText("Edit");
-        editBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
-        editBtn.setTextColor(COLOR_ACCENT);
-        editBtn.setTypeface(null, Typeface.BOLD);
-        editBtn.setGravity(Gravity.CENTER);
-        int btnPad = dpToPx(8);
-        editBtn.setPadding(btnPad, btnPad, btnPad, btnPad);
-        GradientDrawable editContent = new GradientDrawable();
-        editContent.setColor(android.graphics.Color.TRANSPARENT);
-        editContent.setCornerRadius(dpToPx(8));
-        android.content.res.ColorStateList editRipple = android.content.res.ColorStateList.valueOf(colorRipple);
-        editBtn.setBackground(new android.graphics.drawable.RippleDrawable(editRipple, editContent, editContent));
-        editBtn.setClickable(true);
-        editBtn.setFocusable(true);
+        // Premium icon buttons — 40dp touch targets, circular ripple (matches PDF viewer)
+        int iconBtnSize = dpToPx(40);
+        int rippleRes = isDarkTheme ? R.drawable.ripple_circle : R.drawable.ripple_circle_dark;
+
+        // Edit button — indigo tinted pencil icon
+        ImageButton editBtn = new ImageButton(this);
+        editBtn.setImageResource(R.drawable.ic_text_edit);
+        editBtn.setBackgroundResource(rippleRes);
+        editBtn.setColorFilter(COLOR_ACCENT);
+        editBtn.setScaleType(ImageView.ScaleType.CENTER);
+        editBtn.setContentDescription("Edit");
+        editBtn.setLayoutParams(new LinearLayout.LayoutParams(iconBtnSize, iconBtnSize));
         editBtn.setOnClickListener(v -> openEditInApp());
         headerRow.addView(editBtn);
 
-        // Copy button — muted text, ripple touch target
-        TextView copyBtn = new TextView(this);
-        copyBtn.setText("Copy");
-        copyBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
-        copyBtn.setTextColor(colorTextMuted);
-        copyBtn.setGravity(Gravity.CENTER);
-        copyBtn.setPadding(btnPad, btnPad, btnPad, btnPad);
-        GradientDrawable copyContent = new GradientDrawable();
-        copyContent.setColor(android.graphics.Color.TRANSPARENT);
-        copyContent.setCornerRadius(dpToPx(8));
-        android.content.res.ColorStateList copyRipple = android.content.res.ColorStateList.valueOf(colorRipple);
-        copyBtn.setBackground(new android.graphics.drawable.RippleDrawable(copyRipple, copyContent, copyContent));
-        copyBtn.setClickable(true);
-        copyBtn.setFocusable(true);
+        // Copy button — muted tinted clipboard icon
+        ImageButton copyBtn = new ImageButton(this);
+        copyBtn.setImageResource(R.drawable.ic_text_copy);
+        copyBtn.setBackgroundResource(rippleRes);
+        copyBtn.setColorFilter(colorTextMuted);
+        copyBtn.setScaleType(ImageView.ScaleType.CENTER);
+        copyBtn.setContentDescription("Copy");
+        copyBtn.setLayoutParams(new LinearLayout.LayoutParams(iconBtnSize, iconBtnSize));
         copyBtn.setOnClickListener(v -> copyText());
         headerRow.addView(copyBtn);
 
-        // Share button — muted text, ripple touch target
-        TextView shareBtn = new TextView(this);
-        shareBtn.setText("Share");
-        shareBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
-        shareBtn.setTextColor(colorTextMuted);
-        shareBtn.setGravity(Gravity.CENTER);
-        shareBtn.setPadding(btnPad, btnPad, btnPad, btnPad);
-        GradientDrawable shareContent = new GradientDrawable();
-        shareContent.setColor(android.graphics.Color.TRANSPARENT);
-        shareContent.setCornerRadius(dpToPx(8));
-        android.content.res.ColorStateList shareRipple = android.content.res.ColorStateList.valueOf(colorRipple);
-        shareBtn.setBackground(new android.graphics.drawable.RippleDrawable(shareRipple, shareContent, shareContent));
-        shareBtn.setClickable(true);
-        shareBtn.setFocusable(true);
+        // Share button — muted tinted share icon (reuses existing ic_share drawable)
+        ImageButton shareBtn = new ImageButton(this);
+        shareBtn.setImageResource(R.drawable.ic_share);
+        shareBtn.setBackgroundResource(rippleRes);
+        shareBtn.setColorFilter(colorTextMuted);
+        shareBtn.setScaleType(ImageView.ScaleType.CENTER);
+        shareBtn.setContentDescription("Share");
+        shareBtn.setLayoutParams(new LinearLayout.LayoutParams(iconBtnSize, iconBtnSize));
         shareBtn.setOnClickListener(v -> shareText());
         headerRow.addView(shareBtn);
 
