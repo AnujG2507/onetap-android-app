@@ -1,30 +1,33 @@
 package app.onetap.access;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.SharedPreferences;
 import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
+import android.util.DisplayMetrics;
 import android.util.Log;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
+import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
-import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
 /**
  * TextProxyActivity
  *
- * Full-screen WebView that renders markdown or checklist text shortcuts.
- * Opens via ShortcutPlugin.openTextShortcut() — slides up from bottom instantly,
- * just like the WhatsApp chooser dialog, without loading the full Capacitor app.
+ * Premium bottom-sheet dialog that renders markdown or checklist text shortcuts.
+ * Opens via ShortcutPlugin.openTextShortcut() — slides up from bottom as a floating
+ * AlertDialog over the dimmed home screen, matching the WhatsApp chooser aesthetic.
  *
  * Intent extras:
  *   shortcut_id   - string, used for usage tracking + checklist state key
@@ -39,11 +42,15 @@ public class TextProxyActivity extends Activity {
     private static final String PREFS_SETTINGS = "app_settings";
 
     private WebView webView;
+    private AlertDialog dialog;
     private String shortcutId;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // Transparent activity window — the dialog provides all the UI
+        setContentView(new View(this));
 
         shortcutId = getIntent().getStringExtra("shortcut_id");
         String shortcutName = getIntent().getStringExtra("shortcut_name");
@@ -58,109 +65,152 @@ public class TextProxyActivity extends Activity {
             NativeUsageTracker.recordTap(this, shortcutId);
         }
 
-        // Determine theme from SharedPreferences (synced from JS layer via syncTheme)
         boolean isDark = isDarkTheme();
+        showBottomSheet(shortcutName, textContent, isChecklist, isDark);
+    }
 
-        // Colors
-        int bgColor          = isDark ? Color.parseColor("#121212") : Color.parseColor("#FFFFFF");
-        int surfaceColor     = isDark ? Color.parseColor("#1E1E1E") : Color.parseColor("#F8F8F8");
-        int textColor        = isDark ? Color.parseColor("#E0E0E0") : Color.parseColor("#1A1A1A");
-        int mutedColor       = isDark ? Color.parseColor("#888888") : Color.parseColor("#666666");
-        int dividerColor     = isDark ? Color.parseColor("#2A2A2A") : Color.parseColor("#E8E8E8");
-        int iconColor        = isDark ? Color.parseColor("#CCCCCC") : Color.parseColor("#333333");
+    private void showBottomSheet(String shortcutName, String textContent, boolean isChecklist, boolean isDark) {
+        // ── Colors ──────────────────────────────────────────────────────────
+        int bgColor      = isDark ? Color.parseColor("#1C1C1E") : Color.WHITE;
+        int textColor    = isDark ? Color.parseColor("#E0E0E0") : Color.parseColor("#1A1A1A");
+        int mutedColor   = isDark ? Color.parseColor("#555555") : Color.parseColor("#CCCCCC");
+        int dividerColor = isDark ? Color.parseColor("#2C2C2E") : Color.parseColor("#E8E8E8");
+        int pillColor    = isDark ? Color.parseColor("#3A3A3C") : Color.parseColor("#DEDEDE");
+        int accentColor  = Color.parseColor("#6366f1");
 
-        // Apply transparent status bar for edge-to-edge feel
-        Window window = getWindow();
-        window.setStatusBarColor(Color.TRANSPARENT);
-        window.getDecorView().setSystemUiVisibility(
-            isDark ? 0 : View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
-        );
+        // ── Screen height cap ────────────────────────────────────────────────
+        DisplayMetrics dm = new DisplayMetrics();
+        getWindowManager().getDefaultDisplay().getMetrics(dm);
+        int maxWebViewHeight = (int) (dm.heightPixels * 0.65f);
 
-        // ---- Root container ----
-        LinearLayout root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(bgColor);
-        root.setLayoutParams(new ViewGroup.LayoutParams(
+        // ── Rounded top-corner background drawable ──────────────────────────
+        float r = dp(20);
+        GradientDrawable sheetBg = new GradientDrawable();
+        sheetBg.setColor(bgColor);
+        sheetBg.setCornerRadii(new float[]{r, r, r, r, 0, 0, 0, 0});
+
+        // ── Root sheet container ─────────────────────────────────────────────
+        LinearLayout sheet = new LinearLayout(this);
+        sheet.setOrientation(LinearLayout.VERTICAL);
+        sheet.setBackground(sheetBg);
+        sheet.setLayoutParams(new ViewGroup.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.MATCH_PARENT
+            ViewGroup.LayoutParams.WRAP_CONTENT
         ));
 
-        // ---- Top navigation bar ----
-        LinearLayout topBar = new LinearLayout(this);
-        topBar.setOrientation(LinearLayout.HORIZONTAL);
-        topBar.setGravity(Gravity.CENTER_VERTICAL);
-        topBar.setBackgroundColor(surfaceColor);
-        int barPaddingH = dp(16);
-        int barPaddingV = dp(12);
-        topBar.setPadding(barPaddingH, barPaddingV, barPaddingH, barPaddingV);
-
-        LinearLayout.LayoutParams topBarParams = new LinearLayout.LayoutParams(
+        // ── Drag handle pill ─────────────────────────────────────────────────
+        FrameLayout pillWrapper = new FrameLayout(this);
+        LinearLayout.LayoutParams pillWrapperParams = new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT
         );
-        topBar.setLayoutParams(topBarParams);
+        pillWrapperParams.topMargin = dp(12);
+        pillWrapperParams.bottomMargin = dp(4);
+        pillWrapper.setLayoutParams(pillWrapperParams);
 
-        // Close (back) button
-        TextView closeBtn = new TextView(this);
-        closeBtn.setText("✕");
-        closeBtn.setTextColor(iconColor);
-        closeBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18);
-        closeBtn.setPadding(0, 0, dp(12), 0);
-        closeBtn.setOnClickListener(v -> finish());
+        View pill = new View(this);
+        GradientDrawable pillDrawable = new GradientDrawable();
+        pillDrawable.setColor(pillColor);
+        pillDrawable.setCornerRadius(dp(2));
+        pill.setBackground(pillDrawable);
+        FrameLayout.LayoutParams pillParams = new FrameLayout.LayoutParams(dp(40), dp(4));
+        pillParams.gravity = Gravity.CENTER_HORIZONTAL;
+        pill.setLayoutParams(pillParams);
+        pillWrapper.addView(pill);
+        sheet.addView(pillWrapper, pillWrapperParams);
 
-        // Title
+        // ── Title row ────────────────────────────────────────────────────────
+        LinearLayout titleRow = new LinearLayout(this);
+        titleRow.setOrientation(LinearLayout.HORIZONTAL);
+        titleRow.setGravity(Gravity.CENTER_VERTICAL);
+        titleRow.setPadding(dp(20), dp(14), dp(16), dp(14));
+        LinearLayout.LayoutParams titleRowParams = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        titleRow.setLayoutParams(titleRowParams);
+
+        // Shortcut name
         TextView titleView = new TextView(this);
         titleView.setText(shortcutName);
         titleView.setTextColor(textColor);
-        titleView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        titleView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17);
         titleView.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
         titleView.setSingleLine(true);
         titleView.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(
-            0,
-            LinearLayout.LayoutParams.WRAP_CONTENT,
-            1f
-        );
+        LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
         titleView.setLayoutParams(titleParams);
 
-        topBar.addView(closeBtn);
-        topBar.addView(titleView);
+        // Close button
+        TextView closeBtn = new TextView(this);
+        closeBtn.setText("✕");
+        closeBtn.setTextColor(mutedColor);
+        closeBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20);
+        closeBtn.setPadding(dp(8), dp(4), dp(4), dp(4));
+        closeBtn.setOnClickListener(v -> dismissSheet());
 
-        // Divider below top bar
+        titleRow.addView(titleView);
+        titleRow.addView(closeBtn);
+        sheet.addView(titleRow, titleRowParams);
+
+        // ── Divider ──────────────────────────────────────────────────────────
         View divider = new View(this);
         divider.setBackgroundColor(dividerColor);
         LinearLayout.LayoutParams dividerParams = new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            1
+            LinearLayout.LayoutParams.MATCH_PARENT, dp(1)
         );
-        divider.setLayoutParams(dividerParams);
+        sheet.addView(divider, dividerParams);
 
-        // ---- WebView ----
+        // ── WebView (capped height) ───────────────────────────────────────────
         webView = new WebView(this);
         LinearLayout.LayoutParams webParams = new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
-            0,
-            1f
+            maxWebViewHeight
         );
         webView.setLayoutParams(webParams);
+        webView.setBackgroundColor(bgColor);
 
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
-
         webView.setWebViewClient(new WebViewClient());
         webView.addJavascriptInterface(new ChecklistBridge(), "Android");
-        webView.setBackgroundColor(bgColor);
 
-        root.addView(topBar, topBarParams);
-        root.addView(divider, dividerParams);
-        root.addView(webView, webParams);
-
-        setContentView(root);
-
-        // Build and load HTML
         String html = buildHtml(textContent, isChecklist, shortcutId, isDark);
         webView.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null);
+        sheet.addView(webView, webParams);
+
+        // ── Build AlertDialog ────────────────────────────────────────────────
+        dialog = new AlertDialog.Builder(this, android.R.style.Theme_Material_Light_Dialog)
+            .setView(sheet)
+            .setOnCancelListener(d -> finish())
+            .create();
+
+        Window w = dialog.getWindow();
+        if (w != null) {
+            w.setBackgroundDrawableResource(android.R.color.transparent);
+            w.setGravity(Gravity.BOTTOM);
+            w.getAttributes().windowAnimations = getTextSheetAnimStyle();
+            w.setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.WRAP_CONTENT);
+            w.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+            WindowManager.LayoutParams lp = w.getAttributes();
+            lp.dimAmount = 0.55f;
+            w.setAttributes(lp);
+        }
+
+        dialog.show();
+    }
+
+    /** Returns the resource ID of the TextSheetAnimation style for window animations. */
+    private int getTextSheetAnimStyle() {
+        return getResources().getIdentifier("TextSheetAnimation", "style", getPackageName());
+    }
+
+    private void dismissSheet() {
+        if (dialog != null && dialog.isShowing()) {
+            dialog.dismiss();
+        }
+        finish();
     }
 
     @Override
@@ -168,11 +218,19 @@ public class TextProxyActivity extends Activity {
         if (webView != null && webView.canGoBack()) {
             webView.goBack();
         } else {
-            finish();
+            dismissSheet();
         }
     }
 
-    /** Returns true if the app is currently using dark theme (reads from JS-synced SharedPreferences). */
+    @Override
+    protected void onDestroy() {
+        if (dialog != null && dialog.isShowing()) {
+            dialog.dismiss();
+        }
+        super.onDestroy();
+    }
+
+    /** Returns true if the app is currently using dark theme. */
     private boolean isDarkTheme() {
         SharedPreferences prefs = getSharedPreferences(PREFS_SETTINGS, MODE_PRIVATE);
         String resolvedTheme = prefs.getString("resolved_theme", "light");
@@ -193,15 +251,13 @@ public class TextProxyActivity extends Activity {
                 .replace("`", "\\`")
                 .replace("$", "\\$");
 
-        String bg       = isDark ? "#121212" : "#FFFFFF";
+        String bg       = isDark ? "#1C1C1E" : "#FFFFFF";
         String fg       = isDark ? "#E0E0E0" : "#1A1A1A";
-        String mutedFg  = isDark ? "#888888" : "#666666";
-        String codeBg   = isDark ? "#1E1E1E" : "#F4F4F4";
+        String codeBg   = isDark ? "#2C2C2E" : "#F4F4F4";
         String accent   = "#6366f1";
-        String hrColor  = isDark ? "#2A2A2A" : "#E8E8E8";
+        String hrColor  = isDark ? "#2C2C2E" : "#E8E8E8";
 
         // Inline, self-contained markdown renderer — no CDN dependency.
-        // Handles: headings, bold, italic, inline code, code blocks, HR, line breaks, - [ ] / - [x] checklists.
         String inlineMarkdown = ""
             + "function simpleMarkdown(t){"
             + "  var lines=t.split('\\n'),out='';"
@@ -274,21 +330,21 @@ public class TextProxyActivity extends Activity {
             + "<meta charset='UTF-8'>"
             + "<meta name='viewport' content='width=device-width,initial-scale=1,user-scalable=no'>"
             + "<style>"
+            + "html,body{margin:0;padding:0;background:" + bg + ";color:" + fg + "}"
             + "body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;"
-            + "  padding:20px;max-width:720px;margin:0 auto;background:" + bg + ";color:" + fg + ";line-height:1.65}"
-            + "h1,h2,h3{font-weight:700;margin-top:1.4em;margin-bottom:0.4em}"
-            + "h1{font-size:1.5em}h2{font-size:1.25em}h3{font-size:1.1em}"
-            + "p{margin:0.6em 0}"
-            + "hr{border:none;border-top:1px solid " + hrColor + ";margin:1.5em 0}"
+            + "  padding:16px 20px 24px;background:" + bg + ";color:" + fg + ";line-height:1.65}"
+            + "h1,h2,h3{font-weight:700;margin-top:1.2em;margin-bottom:0.3em}"
+            + "h1{font-size:1.4em}h2{font-size:1.2em}h3{font-size:1.05em}"
+            + "p{margin:0.5em 0}"
+            + "hr{border:none;border-top:1px solid " + hrColor + ";margin:1.2em 0}"
             + "code{background:" + codeBg + ";padding:2px 5px;border-radius:4px;font-size:0.88em;font-family:monospace}"
             + "pre{background:" + codeBg + ";padding:12px;border-radius:8px;overflow-x:auto}"
             + "pre code{background:none;padding:0}"
             + "strong{font-weight:700}em{font-style:italic}"
-            // Checklist styles
-            + ".ci{display:flex;align-items:flex-start;gap:10px;margin:10px 0;cursor:pointer}"
-            + ".ci input[type=checkbox]{width:20px;height:20px;margin:0;accent-color:" + accent + ";flex-shrink:0;cursor:pointer;margin-top:2px}"
-            + ".ci label{cursor:pointer;line-height:1.5;flex:1}"
-            + ".ci.done label{text-decoration:line-through;opacity:0.55}"
+            + ".ci{display:flex;align-items:flex-start;gap:12px;margin:12px 0;cursor:pointer}"
+            + ".ci input[type=checkbox]{width:22px;height:22px;margin:0;accent-color:" + accent + ";flex-shrink:0;cursor:pointer;margin-top:1px}"
+            + ".ci label{cursor:pointer;line-height:1.5;flex:1;font-size:1em}"
+            + ".ci.done label{text-decoration:line-through;opacity:0.45}"
             + "</style>"
             + "</head><body>"
             + "<div id='content'></div>"
