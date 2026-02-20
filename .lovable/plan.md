@@ -1,105 +1,152 @@
 
-## Documentation Update Plan
+## End-to-End Test: Text Tile Flow — Findings & Fix Plan
 
-### What Changed Since the Docs Were Last Accurate
+### What Was Tested
 
-Since the documentation was authored, the following features have been fully implemented and merged but are not yet reflected anywhere in the docs:
-
-1. **Text shortcut type** — a new 7th tile in `ContentSourcePicker` (alongside Photo, Video, Audio, Document, Contact, Link). Supports two modes: Note (Markdown) and Checklist.
-2. **`TextEditorStep` component** — full-screen inline editor with Markdown toolbar (Bold, Italic, H1, H2, Divider), Checklist mode with add/remove items, name field, icon picker.
-3. **`TextProxyActivity.java`** — new native Android Activity that renders text shortcuts. Uses an embedded WebView, loads `marked.js` for Markdown rendering, and persists checklist checkbox state in both `localStorage` (WebView) and `SharedPreferences` (Android backup).
-4. **`ShortcutPlugin.java` update** — handles the new `app.onetap.OPEN_TEXT` intent action; routes home-screen taps to `TextProxyActivity` with `text_content` and `is_checklist` extras.
-5. **`cloud_shortcuts` schema extension** — two new nullable columns: `text_content TEXT` and `is_checklist BOOLEAN DEFAULT false`.
-6. **Content picker layout restructure** — the grid is now explicitly 4+3 (portrait) using `grid-cols-4` / `grid-cols-3` sub-rows, dissolving to `landscape:grid-cols-7` in landscape via `display:contents`.
-7. **Type system expansion** — `ShortcutType` now includes `'text'`; `ScheduledActionDestinationType` includes `'text'`; new `TextDestination` interface; new fields `textContent?: string` and `isChecklist?: boolean` on `ShortcutData`.
+A complete code trace of the two text tile paths:
+1. Access tab → Text tile → "One Tap Access" → shortcut creation
+2. Access tab → Text tile → "Reminder" → reminder creation
+3. Notifications tab → "+" → Text tile → reminder creation
 
 ---
 
-### Files to Update
+### Critical Bug Found: Text Tile Is Wired Broken in AccessFlow
 
-**1. `APP_SUMMARY.md`**
+Two bugs exist in `src/components/AccessFlow.tsx` that completely break the text shortcut creation path:
 
-- Section "Core Features → 1. One Tap Access" — add `'text'` as a supported shortcut type.
-- Section "Data Model → Cloud Schema" — add `text_content` and `is_checklist` columns to the `cloud_shortcuts` block.
-- Section "Technical Architecture → Native Android Layer" — add `TextProxyActivity.java` to the list of key classes.
+**Bug 1 — `onSelectText` prop is never passed to `ContentSourcePicker`**
 
-**2. `ARCHITECTURE.md`**
+`AccessFlow` defines `handleSelectText` (line 392) but the `ContentSourcePicker` instantiation (lines 596–605) does not include `onSelectText={handleSelectText}`. The Text tile renders because `ContentSourcePicker` shows it unconditionally, but tapping either "One Tap Access" or "Reminder" in the action picker dropdown does nothing — the callback is `undefined` and `handleActionSelect` silently returns without routing.
 
-- Section 3 "Native Android Layer" — add `TextProxyActivity` to the Proxy Activities table with the description "Renders markdown or checklist text shortcuts in a full-screen WebView".
-- Section 5 "How Data Flows → Data Ownership" — note `text_content` and `is_checklist` as synced fields on `cloud_shortcuts`.
-- Section 5 "Dormant Access Points" — add a note that `text` type shortcuts are **never dormant** (self-contained, no local file dependency), citing `isFileDependentType()`.
-- Section 9 "Navigation Structure" — no tab change, but note the `TextEditorStep` inline sub-flow triggered from the Access tab.
-- Section 10 "Project Structure" — `TextEditorStep.tsx` already lives in `src/components/`, no structural change needed; just clarify it in the key components list if helpful.
-- Section 13 "Home Screen ↔ App Sync Contract" — `OPEN_TEXT` intent is now a recognized intent action in `ShortcutPlugin.java`; mention it alongside the existing proxy routing.
+**Bug 2 — The `text-editor` step is never rendered**
 
-**3. `SUPABASE.md`**
+`AccessFlow` sets `step = 'text-editor'` inside `handleSelectText` (line 398), and registers a back handler for it (line 170), but there is no corresponding render branch in the JSX. The file renders: `source`, `url`, `customize`, `slideshow-customize`, `contact`, `success` — but `text-editor` is completely absent. Tapping "Text" with `onSelectText` wired would set the step but show a blank screen.
 
-- Section 4 "Database Tables — `cloud_shortcuts`" — add two rows to the column table:
-  - `text_content | TEXT | Raw markdown or checklist text for text shortcuts | No`
-  - `is_checklist | BOOLEAN | Whether text is rendered as interactive checklist (default: false) | No (default: false)`
-- Section 4, Privacy Boundaries table — note that `text_content` **is** synced (unlike binary data) because it is self-contained text.
-
-**4. `ARCHITECTURE.md` Section 5 — Intent Action Table** (inline in the proxy section)
-
-Add `TextProxyActivity` row: intent `app.onetap.OPEN_TEXT`, extras `text_content` (String), `is_checklist` (boolean), `shortcut_id` (String for usage tracking + checklist state key).
-
-**5. `RELEASE_PROCESS.md` — Pre-Release Checklist**
-
-- Section 4 "Testing on Physical Android Device" — add two checklist items:
-  - `[ ] Text note shortcuts render markdown correctly`
-  - `[ ] Text checklist shortcuts toggle checkboxes and persist state`
-
-**6. `PRODUCT_IDEOLOGY.md`**
-
-- Section 6 "Offline-First" table — add a row:
-  - `Text shortcuts | ✅ Yes | Rendered locally in WebView; checklist state stored on device`
-- No ideology changes are needed — text shortcuts are fully local-first, offline-capable, and self-contained.
+The Notifications tab path (`ScheduledActionCreator`) is **working correctly** — the text sub-step, `TextEditorStep` sub-flow, and destination wiring are all present and correct.
 
 ---
 
-### Technical Details to Capture
+### What Is Working Correctly (Do Not Change)
 
-**Text shortcut intent contract (for ARCHITECTURE.md Section 3):**
+- `ContentSourcePicker.tsx` — Text tile renders in correct 4+3 portrait grid, action picker dropdown works, `onSelectText?.('shortcut')` and `onSelectText?.('reminder')` calls are correct.
+- `TextEditorStep.tsx` — Note/Checklist editor, Markdown toolbar, name field, icon picker, all props work correctly.
+- `ScheduledActionCreator.tsx` — Text tile flow for reminders is fully functional: `textSubStep === 'editor'` renders `TextEditorStep`, back handler resets state, `handleDestinationSelect` wires the text destination.
+- `useShortcuts.createTextShortcut` — Correctly creates a `ShortcutData` with `type: 'text'`, `textContent`, `isChecklist`.
+- `shortcutManager.buildContentIntent` — Correctly builds the `app.onetap.OPEN_TEXT` intent with `text_content` and `is_checklist` extras.
+- `MyShortcutsContent.tsx` — Correctly renders the 📝 emoji for text shortcuts, shows "Text" type label, supports the `'text'` filter chip.
+- `types/shortcut.ts` — `ShortcutType` includes `'text'`, `textContent?` and `isChecklist?` fields are present.
+- `types/scheduledAction.ts` — `TextDestination` interface is complete and correct.
 
-```text
-Intent action:  app.onetap.OPEN_TEXT
-Activity:       TextProxyActivity
-Extras:
-  shortcut_id   String   — usage tracking + checklist state key
-  text_content  String   — raw markdown or checklist source text (max 2000 chars)
-  is_checklist  Boolean  — true → render as interactive checklist; false → render as Markdown
+---
+
+### Fix Plan: Two Changes to `src/components/AccessFlow.tsx`
+
+**Change 1 — Pass `onSelectText` to `ContentSourcePicker` (lines 596–605)**
+
+Add `onSelectText={handleSelectText}` to the `ContentSourcePicker` props:
+
+```diff
+  <ContentSourcePicker
+    onSelectFile={handleSelectFile}
+    onSelectContact={handleSelectContact}
+    onSelectFromLibrary={handleSelectFromLibrary}
+    onEnterUrl={handleEnterUrl}
++   onSelectText={handleSelectText}
+    onPickerOpenChange={(isOpen) => {
+      setIsInlinePickerOpen(isOpen);
+      onPickerOpenChange?.(isOpen);
+    }}
+  />
 ```
 
-**Checklist state persistence model (for ARCHITECTURE.md):**
+**Change 2 — Add the missing `text-editor` render branch (after the `contact` step block)**
 
-Checkbox state is stored in two places simultaneously:
-- **WebView localStorage** — keyed as `chk_<shortcut_id>_<line_index>`, survives soft closes
-- **Android SharedPreferences** (`checklist_state`) — backup via the `ChecklistBridge` JS interface, survives WebView cache clears
+Insert a render branch between the `contact` step and `success` step blocks:
 
-**Grid layout change note (minor, no doc needed in .md files):**
+```diff
++ {step === 'text-editor' && (
++   <TextEditorStep
++     showIconPicker={pendingActionMode !== 'reminder'}
++     isReminder={pendingActionMode === 'reminder'}
++     onBack={handleGoBack}
++     onConfirm={handleTextConfirm}
++   />
++ )}
 
-The `ContentSourcePicker` layout refactor is a pure CSS change (4+3 portrait rows via `display:contents` trick). No user-facing behavior changed; no documentation update required beyond the already-accurate component list.
-
-**`isFileDependentType` guard:**
-
-`src/types/shortcut.ts` already documents: `// text is self-contained (inline), never dormant`. This should be echoed in ARCHITECTURE.md's "Dormant Access Points" section for clarity.
-
----
-
-### Implementation Order
-
-1. Update `APP_SUMMARY.md` (smallest, highest-level)
-2. Update `SUPABASE.md` Section 4 (database schema accuracy)
-3. Update `ARCHITECTURE.md` Sections 3, 5, 13 (technical reference)
-4. Update `RELEASE_PROCESS.md` Section 4 (pre-release checklist)
-5. Update `PRODUCT_IDEOLOGY.md` Section 6 (offline-first table)
+  {step === 'success' && (
+    <SuccessScreen
+      shortcutName={lastCreatedName}
+      onDone={handleReset}
+    />
+  )}
+```
 
 ---
 
-### What Is NOT Changing
+### Complete Expected Flow After Fix
 
-- `DEPLOYMENT.md` — build pipeline is unchanged; no new edge functions; no new secrets.
-- `ANDROID_SETUP.md` — no new SDK or tool dependencies.
-- `PRODUCT_IDEOLOGY.md` core principles — text shortcuts are fully consistent with all existing ideology.
-- `SUPABASE.md` Sections 5–10 — RLS, OAuth, edge functions, and migration process are unchanged.
-- `RELEASE_PROCESS.md` Sections 1–3, 5–11 — branching and versioning process unchanged.
+```text
+ACCESS TAB — SHORTCUT PATH
+─────────────────────────────────────────────────────────────────────
+1. Tap "Text" tile → ActionModePicker expands
+2. Tap "One Tap Access"
+   → handleSelectText('shortcut') called
+   → pendingActionMode = 'shortcut', step = 'text-editor'
+3. TextEditorStep renders (showIconPicker=true, isReminder=false)
+4. Write markdown note or checklist, set name, choose icon → "Add to Home Screen"
+   → handleTextConfirm() called
+   → createTextShortcut() → ShortcutData{type:'text', textContent, isChecklist}
+   → createHomeScreenShortcut() → intent app.onetap.OPEN_TEXT → ShortcutPlugin
+   → step = 'success' → SuccessScreen renders
+5. Shortcut appears in My Access Points with 📝 icon (or chosen emoji)
+6. Tapping home screen icon → TextProxyActivity renders Markdown or Checklist
+
+ACCESS TAB — REMINDER PATH
+─────────────────────────────────────────────────────────────────────
+1. Tap "Text" tile → ActionModePicker expands
+2. Tap "Reminder"
+   → handleSelectText('reminder') called
+   → pendingActionMode = 'reminder', step = 'text-editor'
+3. TextEditorStep renders (showIconPicker=false, isReminder=true, button says "Continue")
+4. Write content, set name → "Continue"
+   → handleTextConfirm() called → pendingActionMode is 'reminder'
+   → TextDestination created → onCreateReminder(destination)
+   → tab switches to Notifications, ScheduledActionCreator opens pre-filled
+5. User sets time and recurrence → scheduled action created with text destination
+
+NOTIFICATIONS TAB — REMINDER PATH (already working)
+─────────────────────────────────────────────────────────────────────
+1. Tap "+" → ScheduledActionCreator opens at destination step
+2. Tap "Text" tile → ActionModePicker expands → tap "Reminder"
+   → textSubStep = 'editor'
+3. TextEditorStep renders (showIconPicker=false, isReminder=true)
+4. Write content, set name → "Continue"
+   → TextDestination created → handleDestinationSelect() → step = 'timing'
+5. Set time → step = 'confirm' → handleCreate() → scheduled action saved
+```
+
+---
+
+### Technical Implementation Details
+
+**File:** `src/components/AccessFlow.tsx`
+
+- **Line 596–605**: Add `onSelectText={handleSelectText}` to `ContentSourcePicker` props. This is a one-line addition.
+
+- **After line 671** (after the `{step === 'contact' && ...}` block closes): Insert the `text-editor` step render branch using `TextEditorStep` with `showIconPicker={pendingActionMode !== 'reminder'}` and `isReminder={pendingActionMode === 'reminder'}`.
+
+**No other files need changes.** The bug is entirely contained in `AccessFlow.tsx`.
+
+---
+
+### Post-Fix Manual Test Checklist (Physical Android Device Required)
+
+- [ ] Text tile visible in second row of Access tab, fills full width equally with Contact and Link tiles
+- [ ] Tapping Text tile shows "One Tap Access" and "Reminder" action buttons
+- [ ] **Shortcut path**: Tap "One Tap Access" → TextEditorStep opens with icon picker visible → write markdown → tap "Add to Home Screen" → SuccessScreen appears → shortcut appears in My Access Points with chosen icon → tapping home screen icon opens TextProxyActivity → Markdown renders correctly
+- [ ] **Checklist path**: Same as above but switch to Checklist mode → create items → add to home screen → tap home screen icon → checkboxes appear → toggle checkbox → close and reopen → state persists (localStorage + SharedPreferences)
+- [ ] **Back navigation from note editor**: Back button returns to source screen without creating shortcut
+- [ ] **Reminder path from Access tab**: Tap Text → "Reminder" → editor shows "Continue" (no icon picker) → Continue → Notifications tab opens with timing picker pre-filled with text destination
+- [ ] **Reminder path from Notifications tab**: "+" → Text tile → Reminder → editor → Continue → timing → confirm → reminder appears in list with 📝 icon and text content preview
+- [ ] Text filter chip in My Access Points correctly shows only text shortcuts
+- [ ] Text shortcuts are never marked dormant (no cloud-off badge)
