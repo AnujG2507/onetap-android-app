@@ -3,6 +3,7 @@ package app.onetap.access;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
 import android.content.res.Configuration;
@@ -62,6 +63,8 @@ public class TextProxyActivity extends Activity {
     private WebView webView;
     private AlertDialog dialog;
     private String shortcutId;
+    private String textContent;
+    private String shortcutName;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -71,8 +74,8 @@ public class TextProxyActivity extends Activity {
         initializeThemeColors();
 
         shortcutId = getIntent().getStringExtra("shortcut_id");
-        String shortcutName = getIntent().getStringExtra("shortcut_name");
-        String textContent = getIntent().getStringExtra("text_content");
+        shortcutName = getIntent().getStringExtra("shortcut_name");
+        textContent = getIntent().getStringExtra("text_content");
         boolean isChecklist = getIntent().getBooleanExtra("is_checklist", false);
 
         if (textContent == null) textContent = "";
@@ -155,28 +158,74 @@ public class TextProxyActivity extends Activity {
         int padding = dpToPx(20);
         contentLayout.setPadding(padding, dpToPx(16), padding, 0);
 
-        // ── Header: title (shortcut name) ────────────────────────────────────
+        // ── Header row: [Title (flex)] [Edit] [Share] ────────────────────────
+        LinearLayout headerRow = new LinearLayout(this);
+        headerRow.setOrientation(LinearLayout.HORIZONTAL);
+        headerRow.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams headerRowParams = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        headerRowParams.bottomMargin = dpToPx(4);
+        headerRow.setLayoutParams(headerRowParams);
+
+        // Title — left-aligned, flex weight
         TextView title = new TextView(this);
         title.setText(shortcutName);
-        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20);
+        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17);
         title.setTextColor(colorText);
         title.setTypeface(null, Typeface.BOLD);
-        title.setGravity(Gravity.CENTER);
+        title.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
         LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        titleParams.bottomMargin = dpToPx(4);
+            0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
         title.setLayoutParams(titleParams);
-        contentLayout.addView(title);
+        headerRow.addView(title);
+
+        // Edit button — indigo text, ripple touch target
+        TextView editBtn = new TextView(this);
+        editBtn.setText("Edit");
+        editBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        editBtn.setTextColor(COLOR_ACCENT);
+        editBtn.setTypeface(null, Typeface.BOLD);
+        editBtn.setGravity(Gravity.CENTER);
+        int btnPad = dpToPx(8);
+        editBtn.setPadding(btnPad, btnPad, btnPad, btnPad);
+        GradientDrawable editContent = new GradientDrawable();
+        editContent.setColor(android.graphics.Color.TRANSPARENT);
+        editContent.setCornerRadius(dpToPx(8));
+        android.content.res.ColorStateList editRipple = android.content.res.ColorStateList.valueOf(colorRipple);
+        editBtn.setBackground(new android.graphics.drawable.RippleDrawable(editRipple, editContent, editContent));
+        editBtn.setClickable(true);
+        editBtn.setFocusable(true);
+        editBtn.setOnClickListener(v -> openEditInApp());
+        headerRow.addView(editBtn);
+
+        // Share button — muted text, ripple touch target
+        TextView shareBtn = new TextView(this);
+        shareBtn.setText("Share");
+        shareBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        shareBtn.setTextColor(colorTextMuted);
+        shareBtn.setGravity(Gravity.CENTER);
+        shareBtn.setPadding(btnPad, btnPad, btnPad, btnPad);
+        GradientDrawable shareContent = new GradientDrawable();
+        shareContent.setColor(android.graphics.Color.TRANSPARENT);
+        shareContent.setCornerRadius(dpToPx(8));
+        android.content.res.ColorStateList shareRipple = android.content.res.ColorStateList.valueOf(colorRipple);
+        shareBtn.setBackground(new android.graphics.drawable.RippleDrawable(shareRipple, shareContent, shareContent));
+        shareBtn.setClickable(true);
+        shareBtn.setFocusable(true);
+        shareBtn.setOnClickListener(v -> shareText());
+        headerRow.addView(shareBtn);
+
+        contentLayout.addView(headerRow);
 
         // ── Subtitle: type label ──────────────────────────────────────────────
         TextView subtitle = new TextView(this);
         subtitle.setText(isChecklist ? "Checklist" : "Note");
-        subtitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+        subtitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
         subtitle.setTextColor(colorTextMuted);
         subtitle.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams subtitleParams = new LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        subtitleParams.bottomMargin = dpToPx(16);
+        subtitleParams.bottomMargin = dpToPx(14);
         subtitle.setLayoutParams(subtitleParams);
         contentLayout.addView(subtitle);
 
@@ -276,6 +325,35 @@ public class TextProxyActivity extends Activity {
         LinearLayout.LayoutParams btnParams = new LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         parent.addView(doneBtn, btnParams);
+    }
+
+    /**
+     * Opens the app and triggers the edit sheet for this shortcut.
+     * Mirrors ShortcutEditProxyActivity logic — stores pending edit ID in SharedPreferences
+     * so usePendingShortcutEdit hook picks it up on app launch.
+     */
+    private void openEditInApp() {
+        if (shortcutId == null) return;
+        getSharedPreferences("onetap", MODE_PRIVATE)
+            .edit()
+            .putString("pending_edit_shortcut_id", shortcutId)
+            .apply();
+        Intent intent = new Intent(this, MainActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        startActivity(intent);
+        dismissDialog();
+    }
+
+    /**
+     * Opens the native Android share sheet with the raw text content.
+     */
+    private void shareText() {
+        Intent shareIntent = new Intent(Intent.ACTION_SEND);
+        shareIntent.setType("text/plain");
+        shareIntent.putExtra(Intent.EXTRA_TEXT, textContent);
+        shareIntent.putExtra(Intent.EXTRA_SUBJECT, shortcutName);
+        startActivity(Intent.createChooser(shareIntent, null));
+        dismissDialog();
     }
 
     private void dismissDialog() {
