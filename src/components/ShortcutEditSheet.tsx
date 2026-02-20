@@ -237,11 +237,14 @@ export function ShortcutEditSheet({
     if (!shortcut || !onReAddToHomeScreen) return;
     
     // Build updates including reconnection fields
-    const updates: Partial<Pick<ShortcutData, 'name' | 'icon' | 'quickMessages' | 'resumeEnabled' | 'imageUris' | 'imageThumbnails' | 'autoAdvanceInterval' | 'contentUri' | 'syncState' | 'mimeType' | 'fileSize' | 'thumbnailData'>> = {
+    const updates: Partial<Pick<ShortcutData, 'name' | 'icon' | 'quickMessages' | 'resumeEnabled' | 'imageUris' | 'imageThumbnails' | 'autoAdvanceInterval' | 'contentUri' | 'syncState' | 'mimeType' | 'fileSize' | 'thumbnailData' | 'textContent' | 'isChecklist'>> = {
       name,
       icon,
       quickMessages: quickMessages.length > 0 ? quickMessages : undefined,
       resumeEnabled: shortcut.fileType === 'pdf' ? resumeEnabled : undefined,
+      // Text content - only for text shortcuts
+      textContent: shortcut.type === 'text' ? textContent : undefined,
+      isChecklist: shortcut.type === 'text' ? isChecklist : undefined,
     };
     
     // Include reconnection fields if file was reconnected
