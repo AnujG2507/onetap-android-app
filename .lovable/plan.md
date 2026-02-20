@@ -1,174 +1,148 @@
 
-## Bottom Sheet Safe Area Compliance — Android Navigation Bar
+## Landscape Navigation Bar Safe Area — Full Fix
 
-### Problem Statement
+### Root Cause
 
-Bottom sheets and modal drawers that slide up from the bottom of the screen can overlap the Android gesture navigation bar or three-button navigation bar. The `--android-safe-bottom` CSS variable is already established in the design system as the single source of truth for this inset. The problem is inconsistent application across the three distinct bottom sheet patterns used in the app.
+Android places the navigation bar on the **right side** when the device is rotated 90° anti-clockwise (landscape), and on the **left side** for 90° clockwise. The current implementation has two gaps:
 
----
+1. **`MainActivity.java` only reads vertical insets.** The `setupNavBarInsetInjection` method only reads `navigationBars().bottom` and `statusBars().top`. The horizontal insets (`navigationBars().left` and `navigationBars().right`) are never read and never injected into the WebView. This means `--android-safe-left` and `--android-safe-right` CSS variables do not exist.
 
-### Three Bottom Sheet Patterns Identified
+2. **No horizontal safe area CSS is defined.** The design system has `safe-top`, `safe-bottom`, `safe-bottom-with-nav`, etc., but nothing for `safe-left` / `safe-right`. Every fixed element that spans the full width (BottomNav, fixed overlays) or is anchored to a horizontal edge (header buttons) is unprotected.
 
-The app has three architecturally distinct patterns for bottom content:
+### Affected Elements
 
-```text
-Pattern A — Radix Sheet (side="bottom")     → src/components/ui/sheet.tsx
-Pattern B — Vaul Drawer                     → src/components/ui/drawer.tsx
-Pattern C — Custom overlay (fixed inset-0)  → SharedUrlActionSheet, SharedFileActionSheet
-```
+| Element | Problem |
+|---|---|
+| `BottomNav` (`inset-x-0`) | Right edge extends under right-side nav bar; Profile tab button hidden |
+| `AccessFlow` header (`pe-5`) | Menu (AppMenu) button at right edge hidden under right-side nav bar |
+| `AccessFlow` offline banner (`ps-5 pe-5`) | Clipped at both edges depending on rotation |
+| `AccessFlow` header (`ps-5`) | Logo/title clipped at left edge in 90° clockwise rotation |
+| `SheetContent side="left"` / `side="right"` (AppMenu) | Slides in from the side that may have a nav bar — content width does not account for nav bar thickness |
+| Fixed `MyShortcutsButton` (`left-0 right-0`) | Same as BottomNav — right edge clips under nav bar |
+| `SharedUrlActionSheet` / `SharedFileActionSheet` (custom overlays with `p-4`) | Inner card not horizontally padded away from nav bar side |
 
----
+### Solution Overview
 
-### Current State Audit
+Three layers of change are needed:
 
-#### Pattern A — Radix `SheetContent` (side="bottom")
-
-The `sheetVariants` in `sheet.tsx` already applies `safe-bottom-with-nav` to the `bottom` variant:
-
-```
-bottom: "... safe-bottom-with-nav ..."
-```
-
-`safe-bottom-with-nav` = `calc(var(--android-safe-bottom, 0px) + 3.5rem)`
-
-This includes both the Android nav inset **and** the app's BottomNav height (3.5rem). This is correct when the BottomNav is visible beneath the sheet. However, several sheets appear as full-screen flows where the BottomNav is hidden — in those cases the 3.5rem offset is excessive padding but not harmful. The rule is consistently applied via the base component so all sheets using `<SheetContent side="bottom">` inherit it automatically.
-
-**Consumers verified as safe (inherit safe-bottom-with-nav from SheetContent):**
-- `BookmarkActionSheet` — `<SheetContent side="bottom" className="rounded-t-3xl...">` ✅
-- `ScheduledActionActionSheet` — `<SheetContent side="bottom" className="rounded-t-3xl px-0 pb-6...">` ⚠️ has explicit `pb-6` overriding the safe area
-- `MessageChooserSheet` — `<SheetContent side="bottom" className="max-h-[80vh]...">` ✅
-- `BatteryOptimizationHelp` — `<SheetContent side="bottom" className="h-[85vh]...">` ✅
-- `LanguagePicker` — `<SheetContent side="bottom" ...>` ✅
-- `SettingsPage` language sheet — `<SheetContent side="bottom" ...>` ✅
-- `ScheduledActionEditor` — `<SheetContent side="bottom" ...>` ✅
-- `TrashSheet` — `<SheetContent side="bottom" ...>` ✅
-- `SavedLinksSheet` — `<SheetContent side="bottom" ...>` ✅
-- `AppMenu` — `<SheetContent side="left">` / `side="right"` — not a bottom sheet, left/right use `safe-bottom` ✅
-
-**Issue found in `ScheduledActionActionSheet`:**
-```tsx
-<SheetContent side="bottom" className="rounded-t-3xl px-0 pb-6 landscape:pb-4 ...">
-```
-The explicit `pb-6` / `landscape:pb-4` classes do **not** override `safe-bottom-with-nav` because `safe-bottom-with-nav` sets `padding-bottom` via CSS class. However since Tailwind applies classes in source order, the `pb-6` class (which also sets `padding-bottom`) will be overridden by `safe-bottom-with-nav` only if it appears later in the stylesheet. In practice, utility classes like `pb-6` resolve before the custom `safe-bottom-with-nav` class, meaning `safe-bottom-with-nav` wins — **safe in practice**, but the explicit `pb-6` is redundant and confusing.
-
-#### Pattern B — Vaul `DrawerContent`
-
-`DrawerContent` in `drawer.tsx` sits at `bottom-0` with no safe area padding at all:
-
-```tsx
-"fixed inset-x-0 bottom-0 z-50 mt-24 flex h-auto flex-col rounded-t-[10px] border bg-background"
-```
-
-No `safe-bottom`, no `safe-bottom-with-nav` is present. Vaul's own `shouldScaleBackground` prop does not add safe-area padding. The Drawer content itself — and the content inside it — must handle the bottom inset.
-
-**Consumers affected:**
-- `ShortcutActionSheet` — `<DrawerContent className="max-h-[80vh]...">` — its inner `<div className="px-4 pb-4...">` has `pb-4` only, **no safe-area padding** ❌
-- `ShortcutEditSheet` — `<DrawerContent className="max-h-[90vh]">` with a `DrawerFooter` — `<div className="px-5 py-4...">` inside footer, **no safe-area padding** ❌
-- `CountryCodePicker` — `<DrawerContent className="max-h-[85vh]">` with `<ScrollArea>` — list terminates at the bottom with no inset ❌
-
-The fix is to add `pb-safe-bottom` (a new utility class) to `DrawerContent`'s base className, so all Drawer-based sheets automatically gain the system nav bar clearance. Since Drawers do not coexist with the BottomNav (the BottomNav is always visible below the Drawer overlay but the Drawer content is scrollable above it), the correct padding is just `--android-safe-bottom`, not `safe-bottom-with-nav`.
-
-#### Pattern C — Custom `fixed inset-0` overlays
-
-**`SharedUrlActionSheet`:**
-```tsx
-<div className="fixed inset-0 z-50 flex items-end justify-center p-4 bg-black/50 safe-bottom-with-nav ...">
-```
-`safe-bottom-with-nav` is already applied to the container, so the inner card is pushed up by the system nav height. ✅
-
-**`SharedFileActionSheet`:**
-```tsx
-<div className="fixed inset-0 z-50 flex items-end justify-center p-4 pb-8 bg-black/50 animate-in ...">
-```
-`pb-8` is a hardcoded `32px` fallback — this is **not** safe-area aware. On devices with a tall gesture bar (e.g. 48px) the card will overlap it. The class `safe-bottom-with-nav` is missing here. ❌
+1. **Java (native):** Expand inset injection to include left and right nav bar insets as `--android-safe-left` and `--android-safe-right`.
+2. **CSS (`index.css`):** Add `--android-safe-left` / `--android-safe-right` CSS variables and utility classes `safe-left`, `safe-right`, `safe-x` (both sides).
+3. **Components:** Apply safe-area horizontal padding/margin to all affected elements.
 
 ---
 
-### Files to Change
+### File-by-File Changes
 
-| File | Change | Reason |
-|---|---|---|
-| `src/components/ui/drawer.tsx` | Add `safe-bottom` to `DrawerContent` base class | All Vaul Drawer sheets gain system nav clearance |
-| `src/components/SharedFileActionSheet.tsx` | Replace `pb-8` with `safe-bottom-with-nav` on the outer container div | Matches SharedUrlActionSheet's correct pattern |
-| `src/components/ScheduledActionActionSheet.tsx` | Remove explicit `pb-6 landscape:pb-4` from `SheetContent` | Redundant; lets `safe-bottom-with-nav` from sheet.tsx be the only padding authority |
-| `src/index.css` | Add a new `safe-bottom-sheet` utility | Provides just the system nav clearance (no BottomNav offset) for Drawers that float above the nav |
+#### 1. `native/android/app/src/main/java/app/onetap/access/MainActivity.java`
 
----
+Expand `setupNavBarInsetInjection` to also read left/right nav bar insets and expand `injectInsetsIntoWebView` to inject `--android-safe-left` and `--android-safe-right`:
 
-### Detailed Changes
+```java
+// In setupNavBarInsetInjection — also read left/right:
+int navLeft = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).left;
+int navRight = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).right;
+lastSafeLeft = navLeft / density;
+lastSafeRight = navRight / density;
 
-#### 1. `src/index.css` — New utility class
+// In injectInsetsIntoWebView — append the new vars:
++ "document.documentElement.style.setProperty('--android-safe-left', '" + lastSafeLeft + "px');"
++ "document.documentElement.style.setProperty('--android-safe-right', '" + lastSafeRight + "px');"
+```
 
-Add after the existing `.safe-bottom-with-nav` block:
+Two new fields are added: `private float lastSafeLeft = 0f;` and `private float lastSafeRight = 0f;`.
+
+#### 2. `src/index.css`
+
+Add CSS variables with `env()` fallbacks (works in browser preview even without native injection) and utility classes:
 
 ```css
-/* Safe area for Drawers/overlays that float above the BottomNav.
-   Clears only the system nav bar, not the app BottomNav. */
-.safe-bottom-sheet {
-  padding-bottom: max(var(--android-safe-bottom, 0px), 16px);
+/* In :root — add alongside existing safe top/bottom vars */
+--android-safe-left: env(safe-area-inset-left, 0px);
+--android-safe-right: env(safe-area-inset-right, 0px);
+
+/* Utility classes — added alongside safe-top / safe-bottom */
+.safe-left {
+  padding-inline-start: var(--android-safe-left, 0px);
+}
+.safe-right {
+  padding-inline-end: var(--android-safe-right, 0px);
+}
+.safe-x {
+  padding-inline-start: var(--android-safe-left, 0px);
+  padding-inline-end: var(--android-safe-right, 0px);
 }
 ```
 
-The `max()` ensures there is always at least 16px of visual breathing room at the bottom even on devices without a system nav bar (where `--android-safe-bottom` is `0px`).
+Also update `--app-available-height` is fine (it measures between status bar top and nav bottom — on landscape Android the height is the full screen height minus nothing on left/right, so no change needed there).
 
-#### 2. `src/components/ui/drawer.tsx` — DrawerContent base class
+#### 3. `src/components/BottomNav.tsx`
 
-Add `safe-bottom-sheet` to the `DrawerContent` base className:
-
-```tsx
-// Before
-"fixed inset-x-0 bottom-0 z-50 mt-24 flex h-auto flex-col rounded-t-[10px] border bg-background"
-
-// After
-"fixed inset-x-0 bottom-0 z-50 mt-24 flex h-auto flex-col rounded-t-[10px] border bg-background safe-bottom-sheet"
-```
-
-This propagates safe area clearance to all three Drawer consumers simultaneously:
-- `ShortcutActionSheet` (its inner `pb-4` becomes additive visual spacing on top of the safe inset)
-- `ShortcutEditSheet` (its footer will clear the nav bar)
-- `CountryCodePicker` (list bottom cleared)
-
-#### 3. `src/components/SharedFileActionSheet.tsx` — outer container
+The `<nav>` currently uses `inset-x-0` which pins it hard against both screen edges. In landscape with a right-side nav bar, the nav bar sits on top of the rightmost portion. Fix: add horizontal padding that equals the safe area on each side.
 
 ```tsx
-// Before
-<div className="fixed inset-0 z-50 flex items-end justify-center p-4 pb-8 bg-black/50 animate-in fade-in duration-200">
+// Before:
+<nav className="fixed bottom-0 inset-x-0 bg-background border-t border-border safe-bottom z-50">
 
-// After
-<div className="fixed inset-0 z-50 flex items-end justify-center p-4 bg-black/50 safe-bottom-with-nav animate-in fade-in duration-200">
+// After:
+<nav className="fixed bottom-0 inset-x-0 bg-background border-t border-border safe-bottom z-50 safe-x">
 ```
 
-This aligns `SharedFileActionSheet` with `SharedUrlActionSheet` which already uses `safe-bottom-with-nav`.
+`safe-x` adds `padding-inline-start: var(--android-safe-left)` and `padding-inline-end: var(--android-safe-right)`. The tab buttons inside already use `flex-1` so they rebalance to fill the remaining space naturally.
 
-#### 4. `src/components/ScheduledActionActionSheet.tsx` — remove redundant pb
+#### 4. `src/components/AccessFlow.tsx`
+
+The header row at line 582 uses `ps-5 pe-5`. In landscape with a right-side nav bar, the AppMenu button (rightmost element) is hidden. Fix: replace the fixed `ps-5 pe-5` with `safe-x` padding combined with a reduced fallback, so that when a horizontal nav bar inset is present it adds to the base padding.
+
+The cleanest approach: keep `ps-5 pe-5` as a base and add `safe-x` to the header element. Since `safe-x` sets `padding-inline-start/end` using CSS variables that default to `0px`, they stack additively when using `padding-inline` (they don't conflict with Tailwind's `ps-5/pe-5` which use the same logical properties). 
+
+Actually, `ps-5` and `safe-x` both set `padding-inline-start` — the latter wins. Better approach: use CSS `calc()` directly in a style prop, or add a wrapper that adds the horizontal safe inset as `margin`.
+
+The simplest correct approach: add `safe-x` to the **root container div** of the `source` step screen (the full-screen flex column), not to the header alone. This way the entire step is inset from the nav bar side, which is correct — all content (header, source picker, etc.) is safely inset.
+
+The source step root is:
+```tsx
+// Line 561 area — the wrapping div when step === 'source'
+<div className="flex flex-col h-full ...">
+```
+
+Read AccessFlow more carefully: the full source step has a wrapping element that we add `safe-x` to. This shifts all content inward on both sides, which is the correct approach — on the right-nav-bar rotation side, all content clears the nav bar.
+
+#### 5. `src/components/ui/sheet.tsx`
+
+The `left` and `right` side variants don't account for horizontal insets. When the menu sheet is on the right side and the nav bar is also on the right, the sheet's content needs start-side padding. Fix:
 
 ```tsx
-// Before
-<SheetContent side="bottom" className="rounded-t-3xl px-0 pb-6 landscape:pb-4 landscape:max-h-[95vh]">
-
-// After
-<SheetContent side="bottom" className="rounded-t-3xl px-0 landscape:max-h-[95vh]">
+left:  "... safe-top safe-bottom safe-right ...",
+right: "... safe-top safe-bottom safe-left  ...",
 ```
 
-The `safe-bottom-with-nav` from `SheetContent`'s base class then becomes the sole padding-bottom authority.
+Wait — `safe-right` on a `left`-side sheet makes sense because the nav bar on the right (far edge of a left sheet) doesn't affect a left sheet's content. Actually for side sheets, what matters is:
+- `left` sheet: content abuts the left edge of the screen — in 90° clockwise, nav bar is on the left, so the sheet needs `safe-left` (padding-inline-start from left nav bar)
+- `right` sheet: content abuts the right edge of the screen — in 90° anti-clockwise, nav bar is on the right, so the sheet needs `safe-right` (padding-inline-end from right nav bar)
+
+Since the sheet already starts at `inset-y-0 left-0` (left sheet) or `inset-y-0 right-0` (right sheet), we just need to add the appropriate padding:
+
+```tsx
+left:  "inset-y-0 left-0 h-full w-3/4 border-r safe-top safe-bottom safe-left overflow-x-hidden ...",
+right: "inset-y-0 right-0 h-full w-3/4 border-l safe-top safe-bottom safe-right overflow-x-hidden ...",
+```
+
+#### 6. `src/components/SharedFileActionSheet.tsx` and `src/components/SharedUrlActionSheet.tsx`
+
+These fixed overlays have `p-4` padding on the card wrapper. In landscape with a horizontal nav bar, the card is pushed against the nav bar side. Fix: add `safe-x` to the outer container div (which already uses `flex items-end justify-center`). The `safe-x` padding on a flex column container that `justify-center`s an inner card will push the card inward from the nav bar side.
 
 ---
 
-### Why `safe-bottom-with-nav` for Sheets but `safe-bottom-sheet` for Drawers?
+### Summary of All Changes
 
-- **Sheets** (`SheetContent side="bottom"`) are full-width panels that slide over the entire screen including the BottomNav area. They need padding for both the system nav bar AND the app BottomNav.
-- **Drawers** (Vaul) are partial-height panels. The BottomNav is hidden behind the dark overlay below the drawer. The drawer content only needs to clear the system nav bar itself.
-- **Custom overlays** (`SharedUrl/FileActionSheet`) also live above the BottomNav overlay so they use `safe-bottom-with-nav` to position the card above both bars.
+| File | Change |
+|---|---|
+| `MainActivity.java` | Read `navLeft`/`navRight` insets; add `lastSafeLeft`/`lastSafeRight` fields; inject `--android-safe-left` and `--android-safe-right` CSS vars |
+| `src/index.css` | Add `--android-safe-left`/`--android-safe-right` CSS variables (with `env()` fallbacks) and `.safe-left`, `.safe-right`, `.safe-x` utility classes |
+| `src/components/BottomNav.tsx` | Add `safe-x` to the `<nav>` element |
+| `src/components/AccessFlow.tsx` | Add `safe-x` to the source step root container so header (AppMenu), offline banner, and all content are inset from the nav bar |
+| `src/components/ui/sheet.tsx` | Add `safe-left` to `left` variant and `safe-right` to `right` variant |
+| `src/components/SharedFileActionSheet.tsx` | Add `safe-x` to the outer container div |
+| `src/components/SharedUrlActionSheet.tsx` | Add `safe-x` to the outer container div |
 
----
-
-### Impact Summary
-
-| Component | Pattern | Before | After |
-|---|---|---|---|
-| `ShortcutActionSheet` | Drawer | No safe area | Clears system nav via `safe-bottom-sheet` in DrawerContent |
-| `ShortcutEditSheet` | Drawer | No safe area on footer | Clears system nav via `safe-bottom-sheet` in DrawerContent |
-| `CountryCodePicker` | Drawer | No safe area | Clears system nav via `safe-bottom-sheet` in DrawerContent |
-| `SharedFileActionSheet` | Custom overlay | Hardcoded `pb-8` | Dynamic `safe-bottom-with-nav` |
-| `ScheduledActionActionSheet` | Sheet | Redundant `pb-6` (safe-bottom-with-nav still wins) | Clean; only `safe-bottom-with-nav` applies |
-| All other `SheetContent side="bottom"` | Sheet | Already correct via sheet.tsx | Unchanged |
+These 7 targeted changes establish a complete, zero-hardcoded-pixel landscape horizontal safe area system, identical in philosophy to the existing vertical safe area approach.
