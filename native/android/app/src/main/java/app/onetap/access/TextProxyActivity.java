@@ -245,11 +245,14 @@ public class TextProxyActivity extends Activity {
         divider.setLayoutParams(dividerParams);
         contentLayout.addView(divider);
 
-        // ── WebView — start at 72% screen height so dialog lays out correctly on first pass.
-        // onPageFinished shrinks it to exact content height. WRAP_CONTENT collapses to 0px
-        // inside an AlertDialog before content loads — a known Android platform limitation.
+        // ── WebView — fixed at 75% screen height (max allowed).
+        // onPageFinished shrinks it to exact content height via #content.offsetHeight.
+        // WRAP_CONTENT collapses to 0px inside an AlertDialog before content loads —
+        // a known Android platform limitation. We use a fixed height instead and rely
+        // on setLayout(MATCH_PARENT, fixedHeight) to enforce it reliably.
         webView = new WebView(this);
-        int initialWebHeight = (int)(dm.heightPixels * 0.72f);
+        int maxDialogHeight = (int)(dm.heightPixels * 0.75f);
+        int initialWebHeight = maxDialogHeight;
         LinearLayout.LayoutParams webParams = new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             initialWebHeight
@@ -272,23 +275,32 @@ public class TextProxyActivity extends Activity {
 
         // After page finishes loading, measure real content height via JS and resize WebView.
         // This ensures tap coordinates align with visible elements (no clipping misalignment).
+        // Pre-calculate max dialog height once (75% of screen) for reuse in both
+        // onPageFinished and the onContentHeight bridge.
+        final int maxWebHeightPx = maxDialogHeight;
+
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public void onPageFinished(WebView view, String url) {
+                // Measure #content div's offsetHeight — NOT body.scrollHeight.
+                // body.scrollHeight returns the WebView viewport height when the WebView
+                // is initialized to a fixed height (body expands to fill container).
+                // #content.offsetHeight returns the true rendered content height.
                 view.evaluateJavascript(
-                    "(function(){ return document.body.scrollHeight; })()",
+                    "(function(){ var el=document.getElementById('content'); return el ? el.offsetHeight : document.body.scrollHeight; })()",
                     value -> {
                         try {
-                            int contentHeight = Integer.parseInt(value.trim());
-                            int maxPx = (int)(dm.heightPixels * 0.72f);
-                            int finalHeight = Math.min(contentHeight + dpToPx(24), maxPx);
+                            int contentPx = Integer.parseInt(value.trim());
+                            // Add body padding: 16px top + 24px bottom = 40dp
+                            int finalHeight = Math.min(contentPx + dpToPx(40), maxWebHeightPx);
                             runOnUiThread(() -> {
                                 ViewGroup.LayoutParams lp = webView.getLayoutParams();
                                 lp.height = finalHeight;
                                 webView.setLayoutParams(lp);
-                                // Force the AlertDialog window to re-measure after inner height changes.
-                                // Without this, floating dialogs (windowIsFloating=true) clamp to the
-                                // height committed at show() time and ignore child view resizes.
+                                // Use fixed height for dialog window — WRAP_CONTENT fights the
+                                // Theme.Material.Light.Dialog windowMaxHeight and produces unreliable results.
+                                // Setting a fixed pixel height is the only reliable approach for
+                                // floating AlertDialogs with windowIsFloating=true.
                                 if (dialog != null && dialog.getWindow() != null) {
                                     dialog.getWindow().setLayout(
                                         ViewGroup.LayoutParams.MATCH_PARENT,
@@ -297,7 +309,7 @@ public class TextProxyActivity extends Activity {
                                 }
                             });
                         } catch (Exception ignored) {
-                            Log.w(TAG, "Could not parse scrollHeight from JS: " + value);
+                            Log.w(TAG, "Could not parse content height from JS: " + value);
                         }
                     }
                 );
@@ -745,8 +757,12 @@ public class TextProxyActivity extends Activity {
             + "      var checked=(savedState[key]!==undefined)?savedState[key]:(m[1].toLowerCase()==='x');"
             // onclick on div — reliable in AlertDialog WebView; onchange on input is not
             + "      html+='<div class=\"ci'+(checked?' done':'')+'\" id=\"ci'+i+'\" onclick=\"onCheck('+i+')\">';"
-            // pointer-events:none on input — div handles the tap; input is visual only
-            + "      html+='<input type=\"checkbox\" id=\"cb'+i+'\"'+(checked?' checked':'')+' onclick=\"event.stopPropagation()\">';"
+            // NO onclick on input — pointer-events:none in CSS already blocks all input interaction.
+            // Adding onclick="event.stopPropagation()" here causes a double-toggle:
+            // 1. div onclick fires → onCheck(i) → cb.checked = !cb.checked (now true)
+            // 2. input onclick fires → browser already natively toggled cb.checked back to false before JS ran
+            // Net result: checkbox flickers but stays at same state (appears unresponsive).
+            + "      html+='<input type=\"checkbox\" id=\"cb'+i+'\"'+(checked?' checked':'')+' tabindex=\"-1\">';"
             + "      html+='<span>'+escHtml(m[2])+'</span></div>';"
             + "    } else if(line.trim()!==''){"
             + "      html+='<p>'+escHtml(line)+'</p>';"
@@ -756,16 +772,21 @@ public class TextProxyActivity extends Activity {
             + "  });"
             + "  return html;"
             + "}"
+            // _busy debounce prevents double-toggle from any residual touch event races.
+            + "var _busy=false;"
             + "function onCheck(i){"
+            + "  if(_busy)return;"
+            + "  _busy=true;"
             + "  var cb=document.getElementById('cb'+i);"
             + "  var item=document.getElementById('ci'+i);"
-            + "  if(!cb||!item)return;"
+            + "  if(!cb||!item){_busy=false;return;}"
             + "  cb.checked=!cb.checked;"
             + "  var checked=cb.checked;"
             + "  var key='chk_'+" + (sid != null ? "'" + sid.replace("'", "\\'") + "'" : "''") + "+'_'+i;"
             + "  savedState[key]=checked;"
             + "  item.className='ci'+(checked?' done':'');"
             + "  if(window.Android&&Android.saveCheckboxState)Android.saveCheckboxState(key,checked);"
+            + "  setTimeout(function(){_busy=false;},250);"
             + "}"
             + "function resetAllItems(){"
             + "  var items=document.querySelectorAll('.ci');"
@@ -811,9 +832,12 @@ public class TextProxyActivity extends Activity {
             + "var el=document.getElementById('content');"
             + renderCall
             // Fallback height bridge for older WebView versions
+            // Use #content.offsetHeight — NOT body.scrollHeight. When the WebView is initialized
+            // to a fixed height, body expands to fill it so scrollHeight = container height, not content.
             + "window.addEventListener('load',function(){"
             + "  if(window.Android&&Android.onContentHeight){"
-            + "    Android.onContentHeight(document.body.scrollHeight);"
+            + "    var el=document.getElementById('content');"
+            + "    Android.onContentHeight(el?el.offsetHeight:document.body.scrollHeight);"
             + "  }"
             + "});"
             + "</script>"
@@ -840,8 +864,8 @@ public class TextProxyActivity extends Activity {
          */
         @JavascriptInterface
         public void onContentHeight(int height) {
-            int maxPx = (int)(dm.heightPixels * 0.72f);
-            int finalH = Math.min(height + dpToPx(24), maxPx);
+            int maxPx = (int)(dm.heightPixels * 0.75f);
+            int finalH = Math.min(height + dpToPx(40), maxPx);
             runOnUiThread(() -> {
                 if (webView != null) {
                     ViewGroup.LayoutParams lp = webView.getLayoutParams();
