@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import { Zap, ChevronRight, ChevronDown, RefreshCw, Search, X, Link2, FileIcon, MessageCircle, Phone, BarChart3, Clock, ArrowDownAZ, CloudOff, Home, Globe, AlignLeft } from 'lucide-react';
@@ -17,6 +18,7 @@ import { detectPlatform } from '@/lib/platformIcons';
 import { pickFile, pickMultipleImages, type FileTypeFilter } from '@/lib/contentResolver';
 import { createHomeScreenShortcut } from '@/lib/shortcutManager';
 import { Capacitor } from '@capacitor/core';
+import ShortcutPlugin from '@/plugins/ShortcutPlugin';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import { ShortcutActionSheet } from '@/components/ShortcutActionSheet';
 import { ShortcutEditSheet } from '@/components/ShortcutEditSheet';
@@ -375,6 +377,7 @@ function SortButton({
 
 export function MyShortcutsContent({ onCreateReminder, onRefresh, isSyncing: externalSyncing }: MyShortcutsContentProps) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { shortcuts, deleteShortcut, updateShortcut, getShortcut, incrementUsage, syncWithHomeScreen, refreshFromStorage } = useShortcuts();
   const [selectedShortcut, setSelectedShortcut] = useState<ShortcutData | null>(null);
   const [editingShortcut, setEditingShortcut] = useState<ShortcutData | null>(null);
@@ -528,10 +531,10 @@ export function MyShortcutsContent({ onCreateReminder, onRefresh, isSyncing: ext
     onCreateReminder(destination);
   }, [onCreateReminder]);
   
-  const handleOpen = useCallback((shortcut: ShortcutData) => {
+  const handleOpen = useCallback(async (shortcut: ShortcutData) => {
     incrementUsage(shortcut.id);
     setSelectedShortcut(null);
-    
+
     if (shortcut.type === 'link') {
       window.open(shortcut.contentUri, '_blank');
     } else if (shortcut.type === 'contact' && shortcut.phoneNumber) {
@@ -539,8 +542,27 @@ export function MyShortcutsContent({ onCreateReminder, onRefresh, isSyncing: ext
     } else if (shortcut.type === 'message' && shortcut.phoneNumber) {
       const phone = shortcut.phoneNumber.replace(/\D/g, '');
       window.open(`https://wa.me/${phone}`, '_blank');
+    } else if (shortcut.type === 'slideshow') {
+      navigate(`/slideshow/${shortcut.id}`);
+    } else if (shortcut.type === 'text') {
+      navigate(`/text/${shortcut.id}`, {
+        state: {
+          textContent: shortcut.textContent || '',
+          isChecklist: shortcut.isChecklist || false,
+          name: shortcut.name,
+        },
+      });
+    } else if (shortcut.type === 'file') {
+      if (Capacitor.isNativePlatform() && shortcut.contentUri) {
+        await ShortcutPlugin.openWithExternalApp({
+          uri: shortcut.contentUri,
+          mimeType: shortcut.mimeType,
+        });
+      } else if (shortcut.contentUri) {
+        window.open(shortcut.contentUri, '_blank');
+      }
     }
-  }, [incrementUsage]);
+  }, [incrementUsage, navigate]);
   
   const handleSaveEdit = useCallback(async (id: string, updates: Parameters<typeof updateShortcut>[1]) => {
     return await updateShortcut(id, updates);
