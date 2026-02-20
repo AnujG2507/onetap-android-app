@@ -602,7 +602,7 @@ export function BookmarkLibrary({
   }
 
   return (
-    <div className="flex flex-col h-full pb-20">
+    <div className="flex flex-col h-full pb-[calc(3.5rem+var(--android-safe-bottom,0px)+1rem)]">
       {/* Header */}
       <header className="ps-5 pe-5 pt-header-safe pb-4">
         <div className="flex items-center justify-between">
