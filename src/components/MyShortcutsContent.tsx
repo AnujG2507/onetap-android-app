@@ -579,6 +579,16 @@ export function MyShortcutsContent({ onCreateReminder, onRefresh, isSyncing: ext
 
   // Handler for re-adding shortcut to home screen
   const handleReAddToHomeScreen = useCallback(async (shortcut: ShortcutData) => {
+    // Step 1: Disable the existing pinned shortcut first, otherwise Android
+    // creates a duplicate instead of replacing it.
+    if (Capacitor.isNativePlatform()) {
+      try {
+        await ShortcutPlugin.disablePinnedShortcut({ id: shortcut.id });
+      } catch (e) {
+        console.warn('[MyShortcutsContent] Failed to disable old shortcut before re-add:', e);
+      }
+    }
+    // Step 2: Pin the updated shortcut (shows Android pin dialog)
     const success = await createHomeScreenShortcut(shortcut, {
       fileData: shortcut.thumbnailData,
       thumbnailData: shortcut.thumbnailData,
