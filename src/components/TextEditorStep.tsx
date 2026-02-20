@@ -85,6 +85,7 @@ interface SortableChecklistItemProps {
   onAddNext: () => void;
   canRemove: boolean;
   placeholder: string;
+  inputRef: (el: HTMLInputElement | null) => void;
 }
 
 function SortableChecklistItem({
@@ -95,6 +96,7 @@ function SortableChecklistItem({
   onAddNext,
   canRemove,
   placeholder,
+  inputRef,
 }: SortableChecklistItemProps) {
   const {
     attributes,
@@ -134,6 +136,7 @@ function SortableChecklistItem({
       <span className="text-muted-foreground shrink-0 text-base">☐</span>
 
       <Input
+        ref={inputRef}
         value={item.text}
         onChange={e => onUpdate(item.id, e.target.value)}
         placeholder={`${placeholder} ${index + 1}`}
@@ -174,6 +177,7 @@ export function TextEditorStep({
   const { t } = useTranslation();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const orderWarnedRef = useRef(false);
+  const inputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
 
   const [mode, setMode] = useState<EditorMode>(initialIsChecklist ? 'checklist' : 'note');
   const [noteText, setNoteText] = useState(initialIsChecklist ? '' : initialText);
@@ -283,8 +287,14 @@ export function TextEditorStep({
 
   // ── Checklist actions ────────────────────────────────────────────────────
 
-  const addChecklistItem = useCallback(() => {
-    setChecklistItems(prev => [...prev, { id: `item-${Date.now()}`, text: '' }]);
+  const addChecklistItem = useCallback((focusNewItem = true) => {
+    const newId = `item-${Date.now()}`;
+    setChecklistItems(prev => [...prev, { id: newId, text: '' }]);
+    if (focusNewItem) {
+      requestAnimationFrame(() => {
+        inputRefs.current.get(newId)?.focus();
+      });
+    }
   }, []);
 
   const removeChecklistItem = useCallback((id: string) => {
@@ -446,6 +456,10 @@ export function TextEditorStep({
                       onAddNext={addChecklistItem}
                       canRemove={checklistItems.length > 1}
                       placeholder={t('textEditor.checklistPlaceholder')}
+                      inputRef={el => {
+                        if (el) inputRefs.current.set(item.id, el);
+                        else inputRefs.current.delete(item.id);
+                      }}
                     />
                   ))}
                 </div>
@@ -454,7 +468,7 @@ export function TextEditorStep({
 
             {/* Add item */}
             <button
-              onClick={addChecklistItem}
+              onClick={() => addChecklistItem(true)}
               className="flex items-center gap-2 text-sm text-primary hover:text-primary/80 transition-colors py-1 px-1"
             >
               <Plus className="h-4 w-4" />
