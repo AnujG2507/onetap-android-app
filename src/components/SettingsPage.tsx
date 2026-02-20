@@ -232,7 +232,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
       </header>
 
       <ScrollArea className="flex-1 px-4">
-        <div className="space-y-4 pb-8 safe-bottom">
+        <div className="space-y-4 pb-8 safe-bottom-with-nav">
           {/* Appearance Section */}
           <Card>
             <CardHeader className="pb-3">
