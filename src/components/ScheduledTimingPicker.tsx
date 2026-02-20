@@ -662,7 +662,7 @@ export function ScheduledTimingPicker({
   return (
     <div className="flex flex-col h-full animate-fade-in bg-background">
       {/* Header */}
-      <div className="flex items-center gap-3 px-5 pt-header-safe-compact pb-4 landscape:px-4 landscape:pt-2 landscape:pb-2 border-b border-border/50">
+      <div className="flex items-center gap-3 px-5 pt-header-safe pb-4 landscape:px-4 landscape:pt-2 landscape:pb-2 border-b border-border/50">
         <button
           onClick={onBack}
           className="p-2 -ml-2 rounded-full hover:bg-muted active:scale-95 transition-all"
