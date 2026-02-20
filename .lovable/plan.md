@@ -1,106 +1,139 @@
 
-## Fix: Checklist Check/Uncheck in TextViewer (Web Path)
+# Add Text Destination Option to Scheduled Action Editor
 
-### Root Cause
+## Problem
 
-The `TextViewer.tsx` web rendering path has a double-toggle bug in its checklist implementation. There are two layers that both respond to the same user interaction:
+The "Change Destination" screen in `ScheduledActionEditor.tsx` (used when editing an existing scheduled action) shows 4 options: File, Link, Contact, and WhatsApp Message. The **Text** option is completely absent, even though:
 
-1. The `<label>` element has `onClick={() => toggleItem(i)}` directly attached.
-2. The `<Checkbox>` inside that label also has `onCheckedChange={() => toggleItem(i)}`.
+- The `ScheduledActionCreator.tsx` (for creating new actions) already has a full Text sub-flow using `TextEditorStep`.
+- The `ScheduledActionDestination` type fully supports `text`.
+- All display helpers (`getDestinationIcon`, `getDestinationLabel`, `getDestinationTypeLabel`) in the Editor already handle `type: 'text'` correctly.
 
-Because the `<Checkbox>` is a child of the `<label>`, a single tap on either the checkbox OR the label text fires **both** handlers — the item checks then immediately unchecks, making it appear completely broken.
+The Editor simply never wired up the Text option in the destination picker UI, nor imported the `TextEditorStep` component or managed text sub-step state.
 
-There is also a structural issue: the `<label>` element is used as the interactive row container but has its own `onClick`, which conflicts with the native click propagation from the checkbox through the label.
+## Changes Required
 
-The native Android path (`TextProxyActivity.java`) uses raw `<input type="checkbox">` with `onchange` and is unaffected — it works correctly.
+### `src/components/ScheduledActionEditor.tsx`
 
-### Fix
+**1. Add text sub-step state**
 
-**File: `src/pages/TextViewer.tsx`**
+Add a `TextSubStep` type and state variable, mirroring the pattern from `ScheduledActionCreator.tsx`:
 
-Restructure each checklist row so that only **one** interaction path fires `toggleItem`:
-
-- Remove `onClick` from the `<label>` wrapper entirely.
-- Remove `onCheckedChange` from the `<Checkbox>` entirely.
-- Instead, use the `<label>`'s natural `htmlFor` + the Radix `<Checkbox>` `id` prop so that clicking anywhere on the row (label text or checkbox) only triggers the checkbox's `checked` state change via `onCheckedChange` on the Checkbox — with no duplicated outer handler.
-
-The cleanest approach that avoids all double-fire is:
-
-```tsx
-// Each row becomes:
-<div
-  key={i}
-  className="flex items-start gap-3 cursor-pointer"
-  onClick={() => toggleItem(i)}   // ← single handler on wrapper div
->
-  <Checkbox
-    id={`item-${i}`}
-    checked={item.checked}
-    onClick={(e) => e.stopPropagation()} // ← prevent bubbling up to div
-    onCheckedChange={() => toggleItem(i)}
-    className="mt-0.5 shrink-0"
-  />
-  <label
-    htmlFor={`item-${i}`}
-    className={cn(
-      'text-base leading-relaxed select-none cursor-pointer flex-1',
-      item.checked && 'line-through text-muted-foreground'
-    )}
-    onClick={(e) => e.stopPropagation()} // ← label click handled by checkbox via htmlFor
-  >
-    {item.text}
-  </label>
-</div>
+```ts
+type TextSubStep = 'editor' | null;
+const [textSubStep, setTextSubStep] = useState<TextSubStep>(null);
+const [textContent, setTextContent] = useState('');
+const [textIsChecklist, setTextIsChecklist] = useState(false);
 ```
 
-Wait — this creates the same problem. The cleanest, zero-double-fire pattern is:
+Pre-populate these when the editor opens — if the current `action.destination.type === 'text'`, seed `textContent` and `textIsChecklist` from it so the editor reopens with the existing content.
 
-- **Remove the outer click handler entirely.**
-- Let the `<label htmlFor>` + `<Checkbox id>` pairing handle all interaction natively. The Radix checkbox receives the click through the label's `for` association and fires `onCheckedChange` exactly once.
-- The `<label>` must NOT have its own `onClick`.
+**2. Import `TextEditorStep` and the `AlignLeft` icon**
 
-Final clean structure per row:
-```tsx
-<div key={i} className="flex items-start gap-3 py-0.5">
-  <Checkbox
-    id={`chk-${i}`}
-    checked={item.checked}
-    onCheckedChange={() => toggleItem(i)}
-    className="mt-0.5 shrink-0"
-  />
-  <label
-    htmlFor={`chk-${i}`}
-    className={cn(
-      'text-base leading-relaxed select-none cursor-pointer flex-1',
-      item.checked && 'line-through text-muted-foreground'
-    )}
-  >
-    {item.text}
-  </label>
-</div>
+```ts
+import { TextEditorStep } from '@/components/TextEditorStep';
+import { ..., AlignLeft } from 'lucide-react';
 ```
 
-This is the correct HTML pattern: clicking the label text sends the click event to the associated checkbox input (via `for`/`id`), which fires `onCheckedChange` exactly once. No double-fire.
+**3. Update the `shouldInterceptBack` and `internalHandleBack` logic**
 
-### Additional Improvements in the Same Change
+Include `textSubStep !== null` in `shouldInterceptBack`, and add a branch in `internalHandleBack` to clear text sub-step state on back:
 
-1. **Touch target size** — wrap items in a slightly larger touch area (`py-2`) so the row is easy to tap on mobile without needing pixel-perfect aim on the checkbox.
+```ts
+const shouldInterceptBack =
+  urlSubStep !== null ||
+  textSubStep !== null ||   // ← add
+  step !== 'main';
 
-2. **Checked item visual** — already present (`line-through text-muted-foreground`), keep as-is.
+const internalHandleBack = useCallback(() => {
+  if (urlSubStep) { ... }
+  if (textSubStep) {         // ← add
+    setTextSubStep(null);
+    return;
+  }
+  if (step !== 'main') setStep('main');
+}, [urlSubStep, textSubStep, step]);
+```
 
-3. **Checklist persistence** — `toggleItem` already writes to `localStorage` with the correct `STORAGE_KEY` pattern. No change needed there.
+**4. Render the `TextEditorStep` when `step === 'destination'` and `textSubStep === 'editor'`**
 
-4. **Empty state** — if `items` is empty (all lines were blank after filtering), show a graceful "No items" message rather than a blank scroll area.
+Before the main destination picker renders (at the top of the `step === 'destination'` block), add:
 
-### Technical Summary
+```tsx
+if (textSubStep === 'editor') {
+  return (
+    <Sheet open={isOpen} onOpenChange={(open) => !open && handleClose()}>
+      <SheetContent side="bottom" className="h-[85vh] landscape:h-[95vh] rounded-t-3xl px-0 pb-0">
+        <TextEditorStep
+          showIconPicker={false}
+          isReminder={true}
+          initialText={textContent}
+          initialIsChecklist={textIsChecklist}
+          initialName={name}
+          onBack={() => setTextSubStep(null)}
+          onConfirm={(data) => {
+            const dest: ScheduledActionDestination = {
+              type: 'text',
+              text: data.textContent,
+              name: data.name || data.textContent.split('\n')[0].replace(/^[☐☑]\s*/, '').trim().slice(0, 40) || 'Text',
+              isChecklist: data.isChecklist,
+            };
+            handleDestinationSelect(dest);
+          }}
+        />
+      </SheetContent>
+    </Sheet>
+  );
+}
+```
 
-| What | Before | After |
-|---|---|---|
-| Click handler | `<label onClick>` + `<Checkbox onCheckedChange>` (double fire) | `<Checkbox onCheckedChange>` only, triggered via `<label htmlFor>` |
-| Touch target | Entire label row | Entire label row (same, but via correct `for`/`id` wiring) |
-| State persistence | `localStorage` via `toggleItem` | Unchanged |
-| Double-toggle bug | Present — item always bounces back | Fixed — exactly one state change per tap |
+**5. Add the Text option to the destination picker grid**
 
-### File Changed
+In the main destination selection `<div>` (currently a 4-item `landscape:grid-cols-3` grid), add a 5th `DestinationOption` for Text. Also update the landscape grid to `landscape:grid-cols-3` (keep as-is, wrapping naturally to two rows), or change to `landscape:grid-cols-2` to keep things tidy with 5 items:
 
-- `src/pages/TextViewer.tsx` — restructure checklist row rendering to eliminate double-toggle
+```tsx
+<DestinationOption
+  icon={<AlignLeft className="h-5 w-5" />}
+  label={t('scheduledActions.textTitle')}
+  description={t('scheduledEditor.textDesc')}
+  onClick={() => {
+    // Seed from existing destination if it's already text
+    if (destination.type === 'text') {
+      setTextContent(destination.text);
+      setTextIsChecklist(destination.isChecklist ?? false);
+    } else {
+      setTextContent('');
+      setTextIsChecklist(false);
+    }
+    setTextSubStep('editor');
+  }}
+/>
+```
+
+**6. Add the missing translation key**
+
+Add `"textDesc"` to `scheduledEditor` in `src/i18n/locales/en.json`:
+
+```json
+"textDesc": "Note or Checklist"
+```
+
+**7. Reset text state in `resetState()`**
+
+```ts
+const resetState = useCallback(() => {
+  ...
+  setTextSubStep(null);
+  setTextContent('');
+  setTextIsChecklist(false);
+}, [action]);
+```
+
+## Summary
+
+| File | Change |
+|---|---|
+| `src/components/ScheduledActionEditor.tsx` | Add text sub-step state, TextEditorStep render branch, Text destination option, back-handler support, resetState cleanup |
+| `src/i18n/locales/en.json` | Add `scheduledEditor.textDesc` translation key |
+
+No new dependencies or database changes required.
