@@ -1,168 +1,153 @@
 
-## Diagnosis: Why Text Shortcuts Don't Open Lightly
+## Horizontal Overflow Audit: AppMenu Sheet
 
-### Root Cause — Two Gaps
-
-**Gap 1 — Manifest theme is wrong for in-app launch.**
-`TextProxyActivity` uses `Theme.NoTitleBar` — a full-screen, opaque activity. It loads visually like a new full app screen. `WhatsAppProxyActivity` uses `Theme.Material.Light.Dialog` which floats on top of the current screen with no transition, no loading bar, just an instant dialog. Text shortcuts need the same pattern.
-
-**Gap 2 — No native plugin bridge to launch TextProxyActivity from JS.**
-The current `handleOpen` for `text` type navigates React Router to `/text/:id`, which means the Capacitor WebView re-renders a whole new page through React. The correct path — just like WhatsApp — is for the JS layer to call a `ShortcutPlugin` method that fires `startActivity(Intent → TextProxyActivity)` directly from native. The WebView never needs to render anything; the native Activity handles it completely.
-
-### How the WhatsApp Flow Works (the reference model)
+### Full Component Tree
 
 ```text
-User taps "Open" on a WhatsApp shortcut in My Shortcuts list
-  → handleOpen() in MyShortcutsContent.tsx
-    → ShortcutPlugin.openWhatsApp() [JS → Native bridge]
-      → WhatsAppProxyActivity started as a Dialog
-        → Floating chooser appears on top of the app
-        → User selects message → WhatsApp opens
-        → Activity finishes (returns to app)
+<SheetContent side="left|right" className="w-72 flex flex-col p-6">
+  ├─ <SheetHeader className="pb-4">
+  │    └─ <SheetTitle>Menu</SheetTitle>
+  │
+  └─ <ScrollArea className="flex-1 min-h-0" viewportClassName="!overflow-x-hidden">
+       └─ <ScrollAreaPrimitive.Viewport>  ← Radix injects inline style: overflow: scroll
+            └─ <div className="flex flex-col min-h-full">
+                 ├─ <div className="flex flex-col gap-1">
+                 │    ├─ [Button] My Shortcuts   h-12 ps-3 pe-3
+                 │    │    ├─ <div flex items-center gap-3 flex-1>
+                 │    │    │    ├─ Icon square (h-9 w-9 flex-shrink-0) ✅
+                 │    │    │    └─ <span>{t('menu.shortcuts')}</span>   ← NO min-w-0
+                 │    │    └─ Badge span (conditionally shown)
+                 │    │
+                 │    ├─ [Button] Trash           h-12 ps-3 pe-3
+                 │    │    ├─ <div flex items-center gap-3 flex-1>
+                 │    │    │    ├─ Icon square (h-9 w-9 flex-shrink-0) ✅
+                 │    │    │    └─ <span>{t('menu.trash')}</span>       ← NO min-w-0
+                 │    │    └─ Badge group (warning + count)
+                 │    │
+                 │    ├─ [Button] Settings        h-12 ps-3 pe-3
+                 │    │    ├─ <div flex items-center gap-3 flex-1>
+                 │    │    │    ├─ Icon square (h-9 w-9 flex-shrink-0) ✅
+                 │    │    │    └─ <span>{t('settings.title')}</span>   ← NO min-w-0
+                 │    │    └─ <ChevronRight />
+                 │    │
+                 │    └─ <CloudBackupSection />
+                 │         ├─ [NOT signed in]: Button "Sign in with Google"
+                 │         │    └─ <div flex-1>
+                 │         │         ├─ Icon square ✅
+                 │         │         └─ <div text-left>
+                 │         │              ├─ <span block>{t('cloudBackup.signInWithGoogle')}</span>  ← NO truncate
+                 │         │              └─ <span text-xs text-muted>{t('cloudBackup.syncDescription')}</span>  ← NO truncate
+                 │         └─ [Signed in]:
+                 │              ├─ <div px-3 py-2>
+                 │              │    └─ <div flex items-center gap-2>
+                 │              │         ├─ Avatar (h-7 w-7 flex-shrink-0) ✅
+                 │              │         ├─ <p truncate flex-1 min-w-0>name/email</p> ✅
+                 │              │         └─ Sync button (h-8 w-8 flex-shrink-0) ✅
+                 │              └─ Sign Out button (w-full justify-start)
+                 │
+                 ├─ <div flex-1 /> (spacer)
+                 │
+                 └─ <div className="pt-4 safe-bottom">
+                      ├─ <Separator />
+                      ├─ <p ps-3>{t('settings.appearance')}</p>
+                      └─ <div ps-3 pe-3 mb-2>
+                           └─ <div flex gap-1>
+                                └─ × 3 <Button flex-1 gap-1.5>
+                                         ├─ Icon ✅
+                                         └─ <span text-xs>{option.label}</span>  ← NO truncate / NO overflow-hidden
 ```
 
-### Target Flow for Text Shortcuts
+### Problems Identified
 
-```text
-User taps "Open" on a text shortcut in My Shortcuts list
-  → handleOpen() in MyShortcutsContent.tsx
-    → ShortcutPlugin.openTextShortcut() [NEW JS → Native bridge]
-      → TextProxyActivity started as a bottom-sheet style Activity
-        → Lightweight native WebView slides up (no app reload)
-        → User reads note / toggles checklist
-        → Back button → Activity finishes (returns to app)
+**Problem 1 — Radix ScrollArea Viewport has `overflow: scroll` injected inline**
+Radix sets `overflow: scroll` (both axes) on the `[data-radix-scroll-area-viewport]` element via an injected `<style>` tag. The `!overflow-x-hidden` class on `viewportClassName` is applied to a wrapper div *inside* the viewport, not the viewport element itself — so the Radix inline style wins and horizontal scrolling is still possible.
+
+**Fix**: Target the Radix viewport element itself using the CSS attribute selector in `index.css` (or the `scrollbar-hide` approach), or apply `overflow-x: hidden !important` via a custom class on the Radix Root. The cleanest fix is to add `overflow-x: hidden` via a CSS rule targeting `[data-radix-scroll-area-viewport]` on the Root element, or pass `style={{ overflowX: 'hidden' }}` directly on the Viewport via a modified ScrollArea component.
+
+**Problem 2 — Button inner `flex-1` spans have no `min-w-0` or `truncate`**
+The three menu item buttons (My Shortcuts, Trash, Settings) all have the pattern:
+```tsx
+<div className="flex items-center gap-3 flex-1">
+  <IconBox />  
+  <span className="font-medium">{label}</span>  {/* ← no min-w-0, no truncate */}
+</div>
 ```
+If the translated label is long (e.g., Arabic, German), the `<span>` can push the outer flex container wider than the sheet, causing horizontal overflow past the 288px (`w-72`) boundary.
 
-### Files to Change
-
-| Layer | File | Change |
-|---|---|---|
-| Native Java | `TextProxyActivity.java` | Upgrade theme handling: use the same `app_settings` SharedPreferences-based theme detection as WhatsApp. Add a top bar with a close/back button (purely native Views, no HTML). Change the WebView to load inline self-contained HTML (no CDN calls for markdown — embed a tiny renderer inline). |
-| Native Manifest | `AndroidManifest.xml` | Change `TextProxyActivity` theme from `Theme.NoTitleBar` to a new `TextViewerTheme` style that uses `windowIsFloating=false` but slides up from the bottom like a sheet (`windowEnterAnimation` = slide_in_bottom). |
-| Native styles | `styles.xml` | Add `TextViewerTheme` with bottom-sheet-style animation (slide up on enter, slide down on exit), full height, dark/light aware. |
-| Native Java Plugin | `ShortcutPlugin.java` | Add a new `@PluginMethod openTextShortcut` that fires `TextProxyActivity` directly via `startActivity` without creating a pinned shortcut — identical pattern to how `openWhatsApp` works. |
-| TypeScript interface | `ShortcutPlugin.ts` | Add `openTextShortcut(options: { shortcutId: string; textContent: string; isChecklist: boolean; name: string }) => Promise<{ success: boolean }>` to the interface. |
-| TypeScript web fallback | `shortcutPluginWeb.ts` | Add `openTextShortcut` web stub that falls back to `navigate('/text/:id')` via a custom event or just returns `{ success: false }` so the JS caller falls back gracefully. |
-| TypeScript component | `MyShortcutsContent.tsx` | In `handleOpen` for `text` type: on native, call `ShortcutPlugin.openTextShortcut(...)` instead of `navigate()`. Keep `navigate()` as web/non-native fallback. |
-
-### Detailed Technical Changes
-
-#### 1. `native/android/app/src/main/res/values/styles.xml`
-Add a `TextViewerTheme` that:
-- Is NOT floating (fills the screen, but the activity animates up from the bottom like a sheet)
-- Has a slide-up/slide-down animation pair
-- Has no title bar
-- Respects day/night (parent: `Theme.AppCompat.DayNight.NoActionBar`)
-
-```xml
-<style name="TextViewerTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
-    <item name="android:windowAnimationStyle">@style/TextViewerAnimation</item>
-    <item name="android:windowIsTranslucent">false</item>
-    <item name="android:windowBackground">@android:color/transparent</item>
-</style>
-
-<style name="TextViewerAnimation">
-    <item name="android:activityOpenEnterAnimation">@anim/slide_up</item>
-    <item name="android:activityOpenExitAnimation">@android:anim/fade_out</item>
-    <item name="android:activityCloseEnterAnimation">@android:anim/fade_in</item>
-    <item name="android:activityCloseExitAnimation">@anim/slide_down</item>
-</style>
+**Problem 3 — CloudBackupSection "Sign In" button subtitle text has no truncation**
+The unauthenticated state renders:
+```tsx
+<span className="text-xs text-muted-foreground">{t('cloudBackup.syncDescription')}</span>
 ```
+This has no `truncate`, no `overflow-hidden`, no `max-w`. On narrow sheets or long translations, it can overflow.
 
-Two new anim XML files will be created:
-- `native/android/app/src/main/res/anim/slide_up.xml`
-- `native/android/app/src/main/res/anim/slide_down.xml`
+**Problem 4 — Theme button labels have no truncation**
+The three theme toggle buttons (Light / Dark / System) use `flex-1` and a `<span className="text-xs">` with no overflow guard. Long translations could overflow the `gap-1` flex row.
 
-#### 2. `native/android/app/src/main/AndroidManifest.xml`
-Change `TextProxyActivity` entry from:
-```xml
-android:theme="@android:style/Theme.NoTitleBar"
+**Problem 5 — SheetContent has no `overflow-x-hidden`**
+The `sheetVariants` for `left` and `right` sides do NOT include `overflow-x-hidden` — unlike the `bottom` variant which explicitly adds `overflow-x-hidden`. This means the Sheet panel itself has no horizontal clip boundary from its own CSS.
+
+---
+
+### Fix Plan
+
+#### `src/components/ui/sheet.tsx`
+Add `overflow-x-hidden` to the `left` and `right` side variants in `sheetVariants`:
+```ts
+left: "inset-y-0 left-0 h-full w-3/4 border-r safe-top safe-bottom overflow-x-hidden ...",
+right: "inset-y-0 right-0 h-full w-3/4 border-l safe-top safe-bottom overflow-x-hidden ...",
 ```
-to:
-```xml
-android:theme="@style/TextViewerTheme"
-```
+This gives a hard clip boundary for the entire sheet panel regardless of what's inside.
 
-Also add `android:noHistory="false"` to keep it in the back stack properly.
-
-#### 3. `native/android/app/src/main/java/app/onetap/access/TextProxyActivity.java`
-- Adopt the same `initializeThemeColors()` pattern from `WhatsAppProxyActivity`
-- Wrap the WebView in a native `LinearLayout` that includes a proper top navigation bar built with native Android Views (a back/close button + title `TextView`) — no CDN dependency for this chrome
-- Replace the CDN `<script src='marked.min.js'>` with a self-contained inline markdown renderer (a small pure-JS implementation — ~50 lines — that handles headers, bold, italic, inline code, and line breaks). This removes the network dependency.
-- Add a `shortcut_name` extra for the title bar
-- The checklist parsing switches from the `☐☑` symbol format to the `- [ ]` / `- [x]` format used in the React `TextViewer` (consistent with how text content is actually stored)
-
-#### 4. `native/android/app/src/main/java/app/onetap/access/plugins/ShortcutPlugin.java`
-Add a new `@PluginMethod`:
-
-```java
-@PluginMethod
-public void openTextShortcut(PluginCall call) {
-    String shortcutId = call.getString("shortcutId");
-    String textContent = call.getString("textContent", "");
-    boolean isChecklist = Boolean.TRUE.equals(call.getBoolean("isChecklist", false));
-    String name = call.getString("name", "");
-
-    Context context = getContext();
-    Intent intent = new Intent(context, TextProxyActivity.class);
-    intent.putExtra("shortcut_id", shortcutId);
-    intent.putExtra("text_content", textContent);
-    intent.putExtra("is_checklist", isChecklist);
-    intent.putExtra("shortcut_name", name);
-    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-    context.startActivity(intent);
-
-    JSObject result = new JSObject();
-    result.put("success", true);
-    call.resolve(result);
+#### `src/components/ui/scroll-area.tsx`
+The Radix `<ScrollAreaPrimitive.Viewport>` has `overflow: scroll` set via an injected `<style>` tag that cannot be overridden by a Tailwind class on a child wrapper div. Fix: pass `style` prop directly on the Viewport to enforce `overflowX: 'hidden'` at the element level, which is higher specificity than Tailwind but lower than the Radix injected style. The correct approach is to add an additional CSS rule in `index.css`:
+```css
+[data-radix-scroll-area-viewport] {
+  overflow-x: hidden !important;
 }
 ```
+This targets the actual viewport element where Radix injects its inline `overflow: scroll` style. The `!important` overrides Radix's injected style specifically for the x-axis.
 
-#### 5. `src/plugins/ShortcutPlugin.ts`
-Add to the interface:
-```typescript
-openTextShortcut(options: {
-  shortcutId: string;
-  textContent: string;
-  isChecklist: boolean;
-  name: string;
-}): Promise<{ success: boolean; error?: string }>;
+#### `src/components/AppMenu.tsx`
+Add `min-w-0 truncate` to each button label span and `min-w-0` to the `flex-1` wrapper divs:
+
+**My Shortcuts button:**
+```tsx
+<div className="flex items-center gap-3 flex-1 min-w-0">
+  <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+    <Zap className="h-4 w-4 text-primary" />
+  </div>
+  <span className="font-medium truncate">{t('menu.shortcuts')}</span>
+</div>
 ```
 
-#### 6. `src/plugins/shortcutPluginWeb.ts`
-Add web stub:
-```typescript
-async openTextShortcut(options: { ... }): Promise<{ success: boolean; error?: string }> {
-  // Web falls back gracefully — caller handles the navigate() fallback
-  return { success: false, error: 'Not supported on web' };
-}
+**Trash button:** same pattern — `flex-1 min-w-0` on wrapper, `truncate` on span.
+
+**Settings button:** same pattern — `flex-1 min-w-0` on wrapper, `truncate` on span, and `flex-shrink-0` on ChevronRight wrapper.
+
+**Theme buttons:** Add `truncate` on `<span className="text-xs truncate">` and `overflow-hidden` on each Button to prevent label overflow.
+
+#### `src/components/CloudBackupSection.tsx`
+**Sign-in button subtitle:**
+```tsx
+<span className="text-xs text-muted-foreground truncate">{t('cloudBackup.syncDescription')}</span>
+```
+Add `min-w-0` to the inner `<div className="text-left min-w-0">` wrapper to allow truncation to work inside flexbox.
+
+**Sign-in title (primary label):** Also add `truncate` in case of long translations:
+```tsx
+<span className="font-medium block truncate">{t('cloudBackup.signInWithGoogle')}</span>
 ```
 
-#### 7. `src/components/MyShortcutsContent.tsx`
-Update the `text` branch in `handleOpen`:
+---
 
-```typescript
-} else if (shortcut.type === 'text') {
-  if (Capacitor.isNativePlatform()) {
-    await ShortcutPlugin.openTextShortcut({
-      shortcutId: shortcut.id,
-      textContent: shortcut.textContent || '',
-      isChecklist: shortcut.isChecklist || false,
-      name: shortcut.name,
-    });
-  } else {
-    // Web fallback: in-app React route
-    navigate(`/text/${shortcut.id}`, {
-      state: {
-        textContent: shortcut.textContent || '',
-        isChecklist: shortcut.isChecklist || false,
-        name: shortcut.name,
-      },
-    });
-  }
-}
-```
+### Summary of All Files Changed
 
-### Summary
+| File | Changes |
+|---|---|
+| `src/components/ui/sheet.tsx` | Add `overflow-x-hidden` to `left` and `right` side variants |
+| `src/index.css` | Add `[data-radix-scroll-area-viewport] { overflow-x: hidden !important; }` to base layer |
+| `src/components/AppMenu.tsx` | Add `min-w-0` to flex-1 wrappers, `truncate` to label spans, `flex-shrink-0` to trailing icons/badges |
+| `src/components/CloudBackupSection.tsx` | Add `min-w-0` to text wrapper div, `truncate` to both title and subtitle spans |
 
-The WhatsApp chooser works instantly because `WhatsAppProxyActivity` is a pure-native dialog Activity that the Capacitor plugin starts via `startActivity` — the React WebView renders nothing. Text shortcuts need the same architecture. The plan adds an `openTextShortcut` plugin bridge method, gives `TextProxyActivity` a slide-up sheet animation and native header bar, and removes the CDN markdown dependency, making text shortcuts open just as instantly as WhatsApp choosers do — directly from the My Access Points list or from a home screen tap.
+No new dependencies. No backend changes. All fixes are purely CSS/Tailwind class additions.
