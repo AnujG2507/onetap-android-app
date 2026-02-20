@@ -230,7 +230,7 @@ export function SlideshowCustomizer({ source, onConfirm, onBack }: SlideshowCust
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto px-5 pb-24 space-y-6">
+      <div className="flex-1 overflow-y-auto px-5 pb-6 space-y-6">
         {/* Photo count badge */}
         <div className="flex items-center gap-2">
           <div className="bg-primary/10 text-primary px-3 py-1 rounded-full text-sm font-medium">
@@ -394,8 +394,8 @@ export function SlideshowCustomizer({ source, onConfirm, onBack }: SlideshowCust
         </div>
       </div>
 
-      {/* Fixed bottom button */}
-      <div className="fixed bottom-0 left-0 right-0 p-5 safe-bottom-action bg-gradient-to-t from-background via-background to-transparent">
+      {/* Footer CTA — in flex flow, not fixed */}
+      <div className="p-5 safe-bottom-action">
         <Button
           onClick={handleSubmit}
           disabled={files.length < 2 || isSubmitting}
