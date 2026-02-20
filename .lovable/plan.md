@@ -1,122 +1,174 @@
 
-## Documentation Update Plan
+## Bottom Sheet Safe Area Compliance — Android Navigation Bar
 
-This plan covers all changes needed to bring the four documentation files (`APP_SUMMARY.md`, `ARCHITECTURE.md`, `SUPABASE.md`, `PRODUCT_IDEOLOGY.md`) in sync with three batches of recent code changes:
+### Problem Statement
 
-1. **Text Viewer UX** — `TextProxyActivity`: blue accent (`#0080FF`), Reset button moved from header to footer, header simplified to Edit/Copy/Share only.
-2. **Checklist state clearing** — New `clearChecklistState` Capacitor method (Java plugin, TS interface, web fallback) to clear `SharedPreferences` when checklist item order changes.
-3. **Drag-to-reorder in editor** — `TextEditorStep` now has `@dnd-kit` drag handles on checklist items; a one-time toast warns on first reorder; `orderChanged` flag flows through to `ShortcutEditSheet` which calls `clearChecklistState` on save.
+Bottom sheets and modal drawers that slide up from the bottom of the screen can overlap the Android gesture navigation bar or three-button navigation bar. The `--android-safe-bottom` CSS variable is already established in the design system as the single source of truth for this inset. The problem is inconsistent application across the three distinct bottom sheet patterns used in the app.
 
 ---
 
-### Files Changed
+### Three Bottom Sheet Patterns Identified
 
-| File | Sections Updated |
-|------|-----------------|
-| `APP_SUMMARY.md` | Text shortcuts description, Native Bridge table, Key Files |
-| `ARCHITECTURE.md` | Section 3 (TextProxyActivity description), Checklist state persistence note, Section 13 intent table |
-| `SUPABASE.md` | Checklist state note in `cloud_shortcuts` table |
-| `PRODUCT_IDEOLOGY.md` | Section 6 Offline-First table (text shortcut row) |
+The app has three architecturally distinct patterns for bottom content:
 
----
-
-### Precise Change Details
-
-#### `APP_SUMMARY.md`
-
-**Section "Core Features → 1. One Tap Access"** — update the text shortcut bullet to describe the new viewer UX (blue accent, footer Reset, no reorder) and editor (drag-to-reorder with state-clear warning):
-
-Current:
-> Text shortcuts: inline Markdown note or interactive checklist; rendered in a full-screen WebView via TextProxyActivity; checklist state persists on-device
-
-New:
-> Text shortcuts: inline Markdown note or interactive checklist; rendered in a floating dialog via TextProxyActivity (blue #0080FF accent, Edit / Copy / Share header icons); checklist state persists on-device (SharedPreferences + WebView); footer has Reset (left) and Done (right) for checklists, Done only for notes; reordering checklist items in the editor clears saved check state on save
-
-**Section "Native Android Layer"** — update the `ShortcutPlugin.java` row to mention `clearChecklistState`:
-
-Current:
-> ShortcutPlugin.java: Home screen shortcut creation; routes app.onetap.OPEN_TEXT to TextProxyActivity
-
-New:
-> ShortcutPlugin.java: Home screen shortcut creation; routes app.onetap.OPEN_TEXT to TextProxyActivity; clearChecklistState clears SharedPreferences("checklist_state") prefix for a shortcut when item order changes
-
-**Section "Key Files → Native Bridge"** — add `TextEditorStep.tsx` reference:
-
-Add line:
-> `src/components/TextEditorStep.tsx` — Checklist/note editor with @dnd-kit drag-to-reorder; emits orderChanged flag on confirm
+```text
+Pattern A — Radix Sheet (side="bottom")     → src/components/ui/sheet.tsx
+Pattern B — Vaul Drawer                     → src/components/ui/drawer.tsx
+Pattern C — Custom overlay (fixed inset-0)  → SharedUrlActionSheet, SharedFileActionSheet
+```
 
 ---
 
-#### `ARCHITECTURE.md`
+### Current State Audit
 
-**Section 3 — TextProxyActivity row in the proxy table:**
+#### Pattern A — Radix `SheetContent` (side="bottom")
 
-Current:
-> TextProxyActivity | app.onetap.OPEN_TEXT | Renders markdown or checklist text shortcuts in a full-screen WebView
+The `sheetVariants` in `sheet.tsx` already applies `safe-bottom-with-nav` to the `bottom` variant:
 
-New:
-> TextProxyActivity | app.onetap.OPEN_TEXT | Renders markdown or checklist text in a floating premium dialog. Header: Edit (blue tint), Copy, Share icons. Footer: checklist mode has Reset (left, blue) + Done (right, muted) split by a vertical divider; note mode has Done only. Accent colour: #0080FF (app primary blue).
+```
+bottom: "... safe-bottom-with-nav ..."
+```
 
-**Section 3 — Checklist state persistence note** (just below the intent contract block):
+`safe-bottom-with-nav` = `calc(var(--android-safe-bottom, 0px) + 3.5rem)`
 
-Current:
-> **Checklist state persistence:** Checkbox state is stored in two places simultaneously:
-> - WebView `localStorage` — keyed as `chk_<shortcut_id>_<line_index>`, survives soft closes
-> - Android `SharedPreferences` (`checklist_state`) — backup via the `ChecklistBridge` JS interface
+This includes both the Android nav inset **and** the app's BottomNav height (3.5rem). This is correct when the BottomNav is visible beneath the sheet. However, several sheets appear as full-screen flows where the BottomNav is hidden — in those cases the 3.5rem offset is excessive padding but not harmful. The rule is consistently applied via the base component so all sheets using `<SheetContent side="bottom">` inherit it automatically.
 
-Add new paragraph after this:
-> **Checklist state clearing (reorder):** State keys are index-based (`chk_{id}_{lineIndex}`). If the user reorders checklist items in `TextEditorStep`, saved states for old indices would map to the wrong items. When a reorder is saved, `ShortcutPlugin.clearChecklistState({ id })` clears all keys with the prefix `chk_{id}_` from `SharedPreferences("checklist_state")`. The same clearing is performed by the native Reset button in the viewer footer.
+**Consumers verified as safe (inherit safe-bottom-with-nav from SheetContent):**
+- `BookmarkActionSheet` — `<SheetContent side="bottom" className="rounded-t-3xl...">` ✅
+- `ScheduledActionActionSheet` — `<SheetContent side="bottom" className="rounded-t-3xl px-0 pb-6...">` ⚠️ has explicit `pb-6` overriding the safe area
+- `MessageChooserSheet` — `<SheetContent side="bottom" className="max-h-[80vh]...">` ✅
+- `BatteryOptimizationHelp` — `<SheetContent side="bottom" className="h-[85vh]...">` ✅
+- `LanguagePicker` — `<SheetContent side="bottom" ...>` ✅
+- `SettingsPage` language sheet — `<SheetContent side="bottom" ...>` ✅
+- `ScheduledActionEditor` — `<SheetContent side="bottom" ...>` ✅
+- `TrashSheet` — `<SheetContent side="bottom" ...>` ✅
+- `SavedLinksSheet` — `<SheetContent side="bottom" ...>` ✅
+- `AppMenu` — `<SheetContent side="left">` / `side="right"` — not a bottom sheet, left/right use `safe-bottom` ✅
 
-**Section 3 — TextProxyActivity class row in the "Key classes" table:**
+**Issue found in `ScheduledActionActionSheet`:**
+```tsx
+<SheetContent side="bottom" className="rounded-t-3xl px-0 pb-6 landscape:pb-4 ...">
+```
+The explicit `pb-6` / `landscape:pb-4` classes do **not** override `safe-bottom-with-nav` because `safe-bottom-with-nav` sets `padding-bottom` via CSS class. However since Tailwind applies classes in source order, the `pb-6` class (which also sets `padding-bottom`) will be overridden by `safe-bottom-with-nav` only if it appears later in the stylesheet. In practice, utility classes like `pb-6` resolve before the custom `safe-bottom-with-nav` class, meaning `safe-bottom-with-nav` wins — **safe in practice**, but the explicit `pb-6` is redundant and confusing.
 
-Current:
-> (no row for TextProxyActivity)
+#### Pattern B — Vaul `DrawerContent`
 
-Add a row:
-> TextProxyActivity | Renders text shortcuts (Markdown or checklist) in a floating dialog; blue #0080FF accent; footer has Reset + Done (checklist) or Done (note)
+`DrawerContent` in `drawer.tsx` sits at `bottom-0` with no safe area padding at all:
 
-**Section 13 — Intent table — `OPEN_TEXT` row:**
+```tsx
+"fixed inset-x-0 bottom-0 z-50 mt-24 flex h-auto flex-col rounded-t-[10px] border bg-background"
+```
 
-Current:
-> app.onetap.OPEN_TEXT | TextProxyActivity — passes text_content (String) and is_checklist (boolean) as intent extras
+No `safe-bottom`, no `safe-bottom-with-nav` is present. Vaul's own `shouldScaleBackground` prop does not add safe-area padding. The Drawer content itself — and the content inside it — must handle the bottom inset.
 
-New (add `shortcut_name` extra which is now used):
-> app.onetap.OPEN_TEXT | TextProxyActivity — passes shortcut_name (String, dialog title), text_content (String), and is_checklist (boolean) as intent extras
+**Consumers affected:**
+- `ShortcutActionSheet` — `<DrawerContent className="max-h-[80vh]...">` — its inner `<div className="px-4 pb-4...">` has `pb-4` only, **no safe-area padding** ❌
+- `ShortcutEditSheet` — `<DrawerContent className="max-h-[90vh]">` with a `DrawerFooter` — `<div className="px-5 py-4...">` inside footer, **no safe-area padding** ❌
+- `CountryCodePicker` — `<DrawerContent className="max-h-[85vh]">` with `<ScrollArea>` — list terminates at the bottom with no inset ❌
+
+The fix is to add `pb-safe-bottom` (a new utility class) to `DrawerContent`'s base className, so all Drawer-based sheets automatically gain the system nav bar clearance. Since Drawers do not coexist with the BottomNav (the BottomNav is always visible below the Drawer overlay but the Drawer content is scrollable above it), the correct padding is just `--android-safe-bottom`, not `safe-bottom-with-nav`.
+
+#### Pattern C — Custom `fixed inset-0` overlays
+
+**`SharedUrlActionSheet`:**
+```tsx
+<div className="fixed inset-0 z-50 flex items-end justify-center p-4 bg-black/50 safe-bottom-with-nav ...">
+```
+`safe-bottom-with-nav` is already applied to the container, so the inner card is pushed up by the system nav height. ✅
+
+**`SharedFileActionSheet`:**
+```tsx
+<div className="fixed inset-0 z-50 flex items-end justify-center p-4 pb-8 bg-black/50 animate-in ...">
+```
+`pb-8` is a hardcoded `32px` fallback — this is **not** safe-area aware. On devices with a tall gesture bar (e.g. 48px) the card will overlap it. The class `safe-bottom-with-nav` is missing here. ❌
 
 ---
 
-#### `SUPABASE.md`
+### Files to Change
 
-**Section 4 → `cloud_shortcuts` — note on `text_content` and checklist state:**
-
-Current note at the bottom of the table:
-> Note on text_content: ... Checklist checkbox state is not synced — it is stored locally (WebView localStorage + Android SharedPreferences) and is considered per-device interaction state.
-
-Extend the note to mention the clearing behaviour:
-> Note on text_content: ... Checklist checkbox state is not synced — it is stored locally (WebView localStorage + Android SharedPreferences, keyed as chk_{shortcutId}_{lineIndex}) and is considered per-device interaction state. When the user reorders checklist items and saves, ShortcutPlugin.clearChecklistState clears the stale index-keyed state from SharedPreferences so the viewer starts fresh with the correct item order.
-
----
-
-#### `PRODUCT_IDEOLOGY.md`
-
-**Section 6 — Offline-First table — text shortcuts row:**
-
-Current:
-> Text shortcuts | ✅ Yes | Rendered locally in a WebView; checklist state stored on-device (localStorage + SharedPreferences)
-
-New:
-> Text shortcuts | ✅ Yes | Rendered locally in a floating native dialog (TextProxyActivity); checklist state stored on-device (SharedPreferences + WebView localStorage, keyed by line index); state cleared automatically when item order is changed and saved in the editor
+| File | Change | Reason |
+|---|---|---|
+| `src/components/ui/drawer.tsx` | Add `safe-bottom` to `DrawerContent` base class | All Vaul Drawer sheets gain system nav clearance |
+| `src/components/SharedFileActionSheet.tsx` | Replace `pb-8` with `safe-bottom-with-nav` on the outer container div | Matches SharedUrlActionSheet's correct pattern |
+| `src/components/ScheduledActionActionSheet.tsx` | Remove explicit `pb-6 landscape:pb-4` from `SheetContent` | Redundant; lets `safe-bottom-with-nav` from sheet.tsx be the only padding authority |
+| `src/index.css` | Add a new `safe-bottom-sheet` utility | Provides just the system nav clearance (no BottomNav offset) for Drawers that float above the nav |
 
 ---
 
-### Technical Summary
+### Detailed Changes
 
-All changes are documentation-only (`.md` files). No source code is modified. The changes accurately reflect:
+#### 1. `src/index.css` — New utility class
 
-1. `COLOR_ACCENT = #0080FF` in `TextProxyActivity.java` (previously `#6366f1`)
-2. Header now has only Edit (blue tint), Copy (muted), Share (muted) — no Reset icon
-3. Footer layout: checklist → `[Reset (blue)] | [Done (muted)]`; note → `[Done (muted)]`
-4. `ShortcutPlugin.clearChecklistState({ id })` — new Capacitor method that clears all `chk_{id}_*` keys from `SharedPreferences("checklist_state")`
-5. `TextEditorStep` uses `@dnd-kit/sortable` drag handles on checklist items with `PointerSensor` + `TouchSensor`, emits `orderChanged: boolean` in `onConfirm`
-6. `ShortcutEditSheet` calls `clearChecklistState` on save when `checklistOrderChangedRef.current` is true
-7. State key contract `chk_{shortcutId}_{lineIndex}` is index-based — reordering without clearing produces wrong results, hence the mandatory state clear
+Add after the existing `.safe-bottom-with-nav` block:
+
+```css
+/* Safe area for Drawers/overlays that float above the BottomNav.
+   Clears only the system nav bar, not the app BottomNav. */
+.safe-bottom-sheet {
+  padding-bottom: max(var(--android-safe-bottom, 0px), 16px);
+}
+```
+
+The `max()` ensures there is always at least 16px of visual breathing room at the bottom even on devices without a system nav bar (where `--android-safe-bottom` is `0px`).
+
+#### 2. `src/components/ui/drawer.tsx` — DrawerContent base class
+
+Add `safe-bottom-sheet` to the `DrawerContent` base className:
+
+```tsx
+// Before
+"fixed inset-x-0 bottom-0 z-50 mt-24 flex h-auto flex-col rounded-t-[10px] border bg-background"
+
+// After
+"fixed inset-x-0 bottom-0 z-50 mt-24 flex h-auto flex-col rounded-t-[10px] border bg-background safe-bottom-sheet"
+```
+
+This propagates safe area clearance to all three Drawer consumers simultaneously:
+- `ShortcutActionSheet` (its inner `pb-4` becomes additive visual spacing on top of the safe inset)
+- `ShortcutEditSheet` (its footer will clear the nav bar)
+- `CountryCodePicker` (list bottom cleared)
+
+#### 3. `src/components/SharedFileActionSheet.tsx` — outer container
+
+```tsx
+// Before
+<div className="fixed inset-0 z-50 flex items-end justify-center p-4 pb-8 bg-black/50 animate-in fade-in duration-200">
+
+// After
+<div className="fixed inset-0 z-50 flex items-end justify-center p-4 bg-black/50 safe-bottom-with-nav animate-in fade-in duration-200">
+```
+
+This aligns `SharedFileActionSheet` with `SharedUrlActionSheet` which already uses `safe-bottom-with-nav`.
+
+#### 4. `src/components/ScheduledActionActionSheet.tsx` — remove redundant pb
+
+```tsx
+// Before
+<SheetContent side="bottom" className="rounded-t-3xl px-0 pb-6 landscape:pb-4 landscape:max-h-[95vh]">
+
+// After
+<SheetContent side="bottom" className="rounded-t-3xl px-0 landscape:max-h-[95vh]">
+```
+
+The `safe-bottom-with-nav` from `SheetContent`'s base class then becomes the sole padding-bottom authority.
+
+---
+
+### Why `safe-bottom-with-nav` for Sheets but `safe-bottom-sheet` for Drawers?
+
+- **Sheets** (`SheetContent side="bottom"`) are full-width panels that slide over the entire screen including the BottomNav area. They need padding for both the system nav bar AND the app BottomNav.
+- **Drawers** (Vaul) are partial-height panels. The BottomNav is hidden behind the dark overlay below the drawer. The drawer content only needs to clear the system nav bar itself.
+- **Custom overlays** (`SharedUrl/FileActionSheet`) also live above the BottomNav overlay so they use `safe-bottom-with-nav` to position the card above both bars.
+
+---
+
+### Impact Summary
+
+| Component | Pattern | Before | After |
+|---|---|---|---|
+| `ShortcutActionSheet` | Drawer | No safe area | Clears system nav via `safe-bottom-sheet` in DrawerContent |
+| `ShortcutEditSheet` | Drawer | No safe area on footer | Clears system nav via `safe-bottom-sheet` in DrawerContent |
+| `CountryCodePicker` | Drawer | No safe area | Clears system nav via `safe-bottom-sheet` in DrawerContent |
+| `SharedFileActionSheet` | Custom overlay | Hardcoded `pb-8` | Dynamic `safe-bottom-with-nav` |
+| `ScheduledActionActionSheet` | Sheet | Redundant `pb-6` (safe-bottom-with-nav still wins) | Clean; only `safe-bottom-with-nav` applies |
+| All other `SheetContent side="bottom"` | Sheet | Already correct via sheet.tsx | Unchanged |
