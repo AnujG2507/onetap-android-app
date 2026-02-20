@@ -1,167 +1,91 @@
 
-## Add Edit and Share Buttons to TextProxyActivity Header
+## Add Copy Button to TextProxyActivity Header
 
-### Goal
+### What Changes
 
-Replace the current centered title-only header with a three-part header row:
-- **Title** (left-aligned, shortcut name)
-- **Edit icon button** (opens the app, navigates to My Access Points, and opens the edit sheet for this shortcut)
-- **Share icon button** (opens the native Android share sheet with the plain text content)
+One file only: `TextProxyActivity.java`
 
-### How Each Button Works
+Two additions:
+1. Import `android.content.ClipboardManager` and `android.content.ClipData` at the top of the file
+2. A new "Copy" button inserted in the header row between "Share" and the end (or after "Share") with a `copyText()` handler method
 
-**Edit button**
+### Exact Layout After Change
 
-`ShortcutEditProxyActivity` already solves this perfectly — it stores the `shortcut_id` into SharedPreferences under `"onetap"` prefs key `"pending_edit_shortcut_id"`, then launches `MainActivity`. The JS hook `usePendingShortcutEdit` in the app detects this on launch and opens the edit sheet automatically.
+```
+[ Shortcut Name (flex) ] [ Edit ] [ Copy ] [ Share ]
+```
 
-The edit button in `TextProxyActivity` will replicate exactly that flow inline (no need to redirect through `ShortcutEditProxyActivity` as a second Activity):
-1. Write `shortcut_id` to `SharedPreferences("onetap").pending_edit_shortcut_id`
-2. Launch `MainActivity` with `FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_CLEAR_TOP`
-3. Dismiss and finish `TextProxyActivity`
+- **Edit** — indigo (`#6366f1`), bold, opens app to edit sheet
+- **Copy** — muted text, copies plain text to clipboard + shows Toast
+- **Share** — muted text, opens native share sheet
 
-**Share button**
+The order keeps Edit first (most important action), then Copy (quick one-tap utility), then Share (secondary action that opens another sheet).
 
-Standard Android share sheet using `Intent.ACTION_SEND`:
+### New `copyText()` Method
+
+Uses `ClipboardManager` — the standard Android clipboard API available since API 11:
+
 ```java
-Intent shareIntent = new Intent(Intent.ACTION_SEND);
-shareIntent.setType("text/plain");
-shareIntent.putExtra(Intent.EXTRA_TEXT, textContent);
-shareIntent.putExtra(Intent.EXTRA_SUBJECT, shortcutName); // pre-fills subject in email clients
-startActivity(Intent.createChooser(shareIntent, "Share via"));
-dismissDialog();
-finish();
-```
-
-The raw `textContent` (markdown/checklist syntax) is shared as-is — it's the most portable plain text form, and most apps (Notes, Messages, WhatsApp) render it readably as plain text.
-
-### Layout Change: Header Row
-
-The current header is:
-```
-[        Title (centered)        ]
-[      Subtitle (centered)       ]
-```
-
-The new header will be:
-```
-[ Title (left-flex) ] [ ✎ ] [ ↑ ]
-[   Subtitle (centered)          ]
-```
-
-Specifically, a horizontal `LinearLayout` containing:
-- `TextView` for the shortcut name — `layout_weight=1`, left-aligned, 17sp bold
-- `TextView` edit button — pencil icon character `✎` (U+270E) or the text `"Edit"` — 32×32dp touchable, centered, indigo text
-- `TextView` share button — share icon character `⬆` or text `"Share"` — 32×32dp touchable, centered, muted text
-
-Since this is programmatic Android UI without a drawable library, the icons will be Unicode characters styled as icon buttons with circular ripple backgrounds:
-- Edit: `✎` (U+270E pencil) or use text `"Edit"` if rendering is inconsistent
-- Share: `⬆` or a cleaner approach — small labeled text buttons `"Edit"` and `"Share"` in caption style, indigo and muted respectively
-
-Actually, for maximum clarity and premium feel: use small text labels styled as pill buttons, matching the pattern used in `addDoneButton()` but compact and side-by-side.
-
-**Final header layout:**
-```
-┌────────────────────────────────┐
-│████████ indigo bar ████████████│ ← 4dp
-├────────────────────────────────┤
-│  Shortcut Name         [✎][↑] │ ← title row (16dp v-padding)
-│         Note / Checklist       │ ← subtitle (centered, muted)
-├────────────────────────────────┤ ← divider
-│         WebView content        │
-├────────────────────────────────┤
-│              Done              │
-└────────────────────────────────┘
-```
-
-The `✎` (edit) and `↑` (share) icon buttons are 40×40dp touchable areas with `RippleDrawable` circular backgrounds, placed to the right of the title. They use Unicode symbols that render cleanly on all Android API levels (21+):
-- Edit: `✏` (U+270F pencil, widely supported)
-- Share: `⤴` or better — use the text symbols `•••` is too small. The cleanest approach for programmatic Android without vector drawables in the dialog context is to use the **material symbol font fallback characters**, but since we can't guarantee Noto Color Emoji, the most reliable is to use **short text labels** as secondary action buttons.
-
-**Revised approach — text action buttons in header:**
-
-```
-[ Shortcut Name (flex)  ] [Edit] [Share]
-```
-
-Both `[Edit]` and `[Share]` are compact `TextView` buttons (no background box, just text):
-- `"Edit"` in indigo (`#6366f1`), 13sp, semibold
-- `"Share"` in muted color, 13sp
-- Each has a `RippleDrawable` circular/rounded touch area padding of 8dp all sides
-
-This matches the iOS-style subtle inline action buttons pattern that looks premium and is universally readable.
-
-### Only One File Changes
-
-**`TextProxyActivity.java`** — only changes:
-1. Store `textContent` as an instance field (needed for share action)
-2. Store `shortcutName` as an instance field (needed for share subject)
-3. New `addHeaderRow()` method replacing the old separate title + subtitle adds
-4. New `openEditInApp()` method (mirrors `ShortcutEditProxyActivity.onCreate()` logic)
-5. New `shareText()` method using `Intent.ACTION_SEND`
-6. Add two new imports: nothing new needed beyond what's already imported (`Intent`, `SharedPreferences` already present)
-
-No changes to `AndroidManifest.xml`, `styles.xml`, `ShortcutPlugin.java`, or any JS/TS files — the `usePendingShortcutEdit` hook already handles the pending edit detection.
-
-### Technical Details
-
-**New imports needed:**
-```java
-import android.content.Intent;  // already implicitly available via Activity context
-```
-`Intent` is already used in `ShortcutEditProxyActivity` and `MainActivity`. In `TextProxyActivity` it's not yet imported — this needs to be added.
-
-**`openEditInApp()` method:**
-```java
-private void openEditInApp() {
-    if (shortcutId == null) return;
-    // Store pending edit (same pattern as ShortcutEditProxyActivity)
-    getSharedPreferences("onetap", MODE_PRIVATE)
-        .edit()
-        .putString("pending_edit_shortcut_id", shortcutId)
-        .apply();
-    // Launch main app
-    Intent intent = new Intent(this, MainActivity.class);
-    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-    startActivity(intent);
-    dismissDialog();
+private void copyText() {
+    android.content.ClipboardManager clipboard =
+        (android.content.ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+    if (clipboard != null) {
+        android.content.ClipData clip =
+            android.content.ClipData.newPlainText(shortcutName, textContent);
+        clipboard.setPrimaryClip(clip);
+    }
+    android.widget.Toast.makeText(this, "Copied to clipboard", android.widget.Toast.LENGTH_SHORT).show();
+    // Does NOT dismiss the dialog — user stays in the viewer after copying
 }
 ```
 
-**`shareText()` method:**
+Key design decision: **Copy does NOT dismiss the dialog**. Unlike Edit (which opens the app) and Share (which opens the system sheet), Copy is a lightweight action — the user may want to read the content again or do something else after copying. Keeping the dialog open is the right UX here, matching how most Android apps handle clipboard copy actions.
+
+### New imports needed
+
 ```java
-private void shareText() {
-    Intent shareIntent = new Intent(Intent.ACTION_SEND);
-    shareIntent.setType("text/plain");
-    shareIntent.putExtra(Intent.EXTRA_TEXT, textContent);
-    shareIntent.putExtra(Intent.EXTRA_SUBJECT, shortcutName);
-    startActivity(Intent.createChooser(shareIntent, null));
-    dismissDialog();
-}
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.widget.Toast;
 ```
 
-**`addHeaderRow()` replacing the old title+subtitle section:**
+### Copy Button Layout (matching Share button style)
+
+The Copy button follows the exact same pattern as the Share and Edit buttons — same `13sp` size, same `8dp` padding, same `RippleDrawable` background, muted text color:
+
 ```java
-// Horizontal row: [Title (flex)] [Edit btn] [Share btn]
-LinearLayout headerRow = new LinearLayout(this);
-headerRow.setOrientation(LinearLayout.HORIZONTAL);
-headerRow.setGravity(Gravity.CENTER_VERTICAL);
-
-TextView title = new TextView(...);  // weight=1, 17sp bold, left-aligned
-
-TextView editBtn = new TextView(...); // "Edit", 13sp, indigo #6366f1, ripple touch target
-editBtn.setOnClickListener(v -> openEditInApp());
-
-TextView shareBtn = new TextView(...); // "Share", 13sp, muted, ripple touch target
-shareBtn.setOnClickListener(v -> shareText());
-
-// Subtitle stays centered below the row (unchanged)
+TextView copyBtn = new TextView(this);
+copyBtn.setText("Copy");
+copyBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+copyBtn.setTextColor(colorTextMuted);
+copyBtn.setGravity(Gravity.CENTER);
+copyBtn.setPadding(btnPad, btnPad, btnPad, btnPad);
+GradientDrawable copyContent = new GradientDrawable();
+copyContent.setColor(android.graphics.Color.TRANSPARENT);
+copyContent.setCornerRadius(dpToPx(8));
+android.content.res.ColorStateList copyRipple = android.content.res.ColorStateList.valueOf(colorRipple);
+copyBtn.setBackground(new android.graphics.drawable.RippleDrawable(copyRipple, copyContent, copyContent));
+copyBtn.setClickable(true);
+copyBtn.setFocusable(true);
+copyBtn.setOnClickListener(v -> copyText());
+headerRow.addView(copyBtn);  // inserted between editBtn and shareBtn
 ```
 
-### What Does Not Change
+### File Changes Summary
 
-- `buildHtml()` — completely unchanged
-- `ChecklistBridge` — completely unchanged
-- `addDoneButton()` — completely unchanged
-- `dismissDialog()`, `onBackPressed()`, `onDestroy()` — completely unchanged
-- `initializeThemeColors()` — completely unchanged
-- All styles, manifest entries, JS hooks — unchanged
+| Change | Lines Affected |
+|---|---|
+| Add 3 imports (`ClipData`, `ClipboardManager`, `Toast`) | Lines 1–30 |
+| Add Copy button in header row (after Edit, before Share) | ~Line 199 |
+| Add `copyText()` method (after `shareText()`) | ~Line 357 |
+
+### What Stays the Same
+
+- `buildHtml()` — unchanged
+- `ChecklistBridge` — unchanged  
+- `addDoneButton()` — unchanged
+- `initializeThemeColors()` — unchanged
+- `openEditInApp()` and `shareText()` — unchanged
+- `AndroidManifest.xml` and `styles.xml` — unchanged
+
+No permissions are required — clipboard write access is available to all Android apps without declaring a permission in the manifest.
