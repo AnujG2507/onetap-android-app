@@ -475,6 +475,10 @@ export function TextEditorStep({
               {t('textEditor.addItem')}
             </button>
 
+            <p className="text-xs text-muted-foreground px-1">
+              {checklistItems.length} {checklistItems.length === 1 ? 'item' : 'items'}
+            </p>
+
             {isOverLimit && (
               <p className="text-xs text-destructive">{charCount} / {MAX_CHARS}</p>
             )}
