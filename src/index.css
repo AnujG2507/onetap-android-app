@@ -321,6 +321,11 @@ All colors MUST be HSL.
     animation: match-flash 0.6s ease-out;
   }
 
+  /* Override Radix ScrollArea injected overflow: scroll to prevent horizontal scrolling */
+  [data-radix-scroll-area-viewport] {
+    overflow-x: hidden !important;
+  }
+
   /* PDF zoom container smooth transition */
   .pdf-zoom-container {
     transition: transform 0.2s ease-out;
