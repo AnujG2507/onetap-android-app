@@ -1,104 +1,184 @@
 
-## Summary
+## Audit Results: Hardcoded & Missing i18n Strings in the Text Feature
 
-The `ShortcutEditSheet` is already fully implemented for text editing — the UI, state, and `onSave` prop type all include `textContent` and `isChecklist`. The only blocking gap is in `useShortcuts.ts` where `updateShortcut`'s `Partial<Pick<...>>` type does not include those two fields, causing a TypeScript type error at the call site. Two secondary gaps also need fixing.
+Every string used in the text shortcut and reminder feature has been traced across all six components and the en.json locale file. The findings fall into three categories:
+
+### Category A — Keys used in code but completely absent from en.json (will fall back to hardcoded literals forever, and will silently break when other languages are enabled)
+
+All nine `textEditor.*` keys called in `TextEditorStep.tsx` and `ShortcutEditSheet.tsx`:
+
+| Key | Fallback shown today |
+|-----|----------------------|
+| `textEditor.title` | "Write your text" |
+| `textEditor.noteMode` | "Note" |
+| `textEditor.checklistMode` | "Checklist" |
+| `textEditor.placeholder` | "Write anything — a note, a routine, a reminder..." |
+| `textEditor.checklistPlaceholder` | "Item" |
+| `textEditor.addItem` | "+ Add item" |
+| `textEditor.namePlaceholder` | "e.g. Daily routine, Shopping list..." |
+| `textEditor.creating` | "Adding..." |
+| `textEditor.addToHomeScreen` | "Add to Home Screen" |
+| `textEditor.editTitle` | "Edit text" |
+| `textEditor.noContent` | "No content" |
+
+Two `scheduledActions.*` keys called from `ScheduledActionCreator.tsx` but absent from `en.json`:
+
+| Key | String |
+|-----|--------|
+| `scheduledActions.scheduling` | "Scheduling..." |
+| `scheduledActions.scheduleAction` | "Schedule Action" |
+
+### Category B — Strings hardcoded directly in JSX (not using t() at all)
+
+In `ScheduledActionCreator.tsx` `handleCreate()` (lines 370–391), three toast messages bypass i18n entirely by using raw string literals:
+
+```
+'✓ Action scheduled'                          (success title)
+repeats ${timing.recurrence}                  (success description suffix)
+'Could not schedule'                          (error title — scheduledActions.couldNotSchedule key exists but is unused here)
+'Something went wrong'                        (error title)
+'Could not schedule this action.'             (error description)
+```
+
+In `getSuggestedName()` (line 158), two contact label strings are fully hardcoded:
+```
+`Message ${dest.contactName}`
+`Call ${dest.contactName}`
+```
+
+### Category C — Missing type label for text shortcuts in ShortcutActionSheet
+
+`getShortcutTypeLabel()` in `ShortcutActionSheet.tsx` has no branch for `shortcut.type === 'text'`, so text shortcuts display the generic "File" label in the action sheet header. The key `shortcutAction.typeText` is missing from `en.json`.
 
 ---
 
-## What Needs to Change
+## Files to Change
 
-### 1. `src/hooks/useShortcuts.ts` — Three changes
+### 1. `src/i18n/locales/en.json`
 
-**Change A — Add `textContent` and `isChecklist` to the `Partial<Pick<...>>` type (line 389)**
+Add a new `textEditor` block and extend two existing blocks:
 
-```diff
-- updates: Partial<Pick<ShortcutData, 'name' | 'icon' | 'quickMessages' | 'phoneNumber' | 'resumeEnabled' | 'imageUris' | 'imageThumbnails' | 'autoAdvanceInterval' | 'contentUri' | 'syncState' | 'mimeType' | 'fileSize' | 'thumbnailData' | 'originalPath'>>
-+ updates: Partial<Pick<ShortcutData, 'name' | 'icon' | 'quickMessages' | 'phoneNumber' | 'resumeEnabled' | 'imageUris' | 'imageThumbnails' | 'autoAdvanceInterval' | 'contentUri' | 'syncState' | 'mimeType' | 'fileSize' | 'thumbnailData' | 'originalPath' | 'textContent' | 'isChecklist'>>
+```json
+// New top-level block to add:
+"textEditor": {
+  "title": "Write your text",
+  "noteMode": "Note",
+  "checklistMode": "Checklist",
+  "placeholder": "Write anything — a note, a routine, a reminder...",
+  "checklistPlaceholder": "Item",
+  "addItem": "Add item",
+  "namePlaceholder": "e.g. Daily routine, Shopping list...",
+  "creating": "Adding...",
+  "addToHomeScreen": "Add to Home Screen",
+  "editTitle": "Edit text",
+  "noContent": "No content"
+}
+
+// Add to "shortcutAction":
+"typeText": "Text"
+
+// Add to "scheduledActions":
+"scheduling": "Scheduling...",
+"scheduleAction": "Schedule Action",
+"scheduledTitle": "Action scheduled",
+"couldNotScheduleDesc": "Could not schedule this action.",
+"messageName": "Message {{name}}",
+"callName_reminder": "Call {{name}}"
 ```
 
-**Change B — Add `'text'` to the `shortcutType` cast in the native update call (line 412)**
+Note: `scheduledActions.couldNotSchedule` already exists — the error title for the first catch block can reuse it. `errors.somethingWentWrong` and `scheduledActions.tryAgain` also already exist and can be reused in the second catch block.
 
-The `updatePinnedShortcut` call hard-casts `shortcut.type` to exclude `'text'`. This needs to include `'text'` so the TypeScript type is correct:
+### 2. `src/components/TextEditorStep.tsx`
 
-```diff
-- shortcutType: shortcut.type as 'contact' | 'file' | 'link' | 'message' | 'slideshow',
-+ shortcutType: shortcut.type as 'contact' | 'file' | 'link' | 'message' | 'slideshow' | 'text',
-```
+Remove all inline fallback strings from every `t()` call — they are no longer needed once the keys are in `en.json`. No logic changes, only the second argument of each `t()` call is removed.
 
-**Change C — Pass `textContent` and `isChecklist` to the native update call**
+Lines to update:
+- Line 226: `t('textEditor.title', 'Write your text')` → `t('textEditor.title')`
+- Line 244: both `t('textEditor.noteMode', 'Note')` and `t('textEditor.checklistMode', 'Checklist')` → no fallback
+- Line 275: `t('textEditor.placeholder', 'Write anything...')` → `t('textEditor.placeholder')`
+- Line 303: `t('textEditor.checklistPlaceholder', 'Item')` → `t('textEditor.checklistPlaceholder')`
+- Line 328: `t('textEditor.addItem', '+ Add item')` → `t('textEditor.addItem')`
+- Line 346: `t('textEditor.namePlaceholder', 'e.g. Daily routine...')` → `t('textEditor.namePlaceholder')`
+- Line 371: `t('textEditor.creating', 'Adding...')` → `t('textEditor.creating')`
+- Line 374: `t('textEditor.addToHomeScreen', 'Add to Home Screen')` → `t('textEditor.addToHomeScreen')`
 
-When updating a text shortcut, the new content must be sent to the native layer so the home screen shortcut's intent extras are rebuilt with the updated text. This is added alongside the existing extras in the native call:
+### 3. `src/components/ShortcutEditSheet.tsx`
 
-```diff
-  const result = await ShortcutPlugin.updatePinnedShortcut({
-    id,
-    label: shortcut.name,
-    iconEmoji: shortcut.icon.type === 'emoji' ? shortcut.icon.value : undefined,
-    iconText: shortcut.icon.type === 'text' ? shortcut.icon.value : undefined,
-    iconData: shortcut.icon.type === 'thumbnail' ? shortcut.icon.value : undefined,
-    shortcutType: shortcut.type as 'contact' | 'file' | 'link' | 'message' | 'slideshow' | 'text',
-    phoneNumber: shortcut.phoneNumber,
-    quickMessages: shortcut.quickMessages,
-    messageApp: shortcut.messageApp,
-    resumeEnabled: shortcut.resumeEnabled,
-    contentUri: shortcut.contentUri,
-    mimeType: shortcut.mimeType,
-    contactName: shortcut.contactName || shortcut.name,
-+   textContent: shortcut.textContent,
-+   isChecklist: shortcut.isChecklist,
-  });
-```
+Three `t()` calls need fallbacks removed and one needs the correct key used:
 
-### 2. `src/plugins/ShortcutPlugin.ts` — Two changes
+- Line 413: `t('textEditor.editTitle', 'Edit text')` → `t('textEditor.editTitle')`
+- Line 426: `t('textEditor.placeholder', 'No content')` — the fallback here means "empty state" while the same key in `TextEditorStep` means "placeholder hint". Split these: use `t('textEditor.noContent')` here instead.
+- Line 431: `t('textEditor.checklistMode', 'Checklist')` → `t('textEditor.checklistMode')`
 
-**Change A — Add `'text'` to the `shortcutType` union (line 308)**
+### 4. `src/components/ShortcutActionSheet.tsx`
+
+Add a `text` type branch to `getShortcutTypeLabel()` before the `switch` on `fileType`:
 
 ```diff
-- shortcutType?: 'file' | 'link' | 'contact' | 'message' | 'slideshow';
-+ shortcutType?: 'file' | 'link' | 'contact' | 'message' | 'slideshow' | 'text';
+  if (shortcut.type === 'link') return t('shortcutAction.typeLink');
++ if (shortcut.type === 'text') return t('shortcutAction.typeText');
+  
+  switch (shortcut.fileType) {
 ```
 
-**Change B — Add `textContent` and `isChecklist` params to the `updatePinnedShortcut` interface**
+### 5. `src/components/ScheduledActionCreator.tsx`
 
+Five changes:
+
+**A — Fix `handleCreate` success toast (lines 369–373):**
 ```diff
-  contactName?: string;
-+ textContent?: string;
-+ isChecklist?: boolean;
+- title: '✓ Action scheduled',
+- description: `${name} — ${timeStr}${timing.recurrence !== 'once' ? ` (repeats ${timing.recurrence})` : ''}`,
++ title: t('scheduledActions.actionScheduled'),
++ description: `${name} — ${timeStr}`,
 ```
+
+**B — Fix `handleCreate` first error toast (lines 376–381):**
+The key `scheduledActions.couldNotSchedule` already exists. Use it:
+```diff
+- title: 'Could not schedule',
+- description: 'Please try again.',
++ title: t('scheduledActions.couldNotSchedule'),
++ description: t('scheduledActions.tryAgain'),
+```
+
+**C — Fix `handleCreate` second error toast (lines 386–391):**
+```diff
+- title: 'Something went wrong',
+- description: 'Could not schedule this action.',
++ title: t('errors.somethingWentWrong'),
++ description: t('scheduledActions.couldNotScheduleDesc'),
+```
+
+**D — Fix `getSuggestedName` contact strings (lines 157–158):**
+```diff
+- case 'contact':
+-   return dest.isWhatsApp ? `Message ${dest.contactName}` : `Call ${dest.contactName}`;
++ case 'contact':
++   return dest.isWhatsApp
++     ? t('scheduledActions.messageName', { name: dest.contactName })
++     : t('scheduledActions.callName_reminder', { name: dest.contactName });
+```
+
+**E — Remove inline fallbacks from `t()` calls already using keys (lines 771–772):**
+```diff
+- label={t('scheduledActions.textTitle', 'Text note')}
+- description={t('scheduledActions.textDesc', 'A note, checklist, or message to display')}
++ label={t('scheduledActions.textTitle')}
++ description={t('scheduledActions.textDesc')}
+```
+(Both keys already exist in `en.json`.)
 
 ---
 
-## What Is Already Correct — Do Not Touch
+## Summary Table
 
-- `ShortcutEditSheet.tsx` line 31 — `onSave` prop type already includes `textContent` and `isChecklist`. No change needed.
-- `ShortcutEditSheet.tsx` lines 146–154 — `handleSave` already builds the updates object with `textContent` and `isChecklist`. No change needed.
-- `ShortcutEditSheet.tsx` lines 311–330 — Text editor overlay already works correctly. No change needed.
-- `MyShortcutsContent.tsx` line 545 — `handleSaveEdit` delegates to `updateShortcut` via `Parameters<typeof updateShortcut>[1]` — the type will automatically widen once `useShortcuts` is fixed. No change needed.
+| File | Change type | Count |
+|------|-------------|-------|
+| `en.json` | Add missing keys | 14 new keys |
+| `TextEditorStep.tsx` | Remove fallback strings from t() | 8 lines |
+| `ShortcutEditSheet.tsx` | Fix key reference + remove fallbacks | 3 lines |
+| `ShortcutActionSheet.tsx` | Add missing `text` type label branch | 1 line |
+| `ScheduledActionCreator.tsx` | Replace hardcoded strings + fix t() calls | 5 changes |
 
----
-
-## Native Java Note (Out of Scope — No Change Now)
-
-`buildIntentForUpdate` in `ShortcutPlugin.java` has no `"text".equals(shortcutType)` branch. This means after save, the home screen shortcut will retain its original `text_content` intent extra (the old text). The user would need to re-add the shortcut to home screen to pick up new content.
-
-This is a native build concern, not a TypeScript fix. For now:
-- The JS-side fix ensures data is stored correctly in `localStorage` and cloud sync (the source of truth).
-- The native intent will be stale until re-add. This is the same existing behaviour as other content changes (e.g. file reconnect → "Re-add to Home Screen" prompt).
-- The `ShortcutEditSheet` already shows the "Re-add to Home Screen" button when `hasIconOrNameChanged` — however text content changes don't set `hasIconOrNameChanged`. A minor addition: text content changes should also trigger the re-add button visibility.
-
-**Additional change in `ShortcutEditSheet.tsx`** — update `hasIconOrNameChanged` to also trigger on text content changes so the "Re-add to Home Screen" button appears when text is edited:
-
-```diff
-- setHasIconOrNameChanged(nameChanged || iconChanged || imagesChanged);
-+ setHasIconOrNameChanged(nameChanged || iconChanged || imagesChanged || textChanged);
-```
-
-This ensures users are prompted to re-add when text content changes, updating the intent on the home screen.
-
----
-
-## Files Changed
-
-1. `src/hooks/useShortcuts.ts` — Add `textContent` and `isChecklist` to the `Partial<Pick>` type; add `'text'` to the type cast; pass the two new fields to `updatePinnedShortcut`.
-2. `src/plugins/ShortcutPlugin.ts` — Add `'text'` to the `shortcutType` union; add `textContent` and `isChecklist` params.
-3. `src/components/ShortcutEditSheet.tsx` — Set `hasIconOrNameChanged = true` when text content changes so the Re-add button surfaces.
+No changes are needed to: `ContentSourcePicker.tsx` (all strings correct), `ScheduledActionEditor.tsx` (all strings correct), `MyShortcutsContent.tsx` (uses `shortcuts.filterText` which exists), `AccessFlow.tsx` (no user-facing strings for text flow).
