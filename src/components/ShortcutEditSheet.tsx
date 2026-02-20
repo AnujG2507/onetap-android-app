@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { X, Home, Save, Play, Pause, FolderOpen } from 'lucide-react';
+import { X, Home, Save, Play, Pause, FolderOpen, AlignLeft } from 'lucide-react';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerFooter } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,6 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import { IconPicker } from '@/components/IconPicker';
 import { QuickMessagesEditor } from '@/components/QuickMessagesEditor';
 import { SlideshowPhotosEditor } from '@/components/SlideshowPhotosEditor';
+import { TextEditorStep } from '@/components/TextEditorStep';
 import { useSheetRegistry } from '@/contexts/SheetRegistryContext';
 import { useToast } from '@/hooks/use-toast';
 import { Capacitor } from '@capacitor/core';
@@ -27,7 +28,7 @@ interface ShortcutEditSheetProps {
   shortcut: ShortcutData | null;
   isOpen: boolean;
   onClose: () => void;
-  onSave: (id: string, updates: Partial<Pick<ShortcutData, 'name' | 'icon' | 'quickMessages' | 'resumeEnabled' | 'imageUris' | 'imageThumbnails' | 'autoAdvanceInterval' | 'contentUri' | 'syncState' | 'mimeType' | 'fileSize' | 'thumbnailData'>>) => Promise<{ success: boolean; nativeUpdateFailed?: boolean }>;
+  onSave: (id: string, updates: Partial<Pick<ShortcutData, 'name' | 'icon' | 'quickMessages' | 'resumeEnabled' | 'imageUris' | 'imageThumbnails' | 'autoAdvanceInterval' | 'contentUri' | 'syncState' | 'mimeType' | 'fileSize' | 'thumbnailData' | 'textContent' | 'isChecklist'>>) => Promise<{ success: boolean; nativeUpdateFailed?: boolean }>;
   onReAddToHomeScreen?: (shortcut: ShortcutData) => void;
 }
 
@@ -66,6 +67,10 @@ export function ShortcutEditSheet({
   // Slideshow-specific state
   const [slideshowImages, setSlideshowImages] = useState<SlideshowImage[]>([]);
   const [autoAdvance, setAutoAdvance] = useState(0);
+  // Text shortcut state
+  const [textContent, setTextContent] = useState('');
+  const [isChecklist, setIsChecklist] = useState(false);
+  const [showTextEditor, setShowTextEditor] = useState(false);
 
   // Initialize form when shortcut changes
   useEffect(() => {
@@ -91,6 +96,16 @@ export function ShortcutEditSheet({
         setSlideshowImages([]);
         setAutoAdvance(0);
       }
+
+      // Initialize text state
+      if (shortcut.type === 'text') {
+        setTextContent(shortcut.textContent || '');
+        setIsChecklist(shortcut.isChecklist || false);
+      } else {
+        setTextContent('');
+        setIsChecklist(false);
+      }
+      setShowTextEditor(false);
     }
   }, [shortcut]);
 
@@ -109,10 +124,12 @@ export function ShortcutEditSheet({
     );
     const autoAdvanceChanged = shortcut.type === 'slideshow' && autoAdvance !== (shortcut.autoAdvanceInterval || 0);
     const fileReconnected = reconnectedFile !== null;
+    // Text-specific changes
+    const textChanged = shortcut.type === 'text' && (textContent !== (shortcut.textContent || '') || isChecklist !== (shortcut.isChecklist || false));
     
-    setHasChanges(nameChanged || iconChanged || messagesChanged || resumeChanged || imagesChanged || autoAdvanceChanged || fileReconnected);
+    setHasChanges(nameChanged || iconChanged || messagesChanged || resumeChanged || imagesChanged || autoAdvanceChanged || fileReconnected || textChanged);
     setHasIconOrNameChanged(nameChanged || iconChanged || imagesChanged);
-  }, [name, icon, quickMessages, resumeEnabled, slideshowImages, autoAdvance, shortcut, reconnectedFile]);
+  }, [name, icon, quickMessages, resumeEnabled, slideshowImages, autoAdvance, shortcut, reconnectedFile, textContent, isChecklist]);
 
   // Register with sheet registry for back button handling
   useEffect(() => {
@@ -126,11 +143,14 @@ export function ShortcutEditSheet({
     if (!shortcut) return;
     
     // Build updates object
-    const updates: Partial<Pick<ShortcutData, 'name' | 'icon' | 'quickMessages' | 'resumeEnabled' | 'imageUris' | 'imageThumbnails' | 'autoAdvanceInterval' | 'contentUri' | 'syncState' | 'mimeType' | 'fileSize' | 'thumbnailData'>> = {
+    const updates: Partial<Pick<ShortcutData, 'name' | 'icon' | 'quickMessages' | 'resumeEnabled' | 'imageUris' | 'imageThumbnails' | 'autoAdvanceInterval' | 'contentUri' | 'syncState' | 'mimeType' | 'fileSize' | 'thumbnailData' | 'textContent' | 'isChecklist'>> = {
       name,
       icon,
       quickMessages: quickMessages.length > 0 ? quickMessages : undefined,
       resumeEnabled: shortcut.fileType === 'pdf' ? resumeEnabled : undefined,
+      // Text content - only for text shortcuts
+      textContent: shortcut.type === 'text' ? textContent : undefined,
+      isChecklist: shortcut.type === 'text' ? isChecklist : undefined,
     };
     
     // If a file was reconnected, include those fields and clear dormant state
@@ -287,6 +307,28 @@ export function ShortcutEditSheet({
 
   if (!shortcut) return null;
 
+  // Show TextEditorStep as inline overlay inside the sheet
+  if (showTextEditor && shortcut.type === 'text') {
+    return (
+      <Drawer open={isOpen} onOpenChange={(open) => !open && onClose()}>
+        <DrawerContent className="max-h-[90vh]">
+          <TextEditorStep
+            initialText={textContent}
+            initialIsChecklist={isChecklist}
+            showIconPicker={false}
+            isReminder={true}
+            onBack={() => setShowTextEditor(false)}
+            onConfirm={(data) => {
+              setTextContent(data.textContent);
+              setIsChecklist(data.isChecklist);
+              setShowTextEditor(false);
+            }}
+          />
+        </DrawerContent>
+      </Drawer>
+    );
+  }
+
   return (
     <Drawer open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DrawerContent className="max-h-[90vh]">
@@ -362,6 +404,34 @@ export function ShortcutEditSheet({
               images={slideshowImages}
               onChange={setSlideshowImages}
             />
+          )}
+
+          {/* Text Content Editor */}
+          {shortcut.type === 'text' && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>{t('textEditor.editTitle', 'Edit text')}</Label>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowTextEditor(true)}
+                  className="gap-1.5"
+                >
+                  <AlignLeft className="h-3.5 w-3.5" />
+                  {t('common.edit')}
+                </Button>
+              </div>
+              <div className="p-3 rounded-xl bg-muted/30 border border-border min-h-[64px]">
+                <p className="text-sm text-muted-foreground line-clamp-3 whitespace-pre-wrap">
+                  {textContent || t('textEditor.placeholder', 'No content')}
+                </p>
+              </div>
+              {isChecklist && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  ✅ {t('textEditor.checklistMode', 'Checklist')}
+                </p>
+              )}
+            </div>
           )}
 
           {/* Icon Picker - hide for slideshows (icon auto-generated from photos) */}

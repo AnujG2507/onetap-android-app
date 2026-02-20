@@ -1,11 +1,12 @@
 // Scheduled Action Creator - multi-step flow for creating a scheduled action
 import { useState, useCallback, useEffect } from 'react';
+import { TextEditorStep } from '@/components/TextEditorStep';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { ChevronLeft, FileText, Link, Phone, Check, Clipboard, Globe, Bookmark, UserCircle2, Edit3, MessageCircle } from 'lucide-react';
+import { ChevronLeft, FileText, Link, Phone, Check, Clipboard, Globe, Bookmark, UserCircle2, Edit3, MessageCircle, AlignLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScheduledTimingPicker } from './ScheduledTimingPicker';
 import { ContactAvatar } from '@/components/ContactAvatar';
@@ -30,6 +31,7 @@ import type {
 type CreatorStep = 'destination' | 'timing' | 'confirm';
 type UrlSubStep = 'choose' | 'input' | null;
 type ContactSubStep = 'choose' | 'manual' | 'message' | null;
+type TextSubStep = 'editor' | null;
 
 interface ScheduledActionCreatorProps {
   onComplete: () => void;
@@ -72,6 +74,10 @@ export function ScheduledActionCreator({
   // WhatsApp mode state
   const [isWhatsAppMode, setIsWhatsAppMode] = useState(false);
   const [whatsappMessage, setWhatsappMessage] = useState('');
+  // Text sub-flow state
+  const [textSubStep, setTextSubStep] = useState<TextSubStep>(null);
+  const [textContent, setTextContent] = useState('');
+  const [textIsChecklist, setTextIsChecklist] = useState(false);
 
   // Fetch URL metadata for auto-filling name
   const urlForMetadata = destination?.type === 'url' ? destination.uri : null;
@@ -89,6 +95,7 @@ export function ScheduledActionCreator({
   const shouldInterceptBack = 
     urlSubStep !== null || // In URL sub-step
     contactSubStep !== null || // In contact sub-step
+    textSubStep !== null || // In text sub-step
     step === 'confirm' || // On confirm step
     (step === 'timing' && !initialDestination); // On timing without pre-filled destination
 
@@ -98,6 +105,13 @@ export function ScheduledActionCreator({
       setUrlSubStep(null);
       setUrlInput('');
       setUrlError('');
+      return;
+    }
+    // Handle text sub-step back
+    if (textSubStep) {
+      setTextSubStep(null);
+      setTextContent('');
+      setTextIsChecklist(false);
       return;
     }
     // Handle contact sub-step back
@@ -123,7 +137,7 @@ export function ScheduledActionCreator({
     } else if (step === 'timing' && !initialDestination) {
       setStep('destination');
     }
-  }, [urlSubStep, contactSubStep, step, initialDestination]);
+  }, [urlSubStep, contactSubStep, textSubStep, step, initialDestination]);
 
   // Register with higher priority (20) than parent sheet (0) to intercept back button
   useSheetBackHandler(
@@ -142,8 +156,12 @@ export function ScheduledActionCreator({
         return dest.name || 'Open link';
       case 'contact':
         return dest.isWhatsApp ? `Message ${dest.contactName}` : `Call ${dest.contactName}`;
+      case 'text': {
+        const firstLine = dest.text.split('\n')[0].replace(/^[☐☑]\s*/, '').trim();
+        return firstLine.slice(0, 40) || t('scheduledActions.textTitle', 'Text note');
+      }
     }
-  }, []);
+  }, [t]);
 
   const handleDestinationSelect = (dest: ScheduledActionDestination) => {
     setDestination(dest);
@@ -444,6 +462,27 @@ export function ScheduledActionCreator({
 
   // Step: Select destination type
   if (step === 'destination') {
+    // Text sub-step: text editor
+    if (textSubStep === 'editor') {
+      return (
+        <TextEditorStep
+          showIconPicker={false}
+          isReminder={true}
+          initialText={textContent}
+          initialIsChecklist={textIsChecklist}
+          onBack={() => setTextSubStep(null)}
+          onConfirm={(data) => {
+            const dest: ScheduledActionDestination = {
+              type: 'text',
+              text: data.textContent,
+              name: data.name || data.textContent.split('\n')[0].replace(/^[☐☑]\s*/, '').trim().slice(0, 40) || t('scheduledActions.textTitle', 'Text note'),
+              isChecklist: data.isChecklist,
+            };
+            handleDestinationSelect(dest);
+          }}
+        />
+      );
+    }
     // URL sub-step: Input URL
     if (urlSubStep === 'input') {
       return (
@@ -726,6 +765,12 @@ export function ScheduledActionCreator({
                 setIsWhatsAppMode(true);
                 setContactSubStep('choose');
               }}
+            />
+            <DestinationOption
+              icon={<AlignLeft className="h-5 w-5" />}
+              label={t('scheduledActions.textTitle', 'Text note')}
+              description={t('scheduledActions.textDesc', 'A note, checklist, or message to display')}
+              onClick={() => setTextSubStep('editor')}
             />
           </div>
         </div>

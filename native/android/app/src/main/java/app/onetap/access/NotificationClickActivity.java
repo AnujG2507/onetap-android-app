@@ -206,7 +206,7 @@ public class NotificationClickActivity extends Activity {
                     actionIntent = new Intent(Intent.ACTION_VIEW);
                     actionIntent.setDataAndType(Uri.parse(fileUri), mimeType);
                     actionIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                    
+
                     // Set ClipData with meaningful display name for external app
                     try {
                         android.content.ClipData clipData = android.content.ClipData.newUri(
@@ -216,6 +216,19 @@ public class NotificationClickActivity extends Activity {
                         Log.w(TAG, "Failed to set ClipData: " + e.getMessage());
                     }
                     break;
+
+                case "text":
+                    String textContent = data.optString("text", "");
+                    boolean isChecklist = data.optBoolean("isChecklist", false);
+                    String actionId2 = intent.getStringExtra(EXTRA_ACTION_ID);
+                    Intent textIntent = new Intent(this, TextProxyActivity.class);
+                    textIntent.putExtra("shortcut_id", actionId2 != null ? actionId2 : "reminder");
+                    textIntent.putExtra("text_content", textContent);
+                    textIntent.putExtra("is_checklist", isChecklist);
+                    textIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    startActivity(textIntent);
+                    Log.d(TAG, "Opened TextProxyActivity for text reminder");
+                    return;
                     
                 default:
                     Log.w(TAG, "Unknown destination type: " + destinationType);

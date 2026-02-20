@@ -146,6 +146,8 @@ export type Database = {
           original_created_at: number
           created_at: string
           updated_at: string
+          text_content: string | null
+          is_checklist: boolean | null
         }
         Insert: {
           id?: string
@@ -169,6 +171,8 @@ export type Database = {
           original_created_at: number
           created_at?: string
           updated_at?: string
+          text_content?: string | null
+          is_checklist?: boolean | null
         }
         Update: {
           id?: string
@@ -192,6 +196,8 @@ export type Database = {
           original_created_at?: number
           created_at?: string
           updated_at?: string
+          text_content?: string | null
+          is_checklist?: boolean | null
         }
         Relationships: []
       }
