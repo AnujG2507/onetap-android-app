@@ -142,6 +142,17 @@ All colors MUST be HSL.
     padding-bottom: var(--android-safe-bottom, 16px);
   }
 
+  /* Safe area for bottom sheets: system nav bar + BottomNav height */
+  .safe-bottom-with-nav {
+    padding-bottom: calc(var(--android-safe-bottom, 0px) + 3.5rem);
+  }
+
+  @media (orientation: landscape) {
+    .safe-bottom-with-nav {
+      padding-bottom: calc(var(--android-safe-bottom, 0px) + 2.5rem);
+    }
+  }
+
   /* Safe area for Android status bar */
   .safe-top {
     padding-top: var(--android-safe-top, 0px);
