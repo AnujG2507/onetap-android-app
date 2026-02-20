@@ -4539,6 +4539,8 @@ public class ShortcutPlugin extends Plugin {
         String contentUri = call.getString("contentUri");
         String mimeType = call.getString("mimeType");
         String contactName = call.getString("contactName");
+        String textContent = call.getString("textContent");
+        Boolean isChecklist = call.getBoolean("isChecklist", false);
         
         // Parse quick messages array
         JSArray quickMessagesArray = call.getArray("quickMessages");
@@ -4601,9 +4603,10 @@ public class ShortcutPlugin extends Plugin {
             // Create icon from params
             Icon icon = createIconForUpdate(call);
 
-            // Build intent based on shortcut type (WhatsApp messaging only)
+            // Build intent based on shortcut type
             Intent intent = buildIntentForUpdate(context, shortcutType, messageApp, phoneNumber, 
-                quickMessagesJson, contactName, resumeEnabled, contentUri, mimeType, label, shortcutId);
+                quickMessagesJson, contactName, resumeEnabled, contentUri, mimeType, label, shortcutId,
+                textContent, isChecklist);
 
             // Build updated ShortcutInfo with same ID
             ShortcutInfo.Builder builder = new ShortcutInfo.Builder(context, shortcutId)
@@ -4670,7 +4673,8 @@ public class ShortcutPlugin extends Plugin {
      */
     private Intent buildIntentForUpdate(Context context, String shortcutType, String messageApp,
             String phoneNumber, String quickMessagesJson, String contactName,
-            Boolean resumeEnabled, String contentUri, String mimeType, String label, String shortcutId) {
+            Boolean resumeEnabled, String contentUri, String mimeType, String label, String shortcutId,
+            String textContent, Boolean isChecklist) {
         
         if (shortcutType == null) {
             // No type specified, can't rebuild intent
@@ -4801,6 +4805,19 @@ public class ShortcutPlugin extends Plugin {
             intent.putExtra(FileProxyActivity.EXTRA_SHORTCUT_TITLE, label);
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            
+        } else if ("text".equals(shortcutType)) {
+            // Text shortcut - rebuild intent with updated text content
+            android.util.Log.d("ShortcutPlugin", "Building Text intent for update, isChecklist=" + isChecklist);
+            intent = new Intent(context, TextProxyActivity.class);
+            intent.setAction("app.onetap.OPEN_TEXT");
+            intent.setData(Uri.parse("onetap://text/" + shortcutId));
+            intent.putExtra("shortcut_id", shortcutId);
+            if (textContent != null) {
+                intent.putExtra("text_content", textContent);
+            }
+            intent.putExtra("is_checklist", isChecklist != null && isChecklist);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         }
         
         return intent;
