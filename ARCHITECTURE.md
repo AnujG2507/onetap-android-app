@@ -89,6 +89,58 @@ Capacitor is the bridge between web and native. It lets your React code call Jav
 | `src/contexts/` | React context providers |
 | `src/i18n/` | Translation files and i18next configuration |
 
+### Safe Area Design System
+
+Capacitor 8 forces the WebView into edge-to-edge mode — content renders behind the system status bar and navigation bar. `MainActivity.java` reads real OS insets via `ViewCompat.setOnApplyWindowInsetsListener` on every layout pass (including orientation changes) and injects them as CSS custom properties on `<html>`. `env()` fallbacks ensure values are available in the browser preview before native injection fires.
+
+**CSS Variables (defined in `src/index.css` `:root`)**
+
+| Variable | Source | Description |
+|---|---|---|
+| `--android-safe-top` | `statusBars().top` | Height of the status bar (portrait and landscape) |
+| `--android-safe-bottom` | `navigationBars().bottom` | Height of the bottom nav bar (portrait gesture/button bar) |
+| `--android-safe-left` | `navigationBars().left` | Width of the nav bar when it moves to the **left** side in landscape (90° clockwise rotation) |
+| `--android-safe-right` | `navigationBars().right` | Width of the nav bar when it moves to the **right** side in landscape (90° anti-clockwise rotation) |
+
+**Utility Classes (defined in `src/index.css` `@layer utilities`)**
+
+| Class | Property | When to use |
+|---|---|---|
+| `safe-top` | `padding-top` | Fixed headers that must clear the status bar |
+| `safe-bottom` | `padding-bottom` | Any element anchored to the bottom edge |
+| `safe-bottom-with-nav` | `padding-bottom: safe-bottom + 3.5rem (portrait) / 2.5rem (landscape)` | Bottom `<Sheet>` panels — clears both the system nav bar and the app's `BottomNav` |
+| `safe-bottom-sheet` | `padding-bottom: max(safe-bottom, 16px)` | Vaul `<Drawer>` panels — clears system nav only (BottomNav is behind the overlay) |
+| `safe-bottom-action` | `padding-bottom: safe-bottom + 16px` | Floating action areas requiring visual breathing room above the nav bar |
+| `safe-left` | `padding-inline-start` | Side `<Sheet>` panels anchored to the left edge |
+| `safe-right` | `padding-inline-end` | Side `<Sheet>` panels anchored to the right edge |
+| `safe-x` | `padding-inline-start` + `padding-inline-end` | Any full-width element that must clear a **horizontal** nav bar in landscape (e.g. `BottomNav`, `AccessFlow` header, custom overlay containers) |
+| `pt-header-safe` | `padding-top: safe-top + 1rem` | Standard page headers |
+| `pt-header-safe-compact` | `padding-top: safe-top + 0.75rem (0.5rem landscape)` | Compact page headers |
+
+**Which class to use — decision guide:**
+
+```
+Is the element a bottom Sheet (Radix, side="bottom")?
+  → safe-bottom-with-nav
+
+Is the element a Vaul Drawer?
+  → safe-bottom-sheet  (on DrawerContent base class)
+
+Is the element a fixed full-width bar (BottomNav, AccessFlow root)?
+  → safe-x
+
+Is the element a side Sheet (left/right)?
+  → safe-left (left variant) or safe-right (right variant)
+
+Is the element a custom fixed overlay card (SharedUrlActionSheet, SharedFileActionSheet)?
+  → safe-bottom-with-nav + safe-x  (on the outer container)
+
+Is the element a fixed header?
+  → pt-header-safe or pt-header-safe-compact
+```
+
+> **RTL note:** `safe-left` / `safe-right` / `safe-x` use logical properties (`padding-inline-start/end`), so they are automatically mirrored in RTL layouts — no extra RTL overrides needed.
+
 ---
 
 ## 3. Native Android Layer (Java)
@@ -101,7 +153,7 @@ Capacitor is the bridge between web and native. It lets your React code call Jav
 
 | Java Class | What It Does |
 |------------|-------------|
-| `MainActivity.java` | App entry point. Registers Capacitor plugins. Disables edge-to-edge rendering and injects `--android-safe-bottom` CSS variable for nav bar clearance. |
+| `MainActivity.java` | App entry point. Registers Capacitor plugins. Forces edge-to-edge rendering and injects `--android-safe-top`, `--android-safe-bottom`, `--android-safe-left`, and `--android-safe-right` CSS variables from real OS insets on every orientation change. |
 | `ShortcutPlugin.java` | Creates home screen shortcuts using Android's `ShortcutManager` API |
 | `NotificationHelper.java` | Displays scheduled notifications |
 | `ScheduledActionReceiver.java` | Receives alarm broadcasts and triggers notifications |
