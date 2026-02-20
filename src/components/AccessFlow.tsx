@@ -423,10 +423,10 @@ export function AccessFlow({
         setLastCreatedName(data.name);
         setStep('success');
       } else {
-        toast({ title: 'Something went wrong', description: 'Could not add to home screen.', variant: 'destructive' });
+        toast({ title: t('errors.somethingWentWrong'), description: t('access.couldNotAddToHomeScreen'), variant: 'destructive' });
       }
     } catch (error) {
-      toast({ title: 'Unable to add', description: error instanceof Error ? error.message : 'Could not create shortcut.', variant: 'destructive' });
+      toast({ title: t('access.unableToAdd'), description: error instanceof Error ? error.message : t('access.couldNotCreateShortcut'), variant: 'destructive' });
     }
   };
 
@@ -476,16 +476,16 @@ export function AccessFlow({
         setStep('success');
       } else {
         toast({
-          title: 'Something went wrong',
-          description: 'Could not add to home screen. Please try again.',
+          title: t('errors.somethingWentWrong'),
+          description: t('access.couldNotAddToHomeScreen'),
           variant: 'destructive',
         });
       }
     } catch (error) {
       console.error('[AccessFlow] Contact shortcut creation error:', error);
       toast({
-        title: 'Unable to add',
-        description: error instanceof Error ? error.message : 'Could not create this shortcut.',
+        title: t('access.unableToAdd'),
+        description: error instanceof Error ? error.message : t('access.couldNotCreateShortcut'),
         variant: 'destructive',
       });
     }
@@ -511,16 +511,16 @@ export function AccessFlow({
       } else {
         console.error('[AccessFlow] Failed to create shortcut');
         toast({
-          title: 'Something went wrong',
-          description: 'Could not add to home screen. Please try again.',
+          title: t('errors.somethingWentWrong'),
+          description: t('access.couldNotAddToHomeScreen'),
           variant: 'destructive',
         });
       }
     } catch (error) {
       console.error('[AccessFlow] Shortcut creation error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Could not create this shortcut. Please try again.';
+      const errorMessage = error instanceof Error ? error.message : t('access.couldNotCreateShortcut');
       toast({
-        title: 'Unable to add',
+        title: t('access.unableToAdd'),
         description: errorMessage,
         variant: 'destructive',
       });
@@ -544,16 +544,16 @@ export function AccessFlow({
       } else {
         console.error('[AccessFlow] Failed to create slideshow shortcut');
         toast({
-          title: 'Something went wrong',
-          description: 'Could not add slideshow to home screen. Please try again.',
+          title: t('errors.somethingWentWrong'),
+          description: t('access.couldNotAddToHomeScreen'),
           variant: 'destructive',
         });
       }
     } catch (error) {
       console.error('[AccessFlow] Slideshow shortcut creation error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Could not create this slideshow shortcut.';
+      const errorMessage = error instanceof Error ? error.message : t('access.couldNotCreateShortcut');
       toast({
-        title: 'Unable to add',
+        title: t('access.unableToAdd'),
         description: errorMessage,
         variant: 'destructive',
       });
