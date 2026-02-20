@@ -168,7 +168,7 @@ export function ContactShortcutCustomizer({
   return (
     <div className="flex-1 flex flex-col animate-fade-in">
       {/* Header */}
-      <header className="px-5 pt-header-safe-compact pb-4 landscape:px-4 landscape:pt-2 landscape:pb-2 flex items-center gap-4">
+      <header className="px-5 pt-header-safe pb-4 landscape:px-4 landscape:pt-2 landscape:pb-2 flex items-center gap-4">
         <button
           onClick={onBack}
           className="p-2 -ms-2 rounded-full hover:bg-muted/50 transition-colors"
