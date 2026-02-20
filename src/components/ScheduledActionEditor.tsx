@@ -401,7 +401,7 @@ export function ScheduledActionEditor({
               isReminder={true}
               initialText={textContent}
               initialIsChecklist={textIsChecklist}
-              initialName={name}
+              initialName={destination.type === 'text' ? destination.name : name}
               onBack={() => setTextSubStep(null)}
               onConfirm={(data) => {
                 const dest: ScheduledActionDestination = {
