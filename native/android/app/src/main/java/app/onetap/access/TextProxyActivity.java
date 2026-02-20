@@ -29,7 +29,7 @@ import android.webkit.WebViewClient;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.ScrollView;
+// ScrollView import removed — outer ScrollView was stealing touch events from WebView
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -70,6 +70,8 @@ public class TextProxyActivity extends Activity {
     private String shortcutId;
     private String textContent;
     private String shortcutName;
+    private boolean isChecklistMode; // stored for use in clearChecklistState + bridge
+    private DisplayMetrics dm;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -81,7 +83,7 @@ public class TextProxyActivity extends Activity {
         shortcutId = getIntent().getStringExtra("shortcut_id");
         shortcutName = getIntent().getStringExtra("shortcut_name");
         textContent = getIntent().getStringExtra("text_content");
-        boolean isChecklist = getIntent().getBooleanExtra("is_checklist", false);
+        isChecklistMode = getIntent().getBooleanExtra("is_checklist", false);
 
         if (textContent == null) textContent = "";
         if (shortcutName == null) shortcutName = "";
@@ -91,7 +93,7 @@ public class TextProxyActivity extends Activity {
             NativeUsageTracker.recordTap(this, shortcutId);
         }
 
-        showPremiumDialog(shortcutName, textContent, isChecklist);
+        showPremiumDialog(shortcutName, textContent, isChecklistMode);
     }
 
     /**
@@ -135,15 +137,13 @@ public class TextProxyActivity extends Activity {
     }
 
     private void showPremiumDialog(String shortcutName, String textContent, boolean isChecklist) {
-        // ── Screen height cap for WebView ─────────────────────────────────────
-        DisplayMetrics dm = new DisplayMetrics();
+        // ── Screen metrics (stored as instance var for use in bridges) ────────
+        dm = new DisplayMetrics();
         getWindowManager().getDefaultDisplay().getMetrics(dm);
-        int maxWebViewHeight = (int) (dm.heightPixels * 0.60f);
 
-        // ── Outer ScrollView ──────────────────────────────────────────────────
-        ScrollView scrollView = new ScrollView(this);
-        scrollView.setFillViewport(true);
-        scrollView.setBackgroundColor(colorBg);
+        // No outer ScrollView — WebView handles its own internal scrolling.
+        // A wrapping ScrollView intercepts touch DOWN events and prevents the
+        // WebView from ever receiving confirmed taps on checkbox inputs.
 
         LinearLayout mainLayout = new LinearLayout(this);
         mainLayout.setOrientation(LinearLayout.VERTICAL);
@@ -245,20 +245,54 @@ public class TextProxyActivity extends Activity {
         divider.setLayoutParams(dividerParams);
         contentLayout.addView(divider);
 
-        // ── WebView (capped at 60% screen height) ─────────────────────────────
+        // ── WebView — start with WRAP_CONTENT; onPageFinished resizes to fit ──
         webView = new WebView(this);
+        // Start at WRAP_CONTENT; height is set precisely after page load via JS bridge
         LinearLayout.LayoutParams webParams = new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
-            maxWebViewHeight
+            LinearLayout.LayoutParams.WRAP_CONTENT
         );
+        webView.setMinimumHeight(dpToPx(120)); // Prevent flash of zero-height before load
         webView.setLayoutParams(webParams);
         webView.setBackgroundColor(colorBg);
+        // Prevent scrollbar from consuming layout space
+        webView.setScrollBarStyle(View.SCROLLBARS_INSIDE_OVERLAY);
+        webView.setOverScrollMode(View.OVER_SCROLL_NEVER);
 
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
-        webView.setWebViewClient(new WebViewClient());
+        // Disable zoom — zoom gestures interfere with single-tap recognition on small targets (checkboxes)
+        settings.setBuiltInZoomControls(false);
+        settings.setDisplayZoomControls(false);
+        settings.setSupportZoom(false);
+
         webView.addJavascriptInterface(new ChecklistBridge(), "Android");
+
+        // After page finishes loading, measure real content height via JS and resize WebView.
+        // This ensures tap coordinates align with visible elements (no clipping misalignment).
+        webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                view.evaluateJavascript(
+                    "(function(){ return document.body.scrollHeight; })()",
+                    value -> {
+                        try {
+                            int contentHeight = Integer.parseInt(value.trim());
+                            int maxPx = (int)(dm.heightPixels * 0.65f);
+                            int finalHeight = Math.min(contentHeight + dpToPx(16), maxPx);
+                            runOnUiThread(() -> {
+                                ViewGroup.LayoutParams lp = webView.getLayoutParams();
+                                lp.height = finalHeight;
+                                webView.setLayoutParams(lp);
+                            });
+                        } catch (Exception ignored) {
+                            Log.w(TAG, "Could not parse scrollHeight from JS: " + value);
+                        }
+                    }
+                );
+            }
+        });
 
         // Load saved checklist state from SharedPreferences (sole source of truth)
         java.util.Map<String, Boolean> savedState = new java.util.HashMap<>();
@@ -280,11 +314,10 @@ public class TextProxyActivity extends Activity {
         // ── Done button (matching WhatsApp's Cancel button pattern) ──────────
         addDoneButton(mainLayout, isChecklist);
 
-        scrollView.addView(mainLayout);
-
-        // ── Build AlertDialog using the shared MessageChooserDialog style ─────
+        // No outer ScrollView — the WebView scrolls internally; ScrollView would steal touch events.
+        // Build AlertDialog using the shared MessageChooserDialog style ─────
         AlertDialog.Builder builder = new AlertDialog.Builder(this, R.style.MessageChooserDialog);
-        builder.setView(scrollView);
+        builder.setView(mainLayout);
         builder.setOnCancelListener(d -> finish());
         builder.setOnDismissListener(d -> {
             if (!isFinishing()) {
@@ -749,6 +782,12 @@ public class TextProxyActivity extends Activity {
             + "var rawText=`" + escaped + "`;"
             + "var el=document.getElementById('content');"
             + renderCall
+            // Fallback height bridge for older WebView versions
+            + "window.addEventListener('load',function(){"
+            + "  if(window.Android&&Android.onContentHeight){"
+            + "    Android.onContentHeight(document.body.scrollHeight);"
+            + "  }"
+            + "});"
             + "</script>"
             + "</body></html>";
     }
@@ -765,6 +804,23 @@ public class TextProxyActivity extends Activity {
             getSharedPreferences(PREFS_CHECKLIST, MODE_PRIVATE)
                     .edit().putBoolean(key, checked).apply();
             Log.d(TAG, "Checkbox state saved: " + key + "=" + checked);
+        }
+
+        /**
+         * Fallback height reporter for older WebView versions that may not deliver
+         * evaluateJavascript callbacks reliably. Called from HTML window.onload.
+         */
+        @JavascriptInterface
+        public void onContentHeight(int height) {
+            int maxPx = (int)(dm.heightPixels * 0.65f);
+            int finalH = Math.min(height + dpToPx(16), maxPx);
+            runOnUiThread(() -> {
+                if (webView != null) {
+                    ViewGroup.LayoutParams lp = webView.getLayoutParams();
+                    lp.height = finalH;
+                    webView.setLayoutParams(lp);
+                }
+            });
         }
     }
 }
