@@ -1,6 +1,8 @@
 // Notifications Page - Full-page view for managing scheduled actions
 // With search, filter, sort, selection mode, and bulk actions
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { App } from '@capacitor/app';
 import { useTranslation } from 'react-i18next';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
@@ -34,6 +36,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { useScheduledActions } from '@/hooks/useScheduledActions';
+import ShortcutPlugin from '@/plugins/ShortcutPlugin';
 import { useSheetBackHandler } from '@/hooks/useSheetBackHandler';
 import { useTutorial } from '@/hooks/useTutorial';
 import { ScheduledActionEditor } from './ScheduledActionEditor';
@@ -176,6 +179,9 @@ export function NotificationsPage({
   const [isBottomButtonVisible, setIsBottomButtonVisible] = useState(true);
   const lastScrollTop = useRef(0);
   
+  // Snoozed action IDs (fetched from native layer)
+  const [snoozedIds, setSnoozedIds] = useState<Set<string>>(new Set());
+  
   const { toast } = useToast();
   const tutorial = useTutorial('reminders', { ready: actions.length > 0 });
 
@@ -259,6 +265,31 @@ export function NotificationsPage({
       });
     }
   }, [permissionStatus.checked, checkPermissions]);
+
+  // Fetch snoozed IDs from native on mount + app resume
+  const fetchSnoozedIds = useCallback(async () => {
+    if (!Capacitor.isNativePlatform()) return;
+    try {
+      const result = await ShortcutPlugin.getSnoozedActionIds();
+      if (result.success) {
+        setSnoozedIds(new Set(result.ids));
+      }
+    } catch (e) {
+      console.warn('[NotificationsPage] Failed to fetch snoozed IDs:', e);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchSnoozedIds();
+  }, [fetchSnoozedIds]);
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    const listener = App.addListener('appStateChange', ({ isActive }) => {
+      if (isActive) fetchSnoozedIds();
+    });
+    return () => { listener.then(h => h.remove()); };
+  }, [fetchSnoozedIds]);
 
   // Helper to determine action status
   const getActionStatus = useCallback((action: ScheduledAction): 'active' | 'disabled' | 'expired' => {
@@ -928,6 +959,7 @@ export function NotificationsPage({
                   isDeleting={deletingId === action.id}
                   isSelected={selectedIds.has(action.id)}
                   isSelectionMode={isSelectionMode}
+                  isSnoozed={snoozedIds.has(action.id)}
                   onTap={() => handleItemTap(action)}
                   onToggle={() => handleToggle(action.id)}
                   onDelete={() => handleDelete(action.id)}

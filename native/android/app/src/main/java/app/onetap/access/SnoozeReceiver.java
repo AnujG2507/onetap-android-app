@@ -218,6 +218,15 @@ public class SnoozeReceiver extends BroadcastReceiver {
     }
 
     /**
+     * Get all currently snoozed action IDs (live snapshot, does NOT clear).
+     */
+    public static String[] getActiveSnoozedIds(Context context) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        Set<String> ids = prefs.getStringSet(KEY_ACTIVE_IDS, new HashSet<>());
+        return ids.toArray(new String[0]);
+    }
+
+    /**
      * Read snooze duration from app settings SharedPreferences.
      * Falls back to 10 minutes if the setting is missing or unreadable.
      */

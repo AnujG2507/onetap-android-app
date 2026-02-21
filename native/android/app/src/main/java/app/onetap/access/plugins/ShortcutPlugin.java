@@ -5309,6 +5309,22 @@ public class ShortcutPlugin extends Plugin {
         call.resolve(result);
     }
 
+    // ========== Snoozed Action IDs ==========
+
+    @PluginMethod
+    public void getSnoozedActionIds(PluginCall call) {
+        Context context = getContext();
+        String[] ids = app.onetap.access.SnoozeReceiver.getActiveSnoozedIds(context);
+        JSObject result = new JSObject();
+        result.put("success", true);
+        JSArray idsArray = new JSArray();
+        for (String id : ids) {
+            idsArray.put(id);
+        }
+        result.put("ids", idsArray);
+        call.resolve(result);
+    }
+
     // ========== Battery Optimization ==========
 
     @PluginMethod
