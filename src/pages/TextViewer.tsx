@@ -29,25 +29,34 @@ function parseChecklist(raw: string): ChecklistItem[] {
   }).filter(item => item.text.trim().length > 0);
 }
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function renderMarkdown(text: string) {
   // Very lightweight markdown renderer (bold, italic, inline code, line breaks)
   const lines = text.split('\n');
   return lines.map((line, i) => {
     const key = i;
     if (line.startsWith('# ')) {
-      return <h1 key={key} className="text-2xl font-bold mt-4 mb-2">{line.slice(2)}</h1>;
+      return <h1 key={key} className="text-2xl font-bold mt-4 mb-2">{escapeHtml(line.slice(2))}</h1>;
     }
     if (line.startsWith('## ')) {
-      return <h2 key={key} className="text-xl font-semibold mt-3 mb-1">{line.slice(3)}</h2>;
+      return <h2 key={key} className="text-xl font-semibold mt-3 mb-1">{escapeHtml(line.slice(3))}</h2>;
     }
     if (line.startsWith('### ')) {
-      return <h3 key={key} className="text-lg font-semibold mt-2 mb-1">{line.slice(4)}</h3>;
+      return <h3 key={key} className="text-lg font-semibold mt-2 mb-1">{escapeHtml(line.slice(4))}</h3>;
     }
     if (line.trim() === '') {
       return <div key={key} className="h-3" />;
     }
-    // Inline bold/italic/code (simple pass)
-    const rendered = line
+    // Escape HTML first, then apply markdown formatting
+    const rendered = escapeHtml(line)
       .replace(/`([^`]+)`/g, '<code class="bg-muted px-1 rounded text-sm font-mono">$1</code>')
       .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
       .replace(/\*([^*]+)\*/g, '<em>$1</em>');
