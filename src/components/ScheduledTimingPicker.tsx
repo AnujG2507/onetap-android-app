@@ -816,7 +816,7 @@ export function ScheduledTimingPicker({
         </div>
       </div>
       {/* Footer with preview and confirm */}
-      <div className="px-5 landscape:px-4 pb-[calc(1.25rem+env(safe-area-inset-bottom)+4rem)] landscape:pb-[calc(0.75rem+env(safe-area-inset-bottom)+3rem)] pt-3 landscape:pt-2 border-t border-border/50 bg-background">
+      <div className="px-5 landscape:px-4 pb-[calc(1.25rem+var(--android-safe-bottom,0px)+4rem)] landscape:pb-[calc(0.75rem+var(--android-safe-bottom,0px)+3rem)] pt-3 landscape:pt-2 border-t border-border/50 bg-background">
         {/* Live preview */}
         <motion.div 
           key={triggerTime}
