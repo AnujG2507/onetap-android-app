@@ -1,5 +1,6 @@
 // React hook for managing scheduled actions
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Capacitor } from '@capacitor/core';
 import type { 
   ScheduledAction, 
   CreateScheduledActionInput,
@@ -41,10 +42,13 @@ export function useScheduledActions(): UseScheduledActionsReturn {
   const [activeCount, setActiveCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
+  const batteryCheckDone = useRef(false);
+
   // Load actions on mount and subscribe to changes
   useEffect(() => {
     const loadActions = () => {
-      setActions(getScheduledActions());
+      const current = getScheduledActions();
+      setActions(current);
       setActiveCount(getActiveCount());
       setIsLoading(false);
     };
@@ -54,6 +58,29 @@ export function useScheduledActions(): UseScheduledActionsReturn {
     const unsubscribe = onScheduledActionsChange(loadActions);
     return unsubscribe;
   }, []);
+
+  // Proactive battery optimization check on startup
+  useEffect(() => {
+    if (batteryCheckDone.current) return;
+    if (!Capacitor.isNativePlatform()) return;
+    
+    const enabledActions = actions.filter(a => a.enabled);
+    if (enabledActions.length === 0) return;
+
+    batteryCheckDone.current = true;
+
+    (async () => {
+      try {
+        const { exempted } = await ShortcutPlugin.checkBatteryOptimization();
+        if (!exempted) {
+          console.log('[useScheduledActions] User has scheduled actions but not battery-exempted, requesting');
+          await ShortcutPlugin.requestBatteryOptimization();
+        }
+      } catch (e) {
+        console.warn('[useScheduledActions] Battery optimization check failed:', e);
+      }
+    })();
+  }, [actions]);
 
   // Create a new scheduled action
   const createScheduledAction = useCallback(async (
