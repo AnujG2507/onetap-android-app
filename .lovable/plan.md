@@ -1,146 +1,152 @@
 
 
-## Snooze Feature: Architecture Evaluation
+## Reminders Feature: UI/UX Evaluation
 
-### Overview
+### Overall Assessment
 
-The snooze feature allows users to defer a scheduled action notification by a configurable duration (5/10/15/30 min). When snoozed, the original notification is replaced by a silent countdown timer notification. When the timer expires, the full notification re-fires. Users can also "Snooze again", "Cancel", or tap the countdown notification to execute immediately.
-
----
-
-### Identified Gaps and Vulnerabilities
-
-#### GAP 1: `SNOOZE_CANCEL` action not registered in AndroidManifest
-
-**Severity: Critical (feature-breaking)**
-
-The manifest registers `SNOOZE_START` and `SNOOZE_FIRE` in the SnoozeReceiver's intent filter, but **`SNOOZE_CANCEL` is missing**. This means when the user taps the "Cancel" button on the countdown notification, the broadcast is sent but the receiver's intent filter does not match it. On most Android versions, the explicit component targeting (`new Intent(context, SnoozeReceiver.class)`) will still deliver it, but this is inconsistent and may fail on certain OEM ROMs or stricter Android versions.
-
-**Fix**: Add `<action android:name="app.onetap.SNOOZE_CANCEL" />` to the SnoozeReceiver intent filter in `AndroidManifest.xml`.
+The reminders feature is well-architected with a polished, Material Design-inspired UI. The multi-step creation flow, timing picker with quick presets, and item management are thoughtfully designed. However, there are several UI/UX gaps that affect visibility, color consistency, and user experience clarity.
 
 ---
 
-#### GAP 2: Swiping away the countdown notification leaves an orphaned alarm
+### Gap 1: Hardcoded Notification Text Strings (Not Localized)
 
-**Severity: High (logic vulnerability)**
+**Severity: Medium**
 
-When the user swipes away the snooze countdown notification:
-- The alarm continues running in the background
-- After the snooze duration, `handleSnoozeFire` triggers and re-fires the original notification
-- The user dismissed the countdown expecting the reminder to go away, but it comes back unexpectedly
+The native Android notification UI contains several hardcoded English strings that bypass the i18n system:
 
-The countdown notification has `setOngoing(false)` (line 376), so users CAN swipe it away. However, there is **no deleteIntent** set on the countdown notification to detect the swipe and cancel the alarm.
+- `NotificationHelper.java` line 155: `"Snooze " + duration + " min"` -- hardcoded
+- `NotificationHelper.java` line 294-304: `"Tap to open"`, `"Tap to call or message"`, `"Tap to open file"`, `"Tap to execute"` -- all hardcoded
+- `NotificationHelper.java` line 358-359: `"Snoozed"`, `"Tap to execute now"` -- hardcoded
+- `NotificationHelper.java` line 381: `"Snoozed: "` prefix -- hardcoded
+- `NotificationHelper.java` line 394-395: `"Snooze again"`, `"Cancel"` -- hardcoded
 
-**Fix**: Add a `setDeleteIntent` on the countdown notification that triggers `ACTION_SNOOZE_CANCEL`, so swiping it away also cancels the pending alarm.
+**Impact**: Non-English users see a mix of their language (from the app) and English (from notifications). This breaks the premium experience.
 
----
-
-#### GAP 3: `scheduledRemindersEnabled` setting is not enforced at the native layer
-
-**Severity: Medium (settings not respected)**
-
-The Settings UI has a "Scheduled Reminders" toggle (`scheduledRemindersEnabled`), but the native `ScheduledActionReceiver.onReceive()` does NOT check this setting before showing a notification. If a user disables reminders, alarms that are already scheduled will still fire and show notifications.
-
-The same applies to `reminderSoundEnabled` -- it is never read by `NotificationHelper.showActionNotification()` to conditionally suppress sound/vibration.
-
-**Fix**: In `ScheduledActionReceiver.onReceive()`, read the `scheduledRemindersEnabled` setting from `app_settings` SharedPreferences. If disabled, skip showing the notification. For `reminderSoundEnabled`, use `.setDefaults(0)` and `.setSound(null)` when the setting is off.
+**Fix**: Move all notification strings to `res/values/strings.xml` and create localized variants in `res/values-{locale}/strings.xml`.
 
 ---
 
-#### GAP 4: Snooze duration reads setting at START time, not at FIRE time
+### Gap 2: Expired Reminder State Has Weak Visual Differentiation
 
-**Severity: Low (minor inconsistency)**
+**Severity: Medium**
 
-The snooze button label in the notification says "Snooze X min" based on the setting at notification-creation time. If the user changes the snooze duration in settings between when the notification fires and when they tap Snooze, the button label will show the old value, but the actual snooze duration will use the new value (since `handleSnoozeStart` reads the setting fresh). This is actually correct behavior -- the actual duration is always current -- but the label on the original notification could be stale.
+In `ScheduledActionItem.tsx`, expired reminders show:
+- A subtle `border-destructive/30` border (30% opacity -- barely visible)
+- The time text changes to destructive color
+- But the overall card looks nearly identical to an active one
 
-This is cosmetic and low priority.
+In `ScheduledActionActionSheet.tsx` line 196, expired actions show the time as `text-muted-foreground` instead of destructive, which is inconsistent with the item card.
 
----
+**Impact**: Users can easily miss that a one-time reminder has expired and is no longer functional. The inconsistency between the list item and action sheet creates confusion.
 
-#### GAP 5: No cap on "Snooze again" cycles
-
-**Severity: Low (edge case)**
-
-A user can repeatedly tap "Snooze again" on the countdown notification indefinitely. Each tap resets the timer. There is no maximum snooze count or total snooze duration. While most users will not abuse this, it means a reminder can be perpetually deferred and never acted upon. The action never gets marked as "missed" because the snooze state keeps it alive.
-
-**Fix (optional)**: Consider adding a maximum snooze count (e.g., 3-5 snoozes) after which the notification fires without a snooze button, or automatically marking it as "missed".
-
----
-
-#### GAP 6: Snooze countdown notification tap executes the action but does NOT cancel the pending alarm
-
-**Severity: High (duplicate notification)**
-
-When a user taps the countdown notification to "execute now":
-1. `NotificationClickActivity` runs and executes the action
-2. The notification is auto-cancelled (`setAutoCancel(true)`)
-3. But the pending snooze alarm is **still running**
-
-After the remaining snooze duration, `handleSnoozeFire` triggers, cancels the (already gone) countdown notification, removes the snoozed state, and **re-fires the original notification** via `showActionNotification`. The user gets a duplicate notification for an action they already executed.
-
-**Fix**: In `NotificationClickActivity.onCreate()`, check if the action was snoozed (via `SnoozeReceiver.isSnoozed()`). If so, cancel the snooze alarm and remove the snoozed state before executing the action.
+**Fix**: 
+- Add a visible "Expired" badge or stronger background tint (e.g., `bg-destructive/5`) to expired items
+- Make the action sheet use `text-destructive` for expired time, consistent with the list item
+- Consider auto-disabling expired one-time reminders to reduce visual noise
 
 ---
 
-#### GAP 7: Reboot does not restore active snooze alarms
+### Gap 3: Permission Status Uses Raw Green/Red Instead of Design Tokens
 
-**Severity: Medium (snooze lost after reboot)**
+**Severity: Low-Medium**
 
-`BootReceiver` restores scheduled action alarms from `scheduled_actions_prefs` SharedPreferences. However, active snooze alarms are tracked in `snooze_prefs` (just a set of IDs, no timing data). After a reboot:
-- The snooze alarm is lost (AlarmManager is cleared)
-- The snoozed ID remains in `snooze_prefs`
-- The countdown notification is gone
-- The original notification never re-fires
+In `NotificationsPage.tsx` lines 643-653, the permission status indicators use hardcoded `text-green-600` instead of a semantic token. The design system defines `--destructive` for red states but has no explicit "success" token. Using raw color values:
+- Breaks dark mode contrast (green-600 on dark background is not optimal)
+- Inconsistent with the rest of the app's token-based approach
 
-The action effectively vanishes -- it is neither shown as a notification nor as "missed".
-
-**Fix**: Either (a) store snooze expiry time in `snooze_prefs` and restore snooze alarms in BootReceiver, or (b) clear the snoozed state on boot so the action falls through to the missed-notifications detection.
+**Fix**: Use the existing `text-primary` for granted state (blue checkmark matches the app's accent) rather than green, keeping the semantic destructive red for denied state. This maintains the design system's consistency.
 
 ---
 
-#### GAP 8: Missed notification detection ignores snoozed actions
+### Gap 4: Missing "Text" Destination Type in Action Sheet and Missed Banner
 
-**Severity: Medium (UX gap after reboot)**
+**Severity: Medium**
 
-Related to Gap 7: `NotificationDismissReceiver.onReceive()` explicitly ignores dismissed notifications for snoozed actions (line 35-38). This is correct during normal operation (the snooze receiver will re-fire). But after a reboot (Gap 7), the snoozed state is stale, and the action will never be detected as missed by the JS layer either, because:
-- It was never dismissed (it was snoozed)
-- `notificationClicked` is false
-- But it is past-due
+The `ScheduledActionActionSheet.tsx` `getDestinationIcon` function (lines 126-141) handles `file`, `url`, and `contact` but has **no case for `text`** type. A text reminder opened in the action sheet will render no icon.
 
-Actually, the JS `useMissedNotifications` hook WOULD catch it as past-due since it only checks `triggerTime < now && !notificationClicked && !dismissed`. So this gap is partially mitigated by the JS layer, but only when the user opens the app.
+Similarly, `MissedNotificationsBanner.tsx` `getDestinationIcon` (lines 68-89) handles `url`, `contact`, and `file` but not `text`. The `getDestinationLabel` function also misses `text`.
+
+**Impact**: Text reminders appear broken in the action sheet and missed notifications banner -- no icon, no label.
+
+**Fix**: Add `case 'text': return <AlignLeft />` (or the memo emoji used elsewhere) to both components' icon functions, and add the text label handler.
 
 ---
 
-### Summary of Fixes by Priority
+### Gap 5: Disabled Reminder Opacity Creates Readability Issues
+
+**Severity: Low-Medium**
+
+Disabled reminders use `opacity-50` on the entire card (line 293 of `ScheduledActionItem.tsx`). This dims everything including the toggle switch, making it hard to see that the switch is in the "off" position. The low contrast makes the card look like a loading skeleton rather than a deliberate disabled state.
+
+**Fix**: Instead of blanket `opacity-50`, use targeted dimming:
+- Dim the icon and text (`text-muted-foreground`)
+- Keep the toggle switch at full opacity so users can clearly see and interact with it
+- Use `bg-muted/50` background instead of opacity reduction
+
+---
+
+### Gap 6: Snooze Countdown Notification Layout Has Dark-Only Text Colors
+
+**Severity: Medium**
+
+In `notification_snooze_countdown.xml`, all text colors are hardcoded:
+- Timer: `#FF333333` (dark gray)
+- Action name: `#FF333333` (dark gray)
+- Subtitle: `#FF666666` (medium gray)
+
+On Android devices with dark notification themes (common on Android 12+), dark text on dark backgrounds becomes invisible.
+
+**Fix**: Use Android system theme attributes instead of hardcoded colors:
+- Timer/title: `?android:attr/textColorPrimary`
+- Subtitle: `?android:attr/textColorSecondary`
+
+This ensures automatic light/dark adaptation.
+
+---
+
+### Gap 7: No Visual Feedback During Snooze State in the App
+
+**Severity: Low-Medium**
+
+When a reminder is snoozed (via the notification), the user returns to the app and sees the reminder in its normal state. There is no visual indication in the Reminders tab that an action is currently snoozed. The snooze state is tracked natively in `SharedPreferences` but never surfaced to the React layer.
+
+**Impact**: Users can't see which reminders are currently snoozed when they open the app. If they edit or delete a snoozed reminder, the snooze alarm still exists as an orphan (partially mitigated by the recent gap fixes, but not fully).
+
+**Fix (future consideration)**: Surface snooze state via a plugin method and show a subtle "Snoozed" badge on the item. This is a larger change and can be deferred.
+
+---
+
+### Gap 8: Confirm Step Preview Card Missing Text Destination Display
+
+**Severity: Low**
+
+In `ScheduledActionCreator.tsx` lines 873-877, the confirm step preview card shows destination details for file (name), url (uri), and contact (contactName), but has no case for `text` type. Text reminders show nothing in the preview.
+
+**Fix**: Add `{destination.type === 'text' && destination.name}` to the preview.
+
+---
+
+### Summary of Recommended Fixes
 
 | Priority | Gap | Issue | Effort |
 |----------|-----|-------|--------|
-| Critical | 1 | SNOOZE_CANCEL not in manifest | Trivial (1 line) |
-| High | 6 | Tap-to-execute does not cancel snooze alarm -> duplicate notification | Small |
-| High | 2 | Swiping countdown notification leaves orphaned alarm | Small |
-| Medium | 3 | Settings toggles not enforced in native layer | Medium |
-| Medium | 7 | Snooze alarms lost on reboot | Medium |
-| Low | 4 | Stale snooze duration label | Cosmetic |
-| Low | 5 | No cap on re-snooze cycles | Design decision |
+| Medium | 4 | Missing text destination type in action sheet and missed banner | Small |
+| Medium | 6 | Hardcoded dark text colors in snooze countdown notification | Small |
+| Medium | 1 | Hardcoded English strings in native notifications | Medium |
+| Medium | 2 | Weak expired state differentiation + inconsistency | Small |
+| Low-Med | 3 | Raw green color instead of design tokens | Trivial |
+| Low-Med | 5 | Blanket opacity-50 on disabled cards | Small |
+| Low | 8 | Missing text destination in confirm preview | Trivial |
+| Low-Med | 7 | No snooze state visibility in app | Medium (defer) |
 
-### Recommended Immediate Fixes
+### Immediate Fixes (Gaps 2, 3, 4, 6, 8)
 
-The Critical and High priority gaps (1, 6, 2) should be fixed as they directly cause broken or confusing user experiences. Specifically:
+These are small, high-impact fixes that improve visual consistency and prevent broken states for text reminders:
 
-1. **AndroidManifest.xml**: Add `SNOOZE_CANCEL` to SnoozeReceiver intent filter
-2. **NotificationClickActivity.java**: When handling a tap, check `SnoozeReceiver.isSnoozed()` and if true, cancel the snooze alarm + remove snoozed state
-3. **NotificationHelper.java**: Add a `deleteIntent` on the countdown notification that triggers `SNOOZE_CANCEL`
-4. **ScheduledActionReceiver.java**: Check `scheduledRemindersEnabled` before showing notification
-5. **NotificationHelper.java**: Check `reminderSoundEnabled` when building the notification
-6. **BootReceiver.java**: Clear stale snooze states on boot so missed detection works
-
-### Files to Modify
-
-| File | Changes |
-|------|---------|
-| `native/.../AndroidManifest.xml` | Add SNOOZE_CANCEL action to SnoozeReceiver |
-| `native/.../NotificationClickActivity.java` | Cancel snooze alarm on tap-to-execute |
-| `native/.../NotificationHelper.java` | Add deleteIntent to countdown notification; check reminderSoundEnabled |
-| `native/.../ScheduledActionReceiver.java` | Check scheduledRemindersEnabled before showing notification |
-| `native/.../BootReceiver.java` | Clear stale snooze states on boot |
+1. **ScheduledActionActionSheet.tsx** and **MissedNotificationsBanner.tsx**: Add `text` destination type handling
+2. **ScheduledActionItem.tsx**: Strengthen expired state visuals
+3. **NotificationsPage.tsx**: Replace `text-green-600` with `text-primary`
+4. **notification_snooze_countdown.xml**: Use theme-aware text colors
+5. **ScheduledActionCreator.tsx**: Add text destination to confirm preview
+6. **ScheduledActionActionSheet.tsx**: Fix expired time color inconsistency
 
