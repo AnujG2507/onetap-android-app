@@ -176,6 +176,7 @@ OneTap is a paid app with no ads and no subscriptions. There is no business reas
 | Manage bookmarks | ✅ Yes | Stored in localStorage |
 | Schedule reminders | ✅ Yes | Uses native Android alarms |
 | Text shortcuts | ✅ Yes | Rendered locally in a floating native dialog (`TextProxyActivity`); checklist state stored on-device (`SharedPreferences` + WebView `localStorage`, keyed by line index); state cleared automatically when item order is changed and saved in the editor |
+| Snooze reminders | ✅ Yes | Uses native `AlarmManager` to re-fire notifications after configurable delay; countdown shown in expanded notification |
 | Fetch URL metadata | ⚠️ Partial | Falls back to URL-only display |
 | Cloud sync | ❌ No | Requires internet (but sync is optional) |
 | Sign in | ❌ No | Requires internet (but sign-in is optional) |

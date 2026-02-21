@@ -230,34 +230,21 @@ npx cap sync android
 
 ---
 
-## Part 8: Activate Native Code
+## Part 8: Native Code (Automatic)
 
-The native Java files are commented out by default. You must uncomment them:
+The `patch-android-project.mjs` script automatically copies all native Java files, resources, and XML configurations from `native/android/` into the generated `android/` directory. **No manual uncommenting or file editing is required.**
 
-### 8.1 Uncomment Java Files
-
-Open each file and remove the `/*` at the top and `*/` at the bottom:
-
+This happens automatically when you run:
 ```bash
-# Open files (use your preferred editor)
-gedit android/app/src/main/java/app/onetap/shortcuts/plugins/ShortcutPlugin.java &
-gedit android/app/src/main/java/app/onetap/shortcuts/MainActivity.java &
-gedit android/app/src/main/java/app/onetap/shortcuts/VideoProxyActivity.java &
+node scripts/android/patch-android-project.mjs
 ```
 
-### 8.2 Uncomment XML File
-
+Or as part of the clean rebuild:
 ```bash
-gedit android/app/src/main/res/xml/file_paths.xml &
+node scripts/android/clean-rebuild-android.mjs --run
 ```
 
-Remove `<!--` and `-->` around the `<paths>` element.
-
-### 8.3 Delete Kotlin File (if exists)
-
-```bash
-rm -f android/app/src/main/java/app/onetap/shortcuts/MainActivity.kt
-```
+> ⚠️ **Never manually edit files in `android/`.** That directory is regenerated on every clean build. All native code changes must be made in `native/android/`.
 
 ---
 
@@ -402,7 +389,7 @@ rm -rf android
 npx cap add android
 npm run build
 npx cap sync android
-# Re-uncomment native files (see Part 8)
+node scripts/android/patch-android-project.mjs
 npx cap run android
 ```
 
@@ -427,7 +414,7 @@ npx cap run android
       ↓
 7. npm run build → npx cap sync android
       ↓
-8. Uncomment Native Code (Java files + XML)
+8. Native code copied automatically by patch script (step 6)
       ↓
 9. Connect Phone (USB Debugging ON)
       ↓

@@ -296,18 +296,15 @@ Every Android app has two version identifiers:
 Edge functions must be deployed manually using the Supabase CLI:
 
 ```bash
-# Install Supabase CLI if you haven't
-npm install -g supabase
-
 # Login to your Supabase account
-supabase login
+npx supabase login
 
 # Link to the external project
-supabase link --project-ref xfnugumyjhnctmqgiyqm
+npx supabase link --project-ref xfnugumyjhnctmqgiyqm
 
 # Deploy all functions
-supabase functions deploy fetch-url-metadata
-supabase functions deploy delete-account
+npx supabase functions deploy fetch-url-metadata
+npx supabase functions deploy delete-account
 ```
 
 | Function | Purpose |

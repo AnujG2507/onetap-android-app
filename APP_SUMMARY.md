@@ -26,6 +26,8 @@ A local-first Android app that lets users create home screen shortcuts for quick
 - Schedule future shortcuts with date/time/recurrence
 - Native Android notifications via `NotificationHelper.java`
 - Persists across device reboots (`BootReceiver.java`)
+- **Notification snooze**: configurable duration (5/10/15/30 minutes via `snoozeDurationMinutes` setting); shows countdown timer in expanded notification; re-fires original notification after snooze period; uses native `AlarmManager` — works fully offline
+- Bulk delete with `bulkDeleteScheduledActions`: cancels native alarms first (best-effort), then removes from storage and records deletions for cloud sync reconciliation
 
 ### 4. Android Share Sheet Integration
 - App appears in the Android Share Sheet for **any** file type and URLs
@@ -54,15 +56,16 @@ A local-first Android app that lets users create home screen shortcuts for quick
 ### Backend (Supabase — External Project)
 - **Client**: Custom client in `src/lib/supabaseClient.ts` pointing to the external Supabase project, configured with `flowType: 'implicit'`
 - **Types**: Manually maintained in `src/lib/supabaseTypes.ts`
-- **Tables**: `cloud_bookmarks`, `cloud_trash`, `cloud_scheduled_actions`
+- **Tables**: `cloud_bookmarks`, `cloud_trash`, `cloud_scheduled_actions`, `cloud_shortcuts`, `cloud_deleted_entities`
 - **Edge Functions**: `fetch-url-metadata`, `delete-account`
 - **Auth**: Google OAuth with implicit flow + custom URL scheme (`onetap://auth-callback`) deep link
 
 ### Native Android Layer
 - `ShortcutPlugin.java`: Home screen shortcut creation; routes `app.onetap.OPEN_TEXT` to `TextProxyActivity`; `clearChecklistState` clears `SharedPreferences("checklist_state")` prefix for a shortcut when item order changes
 - `TextProxyActivity.java`: Renders text shortcuts (Markdown or checklist) in an embedded WebView
-- `NotificationHelper.java`: Scheduled notifications
+- `NotificationHelper.java`: Scheduled notifications with snooze support
 - `ScheduledActionReceiver.java`: Alarm handling
+- `SnoozeReceiver.java`: Handles snooze alarm re-fire
 - `BootReceiver.java`: Reschedule after reboot
 
 ---
@@ -70,12 +73,46 @@ A local-first Android app that lets users create home screen shortcuts for quick
 ## Data Model
 
 ### Local Storage Keys
+
+**Core Data:**
 ```
-saved_links          → SavedLink[]      (bookmarks)
-saved_links_trash    → TrashedLink[]    (soft-deleted)
-scheduled_actions    → ScheduledAction[] (reminders)
-onetap_settings      → AppSettings
-sync_status          → SyncStatus
+saved_links              → SavedLink[]         Bookmarks
+saved_links_trash        → TrashedLink[]       Soft-deleted bookmarks
+quicklaunch_shortcuts    → Shortcut[]          Shortcut intent data
+scheduled_actions        → ScheduledAction[]   Reminders
+onetap_settings          → AppSettings         User preferences
+custom_folders           → string[]            Bookmark folder names
+```
+
+**Sync & Cloud:**
+```
+sync_status              → SyncStatus          Last sync timestamp, pending state
+pending_cloud_deletions  → PendingDeletion[]   Deletion records for cloud reconciliation
+```
+
+**Auth & OAuth:**
+```
+sb-*-auth-token          → Session             Supabase auth session (managed by SDK)
+processed_oauth_urls     → string[]            OAuth URLs already handled (prevents replay)
+pending_oauth_url        → string              In-flight OAuth redirect URL
+oauth_started_at         → number              Timestamp of OAuth initiation
+```
+
+**Cache:**
+```
+onetap_favicon_cache     → Record<url, {favicon, title, ts}>   URL metadata with TTL
+```
+
+**UI State:**
+```
+onetap_onboarding_done   → "true"              Onboarding completed flag
+onetap_tutorial_*        → "true"              Coach mark dismissal flags (per feature)
+onetap_first_use_date    → ISO date string     First app open (for review prompt timing)
+onetap_review_prompt_done → "true"             Review prompt dismissed/completed
+onetap_review_jitter_days → number             Random delay offset for review prompt
+clipboard_shown_urls     → string[]            URLs already shown in clipboard suggestion
+onetap_usage_*           → UsageRecord[]       Per-shortcut usage history
+scheduled_actions_selection → string[]         Transient multi-select IDs (bulk operations)
 ```
 
 ### SavedLink
@@ -102,7 +139,27 @@ cloud_bookmarks (
   folder TEXT,
   created_at TIMESTAMPTZ
 )
--- RLS: Users can only access their own data
+
+cloud_trash (
+  id UUID PRIMARY KEY,
+  entity_id UUID UNIQUE,
+  user_id UUID,
+  url TEXT, title TEXT, folder TEXT,
+  deleted_at TIMESTAMPTZ,
+  retention_days INT,
+  original_created_at TIMESTAMPTZ
+)
+
+cloud_scheduled_actions (
+  id UUID PRIMARY KEY,
+  entity_id UUID UNIQUE,
+  user_id UUID,
+  name TEXT,
+  destination JSONB,     -- {type, url/phone/content_uri, ...}
+  trigger_time BIGINT,
+  recurrence TEXT,
+  enabled BOOLEAN
+)
 
 cloud_shortcuts (
   -- intent metadata for all shortcut types
@@ -110,6 +167,15 @@ cloud_shortcuts (
   is_checklist    BOOLEAN DEFAULT false  -- true → render as interactive checklist
   -- ... other columns: type, name, content_uri, phone_number, etc.
 )
+
+cloud_deleted_entities (
+  id UUID PRIMARY KEY,
+  user_id UUID,
+  entity_type TEXT,      -- 'bookmark' | 'trash' | 'shortcut' | 'scheduled_action'
+  entity_id UUID,
+  deleted_at TIMESTAMPTZ
+)
+-- RLS: Users can only access their own data on all tables
 ```
 
 ---
@@ -189,12 +255,14 @@ markSyncCompleted(trigger, success)
 - `src/lib/syncGuard.ts` - Runtime guards enforcing sync philosophy
 - `src/lib/cloudSync.ts` - Guarded sync entry points + upload/download
 - `src/lib/syncStatusManager.ts` - Timing state (lastSyncAt, pending)
+- `src/lib/deletionTracker.ts` - Pending deletion records for cloud reconciliation
 - `src/hooks/useAutoSync.ts` - Daily foreground sync orchestration
 
 ### Data Management
 - `src/lib/savedLinksManager.ts` - Bookmark CRUD
-- `src/lib/scheduledActionsManager.ts` - Reminder CRUD
+- `src/lib/scheduledActionsManager.ts` - Reminder CRUD + `bulkDelete` (records deletions for sync)
 - `src/lib/settingsManager.ts` - User preferences
+- `src/hooks/useScheduledActions.ts` - Reminder hook; `bulkDeleteScheduledActions` cancels native alarms before storage deletion
 
 ### Native Bridge
 - `src/plugins/ShortcutPlugin.ts` - Capacitor interface
@@ -205,6 +273,19 @@ markSyncCompleted(trigger, success)
 - `src/hooks/useAuth.ts` - Auth state + Google OAuth
 - `src/lib/oauthCompletion.ts` - Deep link handling
 - `src/pages/AuthCallback.tsx` - Web callback handler
+
+### UX & Engagement
+- `src/hooks/useReviewPrompt.ts` - Play Store review prompt (5+ days, 3+ shortcuts, jittered timing)
+- `src/hooks/useClipboardDetection.ts` - Clipboard URL detection and suggestion
+- `src/hooks/useUrlMetadata.ts` - Favicon/title cache with TTL
+
+### Sign-Out Cleanup
+
+When `signOut()` is called, the following state is cleared to prevent cross-user contamination:
+- Supabase auth token (`sb-*-auth-token`)
+- Pending OAuth state (`processed_oauth_urls`, pending OAuth markers)
+- Sync status (`clearSyncStatus()`) — resets last sync timestamp
+- Pending deletions (`clearPendingDeletions()`) — prevents stale deletion records from syncing under a new account
 
 ---
 
@@ -250,6 +331,7 @@ markSyncCompleted(trigger, success)
   autoSyncEnabled: boolean;
   scheduledRemindersEnabled: boolean;
   reminderSoundEnabled: boolean;
+  snoozeDurationMinutes: 5|10|15|30;  // Notification snooze duration
   pipModeEnabled: boolean;  // Video PiP
 }
 ```
@@ -272,4 +354,4 @@ markSyncCompleted(trigger, success)
 
 ---
 
-*Last updated: February 20, 2026 — reflects text shortcut type (v1.1.0+)*
+*Last updated: February 21, 2026 — reflects snooze feature, localStorage inventory, sign-out cleanup, UI/UX safe-area fixes*
