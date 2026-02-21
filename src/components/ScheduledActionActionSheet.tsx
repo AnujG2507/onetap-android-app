@@ -14,6 +14,7 @@ import {
   Link, 
   FileText, 
   Phone,
+  AlignLeft,
   X,
   Calendar,
   RefreshCw,
@@ -127,6 +128,7 @@ export function ScheduledActionActionSheet({
     switch (action.destination.type) {
       case 'file': return <FileText className="h-5 w-5" />;
       case 'url': return <Link className="h-5 w-5" />;
+      case 'text': return <AlignLeft className="h-5 w-5" />;
       case 'contact': 
         // Contact avatar handles its own background
         return (
@@ -158,6 +160,7 @@ export function ScheduledActionActionSheet({
       case 'file': return action.destination.name;
       case 'url': return action.destination.uri;
       case 'contact': return action.destination.contactName;
+      case 'text': return action.destination.name;
     }
   };
 
@@ -193,7 +196,7 @@ export function ScheduledActionActionSheet({
                 <h3 className="font-semibold text-base landscape:text-sm break-words">{action.name}</h3>
                 <p className="text-sm landscape:text-xs text-muted-foreground break-all">{getDestinationName()}</p>
                 <div className="flex items-center gap-2 mt-1">
-                  <span className={`text-xs landscape:text-[10px] ${isExpired ? 'text-muted-foreground' : 'text-primary'}`}>
+                  <span className={`text-xs landscape:text-[10px] ${isExpired ? 'text-destructive' : 'text-primary'}`}>
                     {isExpired ? t('scheduledActionSheet.expired') : formatTriggerTime(action.triggerTime)}
                   </span>
                   <span className="text-xs landscape:text-[10px] text-muted-foreground flex items-center gap-1">

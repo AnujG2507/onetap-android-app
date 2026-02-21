@@ -10,4 +10,16 @@
     <!-- Static shortcut strings (shown when long-pressing app icon) -->
     <string name="shortcut_manage_label">My Access Points</string>
     <string name="shortcut_manage_long_label">Manage My Access Points</string>
+
+    <!-- Notification strings -->
+    <string name="notification_tap_to_open">Tap to open</string>
+    <string name="notification_tap_to_call_or_message">Tap to call or message</string>
+    <string name="notification_tap_to_open_file">Tap to open file</string>
+    <string name="notification_tap_to_execute">Tap to execute</string>
+    <string name="notification_snoozed">Snoozed</string>
+    <string name="notification_tap_to_execute_now">Tap to execute now</string>
+    <string name="notification_snoozed_prefix">Snoozed: </string>
+    <string name="notification_snooze_again">Snooze again</string>
+    <string name="notification_cancel">Cancel</string>
+    <string name="notification_snooze_duration">Snooze %1$d min</string>
 </resources>

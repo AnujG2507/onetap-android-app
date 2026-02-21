@@ -874,6 +874,7 @@ export function ScheduledActionCreator({
                       {destination.type === 'file' && destination.name}
                       {destination.type === 'url' && destination.uri}
                       {destination.type === 'contact' && destination.contactName}
+                      {destination.type === 'text' && destination.name}
                     </p>
                     <p className="text-xs text-primary mt-1.5 break-words">
                       {new Date(timing.triggerTime).toLocaleString(undefined, {

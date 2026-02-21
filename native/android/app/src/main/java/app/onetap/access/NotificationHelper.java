@@ -107,7 +107,7 @@ public class NotificationHelper {
         // Use description as content text if present, otherwise fall back to default
         String contentText = (description != null && !description.isEmpty()) 
             ? description 
-            : getContentText(destinationType);
+            : getContentText(context, destinationType);
         
         // Build snooze intent
         Intent snoozeIntent = new Intent(context, SnoozeReceiver.class);
@@ -152,7 +152,7 @@ public class NotificationHelper {
             .setDeleteIntent(dismissPendingIntent)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setFullScreenIntent(pendingIntent, true)
-            .addAction(android.R.drawable.ic_popup_reminder, "Snooze " + SnoozeReceiver.getSnoozeDurationMinutes(context) + " min", snoozePendingIntent);
+            .addAction(android.R.drawable.ic_popup_reminder, context.getString(R.string.notification_snooze_duration, SnoozeReceiver.getSnoozeDurationMinutes(context)), snoozePendingIntent);
         
         if (soundEnabled) {
             builder.setDefaults(NotificationCompat.DEFAULT_ALL);
@@ -291,16 +291,16 @@ public class NotificationHelper {
     /**
      * Get notification content text based on destination type.
      */
-    private static String getContentText(String destinationType) {
+    private static String getContentText(Context context, String destinationType) {
         switch (destinationType) {
             case "url":
-                return "Tap to open";
+                return context.getString(R.string.notification_tap_to_open);
             case "contact":
-                return "Tap to call or message";
+                return context.getString(R.string.notification_tap_to_call_or_message);
             case "file":
-                return "Tap to open file";
+                return context.getString(R.string.notification_tap_to_open_file);
             default:
-                return "Tap to execute";
+                return context.getString(R.string.notification_tap_to_execute);
         }
     }
     
@@ -355,8 +355,8 @@ public class NotificationHelper {
         }
 
         // Set action name and subtitle
-        views.setTextViewText(R.id.snooze_action_name, actionName != null ? actionName : "Snoozed");
-        views.setTextViewText(R.id.snooze_subtitle, "Tap to execute now");
+        views.setTextViewText(R.id.snooze_action_name, actionName != null ? actionName : context.getString(R.string.notification_snoozed));
+        views.setTextViewText(R.id.snooze_subtitle, context.getString(R.string.notification_tap_to_execute_now));
 
         int iconRes = getNotificationIcon(destinationType);
 
@@ -378,7 +378,7 @@ public class NotificationHelper {
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_SNOOZE_ID)
             .setSmallIcon(iconRes)
-            .setContentTitle("Snoozed: " + (actionName != null ? actionName : "Reminder"))
+            .setContentTitle(context.getString(R.string.notification_snoozed_prefix) + (actionName != null ? actionName : context.getString(R.string.notification_snoozed)))
             .setCustomContentView(views)
             .setStyle(new NotificationCompat.DecoratedCustomViewStyle())
             .setPriority(NotificationCompat.PRIORITY_LOW)
@@ -391,8 +391,8 @@ public class NotificationHelper {
             .setUsesChronometer(true)
             .setWhen(System.currentTimeMillis() + (snoozeMins * 60 * 1000L))
             .setChronometerCountDown(true)
-            .addAction(android.R.drawable.ic_popup_reminder, "Snooze again", snoozeAgainPending)
-            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Cancel", buildSnoozeCancelPending(context, actionId));
+            .addAction(android.R.drawable.ic_popup_reminder, context.getString(R.string.notification_snooze_again), snoozeAgainPending)
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel, context.getString(R.string.notification_cancel), buildSnoozeCancelPending(context, actionId));
         try {
             NotificationManagerCompat manager = NotificationManagerCompat.from(context);
             manager.notify(snoozeNotifId, builder.build());

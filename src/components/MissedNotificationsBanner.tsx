@@ -12,6 +12,7 @@ import {
   ExternalLink,
   Phone,
   FileText,
+  AlignLeft,
   Clock,
   RefreshCw,
 } from 'lucide-react';
@@ -85,6 +86,8 @@ export function MissedNotificationsBanner({ className }: MissedNotificationsBann
         return <Phone className="h-4 w-4" />;
       case 'file':
         return <FileText className="h-4 w-4" />;
+      case 'text':
+        return <AlignLeft className="h-4 w-4" />;
     }
   };
 
@@ -100,6 +103,8 @@ export function MissedNotificationsBanner({ className }: MissedNotificationsBann
       case 'contact':
         return action.destination.contactName;
       case 'file':
+        return action.destination.name;
+      case 'text':
         return action.destination.name;
     }
   };
