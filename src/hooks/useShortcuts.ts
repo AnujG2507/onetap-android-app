@@ -481,58 +481,38 @@ export function useShortcuts() {
       });
     });
 
-    // Brief grace for BroadcastReceiver to write confirmation
-    await new Promise(resolve => setTimeout(resolve, 300));
+  // Grace period for BroadcastReceiver to write confirmation (500ms for slow OEM devices)
+  await new Promise(resolve => setTimeout(resolve, 500));
 
-    try {
-      // Phase 3: Check positive confirmation from Android callback
-      const confirmResult = await ShortcutPlugin.checkPinConfirmed({ id });
-      if (confirmResult.confirmed) {
-        console.log('[useShortcuts] Pin confirmed by callback:', id);
-        return;
-      }
-
-      // Phase 4: Fallback — check OS-reported pinned IDs
-      const result = await ShortcutPlugin.getPinnedShortcutIds();
-
-      if (result.error) {
-        console.warn('[useShortcuts] verifyShortcutPinned: native error, skipping');
-        return;
-      }
-
-      if (result.ids.includes(id)) {
-        console.log('[useShortcuts] Pin confirmed by OS query:', id);
-        return;
-      }
-
-      // Phase 5: Not confirmed — remove from localStorage
-      console.log('[useShortcuts] Shortcut not pinned, removing:', id);
-
-      const stored = localStorage.getItem(STORAGE_KEY);
-      const current: ShortcutData[] = stored ? JSON.parse(stored) : [];
-      const filtered = current.filter(s => s.id !== id);
-
-      if (filtered.length !== current.length) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
-        setShortcuts(filtered);
-        syncToWidgets(filtered);
-        window.dispatchEvent(new CustomEvent('shortcuts-changed', { detail: filtered }));
-
-        toast.info(i18n.t('shortcuts.notPinned', 'Shortcut was not added to home screen'), {
-          duration: 4000,
-        });
-
-        // Cleanup stale registry entry
-        try {
-          await ShortcutPlugin.cleanupRegistry({ confirmedIds: result.ids });
-        } catch (e) {
-          console.warn('[useShortcuts] Registry cleanup failed:', e);
-        }
-      }
-    } catch (error) {
-      console.warn('[useShortcuts] verifyShortcutPinned failed:', error);
+  try {
+    // Check positive confirmation from Android PendingIntent callback
+    const confirmResult = await ShortcutPlugin.checkPinConfirmed({ id });
+    if (confirmResult.confirmed) {
+      console.log('[useShortcuts] Pin confirmed by callback:', id);
+      return;
     }
-  }, [syncToWidgets]);
+
+    // Fallback — check OS-reported pinned IDs
+    const result = await ShortcutPlugin.getPinnedShortcutIds();
+
+    if (result.error) {
+      console.warn('[useShortcuts] verifyShortcutPinned: native error, skipping');
+      return;
+    }
+
+    if (result.ids.includes(id)) {
+      console.log('[useShortcuts] Pin confirmed by OS query:', id);
+      return;
+    }
+
+    // Neither source confirmed — do NOT delete.
+    // Let syncWithHomeScreen handle cleanup on next resume after
+    // the 30s creation registry cooldown expires.
+    console.warn('[useShortcuts] Pin not confirmed yet for:', id, '— keeping in localStorage, syncWithHomeScreen will reconcile');
+  } catch (error) {
+    console.warn('[useShortcuts] verifyShortcutPinned failed:', error);
+  }
+}, []);
 
   return {
     shortcuts,
