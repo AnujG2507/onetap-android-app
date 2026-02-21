@@ -203,17 +203,72 @@ public class NotificationClickActivity extends Activity {
                     String fileUri = data.getString("uri");
                     String mimeType = data.optString("mimeType", "*/*");
                     String displayName = data.optString("displayName", "File");
-                    actionIntent = new Intent(Intent.ACTION_VIEW);
-                    actionIntent.setDataAndType(Uri.parse(fileUri), mimeType);
-                    actionIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    String actionId3 = getIntent().getStringExtra(EXTRA_ACTION_ID);
+                    Uri parsedFileUri = Uri.parse(fileUri);
 
-                    // Set ClipData with meaningful display name for external app
-                    try {
-                        android.content.ClipData clipData = android.content.ClipData.newUri(
-                            getContentResolver(), displayName, Uri.parse(fileUri));
-                        actionIntent.setClipData(clipData);
-                    } catch (Exception e) {
-                        Log.w(TAG, "Failed to set ClipData: " + e.getMessage());
+                    if (mimeType.startsWith("image/")) {
+                        // Route images through SlideshowProxyActivity (matches shortcut behavior)
+                        String slideshowId = actionId3 != null ? actionId3 : "reminder";
+                        Intent imgIntent = new Intent(this, MainActivity.class);
+                        imgIntent.setAction(Intent.ACTION_VIEW);
+                        imgIntent.setData(Uri.parse("onetap://slideshow/" + slideshowId));
+                        imgIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                        startActivity(imgIntent);
+                        Log.d(TAG, "Opened image reminder via slideshow viewer: " + slideshowId);
+                        return;
+
+                    } else if (mimeType.startsWith("video/")) {
+                        // Route videos through VideoProxyActivity -> NativeVideoPlayerActivity
+                        Intent vidIntent = new Intent(this, NativeVideoPlayerActivity.class);
+                        vidIntent.setAction(Intent.ACTION_VIEW);
+                        vidIntent.setDataAndType(parsedFileUri, mimeType);
+                        vidIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                        if (displayName != null) vidIntent.putExtra("shortcut_title", displayName);
+                        if ("content".equals(parsedFileUri.getScheme())) {
+                            try {
+                                vidIntent.setClipData(android.content.ClipData.newUri(
+                                    getContentResolver(), "onetap-video", parsedFileUri));
+                            } catch (Exception e) {
+                                Log.w(TAG, "Failed to set ClipData for video: " + e.getMessage());
+                            }
+                        }
+                        startActivity(vidIntent);
+                        Log.d(TAG, "Opened video reminder via native player");
+                        return;
+
+                    } else if ("application/pdf".equals(mimeType)) {
+                        // Route PDFs through PDFProxyActivity -> NativePdfViewerV2Activity
+                        String pdfId = actionId3 != null ? actionId3 : "reminder";
+                        Intent pdfIntent = new Intent(this, NativePdfViewerV2Activity.class);
+                        pdfIntent.setDataAndType(parsedFileUri, "application/pdf");
+                        pdfIntent.putExtra("shortcut_id", pdfId);
+                        pdfIntent.putExtra("shortcut_title", displayName);
+                        pdfIntent.putExtra("resume", true);
+                        pdfIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                        if ("content".equals(parsedFileUri.getScheme())) {
+                            try {
+                                pdfIntent.setClipData(android.content.ClipData.newUri(
+                                    getContentResolver(), "onetap-pdf", parsedFileUri));
+                            } catch (Exception e) {
+                                Log.w(TAG, "Failed to set ClipData for PDF: " + e.getMessage());
+                            }
+                        }
+                        startActivity(pdfIntent);
+                        Log.d(TAG, "Opened PDF reminder via native viewer");
+                        return;
+
+                    } else {
+                        // Other file types: use generic ACTION_VIEW (same as before)
+                        actionIntent = new Intent(Intent.ACTION_VIEW);
+                        actionIntent.setDataAndType(parsedFileUri, mimeType);
+                        actionIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                        try {
+                            android.content.ClipData clipData = android.content.ClipData.newUri(
+                                getContentResolver(), displayName, parsedFileUri);
+                            actionIntent.setClipData(clipData);
+                        } catch (Exception e) {
+                            Log.w(TAG, "Failed to set ClipData: " + e.getMessage());
+                        }
                     }
                     break;
 
