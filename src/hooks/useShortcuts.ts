@@ -505,14 +505,16 @@ export function useShortcuts() {
       return;
     }
 
-    // Neither source confirmed — do NOT delete.
-    // Let syncWithHomeScreen handle cleanup on next resume after
-    // the 30s creation registry cooldown expires.
-    console.warn('[useShortcuts] Pin not confirmed yet for:', id, '— keeping in localStorage, syncWithHomeScreen will reconcile');
+    // Neither source confirmed — schedule delayed cleanup after creation registry expires
+    console.warn('[useShortcuts] Pin not confirmed for:', id, '— scheduling delayed sync');
+    setTimeout(() => {
+      lastSyncTime.current = 0; // Reset debounce so sync runs
+      syncWithHomeScreen();
+    }, 35000); // 35s: well past the 30s creation registry cooldown
   } catch (error) {
     console.warn('[useShortcuts] verifyShortcutPinned failed:', error);
   }
-}, []);
+}, [syncWithHomeScreen]);
 
   return {
     shortcuts,
