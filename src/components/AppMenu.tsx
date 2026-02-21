@@ -135,7 +135,7 @@ export function AppMenu({ onOpenTrash, onOpenSettings }: AppMenuProps) {
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-9 w-9 relative">
+        <Button id="tutorial-settings-button" variant="ghost" size="icon" className="h-9 w-9 relative">
           <Menu className="h-5 w-5" />
           {expiringCount > 0 && (
             <span className="absolute -top-0.5 -end-0.5 h-4 w-4 rounded-full bg-warning flex items-center justify-center">

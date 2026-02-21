@@ -128,7 +128,8 @@ interface UseTutorialReturn {
   start: () => void;
 }
 
-export function useTutorial(tab: TutorialTab): UseTutorialReturn {
+export function useTutorial(tab: TutorialTab, options: { ready?: boolean } = {}): UseTutorialReturn {
+  const { ready = true } = options;
   const [isActive, setIsActive] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const steps = TUTORIAL_STEPS[tab];
@@ -137,10 +138,10 @@ export function useTutorial(tab: TutorialTab): UseTutorialReturn {
 
   // Track visits and trigger tutorial on second visit OR after 5+ seconds on first visit
   useEffect(() => {
-    // Skip if already completed
-    if (hasCompletedTutorial(tab)) return;
+    // Skip if already completed or not ready
+    if (hasCompletedTutorial(tab) || !ready) return;
 
-    // Track visit only once per mount
+    // Track visit only once per mount (when ready)
     if (!hasTrackedVisit.current) {
       hasTrackedVisit.current = true;
       const visitCount = incrementVisitCount(tab);
@@ -170,7 +171,7 @@ export function useTutorial(tab: TutorialTab): UseTutorialReturn {
         clearTimeout(timeoutRef.current);
       }
     };
-  }, [tab]);
+  }, [tab, ready]);
 
   const next = useCallback(() => {
     if (currentStep < steps.length - 1) {
