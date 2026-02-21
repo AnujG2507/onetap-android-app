@@ -463,17 +463,12 @@ export function useShortcuts() {
   const verifyShortcutPinned = useCallback(async (id: string) => {
     if (!Capacitor.isNativePlatform()) return;
 
-    // Phase 1: Wait for the pin dialog to close.
-    // "Add" button / Back: app stays in foreground → 1.5s timeout fires.
-    // Drag-and-drop: app goes to background → wait for appStateChange(active).
+    // Wait for user to finish interacting with the pin dialog
+    // 500ms timeout covers "Add" button (app stays foreground);
+    // appStateChange covers drag-and-drop (app goes to background)
     await new Promise<void>(resolve => {
-      const timeout = setTimeout(() => {
-        cleanup();
-        resolve();
-      }, 1500);
-
+      const timeout = setTimeout(() => { cleanup(); resolve(); }, 500);
       let listenerHandle: any = null;
-
       const cleanup = () => {
         clearTimeout(timeout);
         if (listenerHandle) {
@@ -481,17 +476,13 @@ export function useShortcuts() {
           listenerHandle = null;
         }
       };
-
       listenerHandle = App.addListener('appStateChange', ({ isActive }) => {
-        if (isActive) {
-          cleanup();
-          resolve();
-        }
+        if (isActive) { cleanup(); resolve(); }
       });
     });
 
-    // Phase 2: Grace period for BroadcastReceiver to fire
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // Brief grace for BroadcastReceiver to write confirmation
+    await new Promise(resolve => setTimeout(resolve, 300));
 
     try {
       // Phase 3: Check positive confirmation from Android callback
