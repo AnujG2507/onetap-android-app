@@ -593,4 +593,16 @@ export class ShortcutPluginWeb implements ShortcutPluginInterface {
     console.log('[ShortcutPluginWeb] cleanupRegistry called (web fallback)');
     return { success: true, pruned: 0 };
   }
+
+  // ========== Battery Optimization (Web Fallback) ==========
+
+  async checkBatteryOptimization(): Promise<{ exempted: boolean }> {
+    console.log('[ShortcutPluginWeb] checkBatteryOptimization called (web fallback)');
+    return { exempted: false };
+  }
+
+  async requestBatteryOptimization(): Promise<{ success: boolean; error?: string }> {
+    console.log('[ShortcutPluginWeb] requestBatteryOptimization called (web fallback)');
+    return { success: false, error: 'Not supported on web' };
+  }
 }
