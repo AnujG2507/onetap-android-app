@@ -47,7 +47,7 @@ export function useShortcuts() {
   // Sync guards: prevent concurrent syncs and rapid-fire syncs on OEM devices
   const syncInProgress = useRef(false);
   const lastSyncTime = useRef(0);
-  const MIN_SYNC_INTERVAL = 5000; // 5 seconds debounce for Samsung split-screen / notification shade
+  const MIN_SYNC_INTERVAL = 2000; // 2 seconds debounce for Samsung split-screen / notification shade
 
   // Sync with home screen - remove orphaned shortcuts that were deleted from home screen
   const syncWithHomeScreen = useCallback(async () => {
