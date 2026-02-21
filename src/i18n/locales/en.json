@@ -74,7 +74,8 @@
     "manageDesc": "Synced with your home screen",
     "tapToReconnect": "Tap to reconnect file",
     "reconnectBanner": "This {{fileType}} needs a local file to work.",
-    "reconnectChoose": "Choose file"
+    "reconnectChoose": "Choose file",
+    "notPinned": "Shortcut was not added to home screen"
   },
   "contact": {
     "call": "Call",
