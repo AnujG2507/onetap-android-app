@@ -4,6 +4,7 @@
     "next": "Next",
     "previous": "Back",
     "done": "Got it!",
+    "tapToDismiss": "Tap anywhere to dismiss",
     "access": {
       "step1Title": "Set Up One Tap Access",
       "step1Desc": "Tap any content type to create home screen access",
@@ -28,7 +29,7 @@
       "step1Title": "Cloud Sync",
       "step1Desc": "Sign in to sync bookmarks across devices",
       "step2Title": "Customize",
-      "step2Desc": "Adjust theme, language, and preferences"
+      "step2Desc": "Open the menu to adjust theme, language, and preferences"
     }
   },
   "emptyState": {

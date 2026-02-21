@@ -33,13 +33,11 @@ export function TutorialCoachMarks({
     // Add listener with a small delay to prevent immediate dismissal
     const timer = setTimeout(() => {
       document.addEventListener('click', handleGlobalTap);
-      document.addEventListener('touchstart', handleGlobalTap);
     }, 100);
 
     return () => {
       clearTimeout(timer);
       document.removeEventListener('click', handleGlobalTap);
-      document.removeEventListener('touchstart', handleGlobalTap);
     };
   }, [handleGlobalTap]);
 

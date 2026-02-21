@@ -166,7 +166,7 @@ export function BookmarkLibrary({
   const lastScrollTop = useRef(0);
   
   const { toast } = useToast();
-  const tutorial = useTutorial('library');
+  const tutorial = useTutorial('library', { ready: links.length > 0 });
 
   // Register sheets with back button handler
   const handleCloseActionSheet = useCallback(() => setShowActionSheet(false), []);
