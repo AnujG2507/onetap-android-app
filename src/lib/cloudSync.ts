@@ -27,6 +27,7 @@ import { recordSync } from './syncStatusManager';
 import { 
   getPendingDeletions, 
   clearPendingDeletions,
+  clearDeletions,
   type PendingDeletion 
 } from './deletionTracker';
 import { isFileDependentType, getFileTypeEmoji } from '@/types/shortcut';
@@ -101,6 +102,44 @@ export interface GuardedSyncResult {
 
 const SHORTCUTS_STORAGE_KEY = 'quicklaunch_shortcuts';
 const SCHEDULED_ACTIONS_STORAGE_KEY = 'scheduled_actions';
+const PAGINATION_BATCH_SIZE = 1000;
+
+// ============================================================================
+// PAGINATION HELPER
+// ============================================================================
+
+/**
+ * Fetch all rows from a table for a given user, paginating in batches of 1000
+ * to bypass Supabase's default row limit.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function fetchAllRows(table: string, userId: string): Promise<any[]> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let allData: any[] = [];
+  let from = 0;
+
+  while (true) {
+    const to = from + PAGINATION_BATCH_SIZE - 1;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase.from(table as any) as any)
+      .select('*')
+      .eq('user_id', userId)
+      .range(from, to);
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data || data.length === 0) break;
+
+    allData = allData.concat(data);
+
+    if (data.length < PAGINATION_BATCH_SIZE) break;
+    from += PAGINATION_BATCH_SIZE;
+  }
+
+  return allData;
+}
 
 // ============================================================================
 // GUARDED SYNC ENTRY POINTS
@@ -340,7 +379,8 @@ async function performBidirectionalSync(): Promise<{ success: boolean; uploaded:
 // ============================================================================
 
 /**
- * Fetch the set of deleted entity IDs from cloud for current user
+ * Fetch the set of deleted entity IDs from cloud for current user.
+ * Uses pagination to handle >1000 deleted entities.
  */
 async function fetchDeletedEntitySet(): Promise<Map<string, Set<string>>> {
   const result = new Map<string, Set<string>>();
@@ -349,15 +389,7 @@ async function fetchDeletedEntitySet(): Promise<Map<string, Set<string>>> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return result;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (supabase.from('cloud_deleted_entities') as any)
-      .select('entity_type, entity_id')
-      .eq('user_id', user.id);
-
-    if (error) {
-      console.error('[CloudSync] Failed to fetch deleted entities:', error.message);
-      return result;
-    }
+    const data = await fetchAllRows('cloud_deleted_entities', user.id);
 
     if (data) {
       for (const row of data) {
@@ -375,7 +407,8 @@ async function fetchDeletedEntitySet(): Promise<Map<string, Set<string>>> {
 }
 
 /**
- * Upload pending deletions to cloud and delete corresponding cloud rows
+ * Upload pending deletions to cloud and delete corresponding cloud rows.
+ * Only clears successfully synced deletions from the local queue.
  */
 async function uploadDeletionsInternal(): Promise<void> {
   try {
@@ -387,32 +420,52 @@ async function uploadDeletionsInternal(): Promise<void> {
 
     console.log(`[CloudSync] Uploading ${pending.length} deletions`);
 
-    for (const deletion of pending) {
-      // Record in cloud_deleted_entities
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from('cloud_deleted_entities') as any)
-        .upsert({
-          user_id: user.id,
-          entity_type: deletion.entity_type,
-          entity_id: deletion.entity_id,
-        }, {
-          onConflict: 'user_id,entity_type,entity_id',
-          ignoreDuplicates: true,
-        });
+    const succeeded: PendingDeletion[] = [];
 
-      // Delete from corresponding cloud table
-      const tableName = getCloudTableForEntityType(deletion.entity_type);
-      if (tableName) {
+    for (const deletion of pending) {
+      try {
+        // Record in cloud_deleted_entities
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (supabase.from(tableName as any) as any)
-          .delete()
-          .eq('user_id', user.id)
-          .eq('entity_id', deletion.entity_id);
+        const { error: recordError } = await (supabase.from('cloud_deleted_entities') as any)
+          .upsert({
+            user_id: user.id,
+            entity_type: deletion.entity_type,
+            entity_id: deletion.entity_id,
+          }, {
+            onConflict: 'user_id,entity_type,entity_id',
+            ignoreDuplicates: true,
+          });
+
+        if (recordError) {
+          console.warn('[CloudSync] Failed to record deletion:', deletion.entity_id, recordError.message);
+          continue; // Skip to next, leave this one in the queue
+        }
+
+        // Delete from corresponding cloud table
+        const tableName = getCloudTableForEntityType(deletion.entity_type);
+        if (tableName) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (supabase.from(tableName as any) as any)
+            .delete()
+            .eq('user_id', user.id)
+            .eq('entity_id', deletion.entity_id);
+        }
+
+        succeeded.push(deletion);
+      } catch (e) {
+        console.warn('[CloudSync] Error uploading deletion:', deletion.entity_id, e);
+        // Leave failed deletion in the queue for next retry
       }
     }
 
-    clearPendingDeletions();
-    console.log('[CloudSync] Deletions uploaded successfully');
+    // Only clear successfully synced deletions
+    if (succeeded.length > 0) {
+      clearDeletions(succeeded);
+      console.log(`[CloudSync] ${succeeded.length}/${pending.length} deletions uploaded successfully`);
+    }
+    if (succeeded.length < pending.length) {
+      console.warn(`[CloudSync] ${pending.length - succeeded.length} deletions remain in queue for retry`);
+    }
   } catch (e) {
     console.error('[CloudSync] Failed to upload deletions:', e);
   }
@@ -491,7 +544,7 @@ async function reconcileLocalDeletions(deletedSet: Map<string, Set<string>>): Pr
 // ============================================================================
 
 /**
- * Upload local bookmarks to cloud
+ * Upload local bookmarks to cloud using batch upsert
  * INTERNAL: Uses local ID as entity_id - local is source of truth for identity
  */
 async function uploadBookmarksInternal(): Promise<{ success: boolean; uploaded: number; error?: string }> {
@@ -502,33 +555,34 @@ async function uploadBookmarksInternal(): Promise<{ success: boolean; uploaded: 
     }
 
     const localBookmarks = getSavedLinks();
-    let uploaded = 0;
-
-    for (const bookmark of localBookmarks) {
-      const { error } = await supabase
-        .from('cloud_bookmarks')
-        .upsert({
-          entity_id: bookmark.id,
-          user_id: user.id,
-          url: bookmark.url,
-          title: bookmark.title || null,
-          description: bookmark.description || null,
-          folder: bookmark.tag || 'Uncategorized',
-          favicon: null,
-          created_at: new Date(bookmark.createdAt).toISOString(),
-        }, {
-          onConflict: 'user_id,entity_id',
-          ignoreDuplicates: false,
-        });
-
-      if (!error) {
-        uploaded++;
-      } else {
-        console.warn('[CloudSync] Failed to upload bookmark:', bookmark.id, error.message);
-      }
+    if (localBookmarks.length === 0) {
+      return { success: true, uploaded: 0 };
     }
 
-    return { success: true, uploaded };
+    const rows = localBookmarks.map(bookmark => ({
+      entity_id: bookmark.id,
+      user_id: user.id,
+      url: bookmark.url,
+      title: bookmark.title || null,
+      description: bookmark.description || null,
+      folder: bookmark.tag || 'Uncategorized',
+      favicon: null,
+      created_at: new Date(bookmark.createdAt).toISOString(),
+    }));
+
+    const { error } = await supabase
+      .from('cloud_bookmarks')
+      .upsert(rows, {
+        onConflict: 'user_id,entity_id',
+        ignoreDuplicates: false,
+      });
+
+    if (error) {
+      console.warn('[CloudSync] Batch bookmark upload failed:', error.message);
+      return { success: false, uploaded: 0, error: error.message };
+    }
+
+    return { success: true, uploaded: rows.length };
   } catch (error) {
     console.error('[CloudSync] Upload failed:', error);
     return { success: false, uploaded: 0, error: error instanceof Error ? error.message : 'Upload failed' };
@@ -536,7 +590,7 @@ async function uploadBookmarksInternal(): Promise<{ success: boolean; uploaded: 
 }
 
 /**
- * Upload local trash to cloud
+ * Upload local trash to cloud using batch upsert
  * INTERNAL: Uses local ID as entity_id
  */
 async function uploadTrashInternal(): Promise<{ success: boolean; uploaded: number; error?: string }> {
@@ -547,34 +601,35 @@ async function uploadTrashInternal(): Promise<{ success: boolean; uploaded: numb
     }
 
     const localTrash = getTrashLinks();
-    let uploaded = 0;
-
-    for (const item of localTrash) {
-      const { error } = await supabase
-        .from('cloud_trash')
-        .upsert({
-          entity_id: item.id,
-          user_id: user.id,
-          url: item.url,
-          title: item.title || null,
-          description: item.description || null,
-          folder: item.tag || 'Uncategorized',
-          deleted_at: new Date(item.deletedAt).toISOString(),
-          retention_days: item.retentionDays,
-          original_created_at: new Date(item.createdAt).toISOString(),
-        }, {
-          onConflict: 'user_id,entity_id',
-          ignoreDuplicates: false,
-        });
-
-      if (!error) {
-        uploaded++;
-      } else {
-        console.warn('[CloudSync] Failed to upload trash item:', item.id, error.message);
-      }
+    if (localTrash.length === 0) {
+      return { success: true, uploaded: 0 };
     }
 
-    return { success: true, uploaded };
+    const rows = localTrash.map(item => ({
+      entity_id: item.id,
+      user_id: user.id,
+      url: item.url,
+      title: item.title || null,
+      description: item.description || null,
+      folder: item.tag || 'Uncategorized',
+      deleted_at: new Date(item.deletedAt).toISOString(),
+      retention_days: item.retentionDays,
+      original_created_at: new Date(item.createdAt).toISOString(),
+    }));
+
+    const { error } = await supabase
+      .from('cloud_trash')
+      .upsert(rows, {
+        onConflict: 'user_id,entity_id',
+        ignoreDuplicates: false,
+      });
+
+    if (error) {
+      console.warn('[CloudSync] Batch trash upload failed:', error.message);
+      return { success: false, uploaded: 0, error: error.message };
+    }
+
+    return { success: true, uploaded: rows.length };
   } catch (error) {
     console.error('[CloudSync] Trash upload failed:', error);
     return { success: false, uploaded: 0, error: error instanceof Error ? error.message : 'Trash upload failed' };
@@ -582,7 +637,7 @@ async function uploadTrashInternal(): Promise<{ success: boolean; uploaded: numb
 }
 
 /**
- * Download bookmarks from cloud to local storage
+ * Download bookmarks from cloud to local storage using pagination
  * INTERNAL: Uses entity_id as local ID - never rewrites local IDs
  */
 async function downloadBookmarksInternal(deletedSet?: Map<string, Set<string>>): Promise<{ success: boolean; downloaded: number; error?: string }> {
@@ -592,14 +647,7 @@ async function downloadBookmarksInternal(deletedSet?: Map<string, Set<string>>):
       return { success: false, downloaded: 0, error: 'Not authenticated' };
     }
 
-    const { data: cloudBookmarks, error } = await supabase
-      .from('cloud_bookmarks')
-      .select('*')
-      .eq('user_id', user.id);
-
-    if (error) {
-      throw error;
-    }
+    const cloudBookmarks = await fetchAllRows('cloud_bookmarks', user.id);
 
     if (!cloudBookmarks || cloudBookmarks.length === 0) {
       return { success: true, downloaded: 0 };
@@ -641,7 +689,7 @@ async function downloadBookmarksInternal(deletedSet?: Map<string, Set<string>>):
 }
 
 /**
- * Download trash from cloud to local storage
+ * Download trash from cloud to local storage using pagination
  * INTERNAL: Uses entity_id as local ID
  */
 async function downloadTrashInternal(deletedSet?: Map<string, Set<string>>): Promise<{ success: boolean; downloaded: number; error?: string }> {
@@ -651,14 +699,7 @@ async function downloadTrashInternal(deletedSet?: Map<string, Set<string>>): Pro
       return { success: false, downloaded: 0, error: 'Not authenticated' };
     }
 
-    const { data: cloudTrash, error } = await supabase
-      .from('cloud_trash')
-      .select('*')
-      .eq('user_id', user.id);
-
-    if (error) {
-      throw error;
-    }
+    const cloudTrash = await fetchAllRows('cloud_trash', user.id);
 
     if (!cloudTrash || cloudTrash.length === 0) {
       return { success: true, downloaded: 0 };
@@ -702,11 +743,11 @@ async function downloadTrashInternal(deletedSet?: Map<string, Set<string>>): Pro
 }
 
 // ============================================================================
-// SHORTCUTS SYNC (NEW)
+// SHORTCUTS SYNC
 // ============================================================================
 
 /**
- * Upload local shortcuts to cloud (intent metadata only, no binary data)
+ * Upload local shortcuts to cloud using batch upsert (intent metadata only, no binary data)
  */
 async function uploadShortcutsInternal(): Promise<{ success: boolean; uploaded: number; error?: string }> {
   try {
@@ -717,15 +758,16 @@ async function uploadShortcutsInternal(): Promise<{ success: boolean; uploaded: 
 
     const stored = localStorage.getItem(SHORTCUTS_STORAGE_KEY);
     const localShortcuts: ShortcutData[] = stored ? JSON.parse(stored) : [];
-    let uploaded = 0;
+    if (localShortcuts.length === 0) {
+      return { success: true, uploaded: 0 };
+    }
 
-    for (const shortcut of localShortcuts) {
+    const rows = localShortcuts.map(shortcut => {
       // Determine cloud-safe icon
       let iconType: string | null = null;
       let iconValue: string | null = null;
       
       if (shortcut.icon.type === 'thumbnail') {
-        // Thumbnail is binary - use file-type emoji fallback
         iconType = 'emoji';
         iconValue = getFileTypeEmoji(shortcut.fileType);
       } else {
@@ -733,45 +775,44 @@ async function uploadShortcutsInternal(): Promise<{ success: boolean; uploaded: 
         iconValue = shortcut.icon.value;
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase.from('cloud_shortcuts') as any)
-        .upsert({
-          entity_id: shortcut.id,
-          user_id: user.id,
-          type: shortcut.type,
-          name: shortcut.name,
-          // Privacy: only store content_uri for links, null for file-based
-          content_uri: isFileDependentType(shortcut.type) ? null : (shortcut.type === 'text' ? null : shortcut.contentUri || null),
-          file_type: shortcut.fileType || null,
-          mime_type: shortcut.mimeType || null,
-          phone_number: shortcut.phoneNumber || null,
-          contact_name: shortcut.contactName || null,
-          message_app: shortcut.messageApp || null,
-          quick_messages: shortcut.quickMessages || null,
-          resume_enabled: shortcut.resumeEnabled ?? null,
-          auto_advance_interval: shortcut.autoAdvanceInterval ?? null,
-          image_count: shortcut.imageUris?.length ?? null,
-          icon_type: iconType,
-          icon_value: iconValue,
-          usage_count: shortcut.usageCount,
-          original_created_at: shortcut.createdAt,
-          // Text shortcut content
-          text_content: shortcut.type === 'text' ? (shortcut.textContent || null) : null,
-          is_checklist: shortcut.type === 'text' ? (shortcut.isChecklist ?? false) : null,
-        }, {
-          onConflict: 'user_id,entity_id',
-          ignoreDuplicates: false,
-        });
+      return {
+        entity_id: shortcut.id,
+        user_id: user.id,
+        type: shortcut.type,
+        name: shortcut.name,
+        content_uri: isFileDependentType(shortcut.type) ? null : (shortcut.type === 'text' ? null : shortcut.contentUri || null),
+        file_type: shortcut.fileType || null,
+        mime_type: shortcut.mimeType || null,
+        phone_number: shortcut.phoneNumber || null,
+        contact_name: shortcut.contactName || null,
+        message_app: shortcut.messageApp || null,
+        quick_messages: shortcut.quickMessages || null,
+        resume_enabled: shortcut.resumeEnabled ?? null,
+        auto_advance_interval: shortcut.autoAdvanceInterval ?? null,
+        image_count: shortcut.imageUris?.length ?? null,
+        icon_type: iconType,
+        icon_value: iconValue,
+        usage_count: shortcut.usageCount,
+        original_created_at: shortcut.createdAt,
+        text_content: shortcut.type === 'text' ? (shortcut.textContent || null) : null,
+        is_checklist: shortcut.type === 'text' ? (shortcut.isChecklist ?? false) : null,
+      };
+    });
 
-      if (!error) {
-        uploaded++;
-      } else {
-        console.warn('[CloudSync] Failed to upload shortcut:', shortcut.id, error.message);
-      }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase.from('cloud_shortcuts') as any)
+      .upsert(rows, {
+        onConflict: 'user_id,entity_id',
+        ignoreDuplicates: false,
+      });
+
+    if (error) {
+      console.warn('[CloudSync] Batch shortcuts upload failed:', error.message);
+      return { success: false, uploaded: 0, error: error.message };
     }
 
-    console.log(`[CloudSync] Uploaded ${uploaded} shortcuts`);
-    return { success: true, uploaded };
+    console.log(`[CloudSync] Uploaded ${rows.length} shortcuts`);
+    return { success: true, uploaded: rows.length };
   } catch (error) {
     console.error('[CloudSync] Shortcuts upload failed:', error);
     return { success: false, uploaded: 0, error: error instanceof Error ? error.message : 'Shortcuts upload failed' };
@@ -779,7 +820,7 @@ async function uploadShortcutsInternal(): Promise<{ success: boolean; uploaded: 
 }
 
 /**
- * Download shortcuts from cloud to local storage
+ * Download shortcuts from cloud to local storage using pagination
  * File-dependent shortcuts arrive as dormant; links/contacts are fully active
  */
 async function downloadShortcutsInternal(deletedSet?: Map<string, Set<string>>): Promise<{ success: boolean; downloaded: number; error?: string }> {
@@ -789,14 +830,7 @@ async function downloadShortcutsInternal(deletedSet?: Map<string, Set<string>>):
       return { success: false, downloaded: 0, error: 'Not authenticated' };
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: cloudShortcuts, error } = await (supabase.from('cloud_shortcuts') as any)
-      .select('*')
-      .eq('user_id', user.id);
-
-    if (error) {
-      throw error;
-    }
+    const cloudShortcuts = await fetchAllRows('cloud_shortcuts', user.id);
 
     if (!cloudShortcuts || cloudShortcuts.length === 0) {
       return { success: true, downloaded: 0 };
@@ -869,7 +903,7 @@ async function downloadShortcutsInternal(deletedSet?: Map<string, Set<string>>):
 // ============================================================================
 
 /**
- * Upload local scheduled actions to cloud
+ * Upload local scheduled actions to cloud using batch upsert
  * INTERNAL: Uses local ID as entity_id - local is source of truth for identity
  */
 async function uploadScheduledActionsInternal(): Promise<{ success: boolean; uploaded: number; error?: string }> {
@@ -880,36 +914,37 @@ async function uploadScheduledActionsInternal(): Promise<{ success: boolean; upl
     }
 
     const localActions = getScheduledActions();
-    let uploaded = 0;
-
-    for (const action of localActions) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase.from('cloud_scheduled_actions') as any)
-        .upsert({
-          entity_id: action.id,
-          user_id: user.id,
-          name: action.name,
-          description: action.description || null,
-          destination: action.destination,
-          trigger_time: action.triggerTime,
-          recurrence: action.recurrence,
-          recurrence_anchor: action.recurrenceAnchor || null,
-          enabled: action.enabled,
-          original_created_at: action.createdAt,
-        }, {
-          onConflict: 'user_id,entity_id',
-          ignoreDuplicates: false,
-        });
-
-      if (!error) {
-        uploaded++;
-      } else {
-        console.warn('[CloudSync] Failed to upload scheduled action:', action.id, error.message);
-      }
+    if (localActions.length === 0) {
+      return { success: true, uploaded: 0 };
     }
 
-    console.log(`[CloudSync] Uploaded ${uploaded} scheduled actions`);
-    return { success: true, uploaded };
+    const rows = localActions.map(action => ({
+      entity_id: action.id,
+      user_id: user.id,
+      name: action.name,
+      description: action.description || null,
+      destination: action.destination,
+      trigger_time: action.triggerTime,
+      recurrence: action.recurrence,
+      recurrence_anchor: action.recurrenceAnchor || null,
+      enabled: action.enabled,
+      original_created_at: action.createdAt,
+    }));
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase.from('cloud_scheduled_actions') as any)
+      .upsert(rows, {
+        onConflict: 'user_id,entity_id',
+        ignoreDuplicates: false,
+      });
+
+    if (error) {
+      console.warn('[CloudSync] Batch scheduled actions upload failed:', error.message);
+      return { success: false, uploaded: 0, error: error.message };
+    }
+
+    console.log(`[CloudSync] Uploaded ${rows.length} scheduled actions`);
+    return { success: true, uploaded: rows.length };
   } catch (error) {
     console.error('[CloudSync] Scheduled actions upload failed:', error);
     return { success: false, uploaded: 0, error: error instanceof Error ? error.message : 'Scheduled actions upload failed' };
@@ -917,10 +952,10 @@ async function uploadScheduledActionsInternal(): Promise<{ success: boolean; upl
 }
 
 /**
- * Download scheduled actions from cloud to local storage
+ * Download scheduled actions from cloud to local storage using pagination
  * INTERNAL: Uses entity_id as local ID - never rewrites local IDs
  * For recurring actions with past-due trigger times, recalculates next occurrence
- * NEW: Re-registers native alarms for non-file destinations
+ * Re-registers native alarms for non-file destinations
  */
 async function downloadScheduledActionsInternal(deletedSet?: Map<string, Set<string>>): Promise<{ success: boolean; downloaded: number; error?: string }> {
   try {
@@ -929,14 +964,7 @@ async function downloadScheduledActionsInternal(deletedSet?: Map<string, Set<str
       return { success: false, downloaded: 0, error: 'Not authenticated' };
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: cloudActions, error } = await (supabase.from('cloud_scheduled_actions') as any)
-      .select('*')
-      .eq('user_id', user.id);
-
-    if (error) {
-      throw error;
-    }
+    const cloudActions = await fetchAllRows('cloud_scheduled_actions', user.id);
 
     if (!cloudActions || cloudActions.length === 0) {
       return { success: true, downloaded: 0 };
@@ -968,33 +996,22 @@ async function downloadScheduledActionsInternal(deletedSet?: Map<string, Set<str
       // For recurring actions with past-due trigger times, recalculate
       if (triggerTime < now && recurrence !== 'once' && recurrenceAnchor) {
         triggerTime = computeNextTrigger(recurrence, recurrenceAnchor, now);
-        console.log(`[CloudSync] Recalculated trigger time for recurring action: ${entityId}`);
+        console.log(`[CloudSync] Recalculated trigger for \"${cloudAction.name}\": ${new Date(triggerTime).toLocaleString()}`);
       }
 
-      // For one-time past-due actions, download as disabled
-      let enabled = recurrence === 'once' && triggerTime < now 
-        ? false 
-        : cloudAction.enabled;
-
-      // File destinations cannot be restored — disable them
-      if (destination.type === 'file') {
-        enabled = false;
-      }
-
-      newActions.push({
+      const action: ScheduledAction = {
         id: entityId,
         name: cloudAction.name,
-        description: cloudAction.description || undefined,
+        description: cloudAction.description || '',
         destination,
         triggerTime,
         recurrence,
-        enabled,
-        createdAt: cloudAction.original_created_at,
         recurrenceAnchor: recurrenceAnchor || undefined,
-        // Device-specific fields - not synced
-        lastNotificationTime: undefined,
-        notificationClicked: undefined,
-      });
+        enabled: cloudAction.enabled,
+        createdAt: cloudAction.original_created_at,
+      };
+
+      newActions.push(action);
       existingIds.add(entityId);
     }
 

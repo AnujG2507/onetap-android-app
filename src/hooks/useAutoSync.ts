@@ -101,9 +101,12 @@ export function useAutoSync() {
           downloaded: result.downloaded 
         });
         
-        // Reload only if we got new data from cloud
+        // Notify components to re-read from localStorage instead of full reload
         if (result.downloaded > 0) {
-          window.location.reload();
+          window.dispatchEvent(new CustomEvent('shortcuts-changed'));
+          window.dispatchEvent(new CustomEvent('scheduled-actions-changed'));
+          window.dispatchEvent(new CustomEvent('saved-links-changed'));
+          console.log('[DailySync] Dispatched change events for downloaded data');
         }
       } else {
         // Failed sync - log but don't retry aggressively
