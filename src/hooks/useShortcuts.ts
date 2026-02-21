@@ -226,20 +226,19 @@ export function useShortcuts() {
       icon,
       createdAt: Date.now(),
       usageCount: 0,
-      // Preserve file metadata for native side
       mimeType: source.mimeType,
       fileType: fileType,
       fileSize: source.fileSize,
-      // Preserve thumbnail data for icon creation
       thumbnailData: source.thumbnailData,
-      // PDF resume support
       resumeEnabled: resumeEnabled,
     };
 
-    const updated = [...shortcuts, shortcut];
+    // Read from localStorage to avoid stale closure
+    const current = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    const updated = [...current, shortcut];
     saveShortcuts(updated);
     return shortcut;
-  }, [shortcuts, saveShortcuts]);
+  }, [saveShortcuts]);
 
   const createContactShortcut = useCallback((
     type: 'contact' | 'message',
@@ -259,14 +258,14 @@ export function useShortcuts() {
       usageCount: 0,
       phoneNumber,
       messageApp,
-      // WhatsApp quick messages - optional message templates
       quickMessages: type === 'message' && quickMessages?.length ? quickMessages : undefined,
     };
 
-    const updated = [...shortcuts, shortcut];
+    const current = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    const updated = [...current, shortcut];
     saveShortcuts(updated);
     return shortcut;
-  }, [shortcuts, saveShortcuts]);
+  }, [saveShortcuts]);
 
   const createSlideshowShortcut = useCallback((
     images: Array<{ uri: string; thumbnail?: string }>,
@@ -278,7 +277,7 @@ export function useShortcuts() {
       id: crypto.randomUUID(),
       name,
       type: 'slideshow',
-      contentUri: '', // Not used for slideshows
+      contentUri: '',
       icon,
       createdAt: Date.now(),
       usageCount: 0,
@@ -287,10 +286,11 @@ export function useShortcuts() {
       autoAdvanceInterval,
     };
 
-    const updated = [...shortcuts, shortcut];
+    const current = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    const updated = [...current, shortcut];
     saveShortcuts(updated);
     return shortcut;
-  }, [shortcuts, saveShortcuts]);
+  }, [saveShortcuts]);
 
   const createTextShortcut = useCallback((
     textContent: string,
@@ -309,10 +309,11 @@ export function useShortcuts() {
       textContent,
       isChecklist,
     };
-    const updated = [...shortcuts, shortcut];
+    const current = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    const updated = [...current, shortcut];
     saveShortcuts(updated);
     return shortcut;
-  }, [shortcuts, saveShortcuts]);
+  }, [saveShortcuts]);
   
   // Helper to detect file type from MIME type (robust detection)
   function detectFileTypeFromMime(mimeType?: string, filename?: string): 'image' | 'video' | 'pdf' | 'document' | undefined {
@@ -364,25 +365,25 @@ export function useShortcuts() {
       }
     }
     
-    // Remove from local storage
-    const updated = shortcuts.filter(s => s.id !== id);
+    // Remove from local storage (read fresh to avoid stale closure)
+    const current: ShortcutData[] = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    const updated = current.filter(s => s.id !== id);
     saveShortcuts(updated);
-  }, [shortcuts, saveShortcuts]);
+  }, [saveShortcuts]);
 
 
   const incrementUsage = useCallback((id: string) => {
-    // Record the usage event with timestamp for historical tracking
     usageHistoryManager.recordUsage(id);
     
-    // Still update usageCount for total tracking
-    const updated = shortcuts.map(s => 
+    // Read fresh from localStorage to avoid stale closure
+    const current: ShortcutData[] = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    const updated = current.map(s => 
       s.id === id ? { ...s, usageCount: s.usageCount + 1 } : s
     );
     saveShortcuts(updated);
     
-    // Broadcast usage update for stats recalculation
     window.dispatchEvent(new CustomEvent('usage-updated'));
-  }, [shortcuts, saveShortcuts]);
+  }, [saveShortcuts]);
 
   const updateShortcut = useCallback(async (
     id: string,
@@ -391,8 +392,9 @@ export function useShortcuts() {
     // Strip the transient flag before saving to localStorage
     const { skipNativeUpdate, ...storageUpdates } = updates;
 
-    // Update localStorage first
-    const updated = shortcuts.map(s => 
+    // Read fresh from localStorage to avoid stale closure
+    const current: ShortcutData[] = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    const updated = current.map(s => 
       s.id === id ? { ...s, ...storageUpdates } : s
     );
     saveShortcuts(updated);
@@ -438,7 +440,7 @@ export function useShortcuts() {
     }
     
     return { success: true };
-  }, [shortcuts, saveShortcuts]);
+  }, [saveShortcuts]);
 
   const getShortcut = useCallback((id: string): ShortcutData | undefined => {
     return shortcuts.find(s => s.id === id);

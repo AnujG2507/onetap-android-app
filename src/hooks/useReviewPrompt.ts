@@ -64,6 +64,7 @@ export function useReviewPrompt(shortcutCount: number) {
   const markDone = useCallback(() => {
     try {
       localStorage.setItem(REVIEW_DONE_KEY, 'true');
+      localStorage.removeItem(JITTER_KEY);
     } catch {
       // Ignore
     }

@@ -126,6 +126,7 @@ export function NotificationsPage({
     actions, 
     toggleAction, 
     deleteScheduledAction, 
+    bulkDeleteScheduledActions,
     checkPermissions,
     requestPermissions,
     openAlarmSettings,
@@ -160,6 +161,11 @@ export function NotificationsPage({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+
+  // Clear stale selection state on mount (Gap 3: selection is transient UI state)
+  useEffect(() => {
+    clearSelection();
+  }, []);
   
   // Creator mode - track the destination for the creator
   const [showCreator, setShowCreator] = useState(false);
@@ -516,11 +522,8 @@ export function NotificationsPage({
 
   const handleBulkDelete = async () => {
     triggerHaptic('medium');
-    const count = selectedIds.size;
-    
-    for (const id of selectedIds) {
-      await deleteScheduledAction(id);
-    }
+    const ids = Array.from(selectedIds);
+    const count = await bulkDeleteScheduledActions(ids);
     
     toast({ description: t('notificationsPage.bulkDeleted', { count }) });
     clearSelection();
