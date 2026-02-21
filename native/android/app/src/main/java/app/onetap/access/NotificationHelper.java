@@ -186,26 +186,70 @@ public class NotificationHelper {
                     return callIntent;
                     
                 case "file":
-                    // Open file with appropriate app
+                    // Route through internal viewers based on MIME type (matches shortcut behavior)
                     org.json.JSONObject fileData = new org.json.JSONObject(destinationData);
                     String fileUri = fileData.getString("uri");
                     String mimeType = fileData.optString("mimeType", "*/*");
                     String displayName = fileData.optString("displayName", "File");
-                    
-                    Intent fileIntent = new Intent(Intent.ACTION_VIEW);
-                    fileIntent.setDataAndType(Uri.parse(fileUri), mimeType);
-                    fileIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                    fileIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                    
-                    // Set ClipData with meaningful display name for external app
-                    try {
-                        ClipData clipData = ClipData.newUri(
-                            context.getContentResolver(), displayName, Uri.parse(fileUri));
-                        fileIntent.setClipData(clipData);
-                    } catch (Exception e) {
-                        Log.w(TAG, "Failed to set ClipData: " + e.getMessage());
+                    Uri parsedUri = Uri.parse(fileUri);
+
+                    if (mimeType.startsWith("image/")) {
+                        // Images -> slideshow deep link via MainActivity
+                        Intent imgIntent = new Intent(context, MainActivity.class);
+                        imgIntent.setAction(Intent.ACTION_VIEW);
+                        imgIntent.setData(Uri.parse("onetap://slideshow/reminder"));
+                        imgIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                        return imgIntent;
+
+                    } else if (mimeType.startsWith("video/")) {
+                        // Videos -> native video player
+                        Intent vidIntent = new Intent(context, NativeVideoPlayerActivity.class);
+                        vidIntent.setAction(Intent.ACTION_VIEW);
+                        vidIntent.setDataAndType(parsedUri, mimeType);
+                        vidIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                        if (displayName != null) vidIntent.putExtra("shortcut_title", displayName);
+                        if ("content".equals(parsedUri.getScheme())) {
+                            try {
+                                vidIntent.setClipData(ClipData.newUri(
+                                    context.getContentResolver(), "onetap-video", parsedUri));
+                            } catch (Exception e) {
+                                Log.w(TAG, "Failed to set ClipData for video: " + e.getMessage());
+                            }
+                        }
+                        return vidIntent;
+
+                    } else if ("application/pdf".equals(mimeType)) {
+                        // PDFs -> native PDF viewer
+                        Intent pdfIntent = new Intent(context, NativePdfViewerV2Activity.class);
+                        pdfIntent.setDataAndType(parsedUri, "application/pdf");
+                        pdfIntent.putExtra("shortcut_id", "reminder");
+                        pdfIntent.putExtra("shortcut_title", displayName);
+                        pdfIntent.putExtra("resume", true);
+                        pdfIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                        if ("content".equals(parsedUri.getScheme())) {
+                            try {
+                                pdfIntent.setClipData(ClipData.newUri(
+                                    context.getContentResolver(), "onetap-pdf", parsedUri));
+                            } catch (Exception e) {
+                                Log.w(TAG, "Failed to set ClipData for PDF: " + e.getMessage());
+                            }
+                        }
+                        return pdfIntent;
+
+                    } else {
+                        // Other files -> generic ACTION_VIEW (external app)
+                        Intent fileIntent = new Intent(Intent.ACTION_VIEW);
+                        fileIntent.setDataAndType(parsedUri, mimeType);
+                        fileIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                        try {
+                            ClipData clipData = ClipData.newUri(
+                                context.getContentResolver(), displayName, parsedUri);
+                            fileIntent.setClipData(clipData);
+                        } catch (Exception e) {
+                            Log.w(TAG, "Failed to set ClipData: " + e.getMessage());
+                        }
+                        return fileIntent;
                     }
-                    return fileIntent;
                     
                 default:
                     Log.w(TAG, "Unknown destination type: " + destinationType);
