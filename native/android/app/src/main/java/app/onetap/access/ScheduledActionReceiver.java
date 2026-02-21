@@ -50,15 +50,21 @@ public class ScheduledActionReceiver extends BroadcastReceiver {
             return;
         }
         
-        // Show notification
-        NotificationHelper.showActionNotification(
-            context,
-            actionId,
-            actionName,
-            description,
-            destinationType,
-            destinationData
-        );
+        // GAP 3 fix: Check if scheduled reminders are enabled before showing notification
+        if (!isScheduledRemindersEnabled(context)) {
+            Log.d(TAG, "Scheduled reminders disabled, skipping notification for: " + actionName);
+            // Still handle recurrence scheduling so alarms stay registered
+        } else {
+            // Show notification (sound/vibration handled by NotificationHelper based on settings)
+            NotificationHelper.showActionNotification(
+                context,
+                actionId,
+                actionName,
+                description,
+                destinationType,
+                destinationData
+            );
+        }
         
         // For recurring actions, schedule the next occurrence
         if (recurrence != null && !"once".equals(recurrence)) {
@@ -282,5 +288,41 @@ public class ScheduledActionReceiver extends BroadcastReceiver {
     public static void removeStoredAction(Context context, String actionId) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         prefs.edit().remove(actionId).apply();
+    }
+    
+    /**
+     * Check if scheduled reminders are enabled in app settings.
+     * Defaults to true if the setting is missing.
+     */
+    private boolean isScheduledRemindersEnabled(Context context) {
+        try {
+            SharedPreferences prefs = context.getSharedPreferences("app_settings", Context.MODE_PRIVATE);
+            String json = prefs.getString("settings", null);
+            if (json != null) {
+                JSONObject obj = new JSONObject(json);
+                return obj.optBoolean("scheduledRemindersEnabled", true);
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to read scheduledRemindersEnabled setting", e);
+        }
+        return true;
+    }
+    
+    /**
+     * Check if reminder sound is enabled in app settings.
+     * Defaults to true if the setting is missing.
+     */
+    public static boolean isReminderSoundEnabled(Context context) {
+        try {
+            SharedPreferences prefs = context.getSharedPreferences("app_settings", Context.MODE_PRIVATE);
+            String json = prefs.getString("settings", null);
+            if (json != null) {
+                JSONObject obj = new JSONObject(json);
+                return obj.optBoolean("reminderSoundEnabled", true);
+            }
+        } catch (Exception e) {
+            Log.w("ScheduledActionReceiver", "Failed to read reminderSoundEnabled setting", e);
+        }
+        return true;
     }
 }

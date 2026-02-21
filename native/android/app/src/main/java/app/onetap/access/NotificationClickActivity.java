@@ -1,6 +1,7 @@
 package app.onetap.access;
 
 import android.Manifest;
+import android.app.AlarmManager;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
@@ -42,6 +43,14 @@ public class NotificationClickActivity extends Activity {
         // Record the click
         if (actionId != null) {
             recordNotificationClick(this, actionId);
+            
+            // GAP 6 fix: If this action was snoozed, cancel the pending snooze alarm
+            // to prevent a duplicate notification after the snooze timer expires
+            if (SnoozeReceiver.isSnoozed(this, actionId)) {
+                Log.d(TAG, "Action was snoozed, cancelling snooze alarm for: " + actionId);
+                cancelSnoozeAlarm(this, actionId);
+                SnoozeReceiver.removeSnoozedId(this, actionId);
+            }
         }
         
         // Execute the action
@@ -297,6 +306,25 @@ public class NotificationClickActivity extends Activity {
             }
         } catch (Exception e) {
             Log.e(TAG, "Error executing action", e);
+    }
+    
+    /**
+     * Cancel a pending snooze alarm for the given action ID.
+     */
+    private static void cancelSnoozeAlarm(Context context, String actionId) {
+        int requestCode = actionId.hashCode() + 2;
+        AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+        Intent fireIntent = new Intent(context, SnoozeReceiver.class);
+        fireIntent.setAction(SnoozeReceiver.ACTION_SNOOZE_FIRE);
+        PendingIntent existingAlarm = PendingIntent.getBroadcast(
+            context, requestCode, fireIntent,
+            PendingIntent.FLAG_NO_CREATE | PendingIntent.FLAG_IMMUTABLE
+        );
+        if (existingAlarm != null && alarmManager != null) {
+            alarmManager.cancel(existingAlarm);
+            existingAlarm.cancel();
+            Log.d(TAG, "Cancelled snooze alarm for: " + actionId);
         }
     }
+}
 }

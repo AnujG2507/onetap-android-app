@@ -27,6 +27,13 @@ public class BootReceiver extends BroadcastReceiver {
             "android.intent.action.QUICKBOOT_POWERON".equals(action)) {
             
             Log.d(TAG, "Device booted, restoring scheduled actions");
+            
+            // GAP 7 fix: Clear stale snooze states on boot.
+            // AlarmManager is wiped on reboot, so any active snooze alarms are lost.
+            // Clearing the snooze state allows the JS missed-notification detection
+            // to pick up these actions as past-due when the user opens the app.
+            clearStaleSnoozedStates(context);
+            
             restoreAllAlarms(context);
         }
     }
@@ -98,6 +105,27 @@ public class BootReceiver extends BroadcastReceiver {
         }
         
         Log.d(TAG, "Restoration complete: " + restoredCount + " restored, " + skippedCount + " skipped");
+    }
+    
+    /**
+     * Clear all snoozed action IDs from SharedPreferences.
+     * After a reboot, AlarmManager is wiped so snooze alarms are gone.
+     * Clearing the state allows the JS missed-notification detector to
+     * identify these actions as past-due when the app is opened.
+     */
+    private void clearStaleSnoozedStates(Context context) {
+        try {
+            android.content.SharedPreferences snoozePrefs = 
+                context.getSharedPreferences("snooze_prefs", Context.MODE_PRIVATE);
+            java.util.Set<String> snoozedIds = snoozePrefs.getStringSet("snooze_active_ids", new java.util.HashSet<>());
+            
+            if (!snoozedIds.isEmpty()) {
+                Log.d(TAG, "Clearing " + snoozedIds.size() + " stale snoozed states after reboot");
+                snoozePrefs.edit().putStringSet("snooze_active_ids", new java.util.HashSet<>()).apply();
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error clearing stale snooze states", e);
+        }
     }
     
     /**

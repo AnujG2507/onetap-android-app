@@ -290,6 +290,7 @@
             <intent-filter>
                 <action android:name="app.onetap.SNOOZE_START" />
                 <action android:name="app.onetap.SNOOZE_FIRE" />
+                <action android:name="app.onetap.SNOOZE_CANCEL" />
             </intent-filter>
         </receiver>
 

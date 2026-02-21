@@ -138,6 +138,9 @@ public class NotificationHelper {
         );
 
         // Build the notification - prominent, one-tap access
+        // GAP 3 fix: Respect reminderSoundEnabled setting
+        boolean soundEnabled = ScheduledActionReceiver.isReminderSoundEnabled(context);
+        
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(iconRes)
             .setContentTitle(actionName)
@@ -147,10 +150,17 @@ public class NotificationHelper {
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
             .setDeleteIntent(dismissPendingIntent)
-            .setDefaults(NotificationCompat.DEFAULT_ALL)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setFullScreenIntent(pendingIntent, true)
             .addAction(android.R.drawable.ic_popup_reminder, "Snooze " + SnoozeReceiver.getSnoozeDurationMinutes(context) + " min", snoozePendingIntent);
+        
+        if (soundEnabled) {
+            builder.setDefaults(NotificationCompat.DEFAULT_ALL);
+        } else {
+            builder.setDefaults(0)
+                   .setSound(null)
+                   .setVibrate(null);
+        }
         
         // Show the notification
         try {
@@ -376,6 +386,7 @@ public class NotificationHelper {
             .setOngoing(false)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
+            .setDeleteIntent(buildSnoozeCancelPending(context, actionId)) // GAP 2 fix: cancel alarm on swipe-dismiss
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setUsesChronometer(true)
             .setWhen(System.currentTimeMillis() + (snoozeMins * 60 * 1000L))
