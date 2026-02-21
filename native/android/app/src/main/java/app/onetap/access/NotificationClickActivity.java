@@ -306,6 +306,7 @@ public class NotificationClickActivity extends Activity {
             }
         } catch (Exception e) {
             Log.e(TAG, "Error executing action", e);
+        }
     }
     
     /**
