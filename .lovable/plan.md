@@ -1,57 +1,89 @@
 
 
-## Fix Tutorial Bugs
+## Fix: Orphaned shortcuts after dismissed pin dialog
 
-### Bug 1: Missing `tutorial-settings-button` ID
+### Root Cause
 
-The profile tutorial step 2 targets `tutorial-settings-button`, but no element has this ID. The Settings button lives inside the AppMenu sheet (which is closed), so pointing at it is impossible. 
+The shortcut creation flow has a timing gap:
 
-**Fix:** Change the target in `useTutorial.ts` from `tutorial-settings-button` to the AppMenu trigger button, and add `id="tutorial-settings-button"` to the `AppMenu` trigger `<Button>` in `AppMenu.tsx`. This way the coach mark points at the menu button, saying "open the menu to customize settings." Update the description key text accordingly.
+1. `createShortcut()` saves to localStorage immediately
+2. `createHomeScreenShortcut()` sends a pin request to Android
+3. Android's `requestPinShortcut` API returns `true` when the launcher accepts the request -- NOT when the user confirms
+4. If the user presses Back on the native pin dialog, no failure signal is sent
+5. The shortcut remains in localStorage ("My Access Points") despite never being pinned
+6. `syncWithHomeScreen` has a 30-second `recentlyCreatedIds` race guard that further protects these orphans from cleanup
 
-**Files:**
-- `src/components/AppMenu.tsx` -- add `id="tutorial-settings-button"` to the trigger Button
-- `src/i18n/locales/en.json` -- update `tutorial.profile.step2Desc` to mention opening the menu
+### Solution
 
-### Bug 2: Missing `tutorial.tapToDismiss` translation
+Add a post-pin verification step. After `createHomeScreenShortcut` returns, wait a few seconds for the pin dialog to resolve, then check if the shortcut actually exists on the home screen. If it does not, remove it from localStorage.
 
-The `CoachMark.tsx` renders `t('tutorial.tapToDismiss')` but this key is missing from `en.json`.
+### Technical Details
 
-**Fix:** Add `"tapToDismiss": "Tap anywhere to dismiss"` to the `tutorial` section in `en.json`.
+**File: `src/hooks/useShortcuts.ts`**
 
-**Files:**
-- `src/i18n/locales/en.json`
+Add a `verifyShortcutPinned` method that:
+- Accepts a shortcut ID
+- Waits ~3 seconds (enough for the pin dialog to resolve)
+- Calls `getPinnedShortcutIds()`
+- Checks if the ID appears in `ids` (the actual OS-reported pinned shortcuts), deliberately ignoring `recentlyCreatedIds` race protection
+- If not found in `ids`, removes the shortcut from localStorage and shows an info toast
+- Also calls native `cleanupRegistry` to remove the stale registry entry
 
-### Bug 3: Double-event firing on mobile
+Expose this method from the hook's return value.
 
-`TutorialCoachMarks.tsx` listens to both `click` and `touchstart`, causing `onDismiss` to fire twice on touch devices.
+**File: `src/components/AccessFlow.tsx`**
 
-**Fix:** Remove the `touchstart` listener entirely. The `click` event already fires on both desktop and mobile. This is the simplest and most reliable fix.
+After every successful `createHomeScreenShortcut` call (link, file, contact, slideshow, text), call `verifyShortcutPinned(shortcut.id)` in the background (fire-and-forget). This runs the check without blocking the success screen.
 
-**Files:**
-- `src/components/TutorialCoachMarks.tsx` -- remove the `touchstart` addEventListener/removeEventListener lines
+There are 5 places where `createHomeScreenShortcut` is called in this file:
+1. Text shortcut creation (~line 421)
+2. Contact shortcut creation (~line 472)
+3. File shortcut creation (~line 500)
+4. Slideshow shortcut creation (~line 539)
+5. Shared content shortcut (~around the same flow)
 
-### Bug 4: Tutorial activation gated on data availability
+Each will get a `verifyShortcutPinned(shortcut.id)` call after the success path.
 
-In `NotificationsPage.tsx` (line 1085) and `BookmarkLibrary.tsx` (line 1287), the tutorial only renders when `actions.length > 0` / `links.length > 0`. This means a new user with no data "burns" their tutorial visit count without ever seeing the tips.
+**File: `src/components/MyShortcutsContent.tsx`**
 
-**Fix:** In `useTutorial.ts`, add a `gate` mechanism: accept an optional `ready` parameter. Only increment visit count and start timers when `ready` is true. If not ready, do nothing (don't burn the visit). Then pass `ready` from the consuming components:
-- `NotificationsPage`: `useTutorial('reminders', { ready: actions.length > 0 })`
-- `BookmarkLibrary`: `useTutorial('library', { ready: links.length > 0 })`
-- `AccessFlow` and `ProfilePage`: no change needed (always ready)
+Same pattern for re-add/reconnect flows (~lines 592, 617) -- call `verifyShortcutPinned` after `createHomeScreenShortcut`.
 
-**Files:**
-- `src/hooks/useTutorial.ts` -- add optional `ready` param (default `true`), gate the visit tracking and timer logic on it
-- `src/components/NotificationsPage.tsx` -- pass ready option
-- `src/components/BookmarkLibrary.tsx` -- pass ready option
+**File: `src/pages/Index.tsx`**
 
-### Summary of all file changes
+Same pattern for the edit re-pin flow (~line 185).
 
-| File | Changes |
-|------|---------|
-| `src/hooks/useTutorial.ts` | Add `ready` option to gate tutorial activation |
-| `src/components/TutorialCoachMarks.tsx` | Remove `touchstart` listener |
-| `src/components/AppMenu.tsx` | Add `id="tutorial-settings-button"` to trigger button |
-| `src/i18n/locales/en.json` | Add `tapToDismiss` key, update profile step 2 description |
-| `src/components/NotificationsPage.tsx` | Pass `{ ready: actions.length > 0 }` to `useTutorial` |
-| `src/components/BookmarkLibrary.tsx` | Pass `{ ready: links.length > 0 }` to `useTutorial` |
+### Verification Logic (pseudocode)
+
+```text
+verifyShortcutPinned(id):
+  if not native platform: return
+  wait 3 seconds
+  result = getPinnedShortcutIds()
+  if result.error: return (don't delete on API failure)
+  if id NOT in result.ids:
+    remove shortcut from localStorage
+    broadcast 'shortcuts-changed'
+    show info toast: "Shortcut was not added to home screen"
+    cleanupRegistry([...other confirmed ids])
+```
+
+### Why 3 seconds?
+
+- Android pin dialog is modal; user either confirms or dismisses quickly
+- 3 seconds gives the launcher enough time to register the pin if confirmed
+- Short enough that the user might still be on the success screen, so the toast is visible
+- Does not block the UI (runs in background)
+
+### What about the Sync button?
+
+The existing `syncWithHomeScreen` already handles long-term cleanup (after the 30s registry window). This fix addresses the immediate gap where the shortcut appears orphaned right after creation. No changes needed to the sync button logic itself -- the verification handles the critical window.
+
+### Files to modify
+
+| File | Change |
+|------|--------|
+| `src/hooks/useShortcuts.ts` | Add `verifyShortcutPinned` method |
+| `src/components/AccessFlow.tsx` | Call verify after each `createHomeScreenShortcut` |
+| `src/components/MyShortcutsContent.tsx` | Call verify after re-add/reconnect pin flows |
+| `src/pages/Index.tsx` | Call verify after edit re-pin flow |
 
