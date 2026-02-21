@@ -125,7 +125,7 @@
   },
   "access": {
     "title": "Access",
-    "createShortcut": "Set Up One Tap Access",
+    "createShortcut": "Create One Tap Access",
     "photo": "Photo",
     "video": "Video",
     "audio": "Audio",
