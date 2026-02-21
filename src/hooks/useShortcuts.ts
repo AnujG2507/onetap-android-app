@@ -481,8 +481,8 @@ export function useShortcuts() {
       });
     });
 
-  // Grace period for BroadcastReceiver to write confirmation (500ms for slow OEM devices)
-  await new Promise(resolve => setTimeout(resolve, 500));
+  // Grace period for BroadcastReceiver to write confirmation (1500ms for slow OEM devices)
+  await new Promise(resolve => setTimeout(resolve, 1500));
 
   try {
     // Check positive confirmation from Android PendingIntent callback
