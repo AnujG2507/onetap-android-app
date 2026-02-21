@@ -1,195 +1,174 @@
 
 
-## Local Storage Sanity Evaluation
+## Comprehensive UI/UX Gap Analysis
 
-### Complete Local Storage Key Inventory
-
-The app uses **30+ distinct localStorage keys** across multiple managers. Here is the full map followed by identified gaps.
-
-### Identified Gaps and Vulnerabilities
+### Critical Finding: Inconsistent Safe Area Variable Usage (Overlap Risk)
 
 ---
 
-#### GAP 1: `bulkDelete` in scheduledActionsManager Does Not Record Deletions for Cloud Sync
+### GAP 1: Floating Buttons Use `env(safe-area-inset-bottom)` Instead of `--android-safe-bottom`
 
-**Severity: High (data resurrection on sync)**
+**Severity: High (nav bar overlap on Android)**
 
-`deleteScheduledAction()` correctly calls `recordDeletion('scheduled_action', id)` before removing the action. However, `bulkDelete()` (lines 209-222) skips this entirely -- it filters out the actions and saves, but never records them in the deletion tracker.
+**Affected files:**
+- `NotificationsPage.tsx` line 1045: `bottom-[calc(3.5rem+env(safe-area-inset-bottom))]`
+- `BookmarkLibrary.tsx` line 1301: `bottom-[calc(3.5rem+env(safe-area-inset-bottom))]`
+- `ScheduledTimingPicker.tsx` line 819: `pb-[calc(1.25rem+env(safe-area-inset-bottom)+4rem)]`
 
-**Impact**: After a bulk delete + sync, the cloud still has those actions. On the next download, they get re-added to localStorage. The user deletes actions that keep coming back.
+The rest of the app consistently uses `var(--android-safe-bottom, 0px)` (injected from `MainActivity.java` with real inset values). These three locations use the CSS `env()` function instead, which returns `0px` on Capacitor 8 because the WebView extends edge-to-edge. This means:
+- The floating "Schedule New" button in Reminders sits directly on the BottomNav, without clearing the system navigation bar
+- The floating "Add Bookmark" button in Library has the same overlap
+- The ScheduledTimingPicker footer doesn't clear the system nav bar
 
-**Fix**: Add `ids.forEach(id => recordDeletion('scheduled_action', id))` inside the `if (deletedCount > 0)` block before saving.
+Meanwhile, the bulk action bar in NotificationsPage (line 980) and the MyShortcutsButton in AccessFlow (line 617) correctly use `var(--android-safe-bottom, 0px)`. This creates visible inconsistency between similar floating elements.
 
----
-
-#### GAP 2: `bulkDelete` Does Not Cancel Native Alarms
-
-**Severity: High (phantom notifications)**
-
-`deleteScheduledAction()` in `useScheduledActions.ts` correctly calls `ShortcutPlugin.cancelScheduledAction({ id })` before deleting. But `bulkDelete` in `scheduledActionsManager.ts` is a storage-only function -- it does not cancel any native alarms. If bulk delete is called without cancelling alarms first, the deleted actions' alarms continue running and fire notifications for actions that no longer exist.
-
-**Fix**: The caller of `bulkDelete` must cancel native alarms for each ID. Audit all call sites to ensure this happens. Alternatively, add a `bulkDeleteScheduledActions` function in `useScheduledActions.ts` that handles both.
+**Fix:** Replace all `env(safe-area-inset-bottom)` with `var(--android-safe-bottom, 0px)` in these three locations.
 
 ---
 
-#### GAP 3: Selection State (`scheduled_actions_selection`) Persists Across Sessions Unnecessarily
+### GAP 2: Bookmark Floating Action Bar Uses `start-1/2` RTL Hack Instead of Logical Centering
 
-**Severity: Low-Medium (confusing UX)**
+**Severity: Low-Medium (visual misalignment in RTL)**
 
-The multi-select state for scheduled actions is stored in localStorage and survives app restarts. If a user selects several items, closes the app, and returns later, the selection is silently restored. The UI may not be in "selection mode" though, so the persisted IDs become stale orphans.
+`BookmarkLibrary.tsx` lines 1168-1169 uses:
+```
+"fixed start-1/2 -translate-x-1/2 z-50",
+"[html[dir=rtl]_&]:translate-x-1/2",
+```
 
-**Fix**: Either (a) clear selection on mount in the Notifications page, or (b) move selection state to React state only (no localStorage persistence). Selection is a transient UI concept, not application data.
+This manually reverses the translate for RTL with a complex selector. The standard `left-1/2 -translate-x-1/2` centering works identically in both LTR and RTL (since it centers horizontally regardless of direction). The `start-1/2` approach is incorrect because `inset-inline-start: 50%` shifts relative to the writing direction, requiring the RTL hack.
 
----
-
-#### GAP 4: `clipboard_shown_urls` Grows Without Bounds
-
-**Severity: Low (minor storage bloat)**
-
-`useClipboardDetection.ts` appends to `clipboard_shown_urls` every time a URL is detected. The `getShownUrls()` function filters out entries older than 5 minutes when reading, but never writes the filtered result back. Over months of use, this key accumulates thousands of expired entries.
-
-**Fix**: In `getShownUrls()`, write the filtered result back to localStorage if entries were purged, or cap the list at a reasonable size (e.g., 50 entries).
+**Fix:** Replace `start-1/2 -translate-x-1/2` with `left-1/2 -translate-x-1/2` and remove the RTL override line.
 
 ---
 
-#### GAP 5: `processed_oauth_urls` Never Cleaned Up
+### GAP 3: `body::before` Status Bar Tint Doesn't Use CSS Variables
 
-**Severity: Low (minor storage bloat)**
+**Severity: Low (visual inconsistency if theme changes)**
 
-`oauthCompletion.ts` maintains a list of processed OAuth URL identifiers (capped at 20). These are never cleaned up even after sign-out. While the cap prevents unbounded growth, stale OAuth identifiers from previous sessions could theoretically block a valid re-authentication if the same OAuth code is somehow reused.
+In `index.css` lines 104-112, the status bar tint strip uses hardcoded HSL values:
+```css
+body::before { background: hsl(0 0% 94%); }
+.dark body::before { background: hsl(0 0% 7%); }
+```
 
-**Impact**: Minimal due to the 20-entry cap, but semantically incorrect after sign-out.
+These approximate `--muted` (94%) and `--background` (7%) but aren't tied to the design tokens. If the theme is ever updated, the tint won't follow.
 
-**Fix**: Clear `processed_oauth_urls`, `pending_oauth_url`, and `oauth_started_at` during sign-out (in `useAuth.signOut`). Currently only `clearPendingOAuth()` is called, which clears the pending URL but not the processed list.
-
----
-
-#### GAP 6: Sign-Out Does Not Clear Sync-Related State
-
-**Severity: Medium (stale sync state for next user)**
-
-When a user signs out (`useAuth.signOut`), the code clears:
-- `sb-*` auth storage key
-- Pending OAuth state
-
-But it does NOT clear:
-- `onetap_sync_status` (last sync time, counts -- belongs to the previous user)
-- `pending_cloud_deletions` (deletion records for the previous user's entities)
-
-If a different user signs in on the same device, the sync status shows the previous user's last sync time, and pending deletions from user A could be uploaded under user B's account, deleting user B's cloud data.
-
-**Fix**: In `signOut`, also call `clearSyncStatus()` and `clearPendingDeletions()`.
+**Fix:** Use `background: hsl(var(--background))` for both. Since the status bar tint should match the app background, this ensures it always follows the theme.
 
 ---
 
-#### GAP 7: `onetap_favicon_cache` Has No Expiry
+### GAP 4: Bottom Sheet Uses `safe-bottom-with-nav` but Sheets Float Above BottomNav
 
-**Severity: Low (stale favicons, storage bloat)**
+**Severity: Medium (excess bottom padding in sheets)**
 
-The favicon/metadata cache (`useUrlMetadata.ts`) caps at 500 entries but has no TTL. A favicon URL that changed months ago will continue showing the cached version indefinitely. The cache is loaded into memory at module init and persisted on every update.
+`sheet.tsx` line 38 applies `safe-bottom-with-nav` to bottom sheets. This class adds `padding-bottom: calc(var(--android-safe-bottom) + 3.5rem)` -- i.e., system nav bar + the app BottomNav height.
 
-**Fix**: Add a `cachedAt` timestamp to each entry and filter out entries older than 7-14 days during `loadFaviconCache()`.
+However, bottom sheets in this app are overlays that visually cover the BottomNav. They should use `safe-bottom-sheet` (which only clears the system nav bar) instead. The `DrawerContent` already correctly uses `safe-bottom-sheet` (line 34 of drawer.tsx).
 
----
+Individual sheet consumers may override this with their own padding, but the default class creates an unnecessarily large bottom gap in all bottom sheets.
 
-#### GAP 8: `onetap_review_jitter_days` Persists After Review Completion
-
-**Severity: Trivial (dead key)**
-
-Once `onetap_review_prompt_done` is set to `'true'`, the `onetap_review_jitter_days` key becomes permanently unused but remains in localStorage.
-
-**Fix**: Clean it up in `markDone()` or ignore (truly negligible).
+**Fix:** Change `safe-bottom-with-nav` to `safe-bottom-sheet` in the bottom variant of `sheetVariants` in `sheet.tsx`.
 
 ---
 
-#### GAP 9: Downloaded Trash Items from Cloud Marked as Non-Restorable but Lack Visual Indication
+### GAP 5: Settings Page Has No Landscape Optimization
 
-**Severity: Low-Medium (confusing UX)**
+**Severity: Low-Medium (wasted space in landscape)**
 
-When trash items are downloaded from cloud, they are marked `restorable: false` (line 684 in cloudSync.ts shows no such field set -- let me verify). Actually, reviewing the download code: cloud-downloaded trash items do NOT set `restorable: false`. This means a user could restore a cloud-downloaded trash item, which would create a bookmark with an ID that may conflict with the cloud state during next sync.
+`SettingsPage.tsx` renders settings cards in a single column with no landscape adaptations. Unlike other pages (Bookmarks, Reminders, ContentSourcePicker) that use `landscape:grid-cols-2`, the Settings page stacks everything vertically. In landscape mode on a phone, this means excessive scrolling with large areas of unused horizontal space.
 
-Actually, the download code at line 677 creates a `TrashedLink` without `restorable` field, so it defaults to `true`. If the user restores it, it moves to `saved_links`. On next upload, it gets upserted to `cloud_bookmarks` with the same entity_id -- which is actually correct behavior (additive). This is safe.
-
-**Revised assessment**: No gap here. Withdrawing.
+**Fix:** Add `landscape:grid landscape:grid-cols-2 landscape:gap-4` to the card container and group related cards appropriately.
 
 ---
 
-#### GAP 10: `useShortcuts` Stale Closure in `deleteShortcut` and `updateShortcut`
+### GAP 6: Profile Page ScrollArea Missing `safe-x` for Landscape
 
-**Severity: Medium (race condition on rapid operations)**
+**Severity: Low (content behind system bars in landscape)**
 
-Both `deleteShortcut` and `updateShortcut` use `shortcuts` from the closure (the React state array). If a user rapidly creates and then deletes shortcuts, the `shortcuts` array in the closure may be stale. For example:
-1. User creates shortcut A (shortcuts = [A])
-2. User creates shortcut B (shortcuts = [A, B])
-3. User immediately deletes A -- but `deleteShortcut` still has `shortcuts = [A]` from its closure
-4. Result: `shortcuts.filter(s => s.id !== 'A')` produces `[]`, losing shortcut B
+All main tab pages apply horizontal safe areas (`safe-x`) for landscape mode where the system nav bar appears on the side. The Profile page (both signed-in and signed-out states) does not apply `safe-x` to its root or header, meaning content could be behind the system bar in landscape on devices with side navigation bars.
 
-`createShortcut` has the same pattern: it spreads `[...shortcuts, newShortcut]` using the closure value.
+The AccessFlow source step has `safe-x` on line 575. BookmarkLibrary gets it through the parent container. But ProfilePage's `ScrollArea` and `<header>` elements don't have `safe-x`.
 
-**Fix**: Use functional state updates (`setShortcuts(prev => prev.filter(...))`) or read from localStorage directly in mutation functions.
+**Fix:** Add `safe-x` to the Profile page's outer container.
 
 ---
 
-#### GAP 11: `updateSavedLinkTitle` Does Not Fire Change Event
+### GAP 7: Notifications "Schedule New" and Bookmark "Add" Buttons Use Different z-index
 
-**Severity: Low (stale UI in other components)**
+**Severity: Low (z-order inconsistency)**
 
-`savedLinksManager.ts` has `updateSavedLinkTitle()` (line 253) which saves to localStorage but does NOT call `notifyChange()`. Any component listening for `bookmarks-changed` events will not re-render when a title is updated through this function.
+- NotificationsPage floating add button: `z-40` (line 1044)
+- NotificationsPage bulk action bar: `z-10` (line 980)
+- BookmarkLibrary floating add button: `z-40` (line 1300)
+- BookmarkLibrary floating action bar: `z-50` (line 1168)
+- AccessFlow MyShortcutsButton: `z-10` (line 617)
 
-**Fix**: Add `notifyChange()` after the `localStorage.setItem` call.
+The z-index values are inconsistent across equivalent floating elements. The bookmark action bar is at z-50 (same as overlays), which could cause it to appear above sheet overlays.
 
----
-
-#### GAP 12: `toggleShortlist` and `clearAllShortlist` Do Not Fire Change Events
-
-**Severity: Low (stale state in other hook instances)**
-
-`toggleShortlist()` (line 273) and `clearAllShortlist()` (line 287) modify `saved_links` in localStorage but do not call `notifyChange()`. Cloud sync listeners and other components watching for `bookmarks-changed` won't pick up shortlist changes.
-
-**Fix**: Add `notifyChange()` calls to both functions.
+**Fix:** Normalize all floating action bars/buttons to a consistent z-index (e.g., z-30) that's below overlays (z-50) but above content (z-10).
 
 ---
 
-### Summary of Fixes by Priority
+### GAP 8: Toast Viewport Uses `safe-bottom-with-nav` Causing Toasts to Float High
+
+**Severity: Low (toasts positioned too high)**
+
+In `toast.tsx` line 17, the toast viewport uses `safe-bottom-with-nav` which adds both system nav bar height and BottomNav height to the bottom padding. Toasts already appear above other content (z-100), so they don't need to clear the BottomNav -- they should float just above it.
+
+This means toasts appear unnecessarily high on screen, especially in landscape where the BottomNav is shorter (2.5rem) but `safe-bottom-with-nav` still adds 3.5rem (portrait value -- though the CSS media query adjusts this to 2.5rem in landscape, this is still redundant padding).
+
+**Fix:** The current behavior is functional but visually inconsistent. Consider using `safe-bottom` instead if toasts should sit closer to the BottomNav.
+
+---
+
+### GAP 9: ReviewPromptBanner Renders Inside Tab Content Without Safe Area Consideration
+
+**Severity: Low-Medium (positioning inconsistency)**
+
+`ReviewPromptBanner` (line 23) uses `mx-3 mb-2` for positioning. It renders inside the `Index.tsx` component between the tab content and the BottomNav (lines 646-652). However, it doesn't account for the BottomNav height or safe area -- it relies on the content above it having already accounted for that space. If the tab content fills the viewport, the banner could overlap with or be hidden behind the BottomNav.
+
+**Fix:** Wrap with a fixed positioning similar to other floating elements, or ensure it renders within the scroll area with proper bottom clearance.
+
+---
+
+### GAP 10: Landscape Mode BottomNav Does Not Apply `safe-x` 
+
+**Severity: Low (nav buttons behind side system bar)**
+
+The `BottomNav` component applies `safe-x` via `safe-bottom safe-x` classes (line 24 of BottomNav.tsx). In landscape mode on devices with a side navigation bar, `safe-x` adds horizontal padding. However, the BottomNav items use `flex-1` which distributes them evenly across the full width. With `safe-x` as padding on the container, the outermost buttons (Access and Profile) may still be partially obscured since the padding is on the nav element, not the individual buttons.
+
+This is actually handled correctly -- `safe-x` on the `<nav>` adds padding inside, pushing all buttons inward. This gap is not confirmed. **Withdrawing.**
+
+---
+
+### Summary of Fixes
 
 | Priority | Gap | Issue | Effort |
 |----------|-----|-------|--------|
-| High | 1 | `bulkDelete` missing `recordDeletion` -- data resurrection | Trivial |
-| High | 2 | `bulkDelete` doesn't cancel native alarms -- phantom notifications | Small |
-| Medium | 6 | Sign-out doesn't clear sync status / pending deletions | Trivial |
-| Medium | 10 | Stale closure race in useShortcuts mutations | Medium |
-| Low-Med | 3 | Selection state persists across sessions | Trivial |
-| Low | 4 | `clipboard_shown_urls` unbounded growth | Trivial |
-| Low | 5 | `processed_oauth_urls` not cleared on sign-out | Trivial |
-| Low | 7 | Favicon cache has no TTL | Small |
-| Low | 11 | `updateSavedLinkTitle` missing change event | Trivial |
-| Low | 12 | `toggleShortlist` / `clearAllShortlist` missing change events | Trivial |
-| Trivial | 8 | Dead `review_jitter_days` key after completion | Trivial |
+| High | 1 | `env(safe-area-inset-bottom)` instead of `--android-safe-bottom` in 3 files | Trivial |
+| Medium | 4 | Bottom Sheet uses `safe-bottom-with-nav` instead of `safe-bottom-sheet` | Trivial |
+| Low-Med | 2 | Bookmark FAB RTL centering hack | Trivial |
+| Low-Med | 5 | Settings page has no landscape layout | Small |
+| Low-Med | 6 | Profile page missing `safe-x` for landscape | Trivial |
+| Low | 3 | Status bar tint uses hardcoded HSL | Trivial |
+| Low | 7 | Inconsistent z-index on floating elements | Trivial |
+| Low | 8 | Toast viewport excess bottom padding | Trivial |
+| Low-Med | 9 | ReviewPromptBanner positioning | Small |
 
-### Recommended Immediate Fixes
+### Recommended Implementation Order
 
-**Critical path (Gaps 1, 2, 6, 10):**
+**Immediate (overlap prevention):**
+1. Replace `env(safe-area-inset-bottom)` with `var(--android-safe-bottom, 0px)` in `NotificationsPage.tsx`, `BookmarkLibrary.tsx`, and `ScheduledTimingPicker.tsx`
+2. Change `safe-bottom-with-nav` to `safe-bottom-sheet` in `sheet.tsx` bottom variant
 
-1. **scheduledActionsManager.ts `bulkDelete`**: Add `recordDeletion` calls for each deleted ID
-2. **Create `bulkDeleteScheduledActions` in useScheduledActions**: Cancel native alarms before calling `bulkDelete`
-3. **useAuth.ts `signOut`**: Add `clearSyncStatus()` and `clearPendingDeletions()` calls
-4. **useShortcuts.ts**: Refactor `deleteShortcut`, `createShortcut`, and `updateShortcut` to use functional state updates or read from localStorage directly
+**Quick consistency fixes:**
+3. Fix bookmark FAB centering (replace `start-1/2` with `left-1/2`, remove RTL hack)
+4. Add `safe-x` to ProfilePage containers
+5. Use `hsl(var(--background))` in `body::before` instead of hardcoded values
+6. Normalize z-index values across floating elements
 
-**Quick wins (Gaps 3, 4, 5, 11, 12):**
-
-5. **scheduledActionsManager.ts**: Clear selection on component mount or remove localStorage persistence for selection
-6. **useClipboardDetection.ts**: Write filtered entries back in `getShownUrls()`
-7. **useAuth.ts signOut**: Also clear `processed_oauth_urls`
-8. **savedLinksManager.ts**: Add `notifyChange()` to `updateSavedLinkTitle`, `toggleShortlist`, `clearAllShortlist`
-
-### Files to Modify
-
-| File | Changes |
-|------|---------|
-| `src/lib/scheduledActionsManager.ts` | Add `recordDeletion` in `bulkDelete`; optionally clear selection key on module load |
-| `src/hooks/useScheduledActions.ts` | Add `bulkDeleteScheduledActions` that cancels alarms + calls bulkDelete |
-| `src/hooks/useAuth.ts` | Clear sync status + pending deletions + processed OAuth on sign-out |
-| `src/hooks/useShortcuts.ts` | Refactor mutations to avoid stale closure |
-| `src/hooks/useClipboardDetection.ts` | Write-back filtered entries in `getShownUrls` |
-| `src/lib/savedLinksManager.ts` | Add `notifyChange()` to title update, shortlist toggle, and clear shortlist |
+**Enhancement:**
+7. Add landscape grid layout to SettingsPage
+8. Review ReviewPromptBanner positioning relative to BottomNav
 
