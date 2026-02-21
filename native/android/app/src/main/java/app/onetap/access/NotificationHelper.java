@@ -10,7 +10,9 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
+import android.os.SystemClock;
 import android.util.Log;
+import android.widget.RemoteViews;
 
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
@@ -25,6 +27,10 @@ public class NotificationHelper {
     public static final String CHANNEL_ID = "scheduled_actions";
     public static final String CHANNEL_NAME = "Scheduled Actions";
     public static final String CHANNEL_DESCRIPTION = "One-tap notifications for scheduled actions";
+
+    public static final String CHANNEL_SNOOZE_ID = "snooze_timer";
+    public static final String CHANNEL_SNOOZE_NAME = "Snooze Timer";
+    public static final String CHANNEL_SNOOZE_DESCRIPTION = "Silent countdown timer for snoozed notifications";
     
     /**
      * Create the notification channel (required for Android 8.0+)
@@ -32,6 +38,7 @@ public class NotificationHelper {
      */
     public static void createNotificationChannel(Context context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            // Main channel - high priority with sound and vibration
             NotificationChannel channel = new NotificationChannel(
                 CHANNEL_ID,
                 CHANNEL_NAME,
@@ -44,11 +51,23 @@ public class NotificationHelper {
             channel.setLightColor(Color.BLUE);
             channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
             channel.setShowBadge(true);
-            
+
+            // Snooze timer channel - low priority, silent
+            NotificationChannel snoozeChannel = new NotificationChannel(
+                CHANNEL_SNOOZE_ID,
+                CHANNEL_SNOOZE_NAME,
+                NotificationManager.IMPORTANCE_LOW
+            );
+            snoozeChannel.setDescription(CHANNEL_SNOOZE_DESCRIPTION);
+            snoozeChannel.enableVibration(false);
+            snoozeChannel.setSound(null, null);
+            snoozeChannel.setShowBadge(false);
+
             NotificationManager manager = context.getSystemService(NotificationManager.class);
             if (manager != null) {
                 manager.createNotificationChannel(channel);
-                Log.d(TAG, "Notification channel created with high importance");
+                manager.createNotificationChannel(snoozeChannel);
+                Log.d(TAG, "Notification channels created");
             }
         }
     }
@@ -90,24 +109,54 @@ public class NotificationHelper {
             ? description 
             : getContentText(destinationType);
         
+        // Build snooze intent
+        Intent snoozeIntent = new Intent(context, SnoozeReceiver.class);
+        snoozeIntent.setAction(SnoozeReceiver.ACTION_SNOOZE_START);
+        snoozeIntent.putExtra(SnoozeReceiver.EXTRA_ACTION_ID, actionId);
+        snoozeIntent.putExtra(SnoozeReceiver.EXTRA_ACTION_NAME, actionName);
+        snoozeIntent.putExtra(SnoozeReceiver.EXTRA_DESCRIPTION, description);
+        snoozeIntent.putExtra(SnoozeReceiver.EXTRA_DESTINATION_TYPE, destinationType);
+        snoozeIntent.putExtra(SnoozeReceiver.EXTRA_DESTINATION_DATA, destinationData);
+
+        PendingIntent snoozePendingIntent = PendingIntent.getBroadcast(
+            context,
+            actionId.hashCode() + 3, // Unique request code
+            snoozeIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+
+        // Build dismiss tracking intent
+        Intent dismissIntent = new Intent(context, NotificationDismissReceiver.class);
+        dismissIntent.setAction(NotificationDismissReceiver.ACTION_DISMISSED);
+        dismissIntent.putExtra(NotificationDismissReceiver.EXTRA_ACTION_ID, actionId);
+
+        PendingIntent dismissPendingIntent = PendingIntent.getBroadcast(
+            context,
+            actionId.hashCode() + 4, // Unique request code
+            dismissIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+
         // Build the notification - prominent, one-tap access
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(iconRes)
             .setContentTitle(actionName)
             .setContentText(contentText)
-            .setPriority(NotificationCompat.PRIORITY_MAX) // Maximum priority for heads-up
+            .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
-            .setDefaults(NotificationCompat.DEFAULT_ALL) // Sound + vibration + lights
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC) // Show on lock screen
-            .setFullScreenIntent(pendingIntent, true); // Heads-up notification
+            .setDeleteIntent(dismissPendingIntent)
+            .setDefaults(NotificationCompat.DEFAULT_ALL)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setFullScreenIntent(pendingIntent, true)
+            .addAction(android.R.drawable.ic_popup_reminder, "Snooze 10 min", snoozePendingIntent);
         
         // Show the notification
         try {
             NotificationManagerCompat manager = NotificationManagerCompat.from(context);
             manager.notify(actionId.hashCode(), builder.build());
-            Log.d(TAG, "Notification shown for action: " + actionName + " (click tracking enabled)");
+            Log.d(TAG, "Notification shown for action: " + actionName + " (snooze + dismiss tracking)");
         } catch (SecurityException e) {
             Log.e(TAG, "No notification permission", e);
         }
@@ -207,5 +256,76 @@ public class NotificationHelper {
     public static void cancelNotification(Context context, String actionId) {
         NotificationManagerCompat manager = NotificationManagerCompat.from(context);
         manager.cancel(actionId.hashCode());
+    }
+
+    /**
+     * Show a snooze countdown notification with a live Chronometer timer.
+     * The timer counts down from 10:00 to 0:00 in real-time.
+     * Tapping the notification executes the action immediately.
+     */
+    public static void showSnoozeCountdownNotification(
+        Context context,
+        String actionId,
+        String actionName,
+        String description,
+        String destinationType,
+        String destinationData
+    ) {
+        createNotificationChannel(context);
+
+        // Build tap intent (execute action immediately)
+        Intent clickIntent = new Intent(context, NotificationClickActivity.class);
+        clickIntent.putExtra(NotificationClickActivity.EXTRA_ACTION_ID, actionId);
+        clickIntent.putExtra(NotificationClickActivity.EXTRA_DESTINATION_TYPE, destinationType);
+        clickIntent.putExtra(NotificationClickActivity.EXTRA_DESTINATION_DATA, destinationData);
+        clickIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+
+        int snoozeNotifId = actionId.hashCode() + 1;
+
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+            context,
+            snoozeNotifId,
+            clickIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+
+        // Build RemoteViews with live Chronometer
+        RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.notification_snooze_countdown);
+        
+        // Set Chronometer for 10-minute countdown
+        long countdownBase = SystemClock.elapsedRealtime() + (10 * 60 * 1000);
+        views.setChronometer(R.id.snooze_timer, countdownBase, null, true);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            views.setChronometerCountDown(R.id.snooze_timer, true);
+        }
+
+        // Set action name and subtitle
+        views.setTextViewText(R.id.snooze_action_name, actionName != null ? actionName : "Snoozed");
+        views.setTextViewText(R.id.snooze_subtitle, "Tap to execute now");
+
+        int iconRes = getNotificationIcon(destinationType);
+
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_SNOOZE_ID)
+            .setSmallIcon(iconRes)
+            .setContentTitle("Snoozed: " + (actionName != null ? actionName : "Reminder"))
+            .setCustomContentView(views)
+            .setStyle(new NotificationCompat.DecoratedCustomViewStyle())
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setCategory(NotificationCompat.CATEGORY_STATUS)
+            .setOngoing(false) // User can dismiss the countdown
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setUsesChronometer(true)
+            .setWhen(System.currentTimeMillis() + (10 * 60 * 1000))
+            .setChronometerCountDown(true);
+
+        try {
+            NotificationManagerCompat manager = NotificationManagerCompat.from(context);
+            manager.notify(snoozeNotifId, builder.build());
+            Log.d(TAG, "Snooze countdown notification shown for: " + actionName);
+        } catch (SecurityException e) {
+            Log.e(TAG, "No notification permission for snooze countdown", e);
+        }
     }
 }

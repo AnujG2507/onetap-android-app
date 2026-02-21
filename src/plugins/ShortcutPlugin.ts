@@ -394,8 +394,17 @@ export interface ShortcutPluginInterface {
   checkBatteryOptimization(): Promise<{ exempted: boolean }>;
 
   // Request the system to whitelist the app from battery optimization.
-  // Shows a one-tap system dialog to the user.
   requestBatteryOptimization(): Promise<{ success: boolean; error?: string }>;
+
+  // ========== Dismissed Notification Tracking ==========
+
+  // Get dismissed (swiped-away) notification IDs from native and clear the list.
+  // These are notifications the user dismissed without clicking or snoozing.
+  getDismissedNotificationIds(): Promise<{ 
+    success: boolean; 
+    ids: string[]; 
+    error?: string 
+  }>;
 }
 
 // This plugin bridges to native Android code

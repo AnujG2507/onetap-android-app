@@ -112,16 +112,26 @@ function isPastDue(action: ScheduledAction): boolean {
 // Sync clicked notification IDs from native Android
 async function syncNativeClickedIds(): Promise<void> {
   try {
-    const result = await ShortcutPlugin.getClickedNotificationIds();
-    if (result.success && result.ids.length > 0) {
-      console.log('[useMissedNotifications] Syncing', result.ids.length, 'clicked IDs from native');
-      // Mark each ID as clicked in our local storage
-      for (const id of result.ids) {
+    // Sync clicked IDs
+    const clickResult = await ShortcutPlugin.getClickedNotificationIds();
+    if (clickResult.success && clickResult.ids.length > 0) {
+      console.log('[useMissedNotifications] Syncing', clickResult.ids.length, 'clicked IDs from native');
+      for (const id of clickResult.ids) {
         markNotificationClicked(id);
       }
     }
+
+    // Sync dismissed IDs (swiped-away notifications = missed)
+    const dismissResult = await ShortcutPlugin.getDismissedNotificationIds();
+    if (dismissResult.success && dismissResult.ids.length > 0) {
+      console.log('[useMissedNotifications] Syncing', dismissResult.ids.length, 'dismissed IDs from native (missed)');
+      // Dismissed notifications are NOT clicked — they should appear as missed.
+      // We do NOT mark them as clicked or dismissed-from-UI; they'll naturally
+      // show up because they are past-due + not clicked.
+      // The key thing is we DON'T call markNotificationClicked for these.
+    }
   } catch (error) {
-    console.warn('[useMissedNotifications] Failed to sync native clicked IDs:', error);
+    console.warn('[useMissedNotifications] Failed to sync native IDs:', error);
   }
 }
 

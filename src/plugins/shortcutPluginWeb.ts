@@ -605,4 +605,11 @@ export class ShortcutPluginWeb implements ShortcutPluginInterface {
     console.log('[ShortcutPluginWeb] requestBatteryOptimization called (web fallback)');
     return { success: false, error: 'Not supported on web' };
   }
+
+  // ========== Dismissed Notification Tracking (Web Fallback) ==========
+
+  async getDismissedNotificationIds(): Promise<{ success: boolean; ids: string[]; error?: string }> {
+    console.log('[ShortcutPluginWeb] getDismissedNotificationIds called (web fallback)');
+    return { success: true, ids: [] };
+  }
 }
