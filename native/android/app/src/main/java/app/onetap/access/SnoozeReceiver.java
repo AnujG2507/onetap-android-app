@@ -27,7 +27,6 @@ public class SnoozeReceiver extends BroadcastReceiver {
 
     private static final String PREFS_NAME = "snooze_prefs";
     private static final String KEY_ACTIVE_IDS = "snooze_active_ids";
-    private static final long SNOOZE_DURATION_MS = 10 * 60 * 1000; // 10 minutes
 
     // Intent extra keys (same as NotificationClickActivity)
     public static final String EXTRA_ACTION_ID = "action_id";
@@ -82,7 +81,10 @@ public class SnoozeReceiver extends BroadcastReceiver {
             context, actionId, actionName, description, destinationType, destinationData
         );
 
-        // 4. Schedule alarm to re-fire in 10 minutes
+        // 4. Schedule alarm to re-fire after configured duration
+        int snoozeMins = getSnoozeDurationMinutes(context);
+        long snoozeDurationMs = snoozeMins * 60 * 1000L;
+
         Intent fireIntent = new Intent(context, SnoozeReceiver.class);
         fireIntent.setAction(ACTION_SNOOZE_FIRE);
         fireIntent.putExtra(EXTRA_ACTION_ID, actionId);
@@ -99,7 +101,7 @@ public class SnoozeReceiver extends BroadcastReceiver {
 
         AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
         if (alarmManager != null) {
-            long triggerAt = SystemClock.elapsedRealtime() + SNOOZE_DURATION_MS;
+            long triggerAt = SystemClock.elapsedRealtime() + snoozeDurationMs;
             try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     if (alarmManager.canScheduleExactAlarms()) {
@@ -116,7 +118,7 @@ public class SnoozeReceiver extends BroadcastReceiver {
                         AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerAt, pendingFire
                     );
                 }
-                Log.d(TAG, "Snooze alarm scheduled for 10 minutes");
+                Log.d(TAG, "Snooze alarm scheduled for " + snoozeMins + " minutes");
             } catch (Exception e) {
                 Log.e(TAG, "Failed to schedule snooze alarm", e);
             }
@@ -167,5 +169,23 @@ public class SnoozeReceiver extends BroadcastReceiver {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         Set<String> ids = prefs.getStringSet(KEY_ACTIVE_IDS, new HashSet<>());
         return ids.contains(actionId);
+    }
+
+    /**
+     * Read snooze duration from app settings SharedPreferences.
+     * Falls back to 10 minutes if the setting is missing or unreadable.
+     */
+    public static int getSnoozeDurationMinutes(Context context) {
+        try {
+            SharedPreferences prefs = context.getSharedPreferences("app_settings", Context.MODE_PRIVATE);
+            String json = prefs.getString("settings", null);
+            if (json != null) {
+                org.json.JSONObject obj = new org.json.JSONObject(json);
+                return obj.optInt("snoozeDurationMinutes", 10);
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to read snooze duration setting", e);
+        }
+        return 10;
     }
 }

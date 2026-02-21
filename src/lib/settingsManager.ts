@@ -1,6 +1,7 @@
 const SETTINGS_KEY = 'onetap_settings';
 
 export type TrashRetentionDays = 7 | 14 | 30 | 60;
+export type SnoozeDurationMinutes = 5 | 10 | 15 | 30;
 
 export interface AppSettings {
   clipboardDetectionEnabled: boolean;
@@ -9,6 +10,7 @@ export interface AppSettings {
   // Notification settings
   scheduledRemindersEnabled: boolean;
   reminderSoundEnabled: boolean;
+  snoozeDurationMinutes: SnoozeDurationMinutes;
   // Video player settings
   pipModeEnabled: boolean;
 }
@@ -19,6 +21,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   autoSyncEnabled: true,
   scheduledRemindersEnabled: true,
   reminderSoundEnabled: true,
+  snoozeDurationMinutes: 10,
   pipModeEnabled: true,
 };
 

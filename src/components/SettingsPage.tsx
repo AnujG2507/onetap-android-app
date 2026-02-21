@@ -55,7 +55,7 @@ import { resetAllTutorials } from '@/hooks/useTutorial';
 // Do not delete. Will be re-enabled in a future update.
 // import { supportedLanguages } from '@/i18n';
 // import i18n from '@/i18n';
-import type { TrashRetentionDays } from '@/lib/settingsManager';
+import type { TrashRetentionDays, SnoozeDurationMinutes } from '@/lib/settingsManager';
 
 type ThemeOption = 'light' | 'dark' | 'system';
 
@@ -317,6 +317,27 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
                   checked={settings.reminderSoundEnabled !== false}
                   onCheckedChange={(checked) => updateSettings({ reminderSoundEnabled: checked })}
                 />
+              </div>
+              <Separator />
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <p className="text-sm font-medium">{t('settingsPage.snoozeDuration')}</p>
+                  <p className="text-xs text-muted-foreground">{t('settingsPage.snoozeDurationDesc')}</p>
+                </div>
+                <Select
+                  value={String(settings.snoozeDurationMinutes ?? 10)}
+                  onValueChange={(value) => updateSettings({ snoozeDurationMinutes: Number(value) as SnoozeDurationMinutes })}
+                >
+                  <SelectTrigger className="w-[120px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="5">5 min</SelectItem>
+                    <SelectItem value="10">10 min</SelectItem>
+                    <SelectItem value="15">15 min</SelectItem>
+                    <SelectItem value="30">30 min</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </CardContent>
           </Card>

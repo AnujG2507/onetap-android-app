@@ -150,7 +150,7 @@ public class NotificationHelper {
             .setDefaults(NotificationCompat.DEFAULT_ALL)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setFullScreenIntent(pendingIntent, true)
-            .addAction(android.R.drawable.ic_popup_reminder, "Snooze 10 min", snoozePendingIntent);
+            .addAction(android.R.drawable.ic_popup_reminder, "Snooze " + SnoozeReceiver.getSnoozeDurationMinutes(context) + " min", snoozePendingIntent);
         
         // Show the notification
         try {
@@ -292,8 +292,9 @@ public class NotificationHelper {
         // Build RemoteViews with live Chronometer
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.notification_snooze_countdown);
         
-        // Set Chronometer for 10-minute countdown
-        long countdownBase = SystemClock.elapsedRealtime() + (10 * 60 * 1000);
+        // Set Chronometer for configured snooze duration countdown
+        int snoozeMins = SnoozeReceiver.getSnoozeDurationMinutes(context);
+        long countdownBase = SystemClock.elapsedRealtime() + (snoozeMins * 60 * 1000L);
         views.setChronometer(R.id.snooze_timer, countdownBase, null, true);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             views.setChronometerCountDown(R.id.snooze_timer, true);
@@ -317,7 +318,7 @@ public class NotificationHelper {
             .setContentIntent(pendingIntent)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setUsesChronometer(true)
-            .setWhen(System.currentTimeMillis() + (10 * 60 * 1000))
+            .setWhen(System.currentTimeMillis() + (snoozeMins * 60 * 1000L))
             .setChronometerCountDown(true);
 
         try {
