@@ -91,6 +91,7 @@ import app.onetap.access.MessageProxyActivity;
 import app.onetap.access.NativeUsageTracker;
 import app.onetap.access.NativeVideoPlayerActivity;
 import app.onetap.access.NotificationClickActivity;
+import app.onetap.access.NotificationDismissReceiver;
 import app.onetap.access.NotificationHelper;
 import app.onetap.access.PDFProxyActivity;
 import app.onetap.access.ScheduledActionReceiver;
