@@ -20,7 +20,7 @@ export function ReviewPromptBanner({ visible, onDismiss, onRate }: ReviewPromptB
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 80, opacity: 0 }}
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-          className="mx-3 mb-2 rounded-xl border bg-card text-card-foreground shadow-sm p-3"
+          className="fixed bottom-[calc(3.5rem+var(--android-safe-bottom,0px)+0.5rem)] inset-x-0 mx-3 rounded-xl border bg-card text-card-foreground shadow-lg p-3 z-30"
         >
           <div className="flex items-start gap-3">
             <div className="flex-1 min-w-0">

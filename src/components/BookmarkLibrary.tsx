@@ -1165,8 +1165,7 @@ export function BookmarkLibrary({
       <div
         style={{ bottom: 'calc(var(--android-safe-bottom, 0px) + 3.5rem + 0.75rem)' }}
         className={cn(
-          "fixed start-1/2 -translate-x-1/2 z-50",
-          "[html[dir=rtl]_&]:translate-x-1/2",
+          "fixed left-1/2 -translate-x-1/2 z-30",
           "flex items-center gap-2 px-4 py-3 rounded-2xl",
           "bg-card border border-border shadow-lg",
           "transition-all duration-300 ease-out",
@@ -1297,8 +1296,8 @@ export function BookmarkLibrary({
       {/* Bottom Full-Width Add Button - positioned above nav bar with safe area */}
       <div 
         className={cn(
-          "fixed inset-x-0 px-5 pb-3 transition-all duration-300 ease-out z-40",
-          "bottom-[calc(3.5rem+env(safe-area-inset-bottom))]",
+          "fixed inset-x-0 px-5 pb-3 transition-all duration-300 ease-out z-30",
+          "bottom-[calc(3.5rem+var(--android-safe-bottom,0px))]",
           isBottomButtonVisible && !hasShortlist && !showAddForm && links.length > 0
             ? "translate-y-0 opacity-100"
             : "translate-y-full opacity-0 pointer-events-none"

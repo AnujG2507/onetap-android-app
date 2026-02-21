@@ -236,7 +236,7 @@ export function ProfilePage({}: ProfilePageProps = {}) {
   if (!user) {
     return (
       <ScrollArea className="flex-1" viewportClassName="overflow-x-hidden">
-        <div className="flex flex-col pb-[calc(3.5rem+var(--android-safe-bottom,0px)+1rem)] min-w-0 w-full">
+        <div className="flex flex-col pb-[calc(3.5rem+var(--android-safe-bottom,0px)+1rem)] min-w-0 w-full safe-x">
         {/* Header with Menu */}
         <header className="ps-5 pe-5 pt-header-safe pb-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -313,7 +313,7 @@ export function ProfilePage({}: ProfilePageProps = {}) {
 
   return (
     <ScrollArea className="flex-1" viewportClassName="overflow-x-hidden">
-      <div className="flex flex-col pb-[calc(3.5rem+var(--android-safe-bottom,0px)+1rem)] min-w-0 w-full">
+      <div className="flex flex-col pb-[calc(3.5rem+var(--android-safe-bottom,0px)+1rem)] min-w-0 w-full safe-x">
       {/* Header with Menu */}
       <header className="ps-5 pe-5 pt-header-safe pb-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
