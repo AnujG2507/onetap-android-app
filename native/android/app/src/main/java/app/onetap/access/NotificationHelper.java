@@ -306,6 +306,22 @@ public class NotificationHelper {
 
         int iconRes = getNotificationIcon(destinationType);
 
+        // Build "Snooze again" action button
+        Intent snoozeAgainIntent = new Intent(context, SnoozeReceiver.class);
+        snoozeAgainIntent.setAction(SnoozeReceiver.ACTION_SNOOZE_START);
+        snoozeAgainIntent.putExtra(SnoozeReceiver.EXTRA_ACTION_ID, actionId);
+        snoozeAgainIntent.putExtra(SnoozeReceiver.EXTRA_ACTION_NAME, actionName);
+        snoozeAgainIntent.putExtra(SnoozeReceiver.EXTRA_DESCRIPTION, description);
+        snoozeAgainIntent.putExtra(SnoozeReceiver.EXTRA_DESTINATION_TYPE, destinationType);
+        snoozeAgainIntent.putExtra(SnoozeReceiver.EXTRA_DESTINATION_DATA, destinationData);
+
+        PendingIntent snoozeAgainPending = PendingIntent.getBroadcast(
+            context,
+            actionId.hashCode() + 5,
+            snoozeAgainIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_SNOOZE_ID)
             .setSmallIcon(iconRes)
             .setContentTitle("Snoozed: " + (actionName != null ? actionName : "Reminder"))
@@ -313,14 +329,14 @@ public class NotificationHelper {
             .setStyle(new NotificationCompat.DecoratedCustomViewStyle())
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_STATUS)
-            .setOngoing(false) // User can dismiss the countdown
+            .setOngoing(false)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setUsesChronometer(true)
             .setWhen(System.currentTimeMillis() + (snoozeMins * 60 * 1000L))
-            .setChronometerCountDown(true);
-
+            .setChronometerCountDown(true)
+            .addAction(android.R.drawable.ic_popup_reminder, "Snooze again", snoozeAgainPending);
         try {
             NotificationManagerCompat manager = NotificationManagerCompat.from(context);
             manager.notify(snoozeNotifId, builder.build());
