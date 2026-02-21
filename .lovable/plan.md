@@ -1,78 +1,99 @@
 
 
-## Add Native Battery Optimization Exemption Handling
+## Snooze with Live 10-Minute Countdown Timer in Notification
 
-### Goal
-Programmatically request Android's battery optimization exemption so the OS (and OEM skins like Samsung, Xiaomi, Huawei) are less likely to kill the app or defer its alarms/notifications.
+### Overview
+When a scheduled action notification appears, it will include a "Snooze" action button. Tapping it replaces the notification with a live countdown timer (10:00, 9:59, 9:58...) displayed directly in the notification panel. The user can tap the countdown notification at any time to execute the action immediately. When the timer reaches zero, the original high-priority notification re-fires with sound and vibration. If the original notification is swiped away (dismissed) without snoozing or tapping, it is recorded as a missed notification.
 
-### What Changes
+### How the Live Timer Works
 
-**1. AndroidManifest.xml -- Add permission**
+Android's `Chronometer` widget supports countdown mode (`setCountDown(true)`) and can be embedded in a notification via `RemoteViews`. This gives a real-time ticking timer directly in the notification panel with zero battery cost (the OS handles the rendering). When the countdown completes, a `BroadcastReceiver` re-fires the original notification.
 
-Add the `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` permission. This allows the app to show the system dialog asking the user to whitelist the app from Doze mode.
+### New Files
 
-**2. ShortcutPlugin.java -- Add two new methods**
+**1. `SnoozeReceiver.java`**
+A `BroadcastReceiver` handling two actions:
+- `app.onetap.SNOOZE_START` -- Triggered by the "Snooze" action button on the notification
+  - Cancels the original notification
+  - Marks the action ID as "snoozed" in SharedPreferences (`snooze_active_ids`)
+  - Shows a countdown notification using `Chronometer` with `setCountDown(true)` and `setBase(elapsedRealtime + 10min)` for a live ticking timer
+  - The countdown notification is tappable (routes to `NotificationClickActivity` to execute the action)
+  - Schedules a 10-minute `AlarmManager` exact alarm targeting itself with `ACTION_SNOOZE_FIRE`
+- `app.onetap.SNOOZE_FIRE` -- Triggered when the 10-minute alarm fires
+  - Cancels the countdown notification
+  - Removes action ID from "snoozed" set
+  - Calls `NotificationHelper.showActionNotification()` to re-fire the original notification with full sound/vibration
 
-- `checkBatteryOptimization()` -- Returns whether the app is already exempted from battery optimization using `PowerManager.isIgnoringBatteryOptimizations()`.
-- `requestBatteryOptimization()` -- Launches the system `ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` intent, which shows a one-tap system dialog to the user (no Play Store policy issue since the app relies on exact alarms for scheduled actions).
+**2. `NotificationDismissReceiver.java`**
+A `BroadcastReceiver` set as the `deleteIntent` on every notification:
+- When a notification is swiped away, checks if the action was snoozed or clicked
+- If neither, records the action ID in SharedPreferences (`dismissed_notification_ids`) for the JS missed-notifications layer
 
-**3. ShortcutPlugin.ts -- Add TypeScript interface**
+### Modified Files
 
-Add the two new methods to the `ShortcutPluginInterface`:
-- `checkBatteryOptimization(): Promise<{ exempted: boolean }>`
-- `requestBatteryOptimization(): Promise<{ success: boolean; error?: string }>`
+**3. `NotificationHelper.java`**
+- Add a second notification channel `CHANNEL_SNOOZE_TIMER` with `IMPORTANCE_LOW` (no sound, no vibration) for the countdown notification
+- Add a "Snooze" action button (`addAction`) to every notification, with an alarm clock icon and the text "Snooze 10 min", pointing to `SnoozeReceiver` with `ACTION_SNOOZE_START`
+- Add a `deleteIntent` on every notification pointing to `NotificationDismissReceiver` for dismiss tracking
+- Add `showSnoozeCountdownNotification()` method that builds a notification with a `RemoteViews` layout containing a `Chronometer` widget for the live timer
+- Pass all action data (actionId, actionName, description, destinationType, destinationData) through intent extras so the snooze and re-fire flow can reconstruct the original notification
 
-**4. shortcutPluginWeb.ts -- Add web stubs**
+**4. `AndroidManifest.xml`**
+- Register `SnoozeReceiver` with intent filters for `app.onetap.SNOOZE_START` and `app.onetap.SNOOZE_FIRE`
+- Register `NotificationDismissReceiver` with intent filter for `app.onetap.NOTIFICATION_DISMISSED`
 
-Return `{ exempted: false }` and `{ success: false }` respectively.
+**5. `ShortcutPlugin.java`**
+- Add `getDismissedNotificationIds()` method that reads from `dismissed_notification_ids` SharedPreferences, returns the list, and clears it (same pattern as existing `getClickedNotificationIds`)
 
-**5. BatteryOptimizationHelp.tsx -- Add auto-request**
+**6. `ShortcutPlugin.ts`**
+- Add `getDismissedNotificationIds(): Promise<{ success: boolean; ids: string[]; error?: string }>` to the interface
 
-Update the "Open App Settings" button to first call `requestBatteryOptimization()` (shows the native system dialog) instead of `openAlarmSettings()`. This is a much more direct path -- one tap to whitelist vs navigating through settings manually.
+**7. `shortcutPluginWeb.ts`**
+- Add web stub returning `{ success: true, ids: [] }`
 
-**6. ScheduledActionCreator.tsx (or wherever scheduled actions are first created) -- Proactive check**
+**8. `useMissedNotifications.ts`**
+- In `syncNativeClickedIds()`, also call `getDismissedNotificationIds()` and add those IDs to the dismissed set so they appear in the missed notifications section
 
-When a user creates their first scheduled action, call `checkBatteryOptimization()`. If not exempted, call `requestBatteryOptimization()` to show the system dialog proactively. This ensures the app gets whitelisted before the user relies on scheduled reminders.
+### New Layout File
+
+**9. `res/layout/notification_snooze_countdown.xml`**
+A simple `RemoteViews` layout containing:
+- A `Chronometer` widget (the live timer, e.g. "09:42")
+- A `TextView` for the action name (e.g. "Call Mom")
+- A `TextView` subtitle ("Tap to execute now")
 
 ### Technical Details
 
-**New manifest permission:**
-```xml
-<uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
-```
+**Notification IDs:**
+- Original notification: `actionId.hashCode()`
+- Countdown notification: `actionId.hashCode() + 1` (avoids collision)
 
-**Native Java (ShortcutPlugin.java):**
+**Chronometer usage:**
 ```java
-@PluginMethod
-public void checkBatteryOptimization(PluginCall call) {
-    PowerManager pm = (PowerManager) getContext().getSystemService(Context.POWER_SERVICE);
-    boolean exempted = pm.isIgnoringBatteryOptimizations(getContext().getPackageName());
-    JSObject result = new JSObject();
-    result.put("exempted", exempted);
-    call.resolve(result);
-}
-
-@PluginMethod
-public void requestBatteryOptimization(PluginCall call) {
-    Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
-    intent.setData(Uri.parse("package:" + getContext().getPackageName()));
-    getActivity().startActivity(intent);
-    JSObject result = new JSObject();
-    result.put("success", true);
-    call.resolve(result);
+RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.notification_snooze_countdown);
+views.setChronometer(R.id.snooze_timer, SystemClock.elapsedRealtime() + 600000, null, true);
+// API 24+ supports countdown mode
+if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+    views.setChronometerCountDown(R.id.snooze_timer, true);
 }
 ```
 
-### What This Does NOT Do
+**Data flow through intents:**
+All action metadata (ID, name, description, type, data) is passed through intent extras at every step so the snooze receiver can reconstruct the original notification when the timer expires.
 
-- This does **not** add a foreground service. Foreground services are heavy, drain battery, show a persistent notification, and are unnecessary here -- the app already uses `AlarmManager` exact alarms which work independently.
-- OEM-specific deep sleep (Xiaomi MIUI, Samsung auto-optimization) cannot be bypassed programmatically. The existing `BatteryOptimizationHelp` component with OEM-specific instructions remains the guide for those cases. However, the standard Android battery optimization exemption covers the majority of scenarios.
+**No config changes:** The snooze is purely transient. It does not modify trigger times, recurrence, or any stored scheduled action data.
 
-### Files Modified
-- `native/android/app/src/main/AndroidManifest.xml` -- 1 line added
-- `native/android/app/src/main/java/app/onetap/access/plugins/ShortcutPlugin.java` -- ~25 lines added
-- `src/plugins/ShortcutPlugin.ts` -- 2 methods added to interface
-- `src/plugins/shortcutPluginWeb.ts` -- 2 stub methods added
-- `src/components/BatteryOptimizationHelp.tsx` -- Updated button action
-- `src/components/ScheduledActionCreator.tsx` -- Proactive exemption check on first schedule
+### Summary
+
+| File | Change |
+|------|--------|
+| `SnoozeReceiver.java` | New -- handles snooze start (live timer) and 10-min re-fire |
+| `NotificationDismissReceiver.java` | New -- tracks swipe-dismiss for missed notifications |
+| `notification_snooze_countdown.xml` | New -- RemoteViews layout with Chronometer widget |
+| `NotificationHelper.java` | Add snooze button, dismiss intent, snooze channel, countdown method |
+| `AndroidManifest.xml` | Register 2 new receivers |
+| `ShortcutPlugin.java` | Add `getDismissedNotificationIds()` |
+| `ShortcutPlugin.ts` | Add interface method |
+| `shortcutPluginWeb.ts` | Add web stub |
+| `useMissedNotifications.ts` | Sync dismissed IDs from native |
 
