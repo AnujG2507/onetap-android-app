@@ -104,7 +104,7 @@ const Index = () => {
   
   // Handle pending shortcut edit from home screen long-press
   const { pendingEditId, clearPendingEdit } = usePendingShortcutEdit();
-  const { shortcuts, updateShortcut, getShortcut, deleteShortcut } = useShortcuts();
+  const { shortcuts, updateShortcut, getShortcut, deleteShortcut, verifyShortcutPinned } = useShortcuts();
   const { shouldShow: showReviewPrompt, dismiss: dismissReview, openReview } = useReviewPrompt(shortcuts.length);
   const [editingShortcut, setEditingShortcut] = useState<ShortcutData | null>(null);
   
@@ -188,8 +188,9 @@ const Index = () => {
     });
     if (success) {
       toast({ title: t('shortcutAction.addedToHomeScreen', 'Added to home screen') });
+      verifyShortcutPinned(shortcut.id);
     }
-  }, [toast, t]);
+  }, [toast, t, verifyShortcutPinned]);
 
   // Handler for deleting shortcut from action sheet
   const handleDeleteShortcut = useCallback((id: string) => {
