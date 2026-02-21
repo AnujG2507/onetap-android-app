@@ -1,23 +1,39 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // --- CORS ---
-const ALLOWED_ORIGINS = [
-  'capacitor://localhost',
-  'http://localhost',
-  'https://onetapapp.in',
-];
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+};
 
-function getCorsHeaders(req: Request): Record<string, string> {
-  const origin = req.headers.get('Origin') || '';
-  const isAllowed = ALLOWED_ORIGINS.some(allowed =>
-    origin === allowed || origin.startsWith(allowed + ':')
-  );
-  return {
-    'Access-Control-Allow-Origin': isAllowed ? origin : ALLOWED_ORIGINS[0],
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-  };
+// --- Rate Limiting (in-memory, per-IP) ---
+const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
+const RATE_LIMIT_MAX_REQUESTS = 30;  // max requests per window per IP
+
+const ipRequestCounts = new Map<string, { count: number; resetAt: number }>();
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const entry = ipRequestCounts.get(ip);
+
+  if (!entry || now >= entry.resetAt) {
+    ipRequestCounts.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    return false;
+  }
+
+  entry.count++;
+  return entry.count > RATE_LIMIT_MAX_REQUESTS;
 }
+
+// Periodic cleanup of stale entries (every 5 minutes)
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, entry] of ipRequestCounts) {
+    if (now >= entry.resetAt) {
+      ipRequestCounts.delete(ip);
+    }
+  }
+}, 5 * 60_000);
 
 // --- SSRF Protection ---
 const BLOCKED_HOSTNAMES = [
@@ -26,20 +42,16 @@ const BLOCKED_HOSTNAMES = [
 ];
 
 function isPrivateIP(hostname: string): boolean {
-  // IPv6 loopback
   if (hostname === '::1' || hostname === '[::1]') return true;
-
-  // IPv4 checks
   const parts = hostname.split('.').map(Number);
   if (parts.length !== 4 || parts.some(p => isNaN(p))) return false;
-
   const [a, b] = parts;
-  if (a === 127) return true;                         // 127.0.0.0/8
-  if (a === 10) return true;                          // 10.0.0.0/8
-  if (a === 172 && b >= 16 && b <= 31) return true;   // 172.16.0.0/12
-  if (a === 192 && b === 168) return true;             // 192.168.0.0/16
-  if (a === 169 && b === 254) return true;             // 169.254.0.0/16 (link-local / cloud metadata)
-  if (a === 0) return true;                            // 0.0.0.0/8
+  if (a === 127) return true;
+  if (a === 10) return true;
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  if (a === 192 && b === 168) return true;
+  if (a === 169 && b === 254) return true;
+  if (a === 0) return true;
   return false;
 }
 
@@ -56,7 +68,7 @@ function validateUrl(url: string): string | null {
     if (isPrivateIP(hostname) || hostname === 'localhost') {
       return 'Access to private/internal addresses is not allowed';
     }
-    return null; // valid
+    return null;
   } catch {
     return 'Invalid URL';
   }
@@ -71,8 +83,7 @@ interface MetadataResponse {
 
 function extractDomain(url: string): string {
   try {
-    const urlObj = new URL(url);
-    return urlObj.hostname.replace(/^www\./, '');
+    return new URL(url).hostname.replace(/^www\./, '');
   } catch {
     return url;
   }
@@ -81,13 +92,10 @@ function extractDomain(url: string): string {
 function extractTitle(html: string): string | null {
   const ogTitleMatch = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i);
   if (ogTitleMatch?.[1]) return ogTitleMatch[1].trim();
-
   const twitterTitleMatch = html.match(/<meta[^>]*name=["']twitter:title["'][^>]*content=["']([^"']+)["']/i);
   if (twitterTitleMatch?.[1]) return twitterTitleMatch[1].trim();
-
   const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
   if (titleMatch?.[1]) return titleMatch[1].trim();
-
   return null;
 }
 
@@ -122,33 +130,20 @@ function extractFavicon(html: string, baseUrl: string): string | null {
 
 // --- Handler ---
 serve(async (req) => {
-  const cors = getCorsHeaders(req);
-
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: cors });
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // --- JWT Authentication ---
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return new Response(
-        JSON.stringify({ error: 'Missing Authorization header' }),
-        { status: 401, headers: { ...cors, 'Content-Type': 'application/json' } }
-      );
-    }
+    // --- Rate Limiting ---
+    const clientIP = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+      || req.headers.get('cf-connecting-ip')
+      || 'unknown';
 
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: authHeader } } }
-    );
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError || !user) {
+    if (isRateLimited(clientIP)) {
       return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...cors, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Too many requests. Please try again later.' }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -158,7 +153,7 @@ serve(async (req) => {
     if (!url || typeof url !== 'string') {
       return new Response(
         JSON.stringify({ error: 'URL is required' }),
-        { status: 400, headers: { ...cors, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -166,12 +161,11 @@ serve(async (req) => {
     if (validationError) {
       return new Response(
         JSON.stringify({ error: validationError }),
-        { status: 400, headers: { ...cors, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     const domain = extractDomain(url);
-
     let title: string | null = null;
     let favicon: string | null = null;
 
@@ -208,13 +202,13 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify(result),
-      { headers: { ...cors, 'Content-Type': 'application/json' } }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
     console.error('[fetch-url-metadata] Error:', error);
     return new Response(
       JSON.stringify({ error: 'Failed to fetch metadata' }),
-      { status: 500, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
