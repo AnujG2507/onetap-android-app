@@ -1,32 +1,57 @@
 
 
-## Add "Snooze Again" Button to Countdown Notification
+## Fix Tutorial Bugs
 
-### Overview
-Add a snooze action button directly on the countdown notification so users can extend (restart) the timer without waiting for it to expire. Tapping "Snooze again" cancels the current alarm, and restarts the countdown from scratch.
+### Bug 1: Missing `tutorial-settings-button` ID
 
-### Changes
+The profile tutorial step 2 targets `tutorial-settings-button`, but no element has this ID. The Settings button lives inside the AppMenu sheet (which is closed), so pointing at it is impossible. 
 
-**1. `NotificationHelper.java` -- Add snooze action to countdown notification**
-- In `showSnoozeCountdownNotification()`, build a `PendingIntent` targeting `SnoozeReceiver` with `ACTION_SNOOZE_START` (same action as the original snooze), passing all action metadata
-- Add it as an action button on the countdown notification: `"Snooze again"` with the same alarm icon
-- This reuses the existing `handleSnoozeStart` flow which already cancels the old notification and schedules a new alarm
+**Fix:** Change the target in `useTutorial.ts` from `tutorial-settings-button` to the AppMenu trigger button, and add `id="tutorial-settings-button"` to the `AppMenu` trigger `<Button>` in `AppMenu.tsx`. This way the coach mark points at the menu button, saying "open the menu to customize settings." Update the description key text accordingly.
 
-**2. `SnoozeReceiver.java` -- Cancel previous alarm before rescheduling**
-- In `handleSnoozeStart()`, before scheduling a new `AlarmManager` alarm, explicitly cancel any existing pending alarm for this action ID (same request code `actionId.hashCode() + 2`)
-- This prevents duplicate alarms stacking up when snooze is extended repeatedly
-- Also cancel the existing countdown notification (ID `actionId.hashCode() + 1`) before showing the new one -- this is already handled since `showSnoozeCountdownNotification` uses `manager.notify()` with the same ID, which replaces the old one
+**Files:**
+- `src/components/AppMenu.tsx` -- add `id="tutorial-settings-button"` to the trigger Button
+- `src/i18n/locales/en.json` -- update `tutorial.profile.step2Desc` to mention opening the menu
 
-### Technical Details
+### Bug 2: Missing `tutorial.tapToDismiss` translation
 
-- The snooze-again button reuses `ACTION_SNOOZE_START`, so `handleSnoozeStart` runs again: cancels original notif (no-op if already gone), replaces countdown notif (same ID), cancels old alarm, schedules new alarm
-- Request code for the "Snooze again" PendingIntent on the countdown notification: `actionId.hashCode() + 5` (unique from other intents)
-- No new files, no manifest changes -- just two small edits
+The `CoachMark.tsx` renders `t('tutorial.tapToDismiss')` but this key is missing from `en.json`.
 
-### Files Modified
+**Fix:** Add `"tapToDismiss": "Tap anywhere to dismiss"` to the `tutorial` section in `en.json`.
 
-| File | Change |
-|------|--------|
-| `NotificationHelper.java` | Add "Snooze again" action button to countdown notification |
-| `SnoozeReceiver.java` | Cancel previous alarm before scheduling new one |
+**Files:**
+- `src/i18n/locales/en.json`
+
+### Bug 3: Double-event firing on mobile
+
+`TutorialCoachMarks.tsx` listens to both `click` and `touchstart`, causing `onDismiss` to fire twice on touch devices.
+
+**Fix:** Remove the `touchstart` listener entirely. The `click` event already fires on both desktop and mobile. This is the simplest and most reliable fix.
+
+**Files:**
+- `src/components/TutorialCoachMarks.tsx` -- remove the `touchstart` addEventListener/removeEventListener lines
+
+### Bug 4: Tutorial activation gated on data availability
+
+In `NotificationsPage.tsx` (line 1085) and `BookmarkLibrary.tsx` (line 1287), the tutorial only renders when `actions.length > 0` / `links.length > 0`. This means a new user with no data "burns" their tutorial visit count without ever seeing the tips.
+
+**Fix:** In `useTutorial.ts`, add a `gate` mechanism: accept an optional `ready` parameter. Only increment visit count and start timers when `ready` is true. If not ready, do nothing (don't burn the visit). Then pass `ready` from the consuming components:
+- `NotificationsPage`: `useTutorial('reminders', { ready: actions.length > 0 })`
+- `BookmarkLibrary`: `useTutorial('library', { ready: links.length > 0 })`
+- `AccessFlow` and `ProfilePage`: no change needed (always ready)
+
+**Files:**
+- `src/hooks/useTutorial.ts` -- add optional `ready` param (default `true`), gate the visit tracking and timer logic on it
+- `src/components/NotificationsPage.tsx` -- pass ready option
+- `src/components/BookmarkLibrary.tsx` -- pass ready option
+
+### Summary of all file changes
+
+| File | Changes |
+|------|---------|
+| `src/hooks/useTutorial.ts` | Add `ready` option to gate tutorial activation |
+| `src/components/TutorialCoachMarks.tsx` | Remove `touchstart` listener |
+| `src/components/AppMenu.tsx` | Add `id="tutorial-settings-button"` to trigger button |
+| `src/i18n/locales/en.json` | Add `tapToDismiss` key, update profile step 2 description |
+| `src/components/NotificationsPage.tsx` | Pass `{ ready: actions.length > 0 }` to `useTutorial` |
+| `src/components/BookmarkLibrary.tsx` | Pass `{ ready: links.length > 0 }` to `useTutorial` |
 
