@@ -118,8 +118,9 @@ flowchart TD
 
     subgraph UI["UI Components"]
         BOTTOM["BottomNav\n.safe-bottom .safe-x"]
-        SHEETS["SheetContent side=bottom\n.safe-bottom-with-nav"]
+        SHEETS["SheetContent side=bottom\n.safe-bottom-sheet"]
         DRAWERS["DrawerContent (Vaul)\n.safe-bottom-sheet"]
+        TOASTS["Toast Viewport\n.safe-bottom"]
         SIDESHEETS["SheetContent side=left/right\n.safe-left / .safe-right"]
         OVERLAYS["SharedUrlActionSheet\nSharedFileActionSheet\n.safe-bottom-with-nav .safe-x"]
         HEADERS["AccessFlow header\n.pt-header-safe .safe-x"]
@@ -136,6 +137,7 @@ flowchart TD
     UTILS --> BOTTOM
     UTILS --> SHEETS
     UTILS --> DRAWERS
+    UTILS --> TOASTS
     UTILS --> SIDESHEETS
     UTILS --> OVERLAYS
     UTILS --> HEADERS
@@ -169,10 +171,13 @@ flowchart TD
 
 ```
 Is the element a bottom Sheet (Radix, side="bottom")?
-  → safe-bottom-with-nav
+  → safe-bottom-sheet  (clears system nav only; sheets overlay the BottomNav)
 
 Is the element a Vaul Drawer?
   → safe-bottom-sheet  (on DrawerContent base class)
+
+Is the element a Toast viewport?
+  → safe-bottom  (toasts float above content, don't need BottomNav clearance)
 
 Is the element a fixed full-width bar (BottomNav, AccessFlow root)?
   → safe-x
@@ -188,6 +193,19 @@ Is the element a fixed header?
 ```
 
 > **RTL note:** `safe-left` / `safe-right` / `safe-x` use logical properties (`padding-inline-start/end`), so they are automatically mirrored in RTL layouts — no extra RTL overrides needed.
+
+### Z-Index Conventions
+
+Floating elements use normalized z-index values to avoid overlap with overlays:
+
+| Z-Index | Usage | Examples |
+|---------|-------|----------|
+| `z-10` | Inline floating elements | MyShortcutsButton |
+| `z-30` | Floating action buttons & bars | Add Bookmark FAB, Schedule New FAB, bulk action bars, ReviewPromptBanner |
+| `z-50` | Overlay containers | Sheet overlays, action sheets |
+| `z-100` | Toast notifications | Sonner toast viewport |
+
+> **Rule:** Never use `z-50` for floating buttons or action bars — this collides with sheet overlays. Use `z-30` for all FABs and floating bars.
 
 ---
 
