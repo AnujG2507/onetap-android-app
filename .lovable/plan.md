@@ -1,57 +1,32 @@
 
 
-## Add Configurable Snooze Duration Setting
+## Add "Snooze Again" Button to Countdown Notification
 
 ### Overview
-Replace the hardcoded 10-minute snooze duration with a user-configurable setting (5, 10, 15, or 30 minutes). The setting lives in the app settings UI and is synced to the native layer via the existing `syncSettings` mechanism so both the notification button label and the actual timer duration reflect the user's choice.
+Add a snooze action button directly on the countdown notification so users can extend (restart) the timer without waiting for it to expire. Tapping "Snooze again" cancels the current alarm, and restarts the countdown from scratch.
 
 ### Changes
 
-**1. `src/lib/settingsManager.ts` -- Add new setting**
-- Add `snoozeDurationMinutes` to `AppSettings` interface with type `5 | 10 | 15 | 30`
-- Default value: `10` (preserves current behavior)
+**1. `NotificationHelper.java` -- Add snooze action to countdown notification**
+- In `showSnoozeCountdownNotification()`, build a `PendingIntent` targeting `SnoozeReceiver` with `ACTION_SNOOZE_START` (same action as the original snooze), passing all action metadata
+- Add it as an action button on the countdown notification: `"Snooze again"` with the same alarm icon
+- This reuses the existing `handleSnoozeStart` flow which already cancels the old notification and schedules a new alarm
 
-**2. `src/components/SettingsPage.tsx` -- Add snooze duration picker**
-- Add a snooze duration selector inside the existing Notifications card (after the "Reminder Sound" toggle)
-- Uses a `Select` dropdown with options: 5 min, 10 min, 15 min, 30 min
-- Follows the same pattern as the trash retention days selector
-
-**3. `native/android/app/src/main/java/app/onetap/access/SnoozeReceiver.java` -- Read duration from settings**
-- Replace the hardcoded `SNOOZE_DURATION_MS = 10 * 60 * 1000` with a helper that reads `snoozeDurationMinutes` from `SharedPreferences` (`app_settings` -> `settings` JSON)
-- Falls back to 10 minutes if the setting is missing
-- Uses the configured duration for both the `AlarmManager` alarm and the log messages
-
-**4. `native/android/app/src/main/java/app/onetap/access/NotificationHelper.java` -- Dynamic label and timer**
-- Read snooze duration from `SharedPreferences` to:
-  - Set the snooze action button text dynamically (e.g., "Snooze 5 min" instead of hardcoded "Snooze 10 min")
-  - Set the Chronometer countdown base to the configured duration instead of hardcoded 10 minutes
-  - Set the `setWhen()` value to match the configured duration
+**2. `SnoozeReceiver.java` -- Cancel previous alarm before rescheduling**
+- In `handleSnoozeStart()`, before scheduling a new `AlarmManager` alarm, explicitly cancel any existing pending alarm for this action ID (same request code `actionId.hashCode() + 2`)
+- This prevents duplicate alarms stacking up when snooze is extended repeatedly
+- Also cancel the existing countdown notification (ID `actionId.hashCode() + 1`) before showing the new one -- this is already handled since `showSnoozeCountdownNotification` uses `manager.notify()` with the same ID, which replaces the old one
 
 ### Technical Details
 
-**Settings flow (already exists, no new wiring needed):**
-User changes setting in UI -> `settingsManager` saves to `localStorage` -> `useSettings` calls `syncSettingsToNative` -> `ShortcutPlugin.syncSettings` stores JSON in `SharedPreferences` (`app_settings`) -> Native Java reads it
-
-**Reading the setting in Java:**
-```java
-private static int getSnoozeDurationMinutes(Context context) {
-    try {
-        SharedPreferences prefs = context.getSharedPreferences("app_settings", Context.MODE_PRIVATE);
-        String json = prefs.getString("settings", null);
-        if (json != null) {
-            org.json.JSONObject obj = new org.json.JSONObject(json);
-            return obj.optInt("snoozeDurationMinutes", 10);
-        }
-    } catch (Exception e) { /* ignore */ }
-    return 10;
-}
-```
+- The snooze-again button reuses `ACTION_SNOOZE_START`, so `handleSnoozeStart` runs again: cancels original notif (no-op if already gone), replaces countdown notif (same ID), cancels old alarm, schedules new alarm
+- Request code for the "Snooze again" PendingIntent on the countdown notification: `actionId.hashCode() + 5` (unique from other intents)
+- No new files, no manifest changes -- just two small edits
 
 ### Files Modified
 
 | File | Change |
 |------|--------|
-| `src/lib/settingsManager.ts` | Add `snoozeDurationMinutes` field and type |
-| `src/components/SettingsPage.tsx` | Add snooze duration Select in Notifications card |
-| `SnoozeReceiver.java` | Read duration from SharedPreferences instead of hardcoded constant |
-| `NotificationHelper.java` | Dynamic snooze button label and countdown duration |
+| `NotificationHelper.java` | Add "Snooze again" action button to countdown notification |
+| `SnoozeReceiver.java` | Cancel previous alarm before scheduling new one |
+
