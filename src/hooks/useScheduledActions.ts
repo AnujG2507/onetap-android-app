@@ -14,6 +14,7 @@ import {
   toggleScheduledAction,
   getActiveCount,
   onScheduledActionsChange,
+  bulkDelete,
 } from '@/lib/scheduledActionsManager';
 import ShortcutPlugin from '@/plugins/ShortcutPlugin';
 
@@ -27,6 +28,7 @@ interface UseScheduledActionsReturn {
   updateAction: (id: string, updates: Partial<ScheduledAction>) => Promise<boolean>;
   deleteScheduledAction: (id: string) => Promise<boolean>;
   toggleAction: (id: string) => Promise<boolean>;
+  bulkDeleteScheduledActions: (ids: string[]) => Promise<number>;
   
   // Permission checks
   checkPermissions: () => Promise<{ notifications: boolean; alarms: boolean }>;
@@ -278,6 +280,20 @@ export function useScheduledActions(): UseScheduledActionsReturn {
     }
   }, []);
 
+  // Bulk delete with native alarm cancellation
+  const bulkDeleteScheduledActions = useCallback(async (ids: string[]): Promise<number> => {
+    // Cancel native alarms first (best-effort)
+    for (const id of ids) {
+      try {
+        await ShortcutPlugin.cancelScheduledAction({ id });
+      } catch (e) {
+        console.warn('[ScheduledActions] Failed to cancel alarm for', id, e);
+      }
+    }
+    // Then bulk delete from storage (which now also records deletions)
+    return bulkDelete(ids);
+  }, []);
+
   return {
     actions,
     activeCount,
@@ -286,6 +302,7 @@ export function useScheduledActions(): UseScheduledActionsReturn {
     updateAction,
     deleteScheduledAction,
     toggleAction,
+    bulkDeleteScheduledActions,
     checkPermissions,
     requestPermissions,
     openAlarmSettings,

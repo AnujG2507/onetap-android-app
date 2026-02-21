@@ -16,9 +16,13 @@ function getShownUrls(): ShownUrlEntry[] {
     const stored = localStorage.getItem(SHOWN_URLS_KEY);
     if (!stored) return [];
     const entries: ShownUrlEntry[] = JSON.parse(stored);
-    // Filter out expired entries
     const now = Date.now();
-    return entries.filter(e => now - e.timestamp < DETECTION_COOLDOWN_MS);
+    const filtered = entries.filter(e => now - e.timestamp < DETECTION_COOLDOWN_MS);
+    // Write back filtered entries to prevent unbounded growth
+    if (filtered.length !== entries.length) {
+      localStorage.setItem(SHOWN_URLS_KEY, JSON.stringify(filtered));
+    }
+    return filtered;
   } catch {
     return [];
   }

@@ -8,6 +8,8 @@ import {
   markOAuthStarted,
   clearPendingOAuth,
 } from '@/lib/oauthCompletion';
+import { clearSyncStatus } from '@/lib/syncStatusManager';
+import { clearPendingDeletions } from '@/lib/deletionTracker';
 
 const AUTH_STORAGE_KEY = 'sb-xfnugumyjhnctmqgiyqm-auth-token';
 
@@ -131,6 +133,10 @@ export function useAuth() {
       const { error } = await supabase.auth.signOut();
       localStorage.removeItem(AUTH_STORAGE_KEY);
       clearPendingOAuth();
+      // Clear sync-related state to prevent cross-user contamination
+      clearSyncStatus();
+      clearPendingDeletions();
+      localStorage.removeItem('processed_oauth_urls');
       if (error) {
         console.error('[Auth] Sign-out error:', error);
         throw error;
@@ -139,6 +145,9 @@ export function useAuth() {
       // Even if signOut fails, clear local state
       localStorage.removeItem(AUTH_STORAGE_KEY);
       clearPendingOAuth();
+      clearSyncStatus();
+      clearPendingDeletions();
+      localStorage.removeItem('processed_oauth_urls');
       throw error;
     }
   }, []);

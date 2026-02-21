@@ -213,6 +213,12 @@ export function bulkDelete(ids: string[]): number {
   const deletedCount = actions.length - filtered.length;
   
   if (deletedCount > 0) {
+    // Record deletions for cloud sync before saving
+    ids.forEach(id => {
+      if (toDelete.has(id) && actions.some(a => a.id === id)) {
+        recordDeletion('scheduled_action', id);
+      }
+    });
     saveScheduledActions(filtered);
     // Clear selection for deleted items
     ids.forEach(id => removeFromSelection(id));

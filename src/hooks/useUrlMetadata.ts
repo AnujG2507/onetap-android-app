@@ -6,6 +6,7 @@ export interface UrlMetadata {
   title: string | null;
   favicon: string | null;
   domain: string;
+  cachedAt?: number;
 }
 
 interface UseUrlMetadataResult {
@@ -17,6 +18,7 @@ interface UseUrlMetadataResult {
 
 const FAVICON_CACHE_KEY = 'onetap_favicon_cache';
 const MAX_CACHE_SIZE = 500;
+const CACHE_TTL_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
 
 // Load cache from localStorage on module init
 function loadFaviconCache(): Map<string, UrlMetadata> {
@@ -24,7 +26,15 @@ function loadFaviconCache(): Map<string, UrlMetadata> {
     const stored = localStorage.getItem(FAVICON_CACHE_KEY);
     if (stored) {
       const parsed = JSON.parse(stored);
-      return new Map(Object.entries(parsed));
+      const now = Date.now();
+      const map = new Map<string, UrlMetadata>();
+      // Filter out expired entries during load
+      for (const [key, value] of Object.entries(parsed)) {
+        const entry = value as UrlMetadata;
+        if (entry.cachedAt && now - entry.cachedAt > CACHE_TTL_MS) continue;
+        map.set(key, entry);
+      }
+      return map;
     }
   } catch (e) {
     console.warn('[FaviconCache] Failed to load:', e);
@@ -131,6 +141,7 @@ export function useUrlMetadata(url: string | null): UseUrlMetadataResult {
           title: data?.title || null,
           favicon: data?.favicon || `https://www.google.com/s2/favicons?domain=${domain}&sz=64`,
           domain: data?.domain || domain,
+          cachedAt: Date.now(),
         };
 
         // Cache the result in memory and localStorage

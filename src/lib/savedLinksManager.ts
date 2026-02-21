@@ -256,6 +256,7 @@ export function updateSavedLinkTitle(id: string, title: string): void {
   if (link) {
     link.title = title;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(links));
+    notifyChange();
   }
 }
 
@@ -276,6 +277,7 @@ export function toggleShortlist(id: string): void {
   if (link) {
     link.isShortlisted = !link.isShortlisted;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(links));
+    notifyChange();
   }
 }
 
@@ -290,6 +292,7 @@ export function clearAllShortlist(): void {
     link.isShortlisted = false;
   });
   localStorage.setItem(STORAGE_KEY, JSON.stringify(links));
+  notifyChange();
 }
 
 // Reorder links
