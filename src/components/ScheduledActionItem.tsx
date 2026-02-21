@@ -6,6 +6,7 @@ import {
   FileText, 
   Link, 
   Phone, 
+  AlignLeft,
   Trash2,
   Clock,
   Calendar,
@@ -108,6 +109,8 @@ export function ScheduledActionItem({
           );
         }
         return <Link className="h-5 w-5" />;
+      case 'text':
+        return <AlignLeft className="h-5 w-5" />;
       case 'contact':
         // Contact avatar handles its own background
         return (
@@ -290,8 +293,8 @@ export function ScheduledActionItem({
         <div
           className={cn(
             "bg-card border border-border p-4 transition-all cursor-pointer rounded-2xl",
-            !action.enabled && !isSelected && "opacity-50",
-            isExpired && !isSelected && "border-destructive/30",
+            !action.enabled && !isSelected && "bg-muted/50",
+            isExpired && !isSelected && "border-destructive/40 bg-destructive/5",
             isSelected && "ring-2 ring-primary bg-primary/5 border-primary"
           )}
           style={{
@@ -329,7 +332,7 @@ export function ScheduledActionItem({
               isPlatformUrl && "p-0",
               // Only apply background if NOT a platform URL and NOT a contact with avatar
               !isPlatformUrl && !isContactWithAvatar && (action.enabled && !isExpired ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"),
-              (isContactWithAvatar || isPlatformUrl) && !action.enabled && "opacity-60"
+              (isContactWithAvatar || isPlatformUrl) && !action.enabled && "opacity-70"
             )}>
               {getDestinationIcon()}
             </div>
@@ -338,7 +341,7 @@ export function ScheduledActionItem({
             <div className="flex-1 min-w-0 overflow-hidden max-w-full">
               <TruncatedText
                 text={action.name}
-                className="font-medium text-sm"
+                className={cn("font-medium text-sm", !action.enabled && "text-muted-foreground")}
               />
               {action.description && (
                 <div 

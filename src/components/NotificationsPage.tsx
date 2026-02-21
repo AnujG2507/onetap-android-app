@@ -640,12 +640,12 @@ export function NotificationsPage({
         {/* Permission Status Indicator */}
         {permissionStatus.checked && !allPermissionsGranted && (
           <div className="flex gap-3 mt-2 text-xs">
-            <div className={`flex items-center gap-1 ${permissionStatus.notifications ? 'text-green-600' : 'text-destructive'}`}>
+            <div className={`flex items-center gap-1 ${permissionStatus.notifications ? 'text-primary' : 'text-destructive'}`}>
               <Bell className="h-3 w-3" />
               <span>{t('notificationsPage.notificationsLabel')}</span>
               {permissionStatus.notifications ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
             </div>
-            <div className={`flex items-center gap-1 ${permissionStatus.alarms ? 'text-green-600' : 'text-destructive'}`}>
+            <div className={`flex items-center gap-1 ${permissionStatus.alarms ? 'text-primary' : 'text-destructive'}`}>
               <Clock className="h-3 w-3" />
               <span>{t('notificationsPage.alarmsLabel')}</span>
               {permissionStatus.alarms ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
