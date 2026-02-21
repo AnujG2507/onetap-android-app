@@ -283,6 +283,25 @@
             </intent-filter>
         </receiver>
 
+        <!-- Snooze Receiver: handles snooze start and 10-min re-fire -->
+        <receiver
+            android:name=".SnoozeReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="app.onetap.SNOOZE_START" />
+                <action android:name="app.onetap.SNOOZE_FIRE" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Notification Dismiss Receiver: tracks swipe-dismiss for missed notifications -->
+        <receiver
+            android:name=".NotificationDismissReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="app.onetap.NOTIFICATION_DISMISSED" />
+            </intent-filter>
+        </receiver>
+
         <!-- Scheduled Actions: Boot Receiver (restore alarms after reboot) -->
         <receiver
             android:name=".BootReceiver"

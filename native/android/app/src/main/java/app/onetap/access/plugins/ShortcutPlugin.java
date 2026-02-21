@@ -5271,6 +5271,22 @@ public class ShortcutPlugin extends Plugin {
         }
     }
 
+    // ========== Dismissed Notification IDs ==========
+
+    @PluginMethod
+    public void getDismissedNotificationIds(PluginCall call) {
+        Context context = getContext();
+        String[] ids = NotificationDismissReceiver.getAndClearDismissedIds(context);
+        JSObject result = new JSObject();
+        result.put("success", true);
+        JSArray idsArray = new JSArray();
+        for (String id : ids) {
+            idsArray.put(id);
+        }
+        result.put("ids", idsArray);
+        call.resolve(result);
+    }
+
     // ========== Battery Optimization ==========
 
     @PluginMethod
