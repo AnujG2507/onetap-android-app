@@ -16,14 +16,16 @@ import java.util.Set;
 
 /**
  * BroadcastReceiver handling notification snooze:
- * - ACTION_SNOOZE_START: Replaces original notification with a live 10-min countdown timer
+ * - ACTION_SNOOZE_START: Replaces original notification with a live countdown timer
  * - ACTION_SNOOZE_FIRE: Re-fires the original notification when the timer expires
+ * - ACTION_SNOOZE_CANCEL: Cancels the snooze alarm and dismisses the countdown notification
  */
 public class SnoozeReceiver extends BroadcastReceiver {
     private static final String TAG = "SnoozeReceiver";
 
     public static final String ACTION_SNOOZE_START = "app.onetap.SNOOZE_START";
     public static final String ACTION_SNOOZE_FIRE = "app.onetap.SNOOZE_FIRE";
+    public static final String ACTION_SNOOZE_CANCEL = "app.onetap.SNOOZE_CANCEL";
 
     private static final String PREFS_NAME = "snooze_prefs";
     private static final String KEY_ACTIVE_IDS = "snooze_active_ids";
@@ -52,6 +54,9 @@ public class SnoozeReceiver extends BroadcastReceiver {
                 break;
             case ACTION_SNOOZE_FIRE:
                 handleSnoozeFire(context, intent, actionId);
+                break;
+            case ACTION_SNOOZE_CANCEL:
+                handleSnoozeCancel(context, actionId);
                 break;
             default:
                 Log.w(TAG, "Unknown action: " + action);
@@ -113,7 +118,6 @@ public class SnoozeReceiver extends BroadcastReceiver {
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
 
-        AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
         if (alarmManager != null) {
             long triggerAt = SystemClock.elapsedRealtime() + snoozeDurationMs;
             try {
@@ -137,6 +141,34 @@ public class SnoozeReceiver extends BroadcastReceiver {
                 Log.e(TAG, "Failed to schedule snooze alarm", e);
             }
         }
+    }
+
+    private void handleSnoozeCancel(Context context, String actionId) {
+        Log.d(TAG, "Snooze cancelled for id=" + actionId);
+
+        // 1. Cancel the pending alarm
+        int requestCode = actionId.hashCode() + 2;
+        AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+        Intent fireIntent = new Intent(context, SnoozeReceiver.class);
+        fireIntent.setAction(ACTION_SNOOZE_FIRE);
+        PendingIntent existingAlarm = PendingIntent.getBroadcast(
+            context, requestCode, fireIntent,
+            PendingIntent.FLAG_NO_CREATE | PendingIntent.FLAG_IMMUTABLE
+        );
+        if (existingAlarm != null && alarmManager != null) {
+            alarmManager.cancel(existingAlarm);
+            existingAlarm.cancel();
+        }
+
+        // 2. Cancel the countdown notification
+        int countdownNotifId = actionId.hashCode() + 1;
+        NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        if (nm != null) {
+            nm.cancel(countdownNotifId);
+        }
+
+        // 3. Remove from snoozed set
+        removeSnoozedId(context, actionId);
     }
 
     private void handleSnoozeFire(Context context, Intent intent, String actionId) {
