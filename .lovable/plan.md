@@ -1,152 +1,195 @@
 
 
-## Reminders Feature: UI/UX Evaluation
+## Local Storage Sanity Evaluation
 
-### Overall Assessment
+### Complete Local Storage Key Inventory
 
-The reminders feature is well-architected with a polished, Material Design-inspired UI. The multi-step creation flow, timing picker with quick presets, and item management are thoughtfully designed. However, there are several UI/UX gaps that affect visibility, color consistency, and user experience clarity.
+The app uses **30+ distinct localStorage keys** across multiple managers. Here is the full map followed by identified gaps.
 
----
-
-### Gap 1: Hardcoded Notification Text Strings (Not Localized)
-
-**Severity: Medium**
-
-The native Android notification UI contains several hardcoded English strings that bypass the i18n system:
-
-- `NotificationHelper.java` line 155: `"Snooze " + duration + " min"` -- hardcoded
-- `NotificationHelper.java` line 294-304: `"Tap to open"`, `"Tap to call or message"`, `"Tap to open file"`, `"Tap to execute"` -- all hardcoded
-- `NotificationHelper.java` line 358-359: `"Snoozed"`, `"Tap to execute now"` -- hardcoded
-- `NotificationHelper.java` line 381: `"Snoozed: "` prefix -- hardcoded
-- `NotificationHelper.java` line 394-395: `"Snooze again"`, `"Cancel"` -- hardcoded
-
-**Impact**: Non-English users see a mix of their language (from the app) and English (from notifications). This breaks the premium experience.
-
-**Fix**: Move all notification strings to `res/values/strings.xml` and create localized variants in `res/values-{locale}/strings.xml`.
+### Identified Gaps and Vulnerabilities
 
 ---
 
-### Gap 2: Expired Reminder State Has Weak Visual Differentiation
+#### GAP 1: `bulkDelete` in scheduledActionsManager Does Not Record Deletions for Cloud Sync
 
-**Severity: Medium**
+**Severity: High (data resurrection on sync)**
 
-In `ScheduledActionItem.tsx`, expired reminders show:
-- A subtle `border-destructive/30` border (30% opacity -- barely visible)
-- The time text changes to destructive color
-- But the overall card looks nearly identical to an active one
+`deleteScheduledAction()` correctly calls `recordDeletion('scheduled_action', id)` before removing the action. However, `bulkDelete()` (lines 209-222) skips this entirely -- it filters out the actions and saves, but never records them in the deletion tracker.
 
-In `ScheduledActionActionSheet.tsx` line 196, expired actions show the time as `text-muted-foreground` instead of destructive, which is inconsistent with the item card.
+**Impact**: After a bulk delete + sync, the cloud still has those actions. On the next download, they get re-added to localStorage. The user deletes actions that keep coming back.
 
-**Impact**: Users can easily miss that a one-time reminder has expired and is no longer functional. The inconsistency between the list item and action sheet creates confusion.
-
-**Fix**: 
-- Add a visible "Expired" badge or stronger background tint (e.g., `bg-destructive/5`) to expired items
-- Make the action sheet use `text-destructive` for expired time, consistent with the list item
-- Consider auto-disabling expired one-time reminders to reduce visual noise
+**Fix**: Add `ids.forEach(id => recordDeletion('scheduled_action', id))` inside the `if (deletedCount > 0)` block before saving.
 
 ---
 
-### Gap 3: Permission Status Uses Raw Green/Red Instead of Design Tokens
+#### GAP 2: `bulkDelete` Does Not Cancel Native Alarms
 
-**Severity: Low-Medium**
+**Severity: High (phantom notifications)**
 
-In `NotificationsPage.tsx` lines 643-653, the permission status indicators use hardcoded `text-green-600` instead of a semantic token. The design system defines `--destructive` for red states but has no explicit "success" token. Using raw color values:
-- Breaks dark mode contrast (green-600 on dark background is not optimal)
-- Inconsistent with the rest of the app's token-based approach
+`deleteScheduledAction()` in `useScheduledActions.ts` correctly calls `ShortcutPlugin.cancelScheduledAction({ id })` before deleting. But `bulkDelete` in `scheduledActionsManager.ts` is a storage-only function -- it does not cancel any native alarms. If bulk delete is called without cancelling alarms first, the deleted actions' alarms continue running and fire notifications for actions that no longer exist.
 
-**Fix**: Use the existing `text-primary` for granted state (blue checkmark matches the app's accent) rather than green, keeping the semantic destructive red for denied state. This maintains the design system's consistency.
+**Fix**: The caller of `bulkDelete` must cancel native alarms for each ID. Audit all call sites to ensure this happens. Alternatively, add a `bulkDeleteScheduledActions` function in `useScheduledActions.ts` that handles both.
 
 ---
 
-### Gap 4: Missing "Text" Destination Type in Action Sheet and Missed Banner
+#### GAP 3: Selection State (`scheduled_actions_selection`) Persists Across Sessions Unnecessarily
 
-**Severity: Medium**
+**Severity: Low-Medium (confusing UX)**
 
-The `ScheduledActionActionSheet.tsx` `getDestinationIcon` function (lines 126-141) handles `file`, `url`, and `contact` but has **no case for `text`** type. A text reminder opened in the action sheet will render no icon.
+The multi-select state for scheduled actions is stored in localStorage and survives app restarts. If a user selects several items, closes the app, and returns later, the selection is silently restored. The UI may not be in "selection mode" though, so the persisted IDs become stale orphans.
 
-Similarly, `MissedNotificationsBanner.tsx` `getDestinationIcon` (lines 68-89) handles `url`, `contact`, and `file` but not `text`. The `getDestinationLabel` function also misses `text`.
-
-**Impact**: Text reminders appear broken in the action sheet and missed notifications banner -- no icon, no label.
-
-**Fix**: Add `case 'text': return <AlignLeft />` (or the memo emoji used elsewhere) to both components' icon functions, and add the text label handler.
+**Fix**: Either (a) clear selection on mount in the Notifications page, or (b) move selection state to React state only (no localStorage persistence). Selection is a transient UI concept, not application data.
 
 ---
 
-### Gap 5: Disabled Reminder Opacity Creates Readability Issues
+#### GAP 4: `clipboard_shown_urls` Grows Without Bounds
 
-**Severity: Low-Medium**
+**Severity: Low (minor storage bloat)**
 
-Disabled reminders use `opacity-50` on the entire card (line 293 of `ScheduledActionItem.tsx`). This dims everything including the toggle switch, making it hard to see that the switch is in the "off" position. The low contrast makes the card look like a loading skeleton rather than a deliberate disabled state.
+`useClipboardDetection.ts` appends to `clipboard_shown_urls` every time a URL is detected. The `getShownUrls()` function filters out entries older than 5 minutes when reading, but never writes the filtered result back. Over months of use, this key accumulates thousands of expired entries.
 
-**Fix**: Instead of blanket `opacity-50`, use targeted dimming:
-- Dim the icon and text (`text-muted-foreground`)
-- Keep the toggle switch at full opacity so users can clearly see and interact with it
-- Use `bg-muted/50` background instead of opacity reduction
+**Fix**: In `getShownUrls()`, write the filtered result back to localStorage if entries were purged, or cap the list at a reasonable size (e.g., 50 entries).
 
 ---
 
-### Gap 6: Snooze Countdown Notification Layout Has Dark-Only Text Colors
+#### GAP 5: `processed_oauth_urls` Never Cleaned Up
 
-**Severity: Medium**
+**Severity: Low (minor storage bloat)**
 
-In `notification_snooze_countdown.xml`, all text colors are hardcoded:
-- Timer: `#FF333333` (dark gray)
-- Action name: `#FF333333` (dark gray)
-- Subtitle: `#FF666666` (medium gray)
+`oauthCompletion.ts` maintains a list of processed OAuth URL identifiers (capped at 20). These are never cleaned up even after sign-out. While the cap prevents unbounded growth, stale OAuth identifiers from previous sessions could theoretically block a valid re-authentication if the same OAuth code is somehow reused.
 
-On Android devices with dark notification themes (common on Android 12+), dark text on dark backgrounds becomes invisible.
+**Impact**: Minimal due to the 20-entry cap, but semantically incorrect after sign-out.
 
-**Fix**: Use Android system theme attributes instead of hardcoded colors:
-- Timer/title: `?android:attr/textColorPrimary`
-- Subtitle: `?android:attr/textColorSecondary`
-
-This ensures automatic light/dark adaptation.
+**Fix**: Clear `processed_oauth_urls`, `pending_oauth_url`, and `oauth_started_at` during sign-out (in `useAuth.signOut`). Currently only `clearPendingOAuth()` is called, which clears the pending URL but not the processed list.
 
 ---
 
-### Gap 7: No Visual Feedback During Snooze State in the App
+#### GAP 6: Sign-Out Does Not Clear Sync-Related State
 
-**Severity: Low-Medium**
+**Severity: Medium (stale sync state for next user)**
 
-When a reminder is snoozed (via the notification), the user returns to the app and sees the reminder in its normal state. There is no visual indication in the Reminders tab that an action is currently snoozed. The snooze state is tracked natively in `SharedPreferences` but never surfaced to the React layer.
+When a user signs out (`useAuth.signOut`), the code clears:
+- `sb-*` auth storage key
+- Pending OAuth state
 
-**Impact**: Users can't see which reminders are currently snoozed when they open the app. If they edit or delete a snoozed reminder, the snooze alarm still exists as an orphan (partially mitigated by the recent gap fixes, but not fully).
+But it does NOT clear:
+- `onetap_sync_status` (last sync time, counts -- belongs to the previous user)
+- `pending_cloud_deletions` (deletion records for the previous user's entities)
 
-**Fix (future consideration)**: Surface snooze state via a plugin method and show a subtle "Snoozed" badge on the item. This is a larger change and can be deferred.
+If a different user signs in on the same device, the sync status shows the previous user's last sync time, and pending deletions from user A could be uploaded under user B's account, deleting user B's cloud data.
 
----
-
-### Gap 8: Confirm Step Preview Card Missing Text Destination Display
-
-**Severity: Low**
-
-In `ScheduledActionCreator.tsx` lines 873-877, the confirm step preview card shows destination details for file (name), url (uri), and contact (contactName), but has no case for `text` type. Text reminders show nothing in the preview.
-
-**Fix**: Add `{destination.type === 'text' && destination.name}` to the preview.
+**Fix**: In `signOut`, also call `clearSyncStatus()` and `clearPendingDeletions()`.
 
 ---
 
-### Summary of Recommended Fixes
+#### GAP 7: `onetap_favicon_cache` Has No Expiry
+
+**Severity: Low (stale favicons, storage bloat)**
+
+The favicon/metadata cache (`useUrlMetadata.ts`) caps at 500 entries but has no TTL. A favicon URL that changed months ago will continue showing the cached version indefinitely. The cache is loaded into memory at module init and persisted on every update.
+
+**Fix**: Add a `cachedAt` timestamp to each entry and filter out entries older than 7-14 days during `loadFaviconCache()`.
+
+---
+
+#### GAP 8: `onetap_review_jitter_days` Persists After Review Completion
+
+**Severity: Trivial (dead key)**
+
+Once `onetap_review_prompt_done` is set to `'true'`, the `onetap_review_jitter_days` key becomes permanently unused but remains in localStorage.
+
+**Fix**: Clean it up in `markDone()` or ignore (truly negligible).
+
+---
+
+#### GAP 9: Downloaded Trash Items from Cloud Marked as Non-Restorable but Lack Visual Indication
+
+**Severity: Low-Medium (confusing UX)**
+
+When trash items are downloaded from cloud, they are marked `restorable: false` (line 684 in cloudSync.ts shows no such field set -- let me verify). Actually, reviewing the download code: cloud-downloaded trash items do NOT set `restorable: false`. This means a user could restore a cloud-downloaded trash item, which would create a bookmark with an ID that may conflict with the cloud state during next sync.
+
+Actually, the download code at line 677 creates a `TrashedLink` without `restorable` field, so it defaults to `true`. If the user restores it, it moves to `saved_links`. On next upload, it gets upserted to `cloud_bookmarks` with the same entity_id -- which is actually correct behavior (additive). This is safe.
+
+**Revised assessment**: No gap here. Withdrawing.
+
+---
+
+#### GAP 10: `useShortcuts` Stale Closure in `deleteShortcut` and `updateShortcut`
+
+**Severity: Medium (race condition on rapid operations)**
+
+Both `deleteShortcut` and `updateShortcut` use `shortcuts` from the closure (the React state array). If a user rapidly creates and then deletes shortcuts, the `shortcuts` array in the closure may be stale. For example:
+1. User creates shortcut A (shortcuts = [A])
+2. User creates shortcut B (shortcuts = [A, B])
+3. User immediately deletes A -- but `deleteShortcut` still has `shortcuts = [A]` from its closure
+4. Result: `shortcuts.filter(s => s.id !== 'A')` produces `[]`, losing shortcut B
+
+`createShortcut` has the same pattern: it spreads `[...shortcuts, newShortcut]` using the closure value.
+
+**Fix**: Use functional state updates (`setShortcuts(prev => prev.filter(...))`) or read from localStorage directly in mutation functions.
+
+---
+
+#### GAP 11: `updateSavedLinkTitle` Does Not Fire Change Event
+
+**Severity: Low (stale UI in other components)**
+
+`savedLinksManager.ts` has `updateSavedLinkTitle()` (line 253) which saves to localStorage but does NOT call `notifyChange()`. Any component listening for `bookmarks-changed` events will not re-render when a title is updated through this function.
+
+**Fix**: Add `notifyChange()` after the `localStorage.setItem` call.
+
+---
+
+#### GAP 12: `toggleShortlist` and `clearAllShortlist` Do Not Fire Change Events
+
+**Severity: Low (stale state in other hook instances)**
+
+`toggleShortlist()` (line 273) and `clearAllShortlist()` (line 287) modify `saved_links` in localStorage but do not call `notifyChange()`. Cloud sync listeners and other components watching for `bookmarks-changed` won't pick up shortlist changes.
+
+**Fix**: Add `notifyChange()` calls to both functions.
+
+---
+
+### Summary of Fixes by Priority
 
 | Priority | Gap | Issue | Effort |
 |----------|-----|-------|--------|
-| Medium | 4 | Missing text destination type in action sheet and missed banner | Small |
-| Medium | 6 | Hardcoded dark text colors in snooze countdown notification | Small |
-| Medium | 1 | Hardcoded English strings in native notifications | Medium |
-| Medium | 2 | Weak expired state differentiation + inconsistency | Small |
-| Low-Med | 3 | Raw green color instead of design tokens | Trivial |
-| Low-Med | 5 | Blanket opacity-50 on disabled cards | Small |
-| Low | 8 | Missing text destination in confirm preview | Trivial |
-| Low-Med | 7 | No snooze state visibility in app | Medium (defer) |
+| High | 1 | `bulkDelete` missing `recordDeletion` -- data resurrection | Trivial |
+| High | 2 | `bulkDelete` doesn't cancel native alarms -- phantom notifications | Small |
+| Medium | 6 | Sign-out doesn't clear sync status / pending deletions | Trivial |
+| Medium | 10 | Stale closure race in useShortcuts mutations | Medium |
+| Low-Med | 3 | Selection state persists across sessions | Trivial |
+| Low | 4 | `clipboard_shown_urls` unbounded growth | Trivial |
+| Low | 5 | `processed_oauth_urls` not cleared on sign-out | Trivial |
+| Low | 7 | Favicon cache has no TTL | Small |
+| Low | 11 | `updateSavedLinkTitle` missing change event | Trivial |
+| Low | 12 | `toggleShortlist` / `clearAllShortlist` missing change events | Trivial |
+| Trivial | 8 | Dead `review_jitter_days` key after completion | Trivial |
 
-### Immediate Fixes (Gaps 2, 3, 4, 6, 8)
+### Recommended Immediate Fixes
 
-These are small, high-impact fixes that improve visual consistency and prevent broken states for text reminders:
+**Critical path (Gaps 1, 2, 6, 10):**
 
-1. **ScheduledActionActionSheet.tsx** and **MissedNotificationsBanner.tsx**: Add `text` destination type handling
-2. **ScheduledActionItem.tsx**: Strengthen expired state visuals
-3. **NotificationsPage.tsx**: Replace `text-green-600` with `text-primary`
-4. **notification_snooze_countdown.xml**: Use theme-aware text colors
-5. **ScheduledActionCreator.tsx**: Add text destination to confirm preview
-6. **ScheduledActionActionSheet.tsx**: Fix expired time color inconsistency
+1. **scheduledActionsManager.ts `bulkDelete`**: Add `recordDeletion` calls for each deleted ID
+2. **Create `bulkDeleteScheduledActions` in useScheduledActions**: Cancel native alarms before calling `bulkDelete`
+3. **useAuth.ts `signOut`**: Add `clearSyncStatus()` and `clearPendingDeletions()` calls
+4. **useShortcuts.ts**: Refactor `deleteShortcut`, `createShortcut`, and `updateShortcut` to use functional state updates or read from localStorage directly
+
+**Quick wins (Gaps 3, 4, 5, 11, 12):**
+
+5. **scheduledActionsManager.ts**: Clear selection on component mount or remove localStorage persistence for selection
+6. **useClipboardDetection.ts**: Write filtered entries back in `getShownUrls()`
+7. **useAuth.ts signOut**: Also clear `processed_oauth_urls`
+8. **savedLinksManager.ts**: Add `notifyChange()` to `updateSavedLinkTitle`, `toggleShortlist`, `clearAllShortlist`
+
+### Files to Modify
+
+| File | Changes |
+|------|---------|
+| `src/lib/scheduledActionsManager.ts` | Add `recordDeletion` in `bulkDelete`; optionally clear selection key on module load |
+| `src/hooks/useScheduledActions.ts` | Add `bulkDeleteScheduledActions` that cancels alarms + calls bulkDelete |
+| `src/hooks/useAuth.ts` | Clear sync status + pending deletions + processed OAuth on sign-out |
+| `src/hooks/useShortcuts.ts` | Refactor mutations to avoid stale closure |
+| `src/hooks/useClipboardDetection.ts` | Write-back filtered entries in `getShownUrls` |
+| `src/lib/savedLinksManager.ts` | Add `notifyChange()` to title update, shortlist toggle, and clear shortlist |
 
