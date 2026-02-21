@@ -633,6 +633,7 @@ export function AccessFlow({
               steps={tutorial.steps}
               currentStep={tutorial.currentStep}
               onNext={tutorial.next}
+              onPrevious={tutorial.previous}
               onDismiss={tutorial.skip}
             />
           )}

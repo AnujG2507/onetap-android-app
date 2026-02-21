@@ -300,6 +300,7 @@ export function ProfilePage({}: ProfilePageProps = {}) {
             steps={tutorial.steps}
             currentStep={tutorial.currentStep}
             onNext={tutorial.next}
+            onPrevious={tutorial.previous}
             onDismiss={tutorial.skip}
           />
         )}
@@ -466,6 +467,7 @@ export function ProfilePage({}: ProfilePageProps = {}) {
           steps={tutorial.steps}
           currentStep={tutorial.currentStep}
           onNext={tutorial.next}
+          onPrevious={tutorial.previous}
           onDismiss={tutorial.skip}
         />
       )}
