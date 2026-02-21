@@ -388,6 +388,10 @@ export interface ShortcutPluginInterface {
   // Called after successful sync when OS returned >0 pinned IDs.
   cleanupRegistry(options: { confirmedIds: string[] }): Promise<{ success: boolean; pruned?: number; error?: string }>;
 
+  // Check if a shortcut was confirmed as pinned via Android's PendingIntent callback.
+  // Returns true once then clears the confirmation (consume-once).
+  checkPinConfirmed(options: { id: string }): Promise<{ confirmed: boolean }>;
+
   // ========== Battery Optimization ==========
 
   // Check if the app is exempted from battery optimization (Doze mode whitelist)

@@ -589,6 +589,11 @@ export class ShortcutPluginWeb implements ShortcutPluginInterface {
     return { success: true };
   }
 
+  async checkPinConfirmed(_options: { id: string }): Promise<{ confirmed: boolean }> {
+    console.log('[ShortcutPluginWeb] checkPinConfirmed called (web fallback)');
+    return { confirmed: true }; // On web, assume always confirmed
+  }
+
   async cleanupRegistry(_options: { confirmedIds: string[] }): Promise<{ success: boolean; pruned?: number; error?: string }> {
     console.log('[ShortcutPluginWeb] cleanupRegistry called (web fallback)');
     return { success: true, pruned: 0 };

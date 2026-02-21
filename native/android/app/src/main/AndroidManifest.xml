@@ -293,6 +293,15 @@
             </intent-filter>
         </receiver>
 
+        <!-- Shortcut Pin Confirm Receiver: callback when shortcut is pinned to home screen -->
+        <receiver
+            android:name=".ShortcutPinConfirmReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="app.onetap.SHORTCUT_PINNED" />
+            </intent-filter>
+        </receiver>
+
         <!-- Notification Dismiss Receiver: tracks swipe-dismiss for missed notifications -->
         <receiver
             android:name=".NotificationDismissReceiver"

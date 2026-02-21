@@ -96,6 +96,7 @@ import app.onetap.access.NotificationHelper;
 import app.onetap.access.PDFProxyActivity;
 import app.onetap.access.ScheduledActionReceiver;
 import app.onetap.access.ShortcutEditProxyActivity;
+import app.onetap.access.ShortcutPinConfirmReceiver;
 import app.onetap.access.SlideshowProxyActivity;
 import app.onetap.access.TextProxyActivity;
 import app.onetap.access.VideoProxyActivity;
@@ -338,11 +339,12 @@ public class ShortcutPlugin extends Plugin {
             try {
                 Intent callbackIntent = new Intent("app.onetap.SHORTCUT_PINNED");
                 callbackIntent.setPackage(context.getPackageName());
+                callbackIntent.putExtra(ShortcutPinConfirmReceiver.EXTRA_SHORTCUT_ID, id);
                 int cbFlags = android.app.PendingIntent.FLAG_UPDATE_CURRENT;
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                     cbFlags |= android.app.PendingIntent.FLAG_IMMUTABLE;
                 }
-                textPinCallback = android.app.PendingIntent.getBroadcast(context, 0, callbackIntent, cbFlags);
+                textPinCallback = android.app.PendingIntent.getBroadcast(context, id.hashCode(), callbackIntent, cbFlags);
             } catch (Exception e) {
                 android.util.Log.w("ShortcutPlugin", "Could not create text callback PendingIntent: " + e.getMessage());
             }
@@ -565,11 +567,12 @@ public class ShortcutPlugin extends Plugin {
                         try {
                             Intent callbackIntent = new Intent("app.onetap.SHORTCUT_PINNED");
                             callbackIntent.setPackage(context.getPackageName());
+                            callbackIntent.putExtra(ShortcutPinConfirmReceiver.EXTRA_SHORTCUT_ID, finalId);
                             int cbFlags = PendingIntent.FLAG_UPDATE_CURRENT;
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                                 cbFlags |= PendingIntent.FLAG_IMMUTABLE;
                             }
-                            pinCallback = PendingIntent.getBroadcast(context, 0, callbackIntent, cbFlags);
+                            pinCallback = PendingIntent.getBroadcast(context, finalId.hashCode(), callbackIntent, cbFlags);
                         } catch (Exception e) {
                             android.util.Log.w("ShortcutPlugin", "Could not create callback PendingIntent: " + e.getMessage());
                         }
@@ -5127,6 +5130,24 @@ public class ShortcutPlugin extends Plugin {
      * 2. Older than the cooldown period (not recently created)
      * Called from JS after successful reconciliation with ids.length > 0.
      */
+    @PluginMethod
+    public void checkPinConfirmed(PluginCall call) {
+        String id = call.getString("id");
+        if (id == null || id.isEmpty()) {
+            JSObject result = new JSObject();
+            result.put("confirmed", false);
+            call.resolve(result);
+            return;
+        }
+
+        Context ctx = getContext();
+        boolean confirmed = ctx != null && ShortcutPinConfirmReceiver.checkAndClear(ctx, id);
+
+        JSObject result = new JSObject();
+        result.put("confirmed", confirmed);
+        call.resolve(result);
+    }
+
     @PluginMethod
     public void cleanupRegistry(PluginCall call) {
         try {
