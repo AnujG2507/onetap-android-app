@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Image, Video, FileText, Bookmark, Music, Phone, Link, FolderOpen, MessageCircle, X, Home, Bell, AlignLeft } from 'lucide-react';
+import { Image, Video, FileText, Bookmark, Music, Phone, FolderOpen, MessageCircle, X, Home, Bell, AlignLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import type { FileTypeFilter } from '@/lib/contentResolver';
@@ -146,85 +146,61 @@ export function ContentSourcePicker({
               {t('access.createShortcut')}
             </h2>
             
-            {/* Primary Grid: 4+3 layout (portrait), 7 cols in landscape */}
+            {/* Primary Grid: 2x3 layout (portrait), 6 cols in landscape */}
             <div id="tutorial-content-grid" className={cn(
-              "transition-all duration-200",
+              "grid gap-3 transition-all duration-200",
               activePicker
-                ? "grid grid-cols-1 gap-3"
-                : "flex flex-col gap-3 landscape:grid landscape:grid-cols-7 landscape:gap-3"
+                ? "grid-cols-1"
+                : "grid-cols-3 landscape:grid-cols-6"
             )}>
-              {/* Row 1 (portrait): Photo, Video, Audio, Document — 4 equal columns */}
-              <div className={cn(
-                "grid grid-cols-4 gap-3",
-                activePicker ? "grid-cols-1" : "",
-                "landscape:contents"
-              )}>
-                {(!activePicker || activePicker === 'photo') && (
-                  <GridButton
-                    icon={<Image className="h-5 w-5" />}
-                    label={t('access.photo')}
-                    onClick={() => handleGridButtonClick('photo')}
-                    isActive={activePicker === 'photo'}
-                  />
-                )}
-                {(!activePicker || activePicker === 'video') && (
-                  <GridButton
-                    icon={<Video className="h-5 w-5" />}
-                    label={t('access.video')}
-                    onClick={() => handleGridButtonClick('video')}
-                    isActive={activePicker === 'video'}
-                  />
-                )}
-                {(!activePicker || activePicker === 'audio') && (
-                  <GridButton
-                    icon={<Music className="h-5 w-5" />}
-                    label={t('access.audio')}
-                    onClick={() => handleGridButtonClick('audio')}
-                    isActive={activePicker === 'audio'}
-                  />
-                )}
-                {(!activePicker || activePicker === 'document') && (
-                  <GridButton
-                    icon={<FileText className="h-5 w-5" />}
-                    label={t('access.document')}
-                    onClick={() => handleGridButtonClick('document')}
-                    isActive={activePicker === 'document'}
-                  />
-                )}
-              </div>
-
-              {/* Row 2 (portrait): Contact, Link, Text — 3 equal columns filling full width */}
-              <div className={cn(
-                "grid grid-cols-3 gap-3",
-                activePicker ? "grid-cols-1" : "",
-                "landscape:contents"
-              )}>
-                {onSelectContact && (!activePicker || activePicker === 'contact') && (
-                  <GridButton
-                    icon={<Phone className="h-5 w-5" />}
-                    label={t('access.contact')}
-                    onClick={() => handleGridButtonClick('contact')}
-                    isActive={activePicker === 'contact'}
-                  />
-                )}
-                {onEnterUrl && (!activePicker || activePicker === 'link') && (
-                  <GridButton
-                    id="tutorial-link-button"
-                    icon={<Link className="h-5 w-5" />}
-                    label={t('access.link')}
-                    onClick={() => handleGridButtonClick('link')}
-                    isActive={activePicker === 'link'}
-                  />
-                )}
-                {(!activePicker || activePicker === 'text') && (
-                  <GridButton
-                    icon={<AlignLeft className="h-5 w-5" />}
-                    label={t('access.text')}
-                    onClick={() => handleGridButtonClick('text')}
-                    isActive={activePicker === 'text'}
-                  />
-                )}
-              </div>
+              {(!activePicker || activePicker === 'photo') && (
+                <GridButton
+                  icon={<Image className="h-5 w-5" />}
+                  label={t('access.photo')}
+                  onClick={() => handleGridButtonClick('photo')}
+                  isActive={activePicker === 'photo'}
+                />
+              )}
+              {(!activePicker || activePicker === 'video') && (
+                <GridButton
+                  icon={<Video className="h-5 w-5" />}
+                  label={t('access.video')}
+                  onClick={() => handleGridButtonClick('video')}
+                  isActive={activePicker === 'video'}
+                />
+              )}
+              {(!activePicker || activePicker === 'audio') && (
+                <GridButton
+                  icon={<Music className="h-5 w-5" />}
+                  label={t('access.audio')}
+                  onClick={() => handleGridButtonClick('audio')}
+                  isActive={activePicker === 'audio'}
+                />
+              )}
+              {(!activePicker || activePicker === 'document') && (
+                <GridButton
+                  icon={<FileText className="h-5 w-5" />}
+                  label={t('access.document')}
+                  onClick={() => handleGridButtonClick('document')}
+                  isActive={activePicker === 'document'}
+                />
+              )}
+              {onSelectContact && (!activePicker || activePicker === 'contact') && (
+                <GridButton
+                  icon={<Phone className="h-5 w-5" />}
+                  label={t('access.contact')}
+                  onClick={() => handleGridButtonClick('contact')}
+                  isActive={activePicker === 'contact'}
+                />
+              )}
+              {(!activePicker || activePicker === 'text') && (
+                <GridButton
+                  icon={<AlignLeft className="h-5 w-5" />}
+                  label={t('access.text')}
+                  onClick={() => handleGridButtonClick('text')}
+                  isActive={activePicker === 'text'}
+                />
+              )}
             </div>
 
             {/* Inline Action Picker - for non-contact items */}
