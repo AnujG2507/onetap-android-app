@@ -489,6 +489,8 @@
     "scheduledRemindersDesc": "Receive notifications for scheduled actions",
     "reminderSound": "Reminder sound",
     "reminderSoundDesc": "Play sound with reminders",
+    "snoozeDuration": "Snooze duration",
+    "snoozeDurationDesc": "How long to snooze notifications",
     "clipboard": "Clipboard",
     "clipboardDesc": "Configure clipboard detection behavior",
     "trashSettings": "Bookmark Trash",
