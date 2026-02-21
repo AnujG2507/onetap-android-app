@@ -6,6 +6,7 @@ interface TutorialCoachMarksProps {
   steps: TutorialStep[];
   currentStep: number;
   onNext: () => void;
+  onPrevious: () => void;
   onDismiss: () => void;
 }
 
@@ -24,6 +25,7 @@ export function TutorialCoachMarks({
   steps,
   currentStep,
   onNext,
+  onPrevious,
   onDismiss,
 }: TutorialCoachMarksProps) {
   const [spotlight, setSpotlight] = useState<SpotlightRect | null>(null);
@@ -110,6 +112,7 @@ export function TutorialCoachMarks({
           currentStep={currentStep}
           totalSteps={steps.length}
           onNext={onNext}
+          onPrevious={onPrevious}
           onDismiss={onDismiss}
         />
       </div>

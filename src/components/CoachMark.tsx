@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { TutorialStep } from '@/hooks/useTutorial';
 
@@ -9,6 +9,7 @@ interface CoachMarkProps {
   currentStep: number;
   totalSteps: number;
   onNext: () => void;
+  onPrevious: () => void;
   onDismiss: () => void;
 }
 
@@ -23,6 +24,7 @@ export function CoachMark({
   currentStep,
   totalSteps,
   onNext,
+  onPrevious,
   onDismiss,
 }: CoachMarkProps) {
   const { t } = useTranslation();
@@ -183,14 +185,25 @@ export function CoachMark({
             ))}
           </div>
 
-          {/* Action button */}
-          <button
-            onClick={onNext}
-            className="flex items-center gap-0.5 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
-          >
-            <span>{isLastStep ? t('tutorial.done') : t('tutorial.next')}</span>
-            {!isLastStep && <ChevronRight className="h-3 w-3 rtl:rotate-180" />}
-          </button>
+          {/* Action buttons */}
+          <div className="flex items-center gap-3">
+            {currentStep > 0 && (
+              <button
+                onClick={onPrevious}
+                className="flex items-center gap-0.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <ChevronLeft className="h-3 w-3 rtl:rotate-180" />
+                <span>{t('tutorial.previous')}</span>
+              </button>
+            )}
+            <button
+              onClick={onNext}
+              className="flex items-center gap-0.5 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
+            >
+              <span>{isLastStep ? t('tutorial.done') : t('tutorial.next')}</span>
+              {!isLastStep && <ChevronRight className="h-3 w-3 rtl:rotate-180" />}
+            </button>
+          </div>
         </div>
       </div>
 
