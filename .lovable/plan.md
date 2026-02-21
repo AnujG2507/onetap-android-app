@@ -1,174 +1,168 @@
 
 
-## Comprehensive UI/UX Gap Analysis
+## Documentation Update Plan
 
-### Critical Finding: Inconsistent Safe Area Variable Usage (Overlap Risk)
+### Overview
 
----
-
-### GAP 1: Floating Buttons Use `env(safe-area-inset-bottom)` Instead of `--android-safe-bottom`
-
-**Severity: High (nav bar overlap on Android)**
-
-**Affected files:**
-- `NotificationsPage.tsx` line 1045: `bottom-[calc(3.5rem+env(safe-area-inset-bottom))]`
-- `BookmarkLibrary.tsx` line 1301: `bottom-[calc(3.5rem+env(safe-area-inset-bottom))]`
-- `ScheduledTimingPicker.tsx` line 819: `pb-[calc(1.25rem+env(safe-area-inset-bottom)+4rem)]`
-
-The rest of the app consistently uses `var(--android-safe-bottom, 0px)` (injected from `MainActivity.java` with real inset values). These three locations use the CSS `env()` function instead, which returns `0px` on Capacitor 8 because the WebView extends edge-to-edge. This means:
-- The floating "Schedule New" button in Reminders sits directly on the BottomNav, without clearing the system navigation bar
-- The floating "Add Bookmark" button in Library has the same overlap
-- The ScheduledTimingPicker footer doesn't clear the system nav bar
-
-Meanwhile, the bulk action bar in NotificationsPage (line 980) and the MyShortcutsButton in AccessFlow (line 617) correctly use `var(--android-safe-bottom, 0px)`. This creates visible inconsistency between similar floating elements.
-
-**Fix:** Replace all `env(safe-area-inset-bottom)` with `var(--android-safe-bottom, 0px)` in these three locations.
+After comparing all 9 documentation files against the current codebase, I identified **14 gaps** where documentation is outdated, incomplete, or inconsistent with recent code changes (localStorage sanity fixes, UI/UX safe-area corrections, snooze feature, settings additions).
 
 ---
 
-### GAP 2: Bookmark Floating Action Bar Uses `start-1/2` RTL Hack Instead of Logical Centering
+### Gap 1: ARCHITECTURE.md -- Safe Area Decision Guide Is Wrong for Sheets
 
-**Severity: Low-Medium (visual misalignment in RTL)**
-
-`BookmarkLibrary.tsx` lines 1168-1169 uses:
+**Lines 171-172:** The decision guide says:
 ```
-"fixed start-1/2 -translate-x-1/2 z-50",
-"[html[dir=rtl]_&]:translate-x-1/2",
+Is the element a bottom Sheet (Radix, side="bottom")?
+  -> safe-bottom-with-nav
 ```
 
-This manually reverses the translate for RTL with a complex selector. The standard `left-1/2 -translate-x-1/2` centering works identically in both LTR and RTL (since it centers horizontally regardless of direction). The `start-1/2` approach is incorrect because `inset-inline-start: 50%` shifts relative to the writing direction, requiring the RTL hack.
+But we changed `sheet.tsx` to use `safe-bottom-sheet` (not `safe-bottom-with-nav`). The guide now directs developers to the wrong class.
 
-**Fix:** Replace `start-1/2 -translate-x-1/2` with `left-1/2 -translate-x-1/2` and remove the RTL override line.
+**Also line 121:** The UI Components diagram shows `SheetContent side=bottom` using `.safe-bottom-with-nav` -- this is now `.safe-bottom-sheet`.
 
----
-
-### GAP 3: `body::before` Status Bar Tint Doesn't Use CSS Variables
-
-**Severity: Low (visual inconsistency if theme changes)**
-
-In `index.css` lines 104-112, the status bar tint strip uses hardcoded HSL values:
-```css
-body::before { background: hsl(0 0% 94%); }
-.dark body::before { background: hsl(0 0% 7%); }
-```
-
-These approximate `--muted` (94%) and `--background` (7%) but aren't tied to the design tokens. If the theme is ever updated, the tint won't follow.
-
-**Fix:** Use `background: hsl(var(--background))` for both. Since the status bar tint should match the app background, this ensures it always follows the theme.
+**Fix:** Update both the diagram and the decision guide to reflect `safe-bottom-sheet` for bottom sheets.
 
 ---
 
-### GAP 4: Bottom Sheet Uses `safe-bottom-with-nav` but Sheets Float Above BottomNav
+### Gap 2: ARCHITECTURE.md -- Toast Viewport Safe Area Not Documented
 
-**Severity: Medium (excess bottom padding in sheets)**
+The toast viewport was changed from `safe-bottom-with-nav` to `safe-bottom`. Neither the diagram nor the decision guide mentions toast positioning.
 
-`sheet.tsx` line 38 applies `safe-bottom-with-nav` to bottom sheets. This class adds `padding-bottom: calc(var(--android-safe-bottom) + 3.5rem)` -- i.e., system nav bar + the app BottomNav height.
-
-However, bottom sheets in this app are overlays that visually cover the BottomNav. They should use `safe-bottom-sheet` (which only clears the system nav bar) instead. The `DrawerContent` already correctly uses `safe-bottom-sheet` (line 34 of drawer.tsx).
-
-Individual sheet consumers may override this with their own padding, but the default class creates an unnecessarily large bottom gap in all bottom sheets.
-
-**Fix:** Change `safe-bottom-with-nav` to `safe-bottom-sheet` in the bottom variant of `sheetVariants` in `sheet.tsx`.
+**Fix:** Add a line to the decision guide for toast viewport.
 
 ---
 
-### GAP 5: Settings Page Has No Landscape Optimization
+### Gap 3: APP_SUMMARY.md -- Settings Block Missing `snoozeDurationMinutes`
 
-**Severity: Low-Medium (wasted space in landscape)**
+The Settings section (line 247-255) is missing the `snoozeDurationMinutes` field that was added to `AppSettings`.
 
-`SettingsPage.tsx` renders settings cards in a single column with no landscape adaptations. Unlike other pages (Bookmarks, Reminders, ContentSourcePicker) that use `landscape:grid-cols-2`, the Settings page stacks everything vertically. In landscape mode on a phone, this means excessive scrolling with large areas of unused horizontal space.
-
-**Fix:** Add `landscape:grid landscape:grid-cols-2 landscape:gap-4` to the card container and group related cards appropriately.
+**Fix:** Add `snoozeDurationMinutes: 5|10|15|30;` to the settings block.
 
 ---
 
-### GAP 6: Profile Page ScrollArea Missing `safe-x` for Landscape
+### Gap 4: APP_SUMMARY.md -- Missing Snooze Feature Under Reminders
 
-**Severity: Low (content behind system bars in landscape)**
+Section "3. One Tap Reminders" (line 26-28) does not mention the snooze capability added to notifications.
 
-All main tab pages apply horizontal safe areas (`safe-x`) for landscape mode where the system nav bar appears on the side. The Profile page (both signed-in and signed-out states) does not apply `safe-x` to its root or header, meaning content could be behind the system bar in landscape on devices with side navigation bars.
-
-The AccessFlow source step has `safe-x` on line 575. BookmarkLibrary gets it through the parent container. But ProfilePage's `ScrollArea` and `<header>` elements don't have `safe-x`.
-
-**Fix:** Add `safe-x` to the Profile page's outer container.
+**Fix:** Add a bullet point about notification snooze (configurable duration, countdown timer, re-fires original notification).
 
 ---
 
-### GAP 7: Notifications "Schedule New" and Bookmark "Add" Buttons Use Different z-index
+### Gap 5: APP_SUMMARY.md -- Local Storage Keys Section Is Incomplete
 
-**Severity: Low (z-order inconsistency)**
+The "Local Storage Keys" section (lines 73-79) lists only 5 keys. The app uses 30+ keys. Critical missing keys include:
 
-- NotificationsPage floating add button: `z-40` (line 1044)
-- NotificationsPage bulk action bar: `z-10` (line 980)
-- BookmarkLibrary floating add button: `z-40` (line 1300)
-- BookmarkLibrary floating action bar: `z-50` (line 1168)
-- AccessFlow MyShortcutsButton: `z-10` (line 617)
+- `quicklaunch_shortcuts` (the actual shortcut data)
+- `pending_cloud_deletions` (deletion reconciliation)
+- `onetap_favicon_cache` (URL metadata cache)
+- `clipboard_shown_urls` (clipboard detection)
+- `onetap_review_prompt_done` / `onetap_review_jitter_days`
+- `custom_folders` (bookmark folder names)
+- `scheduled_actions_selection` (transient multi-select)
+- `processed_oauth_urls` / `pending_oauth_url` / `oauth_started_at`
+- `onetap_onboarding_done`
+- `onetap_tutorial_*` (coach marks)
+- `onetap_usage_*` (usage history)
 
-The z-index values are inconsistent across equivalent floating elements. The bookmark action bar is at z-50 (same as overlays), which could cause it to appear above sheet overlays.
-
-**Fix:** Normalize all floating action bars/buttons to a consistent z-index (e.g., z-30) that's below overlays (z-50) but above content (z-10).
-
----
-
-### GAP 8: Toast Viewport Uses `safe-bottom-with-nav` Causing Toasts to Float High
-
-**Severity: Low (toasts positioned too high)**
-
-In `toast.tsx` line 17, the toast viewport uses `safe-bottom-with-nav` which adds both system nav bar height and BottomNav height to the bottom padding. Toasts already appear above other content (z-100), so they don't need to clear the BottomNav -- they should float just above it.
-
-This means toasts appear unnecessarily high on screen, especially in landscape where the BottomNav is shorter (2.5rem) but `safe-bottom-with-nav` still adds 3.5rem (portrait value -- though the CSS media query adjusts this to 2.5rem in landscape, this is still redundant padding).
-
-**Fix:** The current behavior is functional but visually inconsistent. Consider using `safe-bottom` instead if toasts should sit closer to the BottomNav.
+**Fix:** Add a comprehensive localStorage key inventory grouped by category (core data, sync, auth, cache, UI state).
 
 ---
 
-### GAP 9: ReviewPromptBanner Renders Inside Tab Content Without Safe Area Consideration
+### Gap 6: APP_SUMMARY.md -- Missing Sign-Out Cleanup Documentation
 
-**Severity: Low-Medium (positioning inconsistency)**
+The Auth section does not document what `signOut` clears. After recent fixes, sign-out now clears sync status, pending deletions, and processed OAuth URLs to prevent cross-user contamination.
 
-`ReviewPromptBanner` (line 23) uses `mx-3 mb-2` for positioning. It renders inside the `Index.tsx` component between the tab content and the BottomNav (lines 646-652). However, it doesn't account for the BottomNav height or safe area -- it relies on the content above it having already accounted for that space. If the tab content fills the viewport, the banner could overlap with or be hidden behind the BottomNav.
-
-**Fix:** Wrap with a fixed positioning similar to other floating elements, or ensure it renders within the scroll area with proper bottom clearance.
+**Fix:** Add a "Sign-Out Cleanup" subsection under Auth.
 
 ---
 
-### GAP 10: Landscape Mode BottomNav Does Not Apply `safe-x` 
+### Gap 7: APP_SUMMARY.md -- Missing `cloud_shortcuts` and `cloud_deleted_entities` in Cloud Schema
 
-**Severity: Low (nav buttons behind side system bar)**
+The Cloud Schema section (lines 96-113) only shows `cloud_bookmarks` and `cloud_shortcuts`. It omits `cloud_trash`, `cloud_scheduled_actions`, and `cloud_deleted_entities`. While `cloud_shortcuts` is partially shown, the others are described in SUPABASE.md but not in this summary document.
 
-The `BottomNav` component applies `safe-x` via `safe-bottom safe-x` classes (line 24 of BottomNav.tsx). In landscape mode on devices with a side navigation bar, `safe-x` adds horizontal padding. However, the BottomNav items use `flex-1` which distributes them evenly across the full width. With `safe-x` as padding on the container, the outermost buttons (Access and Profile) may still be partially obscured since the padding is on the nav element, not the individual buttons.
-
-This is actually handled correctly -- `safe-x` on the `<nav>` adds padding inside, pushing all buttons inward. This gap is not confirmed. **Withdrawing.**
+**Fix:** Add brief schema entries for all 5 cloud tables.
 
 ---
 
-### Summary of Fixes
+### Gap 8: APP_SUMMARY.md -- Key Files Section Missing Recent Additions
 
-| Priority | Gap | Issue | Effort |
-|----------|-----|-------|--------|
-| High | 1 | `env(safe-area-inset-bottom)` instead of `--android-safe-bottom` in 3 files | Trivial |
-| Medium | 4 | Bottom Sheet uses `safe-bottom-with-nav` instead of `safe-bottom-sheet` | Trivial |
-| Low-Med | 2 | Bookmark FAB RTL centering hack | Trivial |
-| Low-Med | 5 | Settings page has no landscape layout | Small |
-| Low-Med | 6 | Profile page missing `safe-x` for landscape | Trivial |
-| Low | 3 | Status bar tint uses hardcoded HSL | Trivial |
-| Low | 7 | Inconsistent z-index on floating elements | Trivial |
-| Low | 8 | Toast viewport excess bottom padding | Trivial |
-| Low-Med | 9 | ReviewPromptBanner positioning | Small |
+The "Key Files" section (lines 188-208) is missing:
+- `src/lib/deletionTracker.ts` -- deletion reconciliation
+- `src/hooks/useReviewPrompt.ts` -- review prompt logic
+- `src/hooks/useClipboardDetection.ts` -- clipboard URL detection
+- `src/hooks/useUrlMetadata.ts` -- favicon cache with TTL
 
-### Recommended Implementation Order
+**Fix:** Add these to the appropriate subsection.
 
-**Immediate (overlap prevention):**
-1. Replace `env(safe-area-inset-bottom)` with `var(--android-safe-bottom, 0px)` in `NotificationsPage.tsx`, `BookmarkLibrary.tsx`, and `ScheduledTimingPicker.tsx`
-2. Change `safe-bottom-with-nav` to `safe-bottom-sheet` in `sheet.tsx` bottom variant
+---
 
-**Quick consistency fixes:**
-3. Fix bookmark FAB centering (replace `start-1/2` with `left-1/2`, remove RTL hack)
-4. Add `safe-x` to ProfilePage containers
-5. Use `hsl(var(--background))` in `body::before` instead of hardcoded values
-6. Normalize z-index values across floating elements
+### Gap 9: UBUNTU_SETUP.md -- Section 8 "Activate Native Code" Is Completely Outdated
 
-**Enhancement:**
-7. Add landscape grid layout to SettingsPage
-8. Review ReviewPromptBanner positioning relative to BottomNav
+Section 8 (lines 233-261) instructs users to manually uncomment Java files and XML in the `android/` directory. This workflow is obsolete -- the `patch-android-project.mjs` script now automatically copies all native files from `native/android/` to `android/`. Users should never manually edit files in `android/`.
+
+**Fix:** Replace Section 8 with a note that the patch script handles native code activation automatically, and remove the manual uncommenting instructions.
+
+---
+
+### Gap 10: DEPLOYMENT.md -- Edge Functions Section Has Inconsistent CLI Instructions
+
+Section 11 (lines 294-311) uses `npm install -g supabase` and bare `supabase` commands. Section 7 of SUPABASE.md correctly recommends `npx supabase` to avoid permission issues. The two documents give conflicting advice.
+
+**Fix:** Update DEPLOYMENT.md Section 11 to use `npx supabase` consistently, matching SUPABASE.md.
+
+---
+
+### Gap 11: ARCHITECTURE.md -- Floating Element Z-Index Documentation Missing
+
+The recent UI/UX fixes normalized z-index values across floating elements (FABs at z-30, action bars at z-30). No documentation covers the z-index conventions. This will drift again without a reference.
+
+**Fix:** Add a small z-index convention table to the Safe Area Design System section or as a new subsection.
+
+---
+
+### Gap 12: APP_SUMMARY.md -- `bulkDeleteScheduledActions` Not Documented
+
+The new `bulkDeleteScheduledActions` function in `useScheduledActions.ts` (which cancels native alarms before storage deletion and records deletions for cloud sync) is not mentioned anywhere in documentation.
+
+**Fix:** Add to Key Files / Data Management section.
+
+---
+
+### Gap 13: PRODUCT_IDEOLOGY.md -- Snooze Is Not Listed in Offline Feature Table
+
+The offline feature table (Section 6, lines 173-181) lists features and their offline status. Snooze is a new notification-layer feature that works fully offline but is not listed.
+
+**Fix:** Add "Snooze reminders" row with checkmark and note that it uses native AlarmManager.
+
+---
+
+### Gap 14: APP_SUMMARY.md -- Last Updated Date
+
+The file says "Last updated: February 20, 2026" but significant changes have been made since (localStorage fixes, UI/UX fixes, snooze feature).
+
+**Fix:** Update to current date.
+
+---
+
+### Implementation Plan
+
+All changes are documentation-only (Markdown files). No code changes required.
+
+**Files to modify:**
+
+| File | Gaps Addressed |
+|------|---------------|
+| `ARCHITECTURE.md` | 1, 2, 11 |
+| `APP_SUMMARY.md` | 3, 4, 5, 6, 7, 8, 12, 14 |
+| `UBUNTU_SETUP.md` | 9 |
+| `DEPLOYMENT.md` | 10 |
+| `PRODUCT_IDEOLOGY.md` | 13 |
+
+**Order of changes:**
+
+1. APP_SUMMARY.md (most gaps, highest documentation value)
+2. ARCHITECTURE.md (safe area corrections affect developer decisions)
+3. UBUNTU_SETUP.md (outdated section could cause build failures)
+4. DEPLOYMENT.md (minor CLI inconsistency)
+5. PRODUCT_IDEOLOGY.md (single row addition)
 
