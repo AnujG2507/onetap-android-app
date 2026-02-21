@@ -42,6 +42,9 @@
     
     <!-- Direct call placement for contact One Tap Access shortcuts -->
     <uses-permission android:name="android.permission.CALL_PHONE" />
+    
+    <!-- Battery optimization exemption: allows requesting whitelist from Doze mode -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <application
         android:allowBackup="true"

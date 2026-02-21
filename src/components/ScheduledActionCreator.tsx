@@ -341,6 +341,16 @@ export function ScheduledActionCreator({
         // Continue anyway - user can still use the feature
       }
 
+      // Proactively request battery optimization exemption if not already granted
+      try {
+        const batteryStatus = await ShortcutPlugin.checkBatteryOptimization();
+        if (!batteryStatus.exempted) {
+          await ShortcutPlugin.requestBatteryOptimization();
+        }
+      } catch (e) {
+        console.log('Battery optimization check skipped:', e);
+      }
+
       const input: CreateScheduledActionInput = {
         name: name.trim() || getSuggestedName(destination),
         description: description.trim() || undefined,

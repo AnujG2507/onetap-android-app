@@ -128,8 +128,12 @@ export function BatteryOptimizationHelp({
 
   const handleOpenBatterySettings = async () => {
     try {
-      // Try to open battery optimization settings - falls back to alarm settings
-      await ShortcutPlugin.openAlarmSettings();
+      // First try to show the system battery optimization exemption dialog (one-tap whitelist)
+      const result = await ShortcutPlugin.requestBatteryOptimization();
+      if (!result.success) {
+        // Fallback to alarm settings if the system dialog couldn't be shown
+        await ShortcutPlugin.openAlarmSettings();
+      }
     } catch (error) {
       console.log('Could not open settings:', error);
     }

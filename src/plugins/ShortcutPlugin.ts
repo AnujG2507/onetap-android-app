@@ -387,6 +387,15 @@ export interface ShortcutPluginInterface {
   // Clean up stale entries from the creation registry.
   // Called after successful sync when OS returned >0 pinned IDs.
   cleanupRegistry(options: { confirmedIds: string[] }): Promise<{ success: boolean; pruned?: number; error?: string }>;
+
+  // ========== Battery Optimization ==========
+
+  // Check if the app is exempted from battery optimization (Doze mode whitelist)
+  checkBatteryOptimization(): Promise<{ exempted: boolean }>;
+
+  // Request the system to whitelist the app from battery optimization.
+  // Shows a one-tap system dialog to the user.
+  requestBatteryOptimization(): Promise<{ success: boolean; error?: string }>;
 }
 
 // This plugin bridges to native Android code

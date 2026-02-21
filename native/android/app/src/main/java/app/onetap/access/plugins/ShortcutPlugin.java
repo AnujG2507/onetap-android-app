@@ -5270,4 +5270,33 @@ public class ShortcutPlugin extends Plugin {
             android.util.Log.w("ShortcutPlugin", "evictOldestDynamicShortcut error: " + e.getMessage());
         }
     }
+
+    // ========== Battery Optimization ==========
+
+    @PluginMethod
+    public void checkBatteryOptimization(PluginCall call) {
+        android.os.PowerManager pm = (android.os.PowerManager) getContext().getSystemService(Context.POWER_SERVICE);
+        boolean exempted = pm.isIgnoringBatteryOptimizations(getContext().getPackageName());
+        JSObject result = new JSObject();
+        result.put("exempted", exempted);
+        call.resolve(result);
+    }
+
+    @PluginMethod
+    public void requestBatteryOptimization(PluginCall call) {
+        try {
+            Intent intent = new Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+            intent.setData(Uri.parse("package:" + getContext().getPackageName()));
+            getActivity().startActivity(intent);
+            JSObject result = new JSObject();
+            result.put("success", true);
+            call.resolve(result);
+        } catch (Exception e) {
+            android.util.Log.e("ShortcutPlugin", "requestBatteryOptimization error: " + e.getMessage());
+            JSObject result = new JSObject();
+            result.put("success", false);
+            result.put("error", e.getMessage());
+            call.resolve(result);
+        }
+    }
 }
