@@ -409,6 +409,14 @@ export interface ShortcutPluginInterface {
     ids: string[]; 
     error?: string 
   }>;
+
+  // Get IDs of actions currently in a snoozed state (countdown running).
+  // Does NOT clear the list — it's a live snapshot.
+  getSnoozedActionIds(): Promise<{
+    success: boolean;
+    ids: string[];
+    error?: string;
+  }>;
 }
 
 // This plugin bridges to native Android code

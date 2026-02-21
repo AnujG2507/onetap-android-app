@@ -349,6 +349,7 @@
   },
   "scheduledActionItem": {
     "expired": "Expired",
+    "snoozed": "Snoozed",
     "deleteTitle": "Delete scheduled action?",
     "deleteDesc": "\"{{name}}\" will be permanently deleted. This action cannot be undone."
   },

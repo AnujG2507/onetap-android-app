@@ -617,4 +617,11 @@ export class ShortcutPluginWeb implements ShortcutPluginInterface {
     console.log('[ShortcutPluginWeb] getDismissedNotificationIds called (web fallback)');
     return { success: true, ids: [] };
   }
+
+  // ========== Snoozed Action IDs (Web Fallback) ==========
+
+  async getSnoozedActionIds(): Promise<{ success: boolean; ids: string[]; error?: string }> {
+    console.log('[ShortcutPluginWeb] getSnoozedActionIds called (web fallback)');
+    return { success: true, ids: [] };
+  }
 }

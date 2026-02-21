@@ -16,6 +16,7 @@ import {
   MessageCircle,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { TruncatedText } from '@/components/ui/expandable-text';
 import {
@@ -42,6 +43,7 @@ interface ScheduledActionItemProps {
   isDeleting: boolean;
   isSelected: boolean;
   isSelectionMode: boolean;
+  isSnoozed?: boolean;
   onTap: () => void;
   onToggle: () => void;
   onDelete: () => void;
@@ -58,6 +60,7 @@ export function ScheduledActionItem({
   isDeleting,
   isSelected,
   isSelectionMode,
+  isSnoozed = false,
   onTap,
   onToggle,
   onDelete,
@@ -387,6 +390,11 @@ export function ScheduledActionItem({
               <div className="flex items-center gap-1.5 mt-1.5 text-xs text-muted-foreground">
                 {getRecurrenceIcon(action.recurrence)}
                 <span>{formatRecurrence(action.recurrence)}</span>
+                {isSnoozed && (
+                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 ms-1">
+                    {t('scheduledActionItem.snoozed', 'Snoozed')}
+                  </Badge>
+                )}
               </div>
             </div>
 
