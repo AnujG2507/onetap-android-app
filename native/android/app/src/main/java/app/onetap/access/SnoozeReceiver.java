@@ -81,10 +81,25 @@ public class SnoozeReceiver extends BroadcastReceiver {
             context, actionId, actionName, description, destinationType, destinationData
         );
 
-        // 4. Schedule alarm to re-fire after configured duration
+        // 4. Cancel any existing snooze alarm (prevents duplicates on re-snooze)
         int snoozeMins = getSnoozeDurationMinutes(context);
         long snoozeDurationMs = snoozeMins * 60 * 1000L;
+        int requestCode = actionId.hashCode() + 2;
 
+        AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+        Intent cancelIntent = new Intent(context, SnoozeReceiver.class);
+        cancelIntent.setAction(ACTION_SNOOZE_FIRE);
+        PendingIntent existingAlarm = PendingIntent.getBroadcast(
+            context, requestCode, cancelIntent,
+            PendingIntent.FLAG_NO_CREATE | PendingIntent.FLAG_IMMUTABLE
+        );
+        if (existingAlarm != null && alarmManager != null) {
+            alarmManager.cancel(existingAlarm);
+            existingAlarm.cancel();
+            Log.d(TAG, "Cancelled existing snooze alarm for: " + actionId);
+        }
+
+        // 5. Schedule new alarm to re-fire after configured duration
         Intent fireIntent = new Intent(context, SnoozeReceiver.class);
         fireIntent.setAction(ACTION_SNOOZE_FIRE);
         fireIntent.putExtra(EXTRA_ACTION_ID, actionId);
@@ -93,7 +108,6 @@ public class SnoozeReceiver extends BroadcastReceiver {
         fireIntent.putExtra(EXTRA_DESTINATION_TYPE, destinationType);
         fireIntent.putExtra(EXTRA_DESTINATION_DATA, destinationData);
 
-        int requestCode = actionId.hashCode() + 2; // Unique from notif IDs
         PendingIntent pendingFire = PendingIntent.getBroadcast(
             context, requestCode, fireIntent,
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
