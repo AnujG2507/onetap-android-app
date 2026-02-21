@@ -456,51 +456,85 @@ export function useShortcuts() {
     }
   }, []);
 
-  // Post-pin verification: check if a shortcut was actually pinned on the home screen.
-  // Called after createHomeScreenShortcut to detect dismissed pin dialogs.
+  // Post-pin verification: uses Android's PendingIntent callback for positive
+  // confirmation instead of a blind timer.
   const verifyShortcutPinned = useCallback(async (id: string) => {
     if (!Capacitor.isNativePlatform()) return;
 
-    // Wait for the pin dialog to resolve
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    // Phase 1: Wait for the pin dialog to close.
+    // "Add" button / Back: app stays in foreground → 1.5s timeout fires.
+    // Drag-and-drop: app goes to background → wait for appStateChange(active).
+    await new Promise<void>(resolve => {
+      const timeout = setTimeout(() => {
+        cleanup();
+        resolve();
+      }, 1500);
+
+      let listenerHandle: any = null;
+
+      const cleanup = () => {
+        clearTimeout(timeout);
+        if (listenerHandle) {
+          listenerHandle.then((l: any) => l.remove());
+          listenerHandle = null;
+        }
+      };
+
+      listenerHandle = App.addListener('appStateChange', ({ isActive }) => {
+        if (isActive) {
+          cleanup();
+          resolve();
+        }
+      });
+    });
+
+    // Phase 2: Grace period for BroadcastReceiver to fire
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
     try {
+      // Phase 3: Check positive confirmation from Android callback
+      const confirmResult = await ShortcutPlugin.checkPinConfirmed({ id });
+      if (confirmResult.confirmed) {
+        console.log('[useShortcuts] Pin confirmed by callback:', id);
+        return;
+      }
+
+      // Phase 4: Fallback — check OS-reported pinned IDs
       const result = await ShortcutPlugin.getPinnedShortcutIds();
 
-      // Don't delete on API failure
       if (result.error) {
         console.warn('[useShortcuts] verifyShortcutPinned: native error, skipping');
         return;
       }
 
-      // Check ONLY the OS-reported ids, deliberately ignoring recentlyCreatedIds
-      if (!result.ids.includes(id)) {
-        console.log('[useShortcuts] Shortcut not pinned, removing:', id);
+      if (result.ids.includes(id)) {
+        console.log('[useShortcuts] Pin confirmed by OS query:', id);
+        return;
+      }
 
-        // Remove from localStorage
-        const stored = localStorage.getItem(STORAGE_KEY);
-        const current: ShortcutData[] = stored ? JSON.parse(stored) : [];
-        const filtered = current.filter(s => s.id !== id);
+      // Phase 5: Not confirmed — remove from localStorage
+      console.log('[useShortcuts] Shortcut not pinned, removing:', id);
 
-        if (filtered.length !== current.length) {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
-          setShortcuts(filtered);
-          syncToWidgets(filtered);
-          window.dispatchEvent(new CustomEvent('shortcuts-changed', { detail: filtered }));
+      const stored = localStorage.getItem(STORAGE_KEY);
+      const current: ShortcutData[] = stored ? JSON.parse(stored) : [];
+      const filtered = current.filter(s => s.id !== id);
 
-          toast.info(i18n.t('shortcuts.notPinned', 'Shortcut was not added to home screen'), {
-            duration: 4000,
-          });
+      if (filtered.length !== current.length) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
+        setShortcuts(filtered);
+        syncToWidgets(filtered);
+        window.dispatchEvent(new CustomEvent('shortcuts-changed', { detail: filtered }));
 
-          // Cleanup stale registry entry
-          try {
-            await ShortcutPlugin.cleanupRegistry({ confirmedIds: result.ids });
-          } catch (e) {
-            console.warn('[useShortcuts] Registry cleanup failed:', e);
-          }
+        toast.info(i18n.t('shortcuts.notPinned', 'Shortcut was not added to home screen'), {
+          duration: 4000,
+        });
+
+        // Cleanup stale registry entry
+        try {
+          await ShortcutPlugin.cleanupRegistry({ confirmedIds: result.ids });
+        } catch (e) {
+          console.warn('[useShortcuts] Registry cleanup failed:', e);
         }
-      } else {
-        console.log('[useShortcuts] Shortcut verified as pinned:', id);
       }
     } catch (error) {
       console.warn('[useShortcuts] verifyShortcutPinned failed:', error);
