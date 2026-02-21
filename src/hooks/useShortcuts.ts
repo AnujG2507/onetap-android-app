@@ -173,7 +173,7 @@ export function useShortcuts() {
     const timer = setTimeout(() => {
       lastSyncTime.current = 0;
       syncWithHomeScreen();
-    }, 1500);
+    }, 500);
     return () => clearTimeout(timer);
   }, []); // Only on mount
 
