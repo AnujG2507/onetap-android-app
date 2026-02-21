@@ -378,7 +378,7 @@ function SortButton({
 export function MyShortcutsContent({ onCreateReminder, onRefresh, isSyncing: externalSyncing }: MyShortcutsContentProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { shortcuts, deleteShortcut, updateShortcut, getShortcut, incrementUsage, syncWithHomeScreen, refreshFromStorage } = useShortcuts();
+  const { shortcuts, deleteShortcut, updateShortcut, getShortcut, incrementUsage, syncWithHomeScreen, refreshFromStorage, verifyShortcutPinned } = useShortcuts();
   const [selectedShortcut, setSelectedShortcut] = useState<ShortcutData | null>(null);
   const [editingShortcut, setEditingShortcut] = useState<ShortcutData | null>(null);
   const [internalSyncing, setInternalSyncing] = useState(false);
@@ -595,8 +595,9 @@ export function MyShortcutsContent({ onCreateReminder, onRefresh, isSyncing: ext
     });
     if (success) {
       toast.success(t('shortcutAction.addedToHomeScreen', 'Added to home screen'));
+      verifyShortcutPinned(shortcut.id);
     }
-  }, [t]);
+  }, [t, verifyShortcutPinned]);
   
   const handleReconnect = useCallback(async (shortcut: ShortcutData) => {
     setSelectedShortcut(null);
@@ -620,6 +621,7 @@ export function MyShortcutsContent({ onCreateReminder, onRefresh, isSyncing: ext
               });
               if (success) {
                 toast.success(t('shortcutAction.addedToHomeScreen', 'Added to home screen'));
+                verifyShortcutPinned(latest.id);
               }
             }
           },

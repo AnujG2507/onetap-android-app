@@ -456,6 +456,57 @@ export function useShortcuts() {
     }
   }, []);
 
+  // Post-pin verification: check if a shortcut was actually pinned on the home screen.
+  // Called after createHomeScreenShortcut to detect dismissed pin dialogs.
+  const verifyShortcutPinned = useCallback(async (id: string) => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    // Wait for the pin dialog to resolve
+    await new Promise(resolve => setTimeout(resolve, 3000));
+
+    try {
+      const result = await ShortcutPlugin.getPinnedShortcutIds();
+
+      // Don't delete on API failure
+      if (result.error) {
+        console.warn('[useShortcuts] verifyShortcutPinned: native error, skipping');
+        return;
+      }
+
+      // Check ONLY the OS-reported ids, deliberately ignoring recentlyCreatedIds
+      if (!result.ids.includes(id)) {
+        console.log('[useShortcuts] Shortcut not pinned, removing:', id);
+
+        // Remove from localStorage
+        const stored = localStorage.getItem(STORAGE_KEY);
+        const current: ShortcutData[] = stored ? JSON.parse(stored) : [];
+        const filtered = current.filter(s => s.id !== id);
+
+        if (filtered.length !== current.length) {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
+          setShortcuts(filtered);
+          syncToWidgets(filtered);
+          window.dispatchEvent(new CustomEvent('shortcuts-changed', { detail: filtered }));
+
+          toast.info(i18n.t('shortcuts.notPinned', 'Shortcut was not added to home screen'), {
+            duration: 4000,
+          });
+
+          // Cleanup stale registry entry
+          try {
+            await ShortcutPlugin.cleanupRegistry({ confirmedIds: result.ids });
+          } catch (e) {
+            console.warn('[useShortcuts] Registry cleanup failed:', e);
+          }
+        }
+      } else {
+        console.log('[useShortcuts] Shortcut verified as pinned:', id);
+      }
+    } catch (error) {
+      console.warn('[useShortcuts] verifyShortcutPinned failed:', error);
+    }
+  }, [syncToWidgets]);
+
   return {
     shortcuts,
     createShortcut,
@@ -468,5 +519,6 @@ export function useShortcuts() {
     getShortcut,
     syncWithHomeScreen,
     refreshFromStorage,
+    verifyShortcutPinned,
   };
 }

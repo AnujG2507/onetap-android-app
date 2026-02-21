@@ -95,7 +95,7 @@ export function AccessFlow({
   const processedInitialUrlRef = useRef<string | null>(null);
 
   const { t } = useTranslation();
-  const { createShortcut, createContactShortcut, createSlideshowShortcut, createTextShortcut } = useShortcuts();
+  const { createShortcut, createContactShortcut, createSlideshowShortcut, createTextShortcut, verifyShortcutPinned } = useShortcuts();
   const { toast } = useToast();
   const { settings } = useSettings();
   const { isOnline } = useNetworkStatus();
@@ -422,6 +422,7 @@ export function AccessFlow({
       if (success) {
         setLastCreatedName(data.name);
         setStep('success');
+        verifyShortcutPinned(shortcut.id);
       } else {
         toast({ title: t('errors.somethingWentWrong'), description: t('access.couldNotAddToHomeScreen'), variant: 'destructive' });
       }
@@ -474,6 +475,7 @@ export function AccessFlow({
       if (success) {
         setLastCreatedName(data.name);
         setStep('success');
+        verifyShortcutPinned(shortcut.id);
       } else {
         toast({
           title: t('errors.somethingWentWrong'),
@@ -508,6 +510,7 @@ export function AccessFlow({
       if (success) {
         setLastCreatedName(name);
         setStep('success');
+        verifyShortcutPinned(shortcut.id);
       } else {
         console.error('[AccessFlow] Failed to create shortcut');
         toast({
@@ -541,6 +544,7 @@ export function AccessFlow({
       if (success) {
         setLastCreatedName(name);
         setStep('success');
+        verifyShortcutPinned(shortcut.id);
       } else {
         console.error('[AccessFlow] Failed to create slideshow shortcut');
         toast({
