@@ -459,4 +459,74 @@ If you can't confidently answer all five, research more before proceeding.
 
 ---
 
+## 11. Security Verification Checklist
+
+Run these queries in the **external Supabase project's SQL Editor** (`xfnugumyjhnctmqgiyqm`) to verify RLS is correctly configured. This should be checked after any schema migration.
+
+### Step 1: Confirm RLS is enabled on all tables
+
+```sql
+SELECT tablename, rowsecurity
+FROM pg_tables
+WHERE schemaname = 'public'
+  AND tablename IN (
+    'cloud_bookmarks',
+    'cloud_trash',
+    'cloud_scheduled_actions',
+    'cloud_shortcuts',
+    'cloud_deleted_entities'
+  );
+```
+
+**Expected:** All 5 rows show `rowsecurity = true`. If any show `false`, enable immediately:
+
+```sql
+ALTER TABLE public.<table_name> ENABLE ROW LEVEL SECURITY;
+```
+
+### Step 2: Confirm each table has 4 RLS policies
+
+```sql
+SELECT tablename, policyname, cmd, qual
+FROM pg_policies
+WHERE schemaname = 'public'
+  AND tablename IN (
+    'cloud_bookmarks',
+    'cloud_trash',
+    'cloud_scheduled_actions',
+    'cloud_shortcuts',
+    'cloud_deleted_entities'
+  )
+ORDER BY tablename, cmd;
+```
+
+**Expected:** Each table has 4 policies (SELECT, INSERT, UPDATE, DELETE), all with `auth.uid() = user_id` in the `qual` or `with_check` column.
+
+### Step 3: If policies are missing, create them
+
+Use this template for any table missing policies:
+
+```sql
+-- Replace <table_name> with the actual table name
+CREATE POLICY "Users can view their own data"
+  ON public.<table_name> FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can create their own data"
+  ON public.<table_name> FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own data"
+  ON public.<table_name> FOR UPDATE
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete their own data"
+  ON public.<table_name> FOR DELETE
+  USING (auth.uid() = user_id);
+```
+
+⚠️ **Run this checklist after every schema migration to ensure no table is left unprotected.**
+
+---
+
 *Last updated: February 2026*
