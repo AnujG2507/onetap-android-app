@@ -2,6 +2,7 @@ package app.onetap.access;
 
 import android.Manifest;
 import android.app.AlarmManager;
+import android.app.PendingIntent;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
