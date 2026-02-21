@@ -1,135 +1,61 @@
 
 
-## Security Fixes Plan (External Supabase Only)
+## Remove Timer-Based Pin Dialog Check
 
-### Context
+The `verifyShortcutPinned` function in `src/hooks/useShortcuts.ts` currently has a multi-phase approach with timers that should be replaced now that PendingIntent confirmation is implemented.
 
-All edge functions and database tables live on the **external Supabase project** (`xfnugumyjhnctmqgiyqm`). Edge functions are deployed via `npx supabase functions deploy` to that project. Lovable Cloud is not involved in any of these changes.
+### Current Flow (lines 463-544)
+1. **Phase 1 (1.5s):** Wait for pin dialog to close via timeout or app state change
+2. **Phase 2 (1s):** Grace period for BroadcastReceiver to fire
+3. **Phase 3:** Check `checkPinConfirmed` (PendingIntent callback)
+4. **Phase 4:** Fallback OS query
+5. **Phase 5:** Remove shortcut if not confirmed
 
-The app client connects via `src/lib/supabaseClient.ts` which points to the external project. The `supabase.functions.invoke()` calls in hooks like `useUrlMetadata.ts` go to the external project's edge function endpoints.
+### New Flow
+Since PendingIntent fires reliably when the user taps "Add" or drags the shortcut, we only need to:
+1. Wait for the user to return to the app (via `appStateChange` to `active`, with a reasonable timeout for "Add" button taps that don't leave the app)
+2. Small grace period (300ms) for the BroadcastReceiver to write to SharedPreferences
+3. Check `checkPinConfirmed`
+4. Fallback OS query
+5. Remove if not confirmed
 
----
+### Changes
 
-### Fix 1: SSRF Protection + Authentication in `fetch-url-metadata`
+**File: `src/hooks/useShortcuts.ts` (lines 463-544)**
 
-**File:** `supabase/functions/fetch-url-metadata/index.ts`
+Replace the current `verifyShortcutPinned` implementation:
 
-**What changes:**
+- **Remove Phase 1** (the 1.5s blind timer and app state listener combo). Replace with a single listener that waits for `appStateChange(active)` with a 500ms timeout. The 500ms covers the "Add button" case where the app never leaves foreground; the listener covers the drag-and-drop case where the app goes to background.
+- **Reduce Phase 2** grace period from 1000ms to 300ms -- just enough for SharedPreferences write.
+- **Keep Phases 3-5** unchanged (PendingIntent check, OS fallback, cleanup).
 
-1. Add a `validateUrl()` function that:
-   - Rejects non-HTTP/HTTPS schemes
-   - Parses the hostname and blocks private/internal IP ranges: `127.x`, `10.x`, `172.16-31.x`, `192.168.x`, `169.254.x`, `::1`, `0.0.0.0`
-   - Blocks known cloud metadata hostnames (`metadata.google.internal`)
-   - Called before the `fetch(url, ...)` on line 104; returns 400 if validation fails
-
-2. Add JWT authentication:
-   - Extract `Authorization: Bearer <token>` header
-   - Create a Supabase client using `Deno.env.get('SUPABASE_URL')` and `Deno.env.get('SUPABASE_ANON_KEY')` (these are auto-set on the external project where the function is deployed)
-   - Call `auth.getUser()` to validate the token
-   - Return 401 if missing or invalid
-   - This works because `useUrlMetadata.ts` already calls `supabase.functions.invoke()` which automatically includes the user's JWT
-
-3. Add CORS origin restriction (see Fix 3 below)
-
-4. Import `createClient` from `https://esm.sh/@supabase/supabase-js@2` (same as `delete-account`)
-
-**No client-side changes needed** -- `supabase.functions.invoke()` already sends the Authorization header automatically when the user is signed in.
-
----
-
-### Fix 2: XSS Sanitization in TextViewer
-
-**File:** `src/pages/TextViewer.tsx`
-
-**What changes:**
-
-Add an `escapeHtml()` helper function before `renderMarkdown()`:
+The resulting code will look like:
 
 ```typescript
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
+const verifyShortcutPinned = useCallback(async (id: string) => {
+  if (!Capacitor.isNativePlatform()) return;
+
+  // Wait for user to finish interacting with the pin dialog
+  await new Promise<void>(resolve => {
+    const timeout = setTimeout(() => { cleanup(); resolve(); }, 500);
+    let listenerHandle: any = null;
+    const cleanup = () => {
+      clearTimeout(timeout);
+      if (listenerHandle) {
+        listenerHandle.then((l: any) => l.remove());
+        listenerHandle = null;
+      }
+    };
+    listenerHandle = App.addListener('appStateChange', ({ isActive }) => {
+      if (isActive) { cleanup(); resolve(); }
+    });
+  });
+
+  // Brief grace for BroadcastReceiver to write confirmation
+  await new Promise(resolve => setTimeout(resolve, 300));
+
+  // ... rest unchanged (checkPinConfirmed, OS fallback, cleanup)
+}, [syncToWidgets]);
 ```
 
-In `renderMarkdown()`, apply `escapeHtml()` to each line **before** the markdown regex replacements (line 50). This ensures:
-- User-injected `<script>`, `<img onerror=...>` etc. become harmless escaped text
-- The regex-generated `<code>`, `<strong>`, `<em>` tags still render correctly since they are added after escaping
-
-Also escape content in heading lines (lines 38, 41, 44) by wrapping the sliced text in `escapeHtml()` and using `dangerouslySetInnerHTML` consistently, or alternatively rendering headings with escaped text as children (simpler approach -- headings don't need inline formatting, so plain text children are fine; just apply `escapeHtml()` to the text).
-
----
-
-### Fix 3: CORS Origin Restriction on Both Edge Functions
-
-**Files:** `supabase/functions/fetch-url-metadata/index.ts`, `supabase/functions/delete-account/index.ts`
-
-**What changes:**
-
-Replace hardcoded `'Access-Control-Allow-Origin': '*'` with a dynamic origin check:
-
-```typescript
-const ALLOWED_ORIGINS = [
-  'capacitor://localhost',   // Android app
-  'http://localhost',        // Local dev (any port)
-  'https://onetapapp.in',   // Production domain
-];
-
-function getCorsHeaders(req: Request): Record<string, string> {
-  const origin = req.headers.get('Origin') || '';
-  const isAllowed = ALLOWED_ORIGINS.some(allowed =>
-    origin === allowed || origin.startsWith(allowed + ':')
-  );
-  return {
-    'Access-Control-Allow-Origin': isAllowed ? origin : ALLOWED_ORIGINS[0],
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-  };
-}
-```
-
-Both functions get this helper inlined (edge functions don't share imports easily). Every `Response` object uses `getCorsHeaders(req)` instead of the static `corsHeaders` object.
-
----
-
-### Fix 4: External RLS Verification Checklist in SUPABASE.md
-
-**File:** `SUPABASE.md`
-
-**What changes:**
-
-Add a new section "Security Verification Checklist" after Section 10 that documents:
-- All 5 tables must have RLS enabled
-- Each table needs 4 policies (SELECT/INSERT/UPDATE/DELETE) with `auth.uid() = user_id`
-- Verification SQL queries to run in the external project's SQL editor
-- A note that this should be checked after any schema migration
-
----
-
-### Summary
-
-| Fix | File | Deployed Where |
-|-----|------|---------------|
-| SSRF + Auth | `supabase/functions/fetch-url-metadata/index.ts` | External Supabase via CLI |
-| XSS escape | `src/pages/TextViewer.tsx` | Client bundle |
-| CORS restriction | Both edge function files | External Supabase via CLI |
-| RLS checklist | `SUPABASE.md` | Documentation only |
-
-### Implementation Order
-
-1. `supabase/functions/fetch-url-metadata/index.ts` -- SSRF validation, JWT auth, CORS (all in one pass)
-2. `supabase/functions/delete-account/index.ts` -- CORS restriction only
-3. `src/pages/TextViewer.tsx` -- HTML escaping
-4. `SUPABASE.md` -- RLS verification checklist
-
-### Deployment Note
-
-After code changes, edge functions must be redeployed to the external project:
-```bash
-npx supabase functions deploy fetch-url-metadata --project-ref xfnugumyjhnctmqgiyqm
-npx supabase functions deploy delete-account --project-ref xfnugumyjhnctmqgiyqm --no-verify-jwt
-```
-
+This reduces the total wait from ~2.5s to ~800ms while relying on the PendingIntent callback as the source of truth.
