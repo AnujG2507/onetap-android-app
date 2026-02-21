@@ -336,7 +336,8 @@ public class NotificationHelper {
             .setUsesChronometer(true)
             .setWhen(System.currentTimeMillis() + (snoozeMins * 60 * 1000L))
             .setChronometerCountDown(true)
-            .addAction(android.R.drawable.ic_popup_reminder, "Snooze again", snoozeAgainPending);
+            .addAction(android.R.drawable.ic_popup_reminder, "Snooze again", snoozeAgainPending)
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Cancel", buildSnoozeCancelPending(context, actionId));
         try {
             NotificationManagerCompat manager = NotificationManagerCompat.from(context);
             manager.notify(snoozeNotifId, builder.build());
@@ -344,5 +345,21 @@ public class NotificationHelper {
         } catch (SecurityException e) {
             Log.e(TAG, "No notification permission for snooze countdown", e);
         }
+    }
+
+    /**
+     * Build a PendingIntent that cancels an active snooze (alarm + notification).
+     */
+    private static PendingIntent buildSnoozeCancelPending(Context context, String actionId) {
+        Intent cancelIntent = new Intent(context, SnoozeReceiver.class);
+        cancelIntent.setAction(SnoozeReceiver.ACTION_SNOOZE_CANCEL);
+        cancelIntent.putExtra(SnoozeReceiver.EXTRA_ACTION_ID, actionId);
+
+        return PendingIntent.getBroadcast(
+            context,
+            actionId.hashCode() + 6,
+            cancelIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
     }
 }
