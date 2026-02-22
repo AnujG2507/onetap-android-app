@@ -166,7 +166,7 @@ export function ContactShortcutCustomizer({
   const isValid = phoneNumber.length > 0 && isPhoneValid;
 
   return (
-    <div className="flex-1 flex flex-col animate-fade-in">
+    <div className="flex-1 flex flex-col animate-fade-in overflow-hidden">
       {/* Header */}
       <header className="px-5 pt-header-safe pb-4 landscape:px-4 landscape:pt-2 landscape:pb-2 flex items-center gap-4">
         <button
