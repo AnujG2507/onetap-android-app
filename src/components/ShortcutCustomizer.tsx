@@ -13,6 +13,9 @@ import { getContentName, generateThumbnail, getPlatformEmoji, getFileTypeEmoji, 
 import { buildImageSources, normalizeBase64 } from '@/lib/imageUtils';
 import { detectPlatform } from '@/lib/platformIcons';
 import { useUrlMetadata } from '@/hooks/useUrlMetadata';
+import { openInAppBrowser } from '@/lib/inAppBrowser';
+import { Capacitor } from '@capacitor/core';
+import ShortcutPlugin from '@/plugins/ShortcutPlugin';
 import type { ContentSource, ShortcutIcon } from '@/types/shortcut';
 import { FILE_SIZE_THRESHOLD } from '@/types/shortcut';
 
@@ -174,6 +177,24 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
     return () => clearInterval(timer);
   }, [isCreating, isLargeFile, isVideo]);
   
+  const handlePreviewContent = useCallback(async () => {
+    try {
+      if (source.type === 'url' || source.type === 'share') {
+        await openInAppBrowser(source.uri);
+      } else if (Capacitor.isNativePlatform()) {
+        if (isVideo) {
+          await ShortcutPlugin.openNativeVideoPlayer({ uri: source.uri, mimeType: source.mimeType });
+        } else {
+          await ShortcutPlugin.openWithExternalApp({ uri: source.uri, mimeType: source.mimeType });
+        }
+      } else {
+        window.open(source.uri, '_blank', 'noopener,noreferrer');
+      }
+    } catch (err) {
+      console.warn('[ShortcutCustomizer] Preview failed:', err);
+    }
+  }, [source, isVideo]);
+
   const handleConfirm = useCallback(async () => {
     if (name.trim() && !isCreating) {
       setIsCreating(true);
@@ -209,7 +230,7 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
           {/* Left column: Content preview, name input, icon picker */}
           <div className="space-y-6 landscape:space-y-4">
             {/* Content Preview */}
-            <ContentPreview source={source} />
+            <ContentPreview source={source} onPreview={handlePreviewContent} />
         
         {/* Name input */}
         <div className="space-y-2">
