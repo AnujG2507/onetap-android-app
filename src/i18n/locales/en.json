@@ -544,7 +544,8 @@
     "processingFile": "Processing file",
     "processingVideo": "Processing video",
     "processingLargeFile": "This may take a moment ({{size}} MB)",
-    "processingLargeVideo": "Generating thumbnail ({{size}} MB)"
+    "processingLargeVideo": "Generating thumbnail ({{size}} MB)",
+    "previewContent": "Preview"
   },
   "iconPicker": {
     "icon": "Icon",

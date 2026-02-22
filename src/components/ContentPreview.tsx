@@ -1,4 +1,6 @@
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
+import { ExternalLink } from 'lucide-react';
 import { formatContentInfo } from '@/lib/contentResolver';
 import { detectPlatform } from '@/lib/platformIcons';
 import { PlatformIcon } from '@/components/PlatformIcon';
@@ -9,10 +11,12 @@ import { buildImageSources } from '@/lib/imageUtils';
 
 interface ContentPreviewProps {
   source: ContentSource;
+  onPreview?: () => void;
   className?: string;
 }
 
-export function ContentPreview({ source, className }: ContentPreviewProps) {
+export function ContentPreview({ source, onPreview, className }: ContentPreviewProps) {
+  const { t } = useTranslation();
   const info = formatContentInfo(source);
   const isImage = source.mimeType?.startsWith('image/');
 
@@ -74,6 +78,18 @@ export function ContentPreview({ source, className }: ContentPreviewProps) {
           {info.sublabel}
         </p>
       </div>
+
+      {/* Preview button */}
+      {onPreview && (
+        <button
+          type="button"
+          onClick={onPreview}
+          className="flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center hover:bg-muted active:bg-muted/80 text-muted-foreground transition-colors"
+          aria-label={t('shortcutCustomizer.previewContent')}
+        >
+          <ExternalLink className="h-4 w-4" />
+        </button>
+      )}
     </div>
   );
 }
