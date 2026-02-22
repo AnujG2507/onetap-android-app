@@ -1,32 +1,41 @@
 
 
-## Add Startup Cleanup for Stale Preview Entries
+## Update Documentation for Image Preview and Startup Cleanup
 
-### What and Why
+### What Changed
 
-If the app is killed while viewing an image preview, a temporary `__preview_image__` entry can remain in `localStorage`. This is harmless but untidy. A one-time cleanup on app startup ensures it never persists.
+Two recent features are not reflected in the documentation:
 
-### Implementation
+1. **Image preview in shortcut customizer** -- images now open in the built-in slideshow viewer (not an external app) via a temporary `__preview_image__` entry in `localStorage`
+2. **Startup cleanup** -- `App.tsx` removes any stale `__preview_image__` entry from `quicklaunch_shortcuts` on mount, guarding against app-kill during preview
 
-**File: `src/App.tsx`**
+### Changes
 
-Add a small cleanup inside the existing `App` component (or at module level before the component). On mount, read `quicklaunch_shortcuts` from `localStorage`, filter out any entry with `id === '__preview_image__'`, and write it back if a stale entry was found.
+**File: `APP_SUMMARY.md`**
 
-This will be a single `useEffect` with an empty dependency array inside the `App` function, running once on startup. Roughly 10 lines of code:
+1. In the **Local Storage Keys > UI State** section (~line 113), add a brief note about `__preview_image__` being a transient preview entry cleaned up on startup.
 
-```text
-useEffect(() => {
-  try {
-    const stored = localStorage.getItem('quicklaunch_shortcuts');
-    if (stored) {
-      const shortcuts = JSON.parse(stored);
-      const filtered = shortcuts.filter(s => s.id !== '__preview_image__');
-      if (filtered.length !== shortcuts.length) {
-        localStorage.setItem('quicklaunch_shortcuts', JSON.stringify(filtered));
-      }
-    }
-  } catch (_) {}
-}, []);
-```
+2. In the **Key Components** section (~line 304), add a note to `ShortcutCustomizer.tsx` mentioning image preview routes to the built-in slideshow viewer.
 
-No other files need changes.
+3. Update the "Last updated" line at the bottom to reflect today's date and these additions.
+
+**File: `ARCHITECTURE.md`**
+
+No changes needed -- the architecture doc covers structural concepts (layers, proxy activities, data flow) and the preview feature is a UI-level behavior that fits better in `APP_SUMMARY.md`.
+
+### Technical Details
+
+In `APP_SUMMARY.md`, the additions are:
+
+- Under UI State keys, after `clipboard_shown_urls`:
+  ```
+  __preview_image__ (transient)  Temporary shortcut entry for image preview; auto-cleaned on app startup
+  ```
+
+- Under Key Components, after `ShortcutCustomizer.tsx`:
+  ```
+  - Image preview opens in the built-in slideshow viewer (`/slideshow/__preview_image__`); stale entries cleaned on app startup in `App.tsx`
+  ```
+
+- Updated last-updated line to: `February 22, 2026 -- reflects image preview via built-in slideshow viewer and startup cleanup for stale preview entries`
+
