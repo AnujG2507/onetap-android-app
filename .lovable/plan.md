@@ -1,27 +1,59 @@
 
 
-## Fix Scroll in WhatsApp Shortcut Customizer
+## Fix Preview Content Button — PDF Opens App Selector, Video Does Nothing
 
-### Problem
+### Root Causes Found
 
-When 2-3 quick messages are added, the content area grows taller than the screen. Although `overflow-y-auto` is set on the scrollable div (line 183), the parent uses `flex-1 flex flex-col` without `overflow-hidden`, so the content expands the parent instead of triggering scroll.
+**1. Video — Missing `@PluginMethod` annotation (line 1053)**
 
-### Fix
+The `openNativeVideoPlayer` method in `ShortcutPlugin.java` is missing the `@PluginMethod` annotation. Capacitor requires this annotation to expose Java methods to the JavaScript bridge. Without it, the call silently fails — no error, no action.
 
-**File: `src/components/ContactShortcutCustomizer.tsx`**
+**2. PDF — No route to native PDF viewer**
 
-Apply `overflow-hidden` to the root container so the inner `overflow-y-auto` div is properly bounded and scrolls.
+The current code calls `ShortcutPlugin.openWithExternalApp()` for PDFs, which uses `Intent.createChooser()` — this always shows the system app selector. There is no method to directly open the built-in `NativePdfViewerV2Activity` for preview purposes.
 
-**Line 169** -- change:
+### Fix Plan
+
+**File 1: `native/android/app/src/main/java/app/onetap/access/plugins/ShortcutPlugin.java`**
+
+- Add `@PluginMethod` annotation before `openNativeVideoPlayer` (line 1052)
+- Add a new `openNativePdfViewer` method that launches `NativePdfViewerV2Activity` directly (similar pattern to `openNativeVideoPlayer` — parse URI, set ACTION_VIEW, grant URI permission, start activity)
+
+**File 2: `src/plugins/ShortcutPlugin.ts`**
+
+- Add `openNativePdfViewer` to the `ShortcutPluginInterface` type definition
+
+**File 3: `src/plugins/shortcutPluginWeb.ts`**
+
+- Add web fallback for `openNativePdfViewer` (open in new tab)
+
+**File 4: `src/components/ShortcutCustomizer.tsx`**
+
+- Update `handlePreviewContent` to call `ShortcutPlugin.openNativePdfViewer()` for PDF files instead of `openWithExternalApp()`
+
+### Technical Detail
+
+```text
+Before (line 1052-1053 of ShortcutPlugin.java):
+
+    public void openNativeVideoPlayer(PluginCall call) {
+
+After:
+
+    @PluginMethod
+    public void openNativeVideoPlayer(PluginCall call) {
 ```
-<div className="flex-1 flex flex-col animate-fade-in">
-```
-to:
-```
-<div className="flex-1 flex flex-col animate-fade-in overflow-hidden">
-```
 
-This follows the project's existing layout-overflow strategy (used in Settings and other full-page views): the outer flex container gets `overflow-hidden` to cap its height, and the inner content div with `overflow-y-auto` becomes the scroll container.
+The new `openNativePdfViewer` method will follow the same pattern as `openNativeVideoPlayer` but target `NativePdfViewerV2Activity` instead.
 
-Single line change, no new dependencies.
+The preview routing in `handlePreviewContent` will become:
+
+```text
+Content Type    Action
+URL/share       openInAppBrowser (unchanged)
+PDF (native)    ShortcutPlugin.openNativePdfViewer (NEW)
+Video (native)  ShortcutPlugin.openNativeVideoPlayer (now works with annotation fix)
+Other (native)  ShortcutPlugin.openWithExternalApp (unchanged)
+Web fallback    window.open (unchanged)
+```
 
