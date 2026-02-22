@@ -111,6 +111,7 @@ onetap_first_use_date    → ISO date string     First app open (for review prom
 onetap_review_prompt_done → "true"             Review prompt dismissed/completed
 onetap_review_jitter_days → number             Random delay offset for review prompt
 clipboard_shown_urls     → string[]            URLs already shown in clipboard suggestion
+__preview_image__ (transient)                    Temporary shortcut entry for image preview; auto-cleaned on app startup
 onetap_usage_*           → UsageRecord[]       Per-shortcut usage history
 scheduled_actions_selection → string[]         Transient multi-select IDs (bulk operations)
 ```
@@ -300,7 +301,7 @@ When `signOut()` is called, the following state is cleared to prevent cross-user
 ### Key Components
 - `BookmarkLibrary.tsx` - Main library view
 - `ScheduledActionCreator.tsx` - Reminder creation
-- `ShortcutCustomizer.tsx` - Shortcut configuration
+- `ShortcutCustomizer.tsx` - Shortcut configuration; image preview opens in built-in slideshow viewer (`/slideshow/__preview_image__`); stale entries cleaned on app startup in `App.tsx`
 - `SharedUrlActionSheet.tsx` - Action picker for shared URLs (Quick Save, Edit & Save, Shortcut, Remind Later)
 - `SharedFileActionSheet.tsx` - Action picker for shared files (One Tap Access, Remind Later)
 - `CloudBackupSection.tsx` - Sync controls
@@ -354,4 +355,4 @@ When `signOut()` is called, the following state is cleared to prevent cross-user
 
 ---
 
-*Last updated: February 21, 2026 — reflects snooze feature, localStorage inventory, sign-out cleanup, UI/UX safe-area fixes*
+*Last updated: February 22, 2026 — reflects image preview via built-in slideshow viewer and startup cleanup for stale preview entries*
