@@ -792,6 +792,15 @@ Android imposes a **hard limit** on dynamic shortcuts per app (typically 4–15,
 3. **Launcher changed** — No broadcast. `isPinned()` may become unreliable. Re-sync on every foreground.
 4. **File permissions revoked** — No signal. Mitigated by copying files to app-internal storage.
 
+### Timing Constants
+
+| Constant | Value | Location | Purpose |
+|----------|-------|----------|---------|
+| Cold-start sync delay | 500ms | `useShortcuts.ts` (`setTimeout`) | Delay before first `syncWithHomeScreen()` on app mount, allows WebView + native bridge to stabilize |
+| `MIN_SYNC_INTERVAL` | 2000ms | `useShortcuts.ts` | Debounce guard preventing rapid-fire `syncWithHomeScreen()` calls (Samsung split-screen, notification shade toggles) |
+| BroadcastReceiver grace period | 1500ms | `useShortcuts.ts` (`verifyShortcutPinned`) | Wait after pin dialog interaction for `ShortcutPinConfirmReceiver` to write confirmation to `SharedPreferences` |
+| Delayed cleanup | 35s | `useShortcuts.ts` (`verifyShortcutPinned`) | Fallback `syncWithHomeScreen()` scheduled after pin verification fails — runs well past the 30s native creation registry cooldown so cancelled shortcuts are eventually cleaned up |
+
 ---
 
 ## 14. Landscape Mode Layout System
