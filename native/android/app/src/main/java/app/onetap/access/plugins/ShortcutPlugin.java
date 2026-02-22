@@ -349,6 +349,12 @@ public class ShortcutPlugin extends Plugin {
             } catch (Exception e) {
                 android.util.Log.w("ShortcutPlugin", "Could not create text callback PendingIntent: " + e.getMessage());
             }
+            // Re-enable shortcut ID in case it was previously disabled (re-add flow)
+            try {
+                sm.enableShortcuts(Collections.singletonList(id));
+            } catch (Exception e) {
+                // Harmless if shortcut was never disabled
+            }
             boolean requested = sm.requestPinShortcut(textShortcutInfo,
                     textPinCallback != null ? textPinCallback.getIntentSender() : null);
             if (requested) {
@@ -576,6 +582,12 @@ public class ShortcutPlugin extends Plugin {
                             pinCallback = PendingIntent.getBroadcast(context, finalId.hashCode(), callbackIntent, cbFlags);
                         } catch (Exception e) {
                             android.util.Log.w("ShortcutPlugin", "Could not create callback PendingIntent: " + e.getMessage());
+                        }
+                        // Re-enable shortcut ID in case it was previously disabled (re-add flow)
+                        try {
+                            shortcutManager.enableShortcuts(Collections.singletonList(finalId));
+                        } catch (Exception e) {
+                            // Harmless if shortcut was never disabled
                         }
                         // Request pinning
                         boolean requested = shortcutManager.requestPinShortcut(finalShortcutInfo,
