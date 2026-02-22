@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Check, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -30,6 +31,7 @@ const LARGE_FILE_THRESHOLD = 10 * 1024 * 1024;
 
 export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustomizerProps) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [name, setName] = useState(() => getContentName(source));
   const [hasManuallyEditedName, setHasManuallyEditedName] = useState(false);
   const [thumbnail, setThumbnail] = useState<string | null>(null);
@@ -186,8 +188,30 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
           await ShortcutPlugin.openNativePdfViewer({ uri: source.uri, mimeType: source.mimeType });
         } else if (isVideo) {
           await ShortcutPlugin.openNativeVideoPlayer({ uri: source.uri, mimeType: source.mimeType });
+        } else if (source.mimeType?.startsWith('image/')) {
+          // Open in built-in slideshow viewer with a temporary preview entry
+          const previewId = '__preview_image__';
+          const previewShortcut = {
+            id: previewId,
+            type: 'file',
+            fileType: 'image',
+            name: name || 'Preview',
+            contentUri: source.uri,
+            thumbnailData: thumbnail || undefined,
+          };
+          // Inject temporary entry into localStorage for the viewer to read
+          try {
+            const stored = localStorage.getItem('quicklaunch_shortcuts');
+            const shortcuts = stored ? JSON.parse(stored) : [];
+            // Remove any previous preview entry, add new one
+            const filtered = shortcuts.filter((s: { id: string }) => s.id !== previewId);
+            filtered.push(previewShortcut);
+            localStorage.setItem('quicklaunch_shortcuts', JSON.stringify(filtered));
+          } catch (e) {
+            console.warn('[ShortcutCustomizer] Failed to inject preview shortcut:', e);
+          }
+          navigate(`/slideshow/${previewId}?t=${Date.now()}&preview=1`);
         } else {
-          // Images and other files: open directly in default handler (no app chooser)
           await ShortcutPlugin.openFileDirectly({ uri: source.uri, mimeType: source.mimeType });
         }
       } else {

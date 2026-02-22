@@ -37,14 +37,21 @@ export default function SlideshowViewer() {
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const autoAdvanceRef = useRef<NodeJS.Timeout | null>(null);
 
+  const isPreview = searchParams.get('preview') === '1';
+
   // Android back button: exit app on native (matches VideoPlayer behavior)
+  // In preview mode, navigate back instead of exiting
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
     const handler = App.addListener('backButton', () => {
-      App.exitApp();
+      if (isPreview) {
+        navigate(-1);
+      } else {
+        App.exitApp();
+      }
     });
     return () => { handler.then(h => h.remove()); };
-  }, []);
+  }, [isPreview, navigate]);
 
   // Load shortcut data - try hook first, fallback to direct localStorage read
   useEffect(() => {
@@ -96,6 +103,22 @@ export default function SlideshowViewer() {
       setImages([shortcut.contentUri]);
       setThumbnails(shortcut.thumbnailData ? [shortcut.thumbnailData] : []);
       setTitle(shortcut.name);
+    }
+    
+    // Clean up temporary preview entry from localStorage
+    if (isPreview && shortcutId === '__preview_image__') {
+      return () => {
+        try {
+          const stored = localStorage.getItem('quicklaunch_shortcuts');
+          if (stored) {
+            const shortcuts = JSON.parse(stored);
+            const filtered = shortcuts.filter((s: { id: string }) => s.id !== '__preview_image__');
+            localStorage.setItem('quicklaunch_shortcuts', JSON.stringify(filtered));
+          }
+        } catch (e) {
+          console.warn('[SlideshowViewer] Failed to clean up preview entry:', e);
+        }
+      };
     }
     
     setIsLoading(false);
@@ -281,12 +304,12 @@ export default function SlideshowViewer() {
   }, [images, currentIndex]);
 
   const handleClose = useCallback(() => {
-    if (Capacitor.isNativePlatform()) {
-      App.exitApp();
+    if (isPreview || !Capacitor.isNativePlatform()) {
+      navigate(-1);
     } else {
-      window.history.back();
+      App.exitApp();
     }
-  }, []);
+  }, [isPreview, navigate]);
 
 
   // Get current image source (prioritize full-quality, fallback to thumbnail)
