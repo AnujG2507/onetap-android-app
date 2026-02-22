@@ -78,6 +78,9 @@ export interface ShortcutPluginInterface {
   // Launch the in-app native video player (Android).
   openNativeVideoPlayer(options: { uri: string; mimeType?: string }): Promise<{ success: boolean; error?: string }>;
 
+  // Launch the in-app native PDF viewer (Android).
+  openNativePdfViewer(options: { uri: string; mimeType?: string }): Promise<{ success: boolean; error?: string }>;
+
   // Open file in external app using ACTION_VIEW intent (shows app picker)
   openWithExternalApp(options: { uri: string; mimeType?: string }): Promise<{ success: boolean; error?: string }>;
 

@@ -182,7 +182,9 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
       if (source.type === 'url' || source.type === 'share') {
         await openInAppBrowser(source.uri);
       } else if (Capacitor.isNativePlatform()) {
-        if (isVideo) {
+        if (isPdf) {
+          await ShortcutPlugin.openNativePdfViewer({ uri: source.uri, mimeType: source.mimeType });
+        } else if (isVideo) {
           await ShortcutPlugin.openNativeVideoPlayer({ uri: source.uri, mimeType: source.mimeType });
         } else {
           await ShortcutPlugin.openWithExternalApp({ uri: source.uri, mimeType: source.mimeType });

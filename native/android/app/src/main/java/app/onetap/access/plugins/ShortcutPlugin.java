@@ -1049,7 +1049,7 @@ public class ShortcutPlugin extends Plugin {
         }
     }
 
-
+    @PluginMethod
     public void openNativeVideoPlayer(PluginCall call) {
         android.util.Log.d("ShortcutPlugin", "openNativeVideoPlayer called");
 
@@ -1095,6 +1095,58 @@ public class ShortcutPlugin extends Plugin {
             call.resolve(result);
         } catch (Exception e) {
             android.util.Log.e("ShortcutPlugin", "openNativeVideoPlayer failed: " + e.getMessage());
+            JSObject result = new JSObject();
+            result.put("success", false);
+            result.put("error", e.getMessage());
+            call.resolve(result);
+        }
+    }
+
+    @PluginMethod
+    public void openNativePdfViewer(PluginCall call) {
+        android.util.Log.d("ShortcutPlugin", "openNativePdfViewer called");
+
+        if (getActivity() == null) {
+            JSObject result = new JSObject();
+            result.put("success", false);
+            result.put("error", "Activity is null");
+            call.resolve(result);
+            return;
+        }
+
+        String uriString = call.getString("uri");
+        String mimeType = call.getString("mimeType", "application/pdf");
+
+        if (uriString == null || uriString.isEmpty()) {
+            JSObject result = new JSObject();
+            result.put("success", false);
+            result.put("error", "Missing uri");
+            call.resolve(result);
+            return;
+        }
+
+        try {
+            Uri uri = Uri.parse(uriString);
+            Intent intent = new Intent(getActivity(), NativePdfViewerV2Activity.class);
+            intent.setAction(Intent.ACTION_VIEW);
+            intent.setDataAndType(uri, mimeType);
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+            if ("content".equals(uri.getScheme())) {
+                try {
+                    intent.setClipData(ClipData.newUri(getActivity().getContentResolver(), "onetap-pdf", uri));
+                } catch (Exception e) {
+                    android.util.Log.w("ShortcutPlugin", "Failed to set ClipData: " + e.getMessage());
+                }
+            }
+
+            getActivity().startActivity(intent);
+
+            JSObject result = new JSObject();
+            result.put("success", true);
+            call.resolve(result);
+        } catch (Exception e) {
+            android.util.Log.e("ShortcutPlugin", "openNativePdfViewer failed: " + e.getMessage());
             JSObject result = new JSObject();
             result.put("success", false);
             result.put("error", e.getMessage());
