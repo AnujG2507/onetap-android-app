@@ -1,59 +1,32 @@
 
 
-## Fix Preview Content Button — PDF Opens App Selector, Video Does Nothing
+## Add Startup Cleanup for Stale Preview Entries
 
-### Root Causes Found
+### What and Why
 
-**1. Video — Missing `@PluginMethod` annotation (line 1053)**
+If the app is killed while viewing an image preview, a temporary `__preview_image__` entry can remain in `localStorage`. This is harmless but untidy. A one-time cleanup on app startup ensures it never persists.
 
-The `openNativeVideoPlayer` method in `ShortcutPlugin.java` is missing the `@PluginMethod` annotation. Capacitor requires this annotation to expose Java methods to the JavaScript bridge. Without it, the call silently fails — no error, no action.
+### Implementation
 
-**2. PDF — No route to native PDF viewer**
+**File: `src/App.tsx`**
 
-The current code calls `ShortcutPlugin.openWithExternalApp()` for PDFs, which uses `Intent.createChooser()` — this always shows the system app selector. There is no method to directly open the built-in `NativePdfViewerV2Activity` for preview purposes.
+Add a small cleanup inside the existing `App` component (or at module level before the component). On mount, read `quicklaunch_shortcuts` from `localStorage`, filter out any entry with `id === '__preview_image__'`, and write it back if a stale entry was found.
 
-### Fix Plan
-
-**File 1: `native/android/app/src/main/java/app/onetap/access/plugins/ShortcutPlugin.java`**
-
-- Add `@PluginMethod` annotation before `openNativeVideoPlayer` (line 1052)
-- Add a new `openNativePdfViewer` method that launches `NativePdfViewerV2Activity` directly (similar pattern to `openNativeVideoPlayer` — parse URI, set ACTION_VIEW, grant URI permission, start activity)
-
-**File 2: `src/plugins/ShortcutPlugin.ts`**
-
-- Add `openNativePdfViewer` to the `ShortcutPluginInterface` type definition
-
-**File 3: `src/plugins/shortcutPluginWeb.ts`**
-
-- Add web fallback for `openNativePdfViewer` (open in new tab)
-
-**File 4: `src/components/ShortcutCustomizer.tsx`**
-
-- Update `handlePreviewContent` to call `ShortcutPlugin.openNativePdfViewer()` for PDF files instead of `openWithExternalApp()`
-
-### Technical Detail
+This will be a single `useEffect` with an empty dependency array inside the `App` function, running once on startup. Roughly 10 lines of code:
 
 ```text
-Before (line 1052-1053 of ShortcutPlugin.java):
-
-    public void openNativeVideoPlayer(PluginCall call) {
-
-After:
-
-    @PluginMethod
-    public void openNativeVideoPlayer(PluginCall call) {
+useEffect(() => {
+  try {
+    const stored = localStorage.getItem('quicklaunch_shortcuts');
+    if (stored) {
+      const shortcuts = JSON.parse(stored);
+      const filtered = shortcuts.filter(s => s.id !== '__preview_image__');
+      if (filtered.length !== shortcuts.length) {
+        localStorage.setItem('quicklaunch_shortcuts', JSON.stringify(filtered));
+      }
+    }
+  } catch (_) {}
+}, []);
 ```
 
-The new `openNativePdfViewer` method will follow the same pattern as `openNativeVideoPlayer` but target `NativePdfViewerV2Activity` instead.
-
-The preview routing in `handlePreviewContent` will become:
-
-```text
-Content Type    Action
-URL/share       openInAppBrowser (unchanged)
-PDF (native)    ShortcutPlugin.openNativePdfViewer (NEW)
-Video (native)  ShortcutPlugin.openNativeVideoPlayer (now works with annotation fix)
-Other (native)  ShortcutPlugin.openWithExternalApp (unchanged)
-Web fallback    window.open (unchanged)
-```
-
+No other files need changes.
