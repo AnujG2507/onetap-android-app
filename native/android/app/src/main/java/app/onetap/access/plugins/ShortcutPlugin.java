@@ -1155,6 +1155,82 @@ public class ShortcutPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void openFileDirectly(PluginCall call) {
+        android.util.Log.d("ShortcutPlugin", "openFileDirectly called");
+
+        Activity activity = getActivity();
+        Context context = getContext();
+
+        if (activity == null || context == null) {
+            JSObject result = new JSObject();
+            result.put("success", false);
+            result.put("error", "Activity or context is null");
+            call.resolve(result);
+            return;
+        }
+
+        String uriString = call.getString("uri");
+        String mimeType = call.getString("mimeType", "*/*");
+
+        if (uriString == null || uriString.isEmpty()) {
+            JSObject result = new JSObject();
+            result.put("success", false);
+            result.put("error", "Missing uri");
+            call.resolve(result);
+            return;
+        }
+
+        try {
+            Uri uri = Uri.parse(uriString);
+
+            // Convert file:// to content:// if needed
+            if ("file".equals(uri.getScheme())) {
+                String path = uri.getPath();
+                File appFilesDir = context.getFilesDir();
+                if (path != null && path.startsWith(appFilesDir.getAbsolutePath())) {
+                    File file = new File(path);
+                    if (file.exists()) {
+                        String authority = context.getPackageName() + ".fileprovider";
+                        uri = FileProvider.getUriForFile(context, authority, file);
+                    }
+                }
+            }
+
+            // Direct ACTION_VIEW — no chooser, opens in default handler
+            Intent intent = createCompatibleIntent(context, Intent.ACTION_VIEW, uri, mimeType);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+            if ("content".equals(uri.getScheme())) {
+                try {
+                    intent.setClipData(android.content.ClipData.newUri(
+                        context.getContentResolver(), "onetap-file", uri));
+                } catch (Exception e) {
+                    android.util.Log.w("ShortcutPlugin", "Failed to set ClipData: " + e.getMessage());
+                }
+            }
+
+            activity.startActivity(intent);
+
+            JSObject result = new JSObject();
+            result.put("success", true);
+            call.resolve(result);
+        } catch (android.content.ActivityNotFoundException e) {
+            android.util.Log.e("ShortcutPlugin", "No app found: " + e.getMessage());
+            JSObject result = new JSObject();
+            result.put("success", false);
+            result.put("error", "No app found to open this file type");
+            call.resolve(result);
+        } catch (Exception e) {
+            android.util.Log.e("ShortcutPlugin", "openFileDirectly failed: " + e.getMessage());
+            JSObject result = new JSObject();
+            result.put("success", false);
+            result.put("error", e.getMessage());
+            call.resolve(result);
+        }
+    }
+
+    @PluginMethod
     public void openWithExternalApp(PluginCall call) {
         android.util.Log.d("ShortcutPlugin", "openWithExternalApp called");
 
