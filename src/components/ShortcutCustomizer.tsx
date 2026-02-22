@@ -187,7 +187,8 @@ export function ShortcutCustomizer({ source, onConfirm, onBack }: ShortcutCustom
         } else if (isVideo) {
           await ShortcutPlugin.openNativeVideoPlayer({ uri: source.uri, mimeType: source.mimeType });
         } else {
-          await ShortcutPlugin.openWithExternalApp({ uri: source.uri, mimeType: source.mimeType });
+          // Images and other files: open directly in default handler (no app chooser)
+          await ShortcutPlugin.openFileDirectly({ uri: source.uri, mimeType: source.mimeType });
         }
       } else {
         window.open(source.uri, '_blank', 'noopener,noreferrer');

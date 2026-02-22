@@ -95,6 +95,12 @@ export class ShortcutPluginWeb implements ShortcutPluginInterface {
     return { success: true };
   }
 
+  async openFileDirectly(options: { uri: string; mimeType?: string }): Promise<{ success: boolean; error?: string }> {
+    console.log('[ShortcutPluginWeb] openFileDirectly called (web fallback)', options.uri);
+    window.open(options.uri, '_blank');
+    return { success: true };
+  }
+
   async openWithExternalApp(options: { uri: string; mimeType?: string }): Promise<{ success: boolean; error?: string }> {
     console.log('[ShortcutPluginWeb] openWithExternalApp called (web fallback)', options.uri);
     // On web, just open in new tab
