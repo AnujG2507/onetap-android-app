@@ -47,7 +47,21 @@ const PageLoader = () => (
   </div>
 );
 
-const App = () => (
+const App = () => {
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('quicklaunch_shortcuts');
+      if (stored) {
+        const shortcuts = JSON.parse(stored);
+        const filtered = shortcuts.filter((s: any) => s.id !== '__preview_image__');
+        if (filtered.length !== shortcuts.length) {
+          localStorage.setItem('quicklaunch_shortcuts', JSON.stringify(filtered));
+        }
+      }
+    } catch (_) {}
+  }, []);
+
+  return (
   <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
@@ -93,6 +107,7 @@ const App = () => (
       </QueryClientProvider>
     </ErrorBoundary>
   </ThemeProvider>
-);
+  );
+};
 
 export default App;
