@@ -1,41 +1,37 @@
 
 
-## Update Documentation for Image Preview and Startup Cleanup
+## Fix: Re-add to Home Screen Not Pinning New Shortcut
 
-### What Changed
+### Root Cause
 
-Two recent features are not reflected in the documentation:
+When re-adding a shortcut to the home screen, the flow is:
+1. `disablePinnedShortcut(id)` -- calls `ShortcutManager.disableShortcuts([id])`, marking the ID as disabled
+2. `createPinnedShortcut(id, ...)` -- calls `ShortcutManager.requestPinShortcut(info)` with the same ID
 
-1. **Image preview in shortcut customizer** -- images now open in the built-in slideshow viewer (not an external app) via a temporary `__preview_image__` entry in `localStorage`
-2. **Startup cleanup** -- `App.tsx` removes any stale `__preview_image__` entry from `quicklaunch_shortcuts` on mount, guarding against app-kill during preview
+**Android rejects `requestPinShortcut` for shortcut IDs that are in a disabled state.** The disable step marks the ID as unusable, and the create step never clears that state. So the old shortcut is removed but the new one silently fails to pin.
 
-### Changes
+### Fix
 
-**File: `APP_SUMMARY.md`**
+**File: `native/android/app/src/main/java/app/onetap/access/plugins/ShortcutPlugin.java`**
 
-1. In the **Local Storage Keys > UI State** section (~line 113), add a brief note about `__preview_image__` being a transient preview entry cleaned up on startup.
+Add a `ShortcutManager.enableShortcuts()` call just before `requestPinShortcut` in two places (the text shortcut synchronous path and the general background-thread path). This re-enables the ID if it was previously disabled, making the pin request succeed. If the ID was never disabled, `enableShortcuts` is a harmless no-op.
 
-2. In the **Key Components** section (~line 304), add a note to `ShortcutCustomizer.tsx` mentioning image preview routes to the built-in slideshow viewer.
+**Synchronous text shortcut path (~line 352):** Before `sm.requestPinShortcut(textShortcutInfo, ...)`, add:
+```java
+try {
+    sm.enableShortcuts(Collections.singletonList(id));
+} catch (Exception e) {
+    // Harmless if shortcut was never disabled
+}
+```
 
-3. Update the "Last updated" line at the bottom to reflect today's date and these additions.
+**Background-thread general path (~line 581):** Before `shortcutManager.requestPinShortcut(finalShortcutInfo, ...)`, add the same enable call with `finalId`.
 
-**File: `ARCHITECTURE.md`**
+### No JS Changes Needed
 
-No changes needed -- the architecture doc covers structural concepts (layers, proxy activities, data flow) and the preview feature is a UI-level behavior that fits better in `APP_SUMMARY.md`.
+The JS-side flow (`disablePinnedShortcut` then `createPinnedShortcut`) is correct in concept. The problem is purely in the native layer not clearing the disabled state before re-pinning.
 
-### Technical Details
+### After Pulling
 
-In `APP_SUMMARY.md`, the additions are:
-
-- Under UI State keys, after `clipboard_shown_urls`:
-  ```
-  __preview_image__ (transient)  Temporary shortcut entry for image preview; auto-cleaned on app startup
-  ```
-
-- Under Key Components, after `ShortcutCustomizer.tsx`:
-  ```
-  - Image preview opens in the built-in slideshow viewer (`/slideshow/__preview_image__`); stale entries cleaned on app startup in `App.tsx`
-  ```
-
-- Updated last-updated line to: `February 22, 2026 -- reflects image preview via built-in slideshow viewer and startup cleanup for stale preview entries`
+Run `npx cap sync` after pulling the changes.
 
